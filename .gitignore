@@ -1,22 +1,18 @@
 ```
-# Dependencies
-node_modules/
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-
 # Logs and temp files
 *.log
 *.tmp
 *.swp
 
-# Build artifacts
-dist/
-build/
-target/
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Original rules preserved
+*.log
 ```
