@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Базовые цвета интерфейса. Других оттенков в проекте быть не должно (docs/eink-ux.md §2.1) -->
+    <color name="eink_background">#FFFFFFFF</color>
+    <color name="eink_foreground">#FF000000</color>
+    <color name="ic_launcher_background">#FFFFFFFF</color>
+</resources>

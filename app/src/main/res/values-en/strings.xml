@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BookShelf</string>
+
+    <string name="nav_library">Shelf</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_collections">Collections</string>
+    <string name="nav_catalogs">Catalogs</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_scan">Scanning</string>
+
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_add">Add</string>
+    <string name="action_read">Read</string>
+    <string name="action_more">More</string>
+
+    <string name="library_empty_title">Library is empty</string>
+    <string name="library_empty_message">Add a folder with books — the app does not copy files, it reads them in place.</string>
+    <string name="library_add_folder">Add folder</string>
+    <plurals name="library_books_count">
+        <item quantity="one">%d book</item>
+        <item quantity="other">%d books</item>
+    </plurals>
+    <string name="library_page_status">Page %1$d/%2$d · %3$s</string>
+
+    <string name="scan_running">Scanning… %1$d of %2$d</string>
+    <string name="scan_resume">Resume scanning</string>
+    <string name="scan_done">Done: %1$d added, %2$d updated</string>
+
+    <string name="error_access_lost">Folder is unavailable — pick it again</string>
+    <string name="error_no_reader">No suitable reader found</string>
+    <string name="error_file_unreadable">The reader could not open the file</string>
+
+    <string name="saf_hint">Pick the books folder itself (for example, Books), not the storage root</string>
+
+    <string name="stub_in_development">Section under development</string>
+</resources>

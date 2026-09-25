@@ -1,0 +1,57 @@
+# Конфигурация detekt. Наследует правила по умолчанию (buildUponDefaultConfig = true),
+# здесь только то, что проект осознанно меняет.
+#
+# Включение: build-logic/convention/src/main/kotlin/.../KotlinAndroid.kt (configureDetekt).
+# Запуск: ./gradlew detekt
+#
+# Названия правил и их секции сверены с default-detekt-config.yml версии 1.23.7 —
+# при обновлении detekt конфиг нужно перепроверить: неизвестное имя ломает сборку.
+build:
+  # Ноль замечаний — цель для CI. До Спринта 1 шаг detekt в CI собирает отчёт, но не блокирует
+  # слияние: в репозитории лежит каркас с ~180 заглушками STUB(Sprint N) (docs/tdd.md §9).
+  maxIssues: 0
+
+complexity:
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10
+    ignoreDefaultParameters: true
+    # Строчные модели (BookEntity) читаются лучше длинным конструктором, чем билдером.
+    ignoreDataClasses: true
+  # DAO, парсеры форматов и реестры — длинные классы по своей природе.
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInInterfaces: 25
+    thresholdInObjects: 20
+    thresholdInFiles: 25
+
+exceptions:
+  # Каркас намеренно состоит из заглушек, помеченных STUB(Sprint N) (ADR-013).
+  # Правило включается, когда заглушек не останется (Спринт 9), иначе оно шумит на плане работ.
+  NotImplementedDeclaration:
+    active: false
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
+    excludeCommentStatements: true
+  MagicNumber:
+    # Токены дизайн-системы (48.dp, 600 px, 200 МБ) — это данные, а не «магические числа».
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  # Параметры заглушек STUB(Sprint N) намеренно не используются до реализации.
+  UnusedParameter:
+    active: false
+  # Приватные зависимости ViewModel и вспомогательные поля становятся используемыми
+  # в своём спринте (Sprint 2–8), поэтому до Спринта 9 правило выключено — иначе оно
+  # даёт ~20 замечаний на каркасе и маскирует реальные находки. Включается вместе
+  # с NotImplementedDeclaration, когда заглушек не останется.
+  UnusedPrivateMember:
+    active: false
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'Composable'
+  ConstructorParameterNaming:
+    privatePattern: '[a-z][A-Za-z0-9]*'

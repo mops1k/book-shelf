@@ -1,0 +1,42 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.kotlin/
+
+# Android
+local.properties
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+release/
+output.json
+*.hprof
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Секреты: пароли OPDS и подписи никогда не попадают в репозиторий
+keystore.properties
+*.jks
+*.keystore
+!debug.keystore
+
+# Отчёты инструментов
+config/detekt/baseline.xml
+
+# Служебные данные DeepSeek Harness: план-хранилище и файлы долговременной памяти.
+# Источник правды — база планов и хранилище памяти, а файлы здесь лишь проекции,
+# которые генерируются автоматически. В репозитории им не место.
+.dsh/

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Тема приложения. Родитель — платформенный Material, а не AppCompat/Material Components:
+  проект полностью на Compose, лишняя библиотека тем не нужна.
+
+  Цвета только чёрный/белый: серый фон окна на e-ink выглядит как «грязь», а панель
+  перерисовывается дольше.
+-->
+<resources>
+
+    <style name="Theme.BookShelf" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/eink_background</item>
+        <item name="android:colorBackground">@color/eink_background</item>
+        <item name="android:statusBarColor">@color/eink_background</item>
+        <item name="android:navigationBarColor">@color/eink_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowContentTransitions">false</item>
+        <!-- Никаких анимаций активити: на e-ink переход — мгновенная смена кадра -->
+        <item name="android:windowActivityTransitions">false</item>
+    </style>
+
+    <!--
+      Splash: статичный белый кадр. Иконка прозрачная — на электронной бумаге любая
+      анимированная заставка выглядит как мерцание.
+    -->
+    <style name="Theme.BookShelf.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/eink_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+        <item name="postSplashScreenTheme">@style/Theme.BookShelf</item>
+    </style>
+
+</resources>

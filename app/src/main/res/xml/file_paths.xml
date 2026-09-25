@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Что можно отдать через FileProvider.
+  Только cacheDir/export — временные копии книг для читалок, которые не понимают
+  content:// от SAF (ADR-004). Библиотека пользователя через FileProvider не отдаётся.
+-->
+<paths>
+    <cache-path
+        name="export"
+        path="export/" />
+</paths>

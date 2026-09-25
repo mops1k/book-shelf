@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Силуэт книги: обложка + корешок. Никаких градиентов и теней. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M34,30h40v6h-40z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M34,30h6v48h-6z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M44,44h30v4h-30z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M44,54h30v4h-30z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M44,64h20v4h-20z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M34,78h40v6h-40z" />
+</vector>

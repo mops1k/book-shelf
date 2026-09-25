@@ -1,0 +1,91 @@
+package io.github.bookshelf.feature.filters
+
+import io.github.bookshelf.core.data.model.FacetItem
+import io.github.bookshelf.core.data.model.FacetSet
+
+/**
+ * Текущий выбор пользователя по всем фасетам.
+ *
+ * Множества строк (идентификаторы фасетов), а не доменные типы: в Sprint 4 модель
+ * один в один превращается в `BookQuery` репозитория, а экран не зависит от его формы.
+ * Чистые операции над выбором — в `FilterChipState.kt`.
+ */
+data class FilterSelectionUi(
+    /** Выбранные авторы (идентификаторы `authors.id`). */
+    val authors: Set<String> = emptySet(),
+    /** Выбранные серии. */
+    val series: Set<String> = emptySet(),
+    /** Выбранные форматы: `FB2`, `EPUB`, … */
+    val formats: Set<String> = emptySet(),
+    /** Выбранные статусы чтения (идентификаторы статусов). */
+    val statuses: Set<String> = emptySet(),
+    /** Выбранные жанры и теги. */
+    val tags: Set<String> = emptySet(),
+)
+
+/** Какой фасет показывает секция — по этому признаку экран понимает, выбран ли чип. */
+enum class FacetKind {
+    AUTHORS,
+    SERIES,
+    TAGS,
+    FORMATS,
+    STATUSES,
+}
+
+/** Один чип фасета: подпись и число книг, которые останутся после выбора. */
+data class FacetChipUi(
+    /** Идентификатор значения фасета (`authors.id`, `seriesName`, `READING`, …). */
+    val id: String,
+    /** Подпись для пользователя. */
+    val label: String,
+    /** Сколько книг у этого значения с учётом остальных активных фильтров. */
+    val count: Int,
+)
+
+/** Секция фасета: заголовок и чипы. Пустые секции не показываются. */
+data class FacetSectionUi(
+    /** К какому фасету относится секция. */
+    val kind: FacetKind,
+    /** Заголовок: «Авторы», «Серии», «Жанры и теги», «Форматы», «Статус чтения». */
+    val title: String,
+    /** Чипы секции с числами книг. */
+    val items: List<FacetChipUi>,
+)
+
+/**
+ * Маппинг доменного [FacetSet] в секции UI.
+ *
+ * Единственное место, где экран касается формы доменной модели: дальше он работает
+ * с [FacetSectionUi] и не зависит от изменений в `core:data`.
+ */
+fun FacetSet.toSectionsUi(): List<FacetSectionUi> = listOf(
+    FacetSectionUi(kind = FacetKind.AUTHORS, title = "Авторы", items = authors.toChipsUi()),
+    FacetSectionUi(kind = FacetKind.SERIES, title = "Серии", items = series.toChipsUi()),
+    FacetSectionUi(kind = FacetKind.TAGS, title = "Жанры и теги", items = tags.toChipsUi()),
+    FacetSectionUi(kind = FacetKind.FORMATS, title = "Форматы", items = formats.toChipsUi()),
+    FacetSectionUi(kind = FacetKind.STATUSES, title = "Статус чтения", items = statuses.toChipsUi()),
+).filter { section -> section.items.isNotEmpty() }
+
+private fun List<FacetItem>.toChipsUi(): List<FacetChipUi> = map { item ->
+    FacetChipUi(id = item.id, label = item.label, count = item.count)
+}
+
+/**
+ * Состояние экрана фасетных фильтров.
+ *
+ * [facets] равен `null`, пока данные не пришли: это состояние «загрузка», а не пустая
+ * библиотека. После Sprint 4 заполняется `FilterRepository.facets(sourceId, selection)`,
+ * а [resultCount] — отдельным `COUNT(*)` по текущему выбору.
+ */
+data class FiltersUiState(
+    /** Фасеты с числами книг; `null` — ещё не загружены. */
+    val facets: FacetSet? = null,
+    /** Текущий выбор пользователя по всем фасетам. */
+    val selected: FilterSelectionUi = FilterSelectionUi(),
+    /** Сколько книг останется после применения выбранных фильтров. */
+    val resultCount: Int = 0,
+    /** Идёт загрузка фасетов или пересчёт результата. */
+    val isLoading: Boolean = false,
+    /** Текст ошибки для `EinkErrorBanner`. */
+    val error: String? = null,
+)
