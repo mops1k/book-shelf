@@ -21,6 +21,10 @@ interface TagDao {
     @Query("SELECT * FROM tags ORDER BY name COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<TagEntity>>
 
+    /** Найти тег по идентификатору (детерминированный id — «tag:» + имя в нижнем регистре). */
+    @Query("SELECT * FROM tags WHERE id = :id LIMIT 1")
+    suspend fun findById(id: String): TagEntity?
+
     /** Найти тег по точному имени. */
     @Query("SELECT * FROM tags WHERE name = :name LIMIT 1")
     suspend fun findByName(name: String): TagEntity?

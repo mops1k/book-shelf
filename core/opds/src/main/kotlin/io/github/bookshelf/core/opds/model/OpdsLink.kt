@@ -20,6 +20,19 @@ const val OPENSEARCH_DESCRIPTION_MIME: String = "application/opensearchdescripti
 /** Фрагмент `type` фида/записи навигации. */
 const val OPDS_NAVIGATION_KIND_FRAGMENT: String = "kind=navigation"
 
+/** Тип Atom-фида; с ним идёт `;profile=opds-catalog` — по одному только Atom не отличить. */
+const val OPDS_ATOM_TYPE_PREFIX: String = "application/atom+xml"
+
+/**
+ * Служебные `rel`, которые не открывают раздел, а обслуживают навигацию по самому фиду.
+ *
+ * Даже при Atom-типе их нельзя считать содержимым каталога: `next` — следующая страница
+ * того же фида, `up`/`start`/`self` — сам каталог, `search` — поиск.
+ */
+private val NON_CONTENT_RELS: Set<String> = setOf(
+    "start", "self", "up", "next", "prev", "first", "last", "current", "search", "alternate", "author",
+)
+
 /**
  * Ссылка фида или записи OPDS (`atom:link`).
  *
@@ -54,9 +67,18 @@ fun OpdsLink.isImage(): Boolean = rel.contains(OPDS_IMAGE_REL_PREFIX, ignoreCase
  * Ссылка на раздел каталога: `rel="subsection"` либо `type` с `kind=navigation`.
  * Такие ссылки открываются как папки, а не как книга.
  */
-fun OpdsLink.isNavigation(): Boolean =
-    rel.equals(OPDS_SUBSECTION_REL, ignoreCase = true) ||
-        type?.contains(OPDS_NAVIGATION_KIND_FRAGMENT, ignoreCase = true) == true
+fun OpdsLink.isNavigation(): Boolean {
+    if (rel.equals(OPDS_SUBSECTION_REL, ignoreCase = true)) return true
+    if (type?.contains(OPDS_NAVIGATION_KIND_FRAGMENT, ignoreCase = true) == true) return true
+    if (isAcquisition() || isImage() || isSearch()) return false
+    // В OPDS 1.2 семантика может быть в `type`, когда `rel` не задан. Так объявляет, в
+    // частности, Flibusta: разделы приходят ссылками
+    // `<link href="/opds/genres" type="application/atom+xml;profile=opds-catalog" />` —
+    // без `rel` вообще. Смотреть только на `rel` было причиной того, что адрес раздела
+    // не находился и кнопка «Открыть» ничего не делала.
+    val isFeed = type?.trim()?.startsWith(OPDS_ATOM_TYPE_PREFIX, ignoreCase = true) == true
+    return isFeed && rel.lowercase() !in NON_CONTENT_RELS
+}
 
 /**
  * Ссылка на описание OpenSearch: `rel` содержит `opensearch` либо `type` равен

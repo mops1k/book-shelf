@@ -33,8 +33,8 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(project(":feature:scan"))
 
-    // Инструментальные тесты (androidTest) и Robolectric-инфраструктура
-    testImplementation(testFixtures(project(":core:testing")))
+    // Инструментальные тесты (androidTest) и Robolectric-инфраструктура.
+    // Только testImplementation: :core:testing тянет через api() junit, truth, turbine, mockk
+    // и robolectric — в production APK им места нет.
     testImplementation(project(":core:testing"))
-    implementation(project(":core:testing"))
 }

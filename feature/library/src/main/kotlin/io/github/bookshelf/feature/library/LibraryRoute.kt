@@ -17,7 +17,9 @@ object LibraryRoute {
  * @param onOpenSearch переход к поиску по библиотеке.
  * @param onOpenFilters переход к экрану фасетных фильтров.
  * @param onOpenCollections переход к коллекциям и умным полкам.
+ * @param onOpenCatalogs переход к каталогам OPDS.
  * @param onOpenScan переход к экрану сканирования (пустое состояние полки).
+ * @param onOpenSettings переход к настройкам: читалка, папки, разрешения.
  * @param onExit выход или сворачивание приложения по аппаратному BACK из корня
  *   (docs/eink-ux.md §3.2: «из корня — выход (или „свернуть“, настройка)»).
  */
@@ -26,7 +28,9 @@ fun NavGraphBuilder.libraryScreen(
     onOpenSearch: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenCollections: () -> Unit,
+    onOpenCatalogs: () -> Unit,
     onOpenScan: () -> Unit,
+    onOpenSettings: () -> Unit,
     onExit: () -> Unit,
 ) {
     composable(LibraryRoute.route) {
@@ -35,7 +39,9 @@ fun NavGraphBuilder.libraryScreen(
             onOpenSearch = onOpenSearch,
             onOpenFilters = onOpenFilters,
             onOpenCollections = onOpenCollections,
+            onOpenCatalogs = onOpenCatalogs,
             onOpenScan = onOpenScan,
+            onOpenSettings = onOpenSettings,
             onExit = onExit,
         )
     }

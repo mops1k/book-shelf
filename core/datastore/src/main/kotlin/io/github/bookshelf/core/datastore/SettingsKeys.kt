@@ -8,6 +8,7 @@ import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ScanSchedule
+import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
 
@@ -48,6 +49,10 @@ object SettingsKeys {
 
     // --- Полка ---
     val GRID_COLUMNS: Preferences.Key<Int> = intPreferencesKey("library.grid_columns")
+    /** Вид полки по умолчанию: сетка/список/компактно или обзор по авторам/сериям. */
+    val VIEW_PRESET: Preferences.Key<String> = stringPreferencesKey("library.view_preset")
+    /** Разовый бэкфилл жанров выполнен: повторять его при каждом запуске нельзя. */
+    val METADATA_BACKFILL_DONE: Preferences.Key<Boolean> = booleanPreferencesKey("library.metadata_backfill_done")
     val ROWS_PER_PAGE: Preferences.Key<Int> = intPreferencesKey("library.rows_per_page")
     val SORT_ORDER: Preferences.Key<String> = stringPreferencesKey("library.sort_order")
     val SORT_DESCENDING: Preferences.Key<Boolean> = booleanPreferencesKey("library.sort_descending")
@@ -106,6 +111,8 @@ object SettingsKeys {
         const val TAP_ZONE_RIGHT_PERCENT = 25
 
         const val GRID_COLUMNS = 2
+        val VIEW_PRESET: ShelfViewPreset = ShelfViewPreset.GRID
+        const val METADATA_BACKFILL_DONE = false
         const val ROWS_PER_PAGE = 6
         val SORT_ORDER: SortOrder = SortOrder.TITLE
         const val SORT_DESCENDING = false

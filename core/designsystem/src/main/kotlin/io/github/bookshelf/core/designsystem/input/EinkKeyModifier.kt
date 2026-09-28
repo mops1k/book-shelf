@@ -3,7 +3,6 @@ package io.github.bookshelf.core.designsystem.input
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 
 /**

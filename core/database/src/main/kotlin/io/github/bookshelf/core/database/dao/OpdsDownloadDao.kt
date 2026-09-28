@@ -32,6 +32,22 @@ interface OpdsDownloadDao {
     @Query("SELECT * FROM opds_downloads WHERE id = :id")
     suspend fun getById(id: String): OpdsDownloadEntity?
 
+    /**
+     * Незавершённая загрузка той же книги того же каталога.
+     *
+     * Повторное нажатие «Скачать» раньше плодило по записи на нажатие: в таблице оказывалось
+     * десяток одинаковых строк в очереди, и пользователь скачивал одну книгу несколько раз.
+     */
+    @Query(
+        """
+        SELECT * FROM opds_downloads
+        WHERE catalogId = :catalogId AND entryId = :entryId
+          AND state IN ('QUEUED', 'RUNNING', 'PAUSED')
+        LIMIT 1
+        """,
+    )
+    suspend fun findActive(catalogId: String, entryId: String): OpdsDownloadEntity?
+
     /** Удалить запись о загрузке. */
     @Query("DELETE FROM opds_downloads WHERE id = :id")
     suspend fun deleteById(id: String)

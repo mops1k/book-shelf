@@ -39,6 +39,13 @@ fun BookCover(
     modifier: Modifier = Modifier,
     inverted: Boolean = false,
     contentDescription: String? = null,
+    /**
+     * Адрес обложки в сети (OPDS-фид).
+     *
+     * Раньше параметра не было, и записи каталога показывались без обложек: в фиде обложка
+     * приходит ссылкой, а не файлом в кэше, и подставить её было некуда.
+     */
+    coverUrl: String? = null,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
@@ -50,9 +57,9 @@ fun BookCover(
             .background(colors.background),
         contentAlignment = Alignment.Center,
     ) {
-        if (coverPath != null) {
+        if (coverPath != null || coverUrl != null) {
             AsyncImage(
-                model = java.io.File(coverPath),
+                model = coverUrl ?: java.io.File(coverPath!!),
                 contentDescription = contentDescription ?: title,
                 contentScale = ContentScale.Fit,
                 colorFilter = if (inverted) INVERT_FILTER else null,

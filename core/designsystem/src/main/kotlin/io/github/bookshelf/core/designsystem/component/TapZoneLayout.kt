@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.designsystem.component
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,7 @@ fun TapZoneLayout(
     onCenter: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    val centerFraction = (1f - leftFraction - rightFraction).coerceAtLeast(0.1f)
+    val centerFraction = (1f - leftFraction - rightFraction).coerceAtLeast(MIN_CENTER_FRACTION)
 
     Box(modifier = modifier.fillMaxSize()) {
         content()
@@ -34,19 +35,27 @@ fun TapZoneLayout(
         Row(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
-                    .weight(leftFraction.coerceAtLeast(0.05f))
+                    .weight(leftFraction.coerceAtLeast(MIN_SIDE_FRACTION))
                     .fillMaxHeight()
                     .clickableNoIndication(onClick = onPrevious),
             )
+            // Без обработчика зону не рисуем вовсе: отключённый Box всё равно перехватывает
+            // касание и блокирует кнопки под собой.
+            if (onCenter != null) {
+                Box(
+                    modifier = Modifier
+                        .weight(centerFraction)
+                        .fillMaxHeight()
+                        .clickableNoIndication(onClick = { onCenter?.invoke() }),
+                )
+            } else {
+                // Пустое место вместо зоны: без него вес уходил боковым зонам, и они
+                // закрывали собой кнопки в середине экрана.
+                Spacer(modifier = Modifier.weight(centerFraction))
+            }
             Box(
                 modifier = Modifier
-                    .weight(centerFraction)
-                    .fillMaxHeight()
-                    .clickableNoIndication(enabled = onCenter != null, onClick = { onCenter?.invoke() }),
-            )
-            Box(
-                modifier = Modifier
-                    .weight(rightFraction.coerceAtLeast(0.05f))
+                    .weight(rightFraction.coerceAtLeast(MIN_SIDE_FRACTION))
                     .fillMaxHeight()
                     .clickableNoIndication(onClick = onNext),
             )
@@ -55,3 +64,9 @@ fun TapZoneLayout(
 }
 
 private const val DEFAULT_SIDE_FRACTION = 0.25f
+
+/** Ниже этого центр перестаёт быть центром: зона должна оставаться нажимаемой. */
+private const val MIN_CENTER_FRACTION = 0.1f
+
+/** Слишком узкая боковая зона не попадает под палец. */
+private const val MIN_SIDE_FRACTION = 0.05f

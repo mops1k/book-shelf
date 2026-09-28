@@ -11,12 +11,19 @@ import kotlinx.serialization.Serializable
  * `Service.onTimeout`, и сервис обязан остановиться сам (docs/architecture.md §4.5).
  *
  * @param documentId последняя обработанная запись;
- * @param depth глубина, на которой остановился обход;
- * @param queue очередь `documentId`-ов, уже открытых, но ещё не обойдённых (граница BFS).
+ * @param queue папки, которые уже открыты, но ещё не обойдены; глубина хранится у каждой
+ * папки отдельно, иначе после продолжения нельзя восстановить границу BFS.
  */
 @Serializable
 data class ScanCursor(
     val documentId: String,
-    val depth: Int,
-    val queue: List<String>,
-)
+    val queue: List<Item>,
+) {
+
+    /** Папка в очереди обхода с её глубиной относительно корня дерева. */
+    @Serializable
+    data class Item(
+        val documentId: String,
+        val depth: Int,
+    )
+}

@@ -40,4 +40,30 @@ interface CollectionDao {
     /** Состав коллекции в пользовательском порядке. */
     @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId ORDER BY position ASC")
     suspend fun getBooks(collectionId: String): List<CollectionBookCrossRef>
+
+    /**
+     * Сколько книг на каждой полке.
+     *
+     * Считается запросом, а не хранится в `collections`: отдельной колонки там нет вообще,
+     * поэтому доменное поле `bookCount` всегда было нулём — полка показывала «0 книг», даже
+     * когда книга только что добавлена. Считать по таблице связей дешевле, чем заводить
+     * колонку, которую пришлось бы обновлять в каждом изменении состава.
+     */
+    @Query("SELECT collectionId, COUNT(*) AS bookCount FROM collection_books GROUP BY collectionId")
+    fun observeBookCounts(): Flow<List<CollectionBookCount>>
+
+    /**
+     * Состав полки наблюдаемыми.
+     *
+     * `suspend getBooks` отдаёт снимок: после добавления или удаления книги подписка вернула бы
+     * прежний список, и экран обновлялся бы только при пересоздании ViewModel.
+     */
+    @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId ORDER BY position ASC")
+    fun getBooksFlow(collectionId: String): Flow<List<CollectionBookCrossRef>>
 }
+
+/** Строка результата [CollectionDao.observeBookCounts]: полка и число книг на ней. */
+data class CollectionBookCount(
+    val collectionId: String,
+    val bookCount: Int,
+)

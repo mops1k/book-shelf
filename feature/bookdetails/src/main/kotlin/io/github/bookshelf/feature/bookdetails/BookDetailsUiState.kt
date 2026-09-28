@@ -9,6 +9,16 @@ import io.github.bookshelf.core.data.model.ReadingStatus
  * поэтому метаданные приходят сюда уже приведёнными к строкам (размер, дата, серия).
  * После Sprint 4 заполняется из `BookRepository.observe(bookId)`.
  */
+/** Полка в списке выбора (UI-модель). */
+data class CollectionItemUi(
+    /** `collections.id`. */
+    val id: String,
+    /** Название полки. */
+    val name: String,
+    /** Уже лежит ли книга на этой полке. */
+    val containsBook: Boolean = false,
+)
+
 data class BookDetailsUiState(
     /** `books.id` открытой книги. */
     val bookId: String = "",
@@ -36,6 +46,10 @@ data class BookDetailsUiState(
     val description: String? = null,
     /** `content://`-URI документа — по нему книга открывается в читалке. */
     val documentUri: String = "",
+    /** Показывается список полок для выбора — по кнопке «В полку». */
+    val isPickingCollection: Boolean = false,
+    /** Полки, в которые книгу можно положить. */
+    val collections: List<CollectionItemUi> = emptyList(),
     /** Путь внутри источника: «Books/Лем/Солярис.fb2». */
     val relativePath: String = "",
     /** Путь к обложке в кэше; `null` — заглушка с названием. */

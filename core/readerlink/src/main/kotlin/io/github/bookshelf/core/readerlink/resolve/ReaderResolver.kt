@@ -79,7 +79,11 @@ enum class LaunchStrategy {
 /** Заглушка резолвера. */
 @Singleton
 class DefaultReaderResolver @Inject constructor(
+    // Sprint 5: понадобится для порядка выбора читалки.
+    @Suppress("UnusedPrivateProperty")
     profiles: ReaderProfileRepository,
+    // Sprint 5: понадобится для порядка выбора читалки.
+    @Suppress("UnusedPrivateProperty")
     discovery: ReaderDiscovery,
 ) : ReaderResolver {
 

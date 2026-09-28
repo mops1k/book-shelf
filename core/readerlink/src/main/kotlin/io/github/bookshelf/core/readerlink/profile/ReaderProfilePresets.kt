@@ -15,11 +15,58 @@ object FbReaderPreset {
 
     const val ID: String = "fbreader"
 
-    /** Пакет FBReader. */
-    const val PACKAGE_NAME: String = "org.geometerplus.zlibrary.ui.android"
+    /**
+     * Пакет FBReader.
+     *
+     * Проверено на устройстве (`dumpsys package com.fbreader`, 2026-09-25): текущая сборка
+     * FBReader ставится как `com.fbreader`, а её activity — `com.fbreader.android.fbreader.FBReader`.
+     * Прежнее значение `org.geometerplus.zlibrary.ui.android` — это пакет старого
+     * FBReader for Android, которого на устройстве нет, поэтому запуск в него всегда
+     * заканчивался «не найдено приложение».
+     */
+    const val PACKAGE_NAME: String = "com.fbreader"
 
     /** Основная activity FBReader (`launchMode="singleTask"`). */
-    const val ACTIVITY_NAME: String = "org.geometerplus.android.fbreader.FBReader"
+    const val ACTIVITY_NAME: String = "com.fbreader.android.fbreader.FBReader"
+
+    /**
+     * Пакеты, которым отдаётся предпочтение при выборе читалки, по убыванию.
+     *
+     * Проверено на устройстве (2026-09-25): кроме FBReader там стоят `xyz.anilabx.app`
+     * (AniLabX — приложение для просмотра аниме) и ещё несколько приложений, которые тоже
+     * объявляют `ACTION_VIEW` с книжными MIME-типами. `PackageManager` отдаёт их первыми, и
+     * кнопка «Читать» открывала книгу в AniLabX. AniLabX не читалка, поэтому FBReader должен
+     * выигрывать явно, а не по порядку, который вернёт система.
+     */
+    val PREFERRED_PACKAGES: List<String> = listOf(
+        PACKAGE_NAME,
+        "org.geometerplus.zlibrary.ui.android",
+    )
+
+    /**
+     * Пакеты известных читалок, которым приложение доверяет открывать книги.
+     *
+     * Имена взяты не из догадок, а из первоисточников (Google Play, F-Droid, сайты проектов),
+     * и потому остаются проверяемыми:
+     * * `com.fbreader` — FBReader 3.8.31, подтверждён `dumpsys package` на устройстве;
+     * * `org.geometerplus.zlibrary.ui.android` — FBReader for Android из F-Droid;
+     * * `org.coolreader` — CoolReader 3.2.26;
+     * * `org.koreader.launcher` / `org.koreader.launcher.fdroid` — KOReader (две сборки);
+     * * `com.foobnix.pdf.reader` — Librera;
+     * * `com.neverland.alreader` — AlReader.
+     *
+     * Список закрытый: приложение, которого здесь нет, в «читалки» не попадёт, даже если оно
+     * объявило книжный MIME-тип. Поэтому в списке не будет ни браузеров, ни файловых менеджеров.
+     */
+    val KNOWN_READER_PACKAGES: List<String> = listOf(
+        PACKAGE_NAME,
+        "org.geometerplus.zlibrary.ui.android",
+        "org.coolreader",
+        "org.koreader.launcher",
+        "org.koreader.launcher.fdroid",
+        "com.foobnix.pdf.reader",
+        "com.neverland.alreader",
+    )
 
     /** Системный VIEW. */
     const val ACTION_SYSTEM_VIEW: String = "android.intent.action.VIEW"
@@ -104,6 +151,17 @@ object FbReaderPreset {
         enabled = true,
         priority = 1,
     )
+
+    /**
+     * Ранг пакета для выбора «если подходящих несколько»: меньше — раньше.
+     *
+     * Пакеты вне списка идут после, сортировка по имени — иначе выбор читалки зависел бы от
+     * внутреннего порядка `PackageManager`, который меняется от версии к версии Android.
+     */
+    fun rankOf(packageName: String): Int {
+        val index = PREFERRED_PACKAGES.indexOf(packageName)
+        return if (index >= 0) index else PREFERRED_PACKAGES.size
+    }
 }
 
 /**

@@ -2,80 +2,282 @@ package io.github.bookshelf.feature.bookdetails
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.ReaderRepository
+import io.github.bookshelf.core.data.sync.MetadataScheduler
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
+import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * ViewModel карточки книги (docs/eink-ux.md §6.4, Sprint 4).
+ * ViewModel карточки книги (docs/eink-ux.md §6.4).
  *
- * `bookId` приходит из аргумента маршрута через `SavedStateHandle`. На этапе каркаса
- * отдаётся только начальное состояние: репозитории внедрены как контракты и не вызываются.
- *
- * После Sprint 4–7 появятся действия:
- * * [onRead] — резолв читалки и запуск Intent (Sprint 5);
- * * [onToggleFavorite] / [onToggleRead] — запись `favorite` и `readingStatus`;
- * * [onAddToCollection] — добавление в ручную полку;
- * * [onEditMetadata] / [onRefreshMetadata] — ручное редактирование и перечитывание файла;
- * * [onShowInFolder] — открытие системного файлового менеджера, если доступно.
+ * Карточка наблюдает книгу через [BookRepository.observeById], а команды чтения и изменения
+ * пользовательских полей выполняются в [viewModelScope]. Ошибки команд и потоков остаются в
+ * [BookDetailsUiState.error], чтобы экран не получал исключение из ViewModel.
  */
 @HiltViewModel
 class BookDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val bookRepository: BookRepository,
     private val readerRepository: ReaderRepository,
+    private val metadataScheduler: MetadataScheduler,
+    private val collectionRepository: CollectionRepository,
 ) : ViewModel() {
 
     private val bookId: String = savedStateHandle.get<String>(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
 
     private val _uiState = MutableStateFlow(BookDetailsUiState(bookId = bookId))
 
+    init {
+        observeBook()
+        observeCollections()
+    }
+
+    /**
+     * Полки для кнопки «В полку».
+     *
+     * Список нужен уже при открытии карточки, а не после нажатия: показывать пустое состояние
+     * и только потом подгружать — значит лишний шаг, на котором пользователь решит, что полок
+     * вообще нет.
+     */
+    private fun observeCollections() {
+        viewModelScope.launch {
+            collectionRepository.observeCollections().collect { collections ->
+                _uiState.update { state ->
+                    state.copy(
+                        collections = collections.map { collection ->
+                            CollectionItemUi(id = collection.id, name = collection.name)
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    /** Показать список полок для выбора. */
+    fun onOpenCollectionPicker() {
+        _uiState.update { it.copy(isPickingCollection = true, error = null) }
+    }
+
+    /** Закрыть список полок, ничего не меняя. */
+    fun onCloseCollectionPicker() {
+        _uiState.update { it.copy(isPickingCollection = false) }
+    }
+
+    /**
+     * Положить книгу на выбранную полку.
+     *
+     * Список закрывается только после успеха: при ошибке остаёмся в выборе, чтобы можно было
+     * попробовать другую полку, не возвращаясь назад.
+     */
+    fun onAddToCollection(collectionId: String) {
+        runBookCommand(
+            successMessage = null,
+            onSuccess = { _uiState.update { it.copy(isPickingCollection = false) } },
+        ) { collectionRepository.addBook(collectionId, bookId) }
+    }
+
     /** Состояние карточки книги для `collectAsStateWithLifecycle`. */
     val uiState: StateFlow<BookDetailsUiState> = _uiState.asStateFlow()
 
-    /** Открыть книгу в читалке по умолчанию (кнопка «Читать»). */
+    /** Открыть книгу в читалке по профилю, выбранному репозиторием. */
     fun onRead() {
-        // STUB(Sprint 5): резолв профиля читалки и запуск Intent с правильным URI
-        TODO("STUB(Sprint 5): readerRepository.resolve(bookId) → Intent")
+        runBookCommand { readerRepository.openBook(bookId) }
     }
 
-    /** Переключить избранное. */
+    /** Переключить избранное и дождаться обновления наблюдаемой книги. */
     fun onToggleFavorite() {
-        // STUB(Sprint 7): записать favorite и обновить состояние
-        TODO("STUB(Sprint 7): bookRepository.setFavorite(bookId, !isFavorite)")
+        val favorite = !_uiState.value.isFavorite
+        runBookCommand { bookRepository.setFavorite(bookId, favorite) }
     }
 
-    /** Переключить статус «прочитано». */
+    /** Переключить статус «прочитано» и дождаться обновления наблюдаемой книги. */
     fun onToggleRead() {
-        // STUB(Sprint 7): записать readingStatus и обновить состояние
-        TODO("STUB(Sprint 7): bookRepository.setReadingStatus(bookId, ReadingStatus.READ)")
+        val targetStatus = if (_uiState.value.readingStatus == ReadingStatus.READ) {
+            ReadingStatus.UNREAD
+        } else {
+            ReadingStatus.READ
+        }
+        runBookCommand { bookRepository.markRead(bookId, targetStatus) }
     }
 
-    /** Добавить книгу в ручную коллекцию. */
-    fun onAddToCollection() {
-        // STUB(Sprint 7): показать список коллекций и записать выбор
-        TODO("STUB(Sprint 7): collectionRepository.addBook(bookId)")
-    }
-
-    /** Ручное редактирование метаданных. */
+    /** Форма редактирования метаданных ещё не подключена к этому ViewModel. */
     fun onEditMetadata() {
-        // STUB(Sprint 7): перейти на форму редактирования метаданных
-        TODO("STUB(Sprint 7): навигация на форму редактирования метаданных")
+        showUnavailable("Редактирование метаданных пока недоступно")
     }
 
-    /** Перечитать метаданные из файла (приоритет встроенных). */
+    /**
+     * Перечитывание файла: работа ставится в очередь, разбор делает `MetadataWorker`.
+     *
+     * Синхронно парсить файл здесь нельзя — экран не должен блокироваться на файле в
+     * десятки мегабайт. Поэтому команда возвращается сразу, а результат приезжает в
+     * [uiState] через наблюдение за книгой.
+     */
+    @Suppress("TooGenericExceptionCaught")
     fun onRefreshMetadata() {
-        // STUB(Sprint 7): поставить книгу в очередь MetadataWorker
-        TODO("STUB(Sprint 7): metadataOverrides.refresh(bookId)")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                metadataScheduler.enqueueMetadata(bookId)
+                _uiState.update { it.copy(isLoading = false, error = null) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = error.message ?: "Не удалось поставить книгу на разбор",
+                    )
+                }
+            }
+        }
     }
 
-    /** Показать файл книги в системном менеджере (если доступно). */
+    /** Открытие папки требует Android-контекста, которого нет среди зависимостей карточки. */
     fun onShowInFolder() {
-        // STUB(Sprint 7): построить Intent ACTION_VIEW для родительской папки
-        TODO("STUB(Sprint 7): показать документ в файловом менеджере")
+        showUnavailable("Открытие папки пока недоступно")
     }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun observeBook() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                var receivedBook = false
+                bookRepository.observeById(bookId).collect { book ->
+                    receivedBook = true
+                    if (book == null) {
+                        _uiState.value = BookDetailsUiState(
+                            bookId = bookId,
+                            isLoading = false,
+                            error = "Книга не найдена",
+                        )
+                    } else {
+                        _uiState.update { state -> state.withBook(book) }
+                    }
+                }
+                if (!receivedBook) {
+                    _uiState.update { it.copy(isLoading = false, error = "Книга не найдена") }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = error.message ?: "Не удалось загрузить карточку книги",
+                    )
+                }
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun runBookCommand(
+        successMessage: String? = null,
+        onSuccess: () -> Unit = {},
+        command: suspend () -> AppResult<Unit>,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val result = command()
+                if (result.isFailure) {
+                    val error = result.errorOrNull() ?: AppError.Unknown()
+                    _uiState.update { it.copy(isLoading = false, error = error.toUserMessage()) }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = successMessage) }
+                    onSuccess()
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = error.message ?: "Не удалось выполнить действие с книгой",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun showUnavailable(message: String) {
+        _uiState.update { it.copy(isLoading = false, error = message) }
+    }
+}
+
+private fun BookDetailsUiState.withBook(book: Book): BookDetailsUiState = copy(
+    title = book.title,
+    authors = book.authorsText.ifBlank { book.authors.joinToString(", ") },
+    series = book.seriesLabel(),
+    publishedYear = book.publishedYear,
+    language = book.language,
+    publisher = book.publisher,
+    pageCount = book.pageCount,
+    sizeLabel = formatSize(book.sizeBytes),
+    addedAtLabel = formatDate(book.addedAt),
+    description = book.description,
+    coverPath = book.coverPath,
+    readingStatus = book.readingStatus,
+    isFavorite = book.favorite,
+    isLoading = false,
+    error = null,
+)
+
+private fun Book.seriesLabel(): String? = seriesName?.let { name ->
+    seriesIndex?.let { index ->
+        val wholeIndex = index.toInt().toDouble()
+        val formattedIndex = if (index == wholeIndex) wholeIndex.toInt().toString() else index.toString()
+        "$name #$formattedIndex"
+    } ?: name
+}
+
+private fun formatSize(bytes: Long): String = when {
+    bytes < KIBIBYTE -> "$bytes Б"
+    bytes < MEBIBYTE -> {
+        String.format(Locale.getDefault(), "%.1f КБ", bytes.toDouble() / KIBIBYTE)
+    }
+    bytes < GIBIBYTE -> {
+        String.format(Locale.getDefault(), "%.1f МБ", bytes.toDouble() / MEBIBYTE)
+    }
+    else -> String.format(Locale.getDefault(), "%.1f ГБ", bytes.toDouble() / GIBIBYTE)
+}
+
+private const val KIBIBYTE = 1024L
+private const val MEBIBYTE = KIBIBYTE * 1024L
+private const val GIBIBYTE = MEBIBYTE * 1024L
+
+private fun formatDate(timestamp: Long): String =
+    DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(Date(timestamp))
+
+private fun AppError.toUserMessage(): String = message ?: when (this) {
+    is AppError.NotFound -> "Не найдено: $what"
+    is AppError.InvalidArgument -> "Некорректное значение: $what"
+    is AppError.PermissionDenied -> "Нет доступа к ресурсу"
+    AppError.AccessLost -> "Доступ к источнику потерян"
+    is AppError.Io -> "Ошибка чтения или записи данных"
+    is AppError.Parse -> "Не удалось разобрать файл ($format)"
+    is AppError.Network -> "Ошибка сети"
+    is AppError.Unauthorized -> "Требуется авторизация"
+    is AppError.Unsupported -> "Операция не поддерживается: $what"
+    is AppError.Unknown -> "Неизвестная ошибка"
 }

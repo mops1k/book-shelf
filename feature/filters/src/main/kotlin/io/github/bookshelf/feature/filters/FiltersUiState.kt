@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.filters
 
+import io.github.bookshelf.core.data.model.BookQuery
+
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
 
@@ -89,3 +91,18 @@ data class FiltersUiState(
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 )
+
+/** Восстановление выбора из применённого запроса: экран открывается с тем, что видит полка. */
+internal fun filterSelectionFromQuery(query: BookQuery): FilterSelectionUi =
+    FilterSelectionUi(
+        authors = query.authorNames,
+        series = query.series,
+        formats = query.formats,
+        statuses = query.statuses.map { it.name }.toSet(),
+        tags = query.tags,
+    )
+
+/** Пуст ли запрос: у пустого набора фильтров нет отдельного предиката в `:core:data`. */
+internal fun BookQuery.isEmptyQuery(): Boolean =
+    authorNames.isEmpty() && series.isEmpty() && formats.isEmpty() &&
+        statuses.isEmpty() && tags.isEmpty() && !favoritesOnly && searchTerm == null

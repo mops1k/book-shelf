@@ -44,3 +44,12 @@ annotation class TempDir
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ExportDir
+
+/**
+ * Каталог для тел фидов OPDS.
+ *
+ * Отдельный от [CoverCacheDir] намеренно: чистка обложек не должна сносить кэш каталогов,
+ * а очистка каталогов — обложки.
+ */
+@Qualifier
+annotation class OpdsCacheDir

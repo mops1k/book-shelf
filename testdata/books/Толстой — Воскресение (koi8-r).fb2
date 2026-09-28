@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="koi8-r"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"
+             xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>classic</genre>
+      <author><nickname>Лев Толстой</nickname></author>      <author><first-name>Лев</first-name><last-name>Толстой</last-name></author>
+      <book-title>Воскресение</book-title>
+      <annotation>Аннотация: краткое описание книги Воскресение.</annotation>
+      <lang>ru</lang>
+    <sequence name="Классика" number="3"/>
+  </title-info>
+    <date value="1869-01-01"/>
+    <coverpage><image l:href="#cover.jpg"/></coverpage>
+  </description>
+  <publish-info>
+    <book-name>Воскресение</book-name>
+    <publisher>Ленинград</publisher>
+    <year>1899</year>
+    <isbn>978-5-00-000000-1</isbn>
+  </publish-info>
+  <body>
+    <section>
+      <p>Текст книги ${title}.</p>
+    </section>
+  </body>
+</FictionBook>

@@ -20,6 +20,7 @@ import io.github.bookshelf.core.database.dao.ReadingProgressDao
 import io.github.bookshelf.core.database.dao.ScanRunDao
 import io.github.bookshelf.core.database.dao.SearchDao
 import io.github.bookshelf.core.database.dao.SourceDao
+import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.TagDao
 import io.github.bookshelf.core.database.entity.AuthorEntity
 import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
@@ -34,6 +35,7 @@ import io.github.bookshelf.core.database.entity.CoverCacheEntryEntity
 import io.github.bookshelf.core.database.entity.FormatDefaultEntity
 import io.github.bookshelf.core.database.entity.OpdsCatalogEntity
 import io.github.bookshelf.core.database.entity.OpdsDownloadEntity
+import io.github.bookshelf.core.database.entity.MetadataOverrideEntity
 import io.github.bookshelf.core.database.entity.OpdsFeedCacheEntity
 import io.github.bookshelf.core.database.entity.ReaderProfileEntity
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
@@ -73,8 +75,9 @@ import io.github.bookshelf.core.database.entity.TagEntity
         OpdsCatalogEntity::class,
         OpdsDownloadEntity::class,
         OpdsFeedCacheEntity::class,
+        MetadataOverrideEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -105,6 +108,8 @@ abstract class BookshelfDatabase : RoomDatabase() {
     abstract fun readingProgressDao(): ReadingProgressDao
 
     abstract fun bookmarkDao(): BookmarkDao
+
+    abstract fun metadataOverrideDao(): MetadataOverrideDao
 
     abstract fun opdsCatalogDao(): OpdsCatalogDao
 

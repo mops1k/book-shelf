@@ -84,6 +84,7 @@ class OnyxEinkController(
          *  Пока возвращает `false`: это гарантирует безопасную деградацию к [NoopEinkController]
          *  и не даёт вызывать непроверенные методы SDK.
          */
+        @Suppress("FunctionOnlyReturningConstant")
         fun isSdkAvailable(): Boolean = false
     }
 }

@@ -26,15 +26,16 @@ import io.github.bookshelf.core.data.repository.impl.SearchRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.SourceRepositoryImpl
 
 /**
- * DI-обвязка слоя данных: интерфейс → заглушка-реализация.
+ * DI-обвязка слоя данных: интерфейс → реализация.
  *
  * Feature-модули зависят только от `:core:data` и видят только интерфейсы; конкретные классы
  * скрыты и подменяются по мере спринтов без изменения сигнатур. Все реализации помечены
  * `@Singleton` и создаются Dagger'ом, поэтому здесь нет ни `@Provides`, ни ручной сборки.
  *
- * `MetadataQueue` и `ScanCoordinator` (пакет `sync`) пока не привязаны: их реализации появятся в
- * Sprint 2 вместе с воркерами, а до этого не имеют смысла. Отсутствие заглушки здесь — намеренное:
- * пустой интерфейс в графе хуже его отсутствия.
+ * `MetadataQueue` пока не привязан: его реализация появится вместе с отдельной очередью разбора.
+ * `ScanCoordinatorImpl` уже находится в `:core:data`, но его Hilt-привязка и реализации портов
+ * `ScanScheduler`/`SafTreeReader` намеренно остаются в `:app`: там находится WorkManager и
+ * Android-инфраструктура, которых `:core:data` не должен знать.
  */
 @Module
 @InstallIn(SingletonComponent::class)

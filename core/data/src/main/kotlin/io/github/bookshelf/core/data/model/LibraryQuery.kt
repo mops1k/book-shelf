@@ -25,7 +25,11 @@ data class LibraryQuery(
  * чтобы UI не показывал пустую полку на старте.
  *
  * @param sourceIds ограничение по источникам (папкам);
- * @param authorIds идентификаторы авторов, а не строки имён: фильтр должен переживать переименование;
+ * @param authorNames ключи авторов — это значение `books.authorsText` («Лев Толстой»), а не id:
+ *   нормализованные таблицы `authors`/`book_authors` в приложении пока не заполняются (0 строк при
+ *   72 книгах на устройстве), поэтому и фасеты, и фильтр, и обзор идут по денормализованному полю.
+ *   У книги с несколькими авторами строка хранится целиком — известное упрощение до отдельной
+ *   задачи нормализации;
  * @param series названия серий (в БД это денормализованное поле);
  * @param formats расширения без точки (`fb2`, `epub`, …);
  * @param statuses статусы чтения;
@@ -35,12 +39,14 @@ data class LibraryQuery(
  */
 data class BookQuery(
     val sourceIds: Set<String> = emptySet(),
-    val authorIds: Set<String> = emptySet(),
+    val authorNames: Set<String> = emptySet(),
     val series: Set<String> = emptySet(),
     val formats: Set<String> = emptySet(),
     val statuses: Set<ReadingStatus> = emptySet(),
     val tags: Set<String> = emptySet(),
     val favoritesOnly: Boolean = false,
+    /** Только книги без серии — категория «Вне серий» в обзоре по авторам. */
+    val onlyWithoutSeries: Boolean = false,
     val searchTerm: String? = null,
 )
 
@@ -61,16 +67,16 @@ private fun BookQuery.hasNoFilters(): Boolean = hasNoIdFilters() && hasNoValueFi
 
 /** Не выбраны источники, авторы и серии. */
 private fun BookQuery.hasNoIdFilters(): Boolean =
-    sourceIds.isEmpty() && authorIds.isEmpty() && series.isEmpty()
+    sourceIds.isEmpty() && authorNames.isEmpty() && series.isEmpty()
 
 /** Не выбраны форматы, статусы и теги. */
 private fun BookQuery.hasNoValueFilters(): Boolean =
-    formats.isEmpty() && statuses.isEmpty() && tags.isEmpty()
+    formats.isEmpty() && statuses.isEmpty() && tags.isEmpty() && !onlyWithoutSeries
 
 /**
  * Добавить авторов к фильтру (копирование: [BookQuery] — неизменяемое значение).
  *
  * Множественный выбор — требование заказчика: «несколько авторов, несколько серий» (docs/architecture.md §3.5).
  */
-fun BookQuery.withAuthor(vararg authorIds: String): BookQuery =
-    copy(authorIds = this.authorIds + authorIds)
+fun BookQuery.withAuthor(vararg authorNames: String): BookQuery =
+    copy(authorNames = this.authorNames + authorNames)

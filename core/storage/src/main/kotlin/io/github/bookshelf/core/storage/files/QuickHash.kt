@@ -1,5 +1,7 @@
 package io.github.bookshelf.core.storage.files
 
+import java.security.MessageDigest
+
 /**
  * Быстрый ключ изменений книги.
  *
@@ -17,12 +19,50 @@ interface QuickHasher {
 }
 
 /**
- * Реализация на `MessageDigest`; появляется в Sprint 2 вместе с инкрементальным сканом.
+ * Реализация на `MessageDigest`.
+ *
+ * Метаданные кодируются разделителем, чтобы значения `1:23` и `12:3` не давали одинаковый вход;
+ * это технический ключ, а не криптографическая подпись содержимого.
  */
-class DefaultQuickHasher : QuickHasher {
+class DefaultQuickHasher(
+    private val contentOpener: BookContentOpener,
+) : QuickHasher {
 
     override fun quickHash(documentUri: String, sizeBytes: Long, lastModified: Long): String? {
-        // STUB(Sprint 2): SHA-256(size + lastModified + первые 64 КБ) через BookContentOpener.
-        TODO("STUB(Sprint 2): SHA-256 от size, lastModified и первых 64 КБ файла в hex")
+        val input = contentOpener.openStream(documentUri) ?: return null
+        return input.use { stream ->
+            val digest = MessageDigest.getInstance("SHA-256")
+            digest.update("$sizeBytes:$lastModified:".toByteArray(Charsets.UTF_8))
+            val buffer = ByteArray(MAX_PREFIX_BYTES)
+            var offset = 0
+            while (offset < buffer.size) {
+                val read = stream.read(buffer, offset, buffer.size - offset)
+                if (read < 0) break
+                if (read == 0) continue
+                offset += read
+            }
+            digest.update(buffer, 0, offset)
+            digest.digest().toHexString()
+        }
+    }
+
+    private fun ByteArray.toHexString(): String = joinToString(separator = "") { byte ->
+        val value = byte.toInt() and BYTE_MASK
+        HEX_DIGITS[value ushr NIBBLE_SHIFT].toString() + HEX_DIGITS[value and LOW_NIBBLE_MASK]
+    }
+
+    private companion object {
+
+        const val MAX_PREFIX_BYTES = 64 * 1024
+        const val HEX_DIGITS = "0123456789abcdef"
+
+        /** Маска байта без знака: для байтов ≥ 0x80 `toInt()` даёт отрицательные значения. */
+        const val BYTE_MASK = 0xFF
+
+        /** Сдвиг, отделяющий старшую тетраду байта. */
+        const val NIBBLE_SHIFT = 4
+
+        /** Маска младшей тетрады байта. */
+        const val LOW_NIBBLE_MASK = 0x0F
     }
 }

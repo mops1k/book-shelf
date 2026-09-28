@@ -1,29 +1,32 @@
 package io.github.bookshelf.feature.onboarding
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.data.model.ReaderProfileSummary
+import io.github.bookshelf.core.data.model.Source
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel онбординга (docs/eink-ux.md §6.1, Sprint 2).
  *
- * На этапе каркаса отдаёт только начальное состояние и не делает ни одного запроса:
- * репозитории внедрены как контракты, но их методы не вызываются (бизнес-логики нет).
- *
- * После Sprint 2 появятся действия:
- * * [onAddSource] — системный SAF-пикер `ACTION_OPEN_DOCUMENT_TREE`, `takePersistableUriPermission`
- *   и сохранение источника;
- * * [onRemoveSource] — удаление источника вместе с persistable-разрешением;
- * * [onSelectReader] — назначение читалки по умолчанию для форматов;
- * * [onCheckReader] — открытие тестового файла в выбранной читалке;
- * * [onFinish] — сохранение источников и профилей и передача управления сканированию.
- *
- * Переходы между шагами — чистая логика [next] / [previous], тестируется отдельно.
+ * Экран получает URI из системного SAF-пикера, а ViewModel передаёт его в
+ * [SourceRepository.addSafSource]. Это важно: persistable-разрешение и первичный скан
+ * должны выполняться внутри data-слоя, а не в Compose-экране.
  */
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
@@ -35,6 +38,16 @@ class OnboardingViewModel @Inject constructor(
 
     /** Состояние экрана онбординга для `collectAsStateWithLifecycle`. */
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
+
+    private val _sourcePickerRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Событие открытия системного SAF-пикера; URI приходит обратно в [onSourcePicked]. */
+    val pickerRequests: SharedFlow<Unit> = _sourcePickerRequests.asSharedFlow()
+
+    init {
+        observeSources()
+        observeReaders()
+    }
 
     /** Переход на следующий шаг; на последнем шаге остаётся на месте. */
     fun onNextStep() {
@@ -48,33 +61,204 @@ class OnboardingViewModel @Inject constructor(
         _uiState.value = current.copy(step = current.step.previous())
     }
 
-    /** Открывает системный выбор папки с книгами. */
+    /** Запросить открытие системного выбора папки SAF. */
     fun onAddSource() {
-        // STUB(Sprint 2): запустить ACTION_OPEN_DOCUMENT_TREE и сохранить persistable-разрешение
-        TODO("STUB(Sprint 2): SAF-пикер папки → sourceRepository.addSource(uri)")
+        _uiState.value = _uiState.value.copy(error = null)
+        if (!_sourcePickerRequests.tryEmit(Unit)) {
+            showError("Не удалось открыть выбор папки")
+        }
+    }
+
+    /**
+     * Сохранить папку, выбранную системным SAF-пикером.
+     *
+     * Разрешение на URI и первичный скан находятся внутри [SourceRepository], поэтому экран
+     * передаёт только URI и имя, а не пытается самостоятельно работать с ContentResolver.
+     */
+    fun onSourcePicked(uri: String, displayName: String) {
+        val safeUri = uri.trim()
+        if (safeUri.isEmpty()) {
+            showError("Выбранная папка не содержит URI")
+            return
+        }
+        val safeName = displayName.trim().ifBlank {
+            safeUri.substringAfterLast('/').ifBlank { DEFAULT_SOURCE_NAME }
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, error = null)
+            try {
+                val result = sourceRepository.addSafSource(safeUri, safeName)
+                if (result.isFailure) {
+                    showError(
+                        appErrorMessage(
+                            result.errorOrNull(),
+                            "Не удалось добавить папку.",
+                        ),
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(isBusy = false, error = null)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                showError(error.userMessage("Не удалось добавить папку."))
+            }
+        }
     }
 
     /** Убирает папку из списка источников вместе с разрешением. */
     fun onRemoveSource(sourceId: String) {
-        // STUB(Sprint 2): удалить источник и освободить persistable-разрешение
-        TODO("STUB(Sprint 2): sourceRepository.removeSource(sourceId = $sourceId)")
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, error = null)
+            try {
+                val result = sourceRepository.removeSource(sourceId)
+                if (result.isFailure) {
+                    showError(
+                        appErrorMessage(
+                            result.errorOrNull(),
+                            "Не удалось убрать папку.",
+                        ),
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(isBusy = false, error = null)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                showError(error.userMessage("Не удалось убрать папку."))
+            }
+        }
     }
 
-    /** Назначает читалку по умолчанию для всех её форматов. */
+    /**
+     * Назначает читалку по умолчанию для формата.
+     *
+     * Текущий экран ещё не выбирает формат, поэтому для обратной совместимости используется
+     * `fb2`; после появления выбора формата метод можно будет расширить параметром.
+     */
     fun onSelectReader(readerId: String) {
-        // STUB(Sprint 2): записать format_defaults для форматов выбранного профиля
-        TODO("STUB(Sprint 2): readerRepository.setDefault(readerId = $readerId)")
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBusy = true, error = null)
+            try {
+                val result = readerRepository.setDefault(DEFAULT_READER_FORMAT, readerId)
+                if (result.isFailure) {
+                    showError(
+                        appErrorMessage(
+                            result.errorOrNull(),
+                            "Не удалось назначить читалку по умолчанию.",
+                        ),
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        readers = _uiState.value.readers.map { reader ->
+                            reader.copy(isDefault = reader.id == readerId || reader.isDefault)
+                        },
+                        isBusy = false,
+                        error = null,
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                showError(error.userMessage("Не удалось назначить читалку по умолчанию."))
+            }
+        }
     }
 
-    /** Открывает тестовый файл в выбранной читалке для проверки. */
+    /**
+     * Открывает тестовый файл в выбранной читалке для проверки.
+     *
+     * В контракте [ReaderRepository] нет `openTestFile`; до его появления действие сообщает
+     * ограничение и не выбрасывает исключение из обработчика Compose.
+     */
     fun onCheckReader(readerId: String) {
-        // STUB(Sprint 5): собрать Intent и открыть тестовый файл, показать результат проверки
-        TODO("STUB(Sprint 5): readerRepository.openTestFile(readerId = $readerId)")
+        showError("Открытие тестового файла читалки пока не поддерживается")
     }
 
-    /** Сохраняет выбор и передаёт управление экрану сканирования. */
+    /**
+     * Завершить мастер.
+     *
+     * Переход к сканированию принадлежит `onFinished` в экране, поэтому ViewModel
+     * не знает о навигации. Здесь только снимается занятость и проверяется обязательный источник.
+     */
     fun onFinish() {
-        // STUB(Sprint 2): сохранить источники и профили, затем запустить первое сканирование
-        TODO("STUB(Sprint 2): persist источников и профилей → onFinished()")
+        val current = _uiState.value
+        val error = if (current.sources.isEmpty()) {
+            "Сначала добавьте папку с книгами"
+        } else {
+            null
+        }
+        _uiState.value = current.copy(isBusy = false, error = error)
+    }
+
+    private fun observeSources() {
+        viewModelScope.launch {
+            try {
+                sourceRepository.observeSources().collect { sources ->
+                    val items = sources.map(::toSourceItem)
+                    _uiState.value = _uiState.value.copy(
+                        sources = items,
+                        canFinish = canFinishOnboarding(items),
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                showError(error.userMessage("Не удалось получить список папок."))
+            }
+        }
+    }
+
+    private fun observeReaders() {
+        viewModelScope.launch {
+            try {
+                readerRepository.installedReaders().collect { readers ->
+                    _uiState.value = _uiState.value.copy(
+                        readers = readers.map(::toReaderItem),
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                showError(error.userMessage("Не удалось получить список читалок."))
+            }
+        }
+    }
+
+    private fun toSourceItem(source: Source): SourceListItem = SourceListItem(
+        id = source.id,
+        displayName = source.displayName,
+        uri = source.uri,
+        documentCount = source.documentCount.takeIf { it > 0 },
+        accessLost = source.accessLost,
+    )
+
+    private fun toReaderItem(reader: ReaderProfileSummary): ReaderListItem = ReaderListItem(
+        id = reader.id,
+        name = reader.name,
+        packageName = reader.packageName,
+        isDefault = _uiState.value.readers.any { current ->
+            current.id == reader.id && current.isDefault
+        },
+    )
+
+    private fun showError(message: String) {
+        _uiState.value = _uiState.value.copy(isBusy = false, error = message)
+    }
+
+    private fun appErrorMessage(error: AppError?, fallback: String): String = when {
+        error == null -> fallback
+        error is AppError.AccessLost -> "Доступ к папке потерян, выберите её заново."
+        error is AppError.Unsupported -> error.message ?: "Операция пока не поддерживается."
+        !error.message.isNullOrBlank() -> error.message.orEmpty()
+        else -> fallback
+    }
+
+    private fun Throwable.userMessage(fallback: String): String =
+        message?.takeIf { it.isNotBlank() } ?: fallback
+
+    private companion object {
+        const val DEFAULT_READER_FORMAT = "fb2"
+        const val DEFAULT_SOURCE_NAME = "Папка"
     }
 }

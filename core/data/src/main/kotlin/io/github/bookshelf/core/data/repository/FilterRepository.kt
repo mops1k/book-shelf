@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.data.repository
 
+import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetSet
 import kotlinx.coroutines.flow.Flow
@@ -15,4 +16,11 @@ interface FilterRepository {
 
     /** Наблюдать фасеты для текущего [query]; новое значение — при смене фильтров или данных. */
     fun observeFacets(query: BookQuery): Flow<FacetSet>
+
+    /**
+     * Серии автора для обзорного режима полки: серии с числом книг и счётчик книг вне серий.
+     *
+     * @param authorName ключ автора — значение `books.authorsText`.
+     */
+    fun observeAuthorSeries(authorName: String): Flow<AuthorSeries>
 }

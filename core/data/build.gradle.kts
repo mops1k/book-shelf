@@ -20,4 +20,9 @@ dependencies {
     implementation(project(":core:readerlink"))
     implementation(project(":core:opds"))
     implementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.truth)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.mockk)
 }

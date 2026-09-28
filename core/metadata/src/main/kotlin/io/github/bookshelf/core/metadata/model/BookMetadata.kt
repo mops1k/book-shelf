@@ -30,10 +30,28 @@ data class BookMetadata(
      *
      * Нужен отдельным полем `sortTitle` в БД, чтобы «Три мушкетёра» и «The Three Musketeers»
      * не разъезжались по разным концам списка (docs/architecture.md §3.1).
+     *
+     * Имя группы или персонажа с «The» попадёт под следующую букву (`The Beatles` → `Beatles`):
+     * отличить имя собственное от заглавия по тексту нельзя, а предсказуемость поиска важнее.
      */
     fun sortTitleOf(): String {
-        // STUB(Sprint 4): снять ведущие «А/A/An/The» и нормализовать регистр.
-        TODO("STUB(Sprint 4): sortTitle без ведущих «А/A/An/The» и с нормализацией регистра")
+        val trimmedTitle = title.trim()
+        if (trimmedTitle.isEmpty()) return trimmedTitle
+
+        val withoutArticle = trimmedTitle.replaceFirst(ARTICLE_PREFIX, "").trim()
+        if (withoutArticle.isEmpty()) return title
+
+        val firstCharacter = withoutArticle.first()
+        return firstCharacter.uppercaseChar().toString() +
+            withoutArticle.drop(1).lowercase()
+    }
+
+    private companion object {
+        /**
+         * Артикли снимаются только вместе с разделителем; граница пробела обязательна,
+         * иначе название вроде «Анна Каренина» было бы повреждено.
+         */
+        val ARTICLE_PREFIX = Regex("(?iu)^(?:А|Аа|An|The)\\s+")
     }
 }
 

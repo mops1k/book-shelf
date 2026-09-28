@@ -4,6 +4,7 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.model.OpdsCatalog
 import io.github.bookshelf.core.data.model.OpdsDownload
 import io.github.bookshelf.core.data.model.OpdsEntry
+import io.github.bookshelf.core.data.model.OpdsPage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -36,6 +37,15 @@ interface OpdsRepository {
      * [url] == null — корневая навигация каталога; иначе конкретная страница/раздел фида.
      */
     suspend fun browse(catalogId: String, url: String? = null): AppResult<List<OpdsEntry>>
+
+    /**
+     * Открыть страницу фида вместе со ссылкой на следующую (`rel="next"`).
+     *
+     * Отдельно от [browse], потому что текучей догрузке нужен адрес следующей страницы: без него
+     * фид длиннее одной страницы обрывался, и дальше первой страницы пользователь не уходил.
+     * [browse] остаётся удобной обёрткой для тех, кому нужны только записи.
+     */
+    suspend fun browsePage(catalogId: String, url: String? = null): AppResult<OpdsPage>
 
     fun observeDownloads(): Flow<List<OpdsDownload>>
 

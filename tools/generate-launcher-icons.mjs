@@ -1,9 +1,13 @@
 // Генератор launcher-иконок (PNG, 8-бит grayscale) без внешних зависимостей.
 // Иконки нужны для API 24–25: адаптивные иконки (mipmap-anydpi-v26) там не поддерживаются.
 import { writeFileSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { deflateSync, inflateSync } from 'node:zlib';
 
-const ROOT = '/root/BookShelf/app/src/main/res';
+// Корень вычисляется от расположения скрипта: жёсткий путь привязывал генератор
+// к одной машине и ронял его в любом другом клоне репозитория.
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'res');
 
 // --- CRC32 ---
 const CRC_TABLE = (() => {

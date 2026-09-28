@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"
+             xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>classic</genre>
+      <author><nickname>Лев Толстой</nickname></author>      <author><first-name>Лев</first-name><last-name>Толстой</last-name></author>
+      <author><first-name>Лев</first-name><last-name>Николаевич Толстой</last-name></author>
+      <book-title>Война и мир</book-title>
+      <annotation>Аннотация: краткое описание книги Война и мир.</annotation>
+      <lang>ru</lang>
+    <sequence name="Классика" number="1"/>
+  </title-info>
+    <date value="1869-01-01"/>
+    <coverpage><image l:href="#cover.jpg"/></coverpage>
+  </description>
+  <publish-info>
+    <book-name>Война и мир</book-name>
+    <publisher>АСТ</publisher>
+    <year>1869</year>
+    <isbn>978-5-00-000000-1</isbn>
+  </publish-info>
+  <body>
+    <section>
+      <title><p><image l:href="#cover.jpg"/></p></title>
+      <p>Текст книги Война и мир.</p>
+    </section>
+  </body>
+<binary id="cover.jpg" content-type="image/jpeg">/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==</binary>
+</FictionBook>

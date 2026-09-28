@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+
 /** Разделы настроек (docs/eink-ux.md §6.8) — каждый открывается отдельным экраном. */
 enum class SettingsSectionKind {
     /** Плотность, сетка/список, обложки, сортировка и группировка по умолчанию. */
@@ -46,6 +48,36 @@ data class ReaderItemUi(
     val isDefault: Boolean = false,
 )
 
+/**
+ * Источник книг в настройках (UI-модель).
+ *
+ * @param displayName имя папки, как её показал системный выборщик.
+ * @param uri `content://`-URI дерева; именно по нему идёт сканирование.
+ * @param booksCount сколько книг нашлось в папке последним сканом.
+ */
+data class SourceItemUi(
+    /** `sources.id`. */
+    val id: String,
+    /** Имя папки на устройстве. */
+    val displayName: String,
+    /** URI дерева SAF — по нему сканер читает содержимое. */
+    val uri: String,
+    /** Книг найдено последним сканом; `null` — скан ещё не выполнялся. */
+    val booksCount: Int? = null,
+)
+
+/** Разрешение, которое приложение может запросить у пользователя. */
+data class PermissionItemUi(
+    /** Системное имя разрешения. */
+    val permission: String,
+    /** Что разрешение разрешает — по-русски, без системных терминов. */
+    val title: String,
+    /** Зачем оно именно нам. */
+    val subtitle: String,
+    /** Выдано ли оно сейчас. */
+    val isGranted: Boolean,
+)
+
 /** Диагностика e-ink для раздела «О приложении» (docs/eink-ux.md §8.5). */
 data class EinkDiagnosticsUi(
     /** Устройство с электронной бумагой. */
@@ -70,6 +102,8 @@ data class AppSettingsUi(
     val densityLabel: String = "Крупный",
     /** Режим отображения полки по умолчанию. */
     val viewModeLabel: String = "Сетка",
+    /** Вид полки по умолчанию: сетка/список/компактно либо обзор по авторам/сериям. */
+    val viewPreset: ShelfViewPreset = ShelfViewPreset.GRID,
     /** Показывать обложки на полке. */
     val showCovers: Boolean = true,
     /** Масштаб шрифта интерфейса в процентах: 100/115/130/150. */
@@ -118,6 +152,10 @@ data class SettingsUiState(
     val settings: AppSettingsUi = AppSettingsUi(),
     /** Установленные читалки. */
     val installedReaders: List<ReaderItemUi> = emptyList(),
+    /** Папки-источники, в которых приложение ищет книги. */
+    val sources: List<SourceItemUi> = emptyList(),
+    /** Идёт добавление или удаление папки. */
+    val isSourceBusy: Boolean = false,
     /** Диагностика e-ink для раздела «О приложении». */
     val diagnostics: EinkDiagnosticsUi = EinkDiagnosticsUi(),
     /** Идёт загрузка настроек. */

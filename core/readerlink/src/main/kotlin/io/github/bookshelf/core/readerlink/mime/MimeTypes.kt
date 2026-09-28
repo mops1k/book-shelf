@@ -53,6 +53,14 @@ object MimeTypes {
     /** Известно ли расширение (в отличие от [mimeOf] не подменяет ответ значением по умолчанию). */
     fun isKnown(extension: String): Boolean = MIME_BY_EXTENSION.containsKey(normalize(extension))
 
+    /**
+     * Все известные MIME — одним списком.
+     *
+     * Нужно discovery, чтобы спросить `PackageManager` про все форматы за один обход: по одному
+     * запросу на формат на экране настроек даёт заметную задержку на e-ink.
+     */
+    fun knownMimeTypes(): List<String> = MIME_BY_EXTENSION.values.distinct()
+
     private fun normalize(extension: String): String =
         extension.trim().removePrefix(".").lowercase()
 }

@@ -1,5 +1,8 @@
 package io.github.bookshelf.feature.onboarding.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +48,23 @@ fun OnboardingScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
 
+    // Системный пикер папок. ViewModel только просит открыть пикер (событие pickerRequests) и
+    // принимает результат через onSourcePicked: запись в БД и проверка persistable-доступа —
+    // его забота, а не UI. Так экран не знает про источники, а ViewModel — про Android Intent.
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onSourcePicked(
+                uri = uri.toString(),
+                displayName = uri.lastPathSegment?.substringAfterLast(':').orEmpty().ifBlank { "Книги" },
+            )
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.pickerRequests.collect { folderPicker.launch(null) }
+    }
+
     EinkScaffold(
         title = "Первый запуск",
         subtitle = "Шаг ${state.step.ordinal + 1} из ${OnboardingStep.entries.size}",
@@ -88,8 +108,6 @@ fun OnboardingScreen(
                     onCheckReader = viewModel::onCheckReader,
                 )
             }
-
-            StubNotice(sprint = 2)
         }
     }
 }
@@ -246,13 +264,3 @@ private fun OnboardingFooter(
     }
 }
 
-/** Пометка этапа каркаса: видно, что экран ещё не реализован, и в каком спринте будет. */
-@Composable
-private fun StubNotice(sprint: Int) {
-    val colors = LocalEinkColors.current
-    Text(
-        text = "Раздел в разработке — Спринт $sprint",
-        style = MaterialTheme.typography.labelMedium,
-        color = colors.foreground,
-    )
-}

@@ -26,6 +26,15 @@ data class Book(
     val seriesIndex: Double? = null,
     val coverPath: String? = null,
     val extension: String,
+    /**
+     * `content://`-URI документа в дереве SAF — по нему книга открывается читалкой.
+     *
+     * В доменную модель выведено для карточки книги: строки «Путь» и «Документ» были
+     * пустыми всегда, потому что UI брал эти значения из состояния, а модель их не отдавала.
+     */
+    val documentUri: String = "",
+    /** Путь внутри источника: «Books/Лем/Солярис.fb2». */
+    val relativePath: String = "",
     val sizeBytes: Long,
     val language: String? = null,
     val publishedYear: Int? = null,

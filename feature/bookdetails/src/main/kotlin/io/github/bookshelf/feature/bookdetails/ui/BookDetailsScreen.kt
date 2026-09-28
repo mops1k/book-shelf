@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
+import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
@@ -97,6 +98,15 @@ fun BookDetailsScreen(
 
             BookHeader(state = state)
 
+            if (state.isPickingCollection) {
+                CollectionPicker(
+                    state = state,
+                    onPick = viewModel::onAddToCollection,
+                    onClose = viewModel::onCloseCollectionPicker,
+                )
+                return@Column
+            }
+
             val parseError = state.parseError
             if (parseError != null) {
                 EinkErrorBanner(
@@ -114,13 +124,50 @@ fun BookDetailsScreen(
 
             ActionsBlock(
                 state = state,
-                onOpenCollections = { onOpenCollections(bookId) },
+                onOpenCollections = { viewModel.onOpenCollectionPicker() },
                 onEditMetadata = { onEditMetadata(bookId) },
                 viewModel = viewModel,
             )
-
-            StubNotice(sprint = 4)
         }
+    }
+}
+
+/**
+ * Выбор полки для книги.
+ *
+ * Список показывается на месте карточки, а не в отдельном экране: полки короткие, а лишний
+ * переход означал бы ещё одну кнопку «Назад», которую надо запомнить.
+ */
+@Composable
+private fun CollectionPicker(
+    state: BookDetailsUiState,
+    onPick: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    Column {
+        EinkSectionHeader(title = "В какую полку", count = state.collections.size)
+        if (state.collections.isEmpty()) {
+            EinkEmptyState(
+                title = "Полок пока нет",
+                message = "Создайте полку на экране «Полки», потом вернитесь сюда.",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            state.collections.forEach { collection ->
+                EinkListRow(
+                    title = collection.name,
+                    trailing = if (collection.containsBook) "уже там" else "добавить",
+                    onClick = { onPick(collection.id) },
+                )
+            }
+        }
+        EinkButton(
+            text = "Отмена",
+            onClick = onClose,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = LocalEinkDimens.current.gutter),
+        )
     }
 }
 
@@ -275,13 +322,3 @@ private fun readingStatusLabel(status: ReadingStatus): String = when (status) {
     ReadingStatus.READ -> "прочитано"
 }
 
-/** Пометка этапа каркаса: видно, что экран ещё не реализован, и в каком спринте будет. */
-@Composable
-private fun StubNotice(sprint: Int) {
-    val colors = LocalEinkColors.current
-    Text(
-        text = "Раздел в разработке — Спринт $sprint",
-        style = MaterialTheme.typography.labelMedium,
-        color = colors.foreground,
-    )
-}

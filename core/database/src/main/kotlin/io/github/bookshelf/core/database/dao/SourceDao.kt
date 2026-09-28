@@ -47,4 +47,14 @@ interface SourceDao {
     /** Наблюдать число книг источника — строка прогресса и настройки. */
     @Query("SELECT COUNT(*) FROM books WHERE sourceId = :sourceId")
     fun observeBookCount(sourceId: String): Flow<Int>
+
+    /**
+     * Итог завершённого прогона сканирования: когда сканировали и сколько книг нашли.
+     *
+     * Без этой записи `sources.lastScanAt` остаётся null навсегда, а настройки показывают
+     * «ещё не сканировалось» даже после успешного скана: «0 книг» и «ещё не сканировали» —
+     * разные вещи, и различить их можно только по этой паре полей.
+     */
+    @Query("UPDATE sources SET lastScanAt = :at, documentCount = :documents WHERE id = :id")
+    suspend fun updateScanStats(id: String, at: Long, documents: Int)
 }

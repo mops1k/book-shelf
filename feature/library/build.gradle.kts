@@ -15,6 +15,5 @@ dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":core:covers"))
     implementation(project(":core:readerlink"))
-    testImplementation(testFixtures(project(":core:data")))
     testImplementation(project(":core:testing"))
 }

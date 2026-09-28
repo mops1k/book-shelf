@@ -2,8 +2,6 @@ package io.github.bookshelf.core.opds.client
 
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.opds.auth.OpdsCredentials
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * HTTP-клиент OPDS — единственное место приложения с доступом в сеть (docs/opds.md §4.1).
@@ -56,22 +54,3 @@ data class ConditionalGet(
     val etag: String?,
     val lastModified: String?,
 )
-
-/**
- * Заглушка клиента на OkHttp.
- *
- * Конструктор без зависимостей: `OkHttpClient` с таймаутами и дисковым кэшем создаётся
- * в Sprint 8 и внедряется через DI, а не собирается внутри класса.
- */
-@Singleton
-class OkHttpOpdsClient @Inject constructor() : OpdsHttpClient {
-
-    // STUB(Sprint 8): OkHttpClient с кэшем, таймаутами, User-Agent, Basic/Digest и CookieJar.
-
-    override suspend fun get(
-        url: String,
-        conditional: ConditionalGet?,
-        credentials: OpdsCredentials?,
-    ): AppResult<HttpResponse> =
-        TODO("STUB(Sprint 8): GET через OkHttp с conditional GET и лимитом размера")
-}

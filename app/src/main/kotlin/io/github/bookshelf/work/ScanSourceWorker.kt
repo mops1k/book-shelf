@@ -4,35 +4,322 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.time.AppClock
+import io.github.bookshelf.core.database.dao.BookDao
+import io.github.bookshelf.core.database.dao.ScanRunDao
+import io.github.bookshelf.core.database.dao.SourceDao
+import io.github.bookshelf.core.database.entity.BookEntity
+import io.github.bookshelf.core.database.entity.ScanRunEntity
+import io.github.bookshelf.core.database.entity.SourceEntity
+import io.github.bookshelf.core.database.model.ScanRunStatus
+import io.github.bookshelf.core.storage.saf.DocumentEntry
+import io.github.bookshelf.core.storage.saf.SafTreeReader
+import io.github.bookshelf.core.storage.saf.SourceRef
+import io.github.bookshelf.core.storage.scan.BookFileFilter
+import io.github.bookshelf.core.storage.scan.ScanCursor
+import io.github.bookshelf.core.storage.scan.ScanCursorCodec
+import io.github.bookshelf.core.storage.scan.ScanOptions
+import io.github.bookshelf.core.storage.scan.TreeWalker
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /**
- * Сканирование источника.
+ * Сканирование источника (docs/architecture.md §4.5, ADR-010).
  *
- * Ключевые требования (docs/architecture.md §4.5):
- * * уникальная работа на источник, `ExistingWorkPolicy.KEEP`;
- * * работа **возобновляемая**: курсор обхода хранится в `scan_runs`, поэтому скан переживает
- *   `Service.onTimeout` (Android 15 ограничивает `dataSync` шестью часами за 24 часа),
- *   убийство процесса и потерю foreground-режима;
- * * прогресс уходит в `setProgress` и в уведомление.
+ * Четыре решения, ради которых работа написана именно так:
  *
- * STUB(Sprint 2): сейчас работа не делает ничего и завершается успешно — каркас для того,
- * чтобы на неё можно было написать первый падающий тест.
+ * **1. Работа уникальна на источник, `KEEP`.** Ставит её [WorkManagerScanScheduler]; здесь это
+ * уже не влияет, но два параллельных скана одного дерева писали бы в `books` одновременно.
+ *
+ * **2. Скан возобновляем.** После каждого батча курсор обхода пишется в `scan_runs`, поэтому
+ * убийство процесса и `Service.onTimeout` на Android 15 (лимит `dataSync` — 6 часов за 24 часа)
+ * приводят к паузе, а не к тому, чтобы начинать с нуля. Возобновление — это повторный запуск
+ * с той же точки, а не отдельный код.
+ *
+ * **3. Ключ книги — `documentId`, а не путь.** При переименовании файла его `documentId` в SAF
+ * не меняется: книга остаётся той же с обновлёнными метаданными, а не задваивается.
+ *
+ * **4. Пропавшие книги не удаляются, а помечаются.** История чтения и полки дороже дискового
+ * места: без `isMissing` коллекции пользователя рассыпались бы после переноса папки.
  */
 @HiltWorker
 class ScanSourceWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val sourceDao: SourceDao,
+    private val scanRunDao: ScanRunDao,
+    private val bookDao: BookDao,
+    private val treeReader: SafTreeReader,
+    private val treeWalker: TreeWalker,
+    private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
+    private val clock: AppClock,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = Result.success()
+    /** Идентификаторы книг, встреченных в текущем проходе. */
+    private val seenIds = mutableSetOf<String>()
+    private var filesSeen = 0
+    private var added = 0
+    private var updated = 0
+
+    override suspend fun doWork(): Result {
+        val sourceId = inputData.getString(KEY_SOURCE_ID) ?: return Result.failure()
+        val source = sourceDao.getById(sourceId) ?: return Result.failure()
+        val run = resumeOrCreateRun(sourceId)
+
+        return try {
+            val result = walkUntilFinished(source, run)
+            when (result) {
+                is ScanOutcome.Failed -> {
+                    // Курсор сохранён, прогон не терминален: WorkManager повторит и продолжит.
+                    scanRunDao.finish(run.id, ScanRunStatus.PAUSED, null, result.reason)
+                    Result.retry()
+                }
+
+                is ScanOutcome.Completed -> {
+                    markMissing(sourceId)
+                    val finishedAt = clock.nowMillis()
+                    scanRunDao.finish(
+                        id = run.id,
+                        status = ScanRunStatus.COMPLETED,
+                        finishedAt = finishedAt,
+                        error = null,
+                    )
+                    // Итог прогона в сам источник: настройки и онбординг показывают по нему
+                    // «N книг» вместо «ещё не сканировалось», а счётчик книг берётся из базы,
+                    // а не из числа файлов в последнем батче.
+                    sourceDao.updateScanStats(
+                        id = sourceId,
+                        at = finishedAt,
+                        documents = bookDao.countBySource(sourceId),
+                    )
+                    Result.success(workDataOf(KEY_SOURCE_ID to sourceId))
+                }
+            }
+        } catch (cancelled: CancellationException) {
+            // Отмена — не ошибка. Прогон остаётся PAUSED со своим курсором, и возобновление
+            // продолжит с того же места. Помечать его FAILED значило бы потерять прогресс.
+            scanRunDao.finish(run.id, ScanRunStatus.PAUSED, null, null)
+            throw cancelled
+        } catch (error: Throwable) {
+            scanRunDao.finish(run.id, ScanRunStatus.FAILED, clock.nowMillis(), error.message)
+            Result.retry()
+        }
+    }
+
+    private sealed interface ScanOutcome {
+        data object Completed : ScanOutcome
+        data class Failed(val reason: String) : ScanOutcome
+    }
+
+    /**
+     * Обход до конца дерева с сохранением курсора после каждого батча.
+     *
+     * `walk` отдаёт управление на один батч, поэтому цикл и есть продолжение скана: именно так
+     * возобновляемость выглядит снаружи.
+     */
+    private suspend fun walkUntilFinished(source: SourceEntity, run: ScanRunEntity): ScanOutcome {
+        val options = scanOptionsFor(source)
+        var cursor = run.cursorDocumentId?.let(ScanCursorCodec::decode)
+
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val step = treeWalker.walk(source.toRef(), cursor, options) { batch, resumeFrom ->
+                storeBatch(source, batch, resumeFrom, run)
+            }
+            if (step is io.github.bookshelf.core.common.error.AppResult.Failure) {
+                return ScanOutcome.Failed(step.error.message ?: "Не удалось прочитать дерево")
+            }
+            val next = (step as io.github.bookshelf.core.common.error.AppResult.Success).value
+            cursor = next ?: return ScanOutcome.Completed
+        }
+    }
+
+    private suspend fun storeBatch(
+        source: SourceEntity,
+        batch: List<DocumentEntry>,
+        resumeFrom: ScanCursor,
+        run: ScanRunEntity,
+    ) {
+        batch.forEach { entry -> storeEntry(source, entry) }
+        scanRunDao.updateProgress(
+            id = run.id,
+            cursorDocumentId = ScanCursorCodec.encode(resumeFrom),
+            filesSeen = filesSeen,
+            added = added,
+            updated = updated,
+            removed = 0,
+            failedCount = 0,
+        )
+        setProgress(
+            workDataOf(
+                KEY_SOURCE_ID to source.id,
+                PROGRESS_SEEN to filesSeen,
+                PROGRESS_ADDED to added,
+                PROGRESS_UPDATED to updated,
+            ),
+        )
+    }
+
+    /**
+     * Вставка или обновление одной книги.
+     *
+     * Неизменность файла определяется по размеру и времени изменения: полное перечитывание
+     * содержимого на каждом скане означало бы читать 2000 файлов ради проверки, что ничего
+     * не изменилось.
+     */
+    private suspend fun storeEntry(source: SourceEntity, entry: DocumentEntry) {
+        val id = bookIdOf(entry)
+        seenIds += id
+        val existing = bookDao.getById(id)
+        if (existing == null) {
+            bookDao.insert(newBook(source, id, entry))
+            added++
+            // Разбор ставится только для новых книг: уже разобранная книга не должна ждать
+            // работу в очереди заново, а смена файла вызывает MetadataWorker отдельно.
+            metadataScheduler.enqueueMetadata(id)
+        } else {
+            val unchanged = existing.sizeBytes == entry.sizeBytes &&
+                existing.lastModified == entry.lastModified
+            if (unchanged) {
+                bookDao.touchLastSeen(listOf(id), clock.nowMillis())
+            } else {
+                metadataScheduler.enqueueMetadata(id)
+                bookDao.update(
+                    existing.copy(
+                        documentUri = treeReader.documentUri(source.uri, entry.documentId),
+                        relativePath = entry.displayName,
+                        fileName = entry.displayName,
+                        extension = BookFileFilter.detectExtension(entry.displayName),
+                        mimeType = entry.mimeType ?: existing.mimeType,
+                        sizeBytes = entry.sizeBytes ?: existing.sizeBytes,
+                        lastModified = entry.lastModified ?: existing.lastModified,
+                        updatedAt = clock.nowMillis(),
+                        lastSeenAt = clock.nowMillis(),
+                    ),
+                )
+                updated++
+            }
+        }
+        filesSeen++
+    }
+
+    private fun newBook(source: SourceEntity, id: String, entry: DocumentEntry): BookEntity {
+        val now = clock.nowMillis()
+        // До разбора метаданных заголовок берётся из имени файла: полка не должна быть пустой,
+        // пока MetadataWorker ещё не отработал.
+        val title = entry.displayName.substringBeforeLast('.', entry.displayName).trim()
+        return BookEntity(
+            id = id,
+            sourceId = source.id,
+            documentUri = treeReader.documentUri(source.uri, entry.documentId),
+            relativePath = entry.displayName,
+            fileName = entry.displayName,
+            extension = BookFileFilter.detectExtension(entry.displayName),
+            mimeType = entry.mimeType ?: "",
+            sizeBytes = entry.sizeBytes ?: 0L,
+            lastModified = entry.lastModified ?: now,
+            title = title.ifEmpty { entry.displayName },
+            sortTitle = title.ifEmpty { entry.displayName },
+            // Автора до разбора нет: пустая строка честнее выдуманного имени файла.
+            authorsText = "",
+            addedAt = now,
+            updatedAt = now,
+            lastSeenAt = now,
+        )
+    }
+
+    /**
+     * Помечает отсутствующими книги, которых не было в проходе.
+     *
+     * Порциями по [MARK_BATCH]: на API 24 SQLite ограничивает число параметров в `IN`, и
+     * попытка пометить сразу две тысячи книт упала бы с ошибкой на середине.
+     */
+    private suspend fun markMissing(sourceId: String) {
+        bookDao.idsBySource(sourceId).filterNot { it in seenIds }.chunked(MARK_BATCH).forEach { batch ->
+            bookDao.markMissing(batch, clock.nowMillis())
+        }
+    }
+
+    private suspend fun resumeOrCreateRun(sourceId: String): ScanRunEntity {
+        val resumed = scanRunDao.findResumable(sourceId)
+        if (resumed != null) {
+            scanRunDao.finish(resumed.id, ScanRunStatus.RUNNING, null, null)
+            return resumed
+        }
+        val run = ScanRunEntity(
+            id = UUID.randomUUID().toString(),
+            sourceId = sourceId,
+            startedAt = clock.nowMillis(),
+            status = ScanRunStatus.RUNNING,
+        )
+        scanRunDao.insert(run)
+        return run
+    }
+
+    private fun scanOptionsFor(source: SourceEntity): ScanOptions = ScanOptions(
+        excludeHidden = true,
+        excludeGlobs = source.excludeGlobs.orEmpty(),
+        extensions = BookFileFilter.SUPPORTED_EXTENSIONS,
+    )
+
+    private fun SourceEntity.toRef() = SourceRef(
+        id = id,
+        treeUri = uri,
+        displayName = displayName,
+        // SourceKind существует в двух слоях (БД и хранение). Маппинг явный: иначе
+        // новый вид источника в одном слое молча потерялся бы в другом.
+        kind = when (kind) {
+            io.github.bookshelf.core.database.model.SourceKind.SAF_TREE ->
+                io.github.bookshelf.core.storage.saf.SourceKind.SAF_TREE
+            io.github.bookshelf.core.database.model.SourceKind.DIRECT_PATH ->
+                io.github.bookshelf.core.storage.saf.SourceKind.DIRECT_PATH
+            io.github.bookshelf.core.database.model.SourceKind.OPDS ->
+                io.github.bookshelf.core.storage.saf.SourceKind.OPDS
+        },
+        recursive = recursive,
+        excludeGlobs = excludeGlobs.orEmpty(),
+    )
+
+    /**
+     * Идентификатор книги: `documentId` уникален в дереве, а путь меняется при переименовании.
+     * Префикс имени файла оставлен, чтобы идентификатор был читаемым в отчёте и `logcat`.
+     */
+    private fun bookIdOf(entry: DocumentEntry): String =
+        // documentId не годится как идентификатор: у файлов во внутреннем хранилище он
+        // содержит слеш («primary:Books/Имя.fb2»), а id подставляется в маршрут
+        // bookdetails/{id} — маршрут распался бы на два сегмента и навигация падала.
+        // Берём хэш: он безопасен для маршрута, стабилен между сканами и уникален в пределах дерева.
+        "$BOOK_ID_PREFIX${sha256Hex(entry.documentId)}"
+
+    /** SHA-256 строки в hex без локали: локаль меняет байты и ломает стабильность id. */
+    private fun sha256Hex(value: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return digest.joinToString("") { byte -> "%02x".format(byte) }
+    }
 
     companion object {
         const val KEY_SOURCE_ID: String = "sourceId"
         const val KEY_FORCE_RESCAN: String = "forceRescan"
 
-        /** TODO(Sprint 2): уникальное имя работы на источник. */
+        /** Уникальное имя работы на источник: два скана одного дерева не должны идти вместе. */
         fun uniqueWorkName(sourceId: String): String = "scan-$sourceId"
+
+        /** Общий тег для наблюдения за всеми сканами из экрана прогресса. */
+        const val WORK_TAG: String = "scan"
+
+        const val PROGRESS_SEEN: String = "seen"
+        const val PROGRESS_ADDED: String = "added"
+        const val PROGRESS_UPDATED: String = "updated"
+
+        const val BOOK_ID_PREFIX: String = "doc:"
+        const val MARK_BATCH: Int = 500
     }
 }

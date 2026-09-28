@@ -1,5 +1,9 @@
 package io.github.bookshelf.feature.collections.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,11 +20,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.component.EinkTextField
+import io.github.bookshelf.feature.collections.CollectionsUiState
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
-import io.github.bookshelf.core.designsystem.component.TapZoneLayout
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
+import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.collections.CollectionUi
@@ -83,14 +89,12 @@ fun CollectionsScreen(
             EinkErrorBanner(message = error, actionLabel = "Повторить", onAction = viewModel::onRefresh)
         }
 
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (state.collections.isEmpty()) {
                 EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 7",
+                    title = "Полки появятся, когда вы создадите первую",
                     message = "Здесь появятся ручные полки и умные подборки на тех же правилах, " +
                         "что и фильтры: статус, автор, серия, тег, год, формат.",
                     actionLabel = "Создать полку",
@@ -99,20 +103,104 @@ fun CollectionsScreen(
                 )
             } else {
                 val visible = state.collections.drop(pager.offset).take(pager.pageSize)
-                LazyColumn(modifier = Modifier.fillMaxSize(), userScrollEnabled = false) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(items = visible, key = { collection -> collection.id }) { collection ->
-                        EinkListRow(
-                            title = collection.name,
-                            subtitle = collectionSubtitle(collection),
-                            trailing = collection.bookCount.toString(),
-                            selected = collection.id == state.selectedId,
-                            onClick = { viewModel.onSelect(collection.id) },
-                        )
+                        // Переименование и удаление — под выбранной полкой. Раньше обе команды
+                        // в ViewModel были, а кнопок на экране не было: полку можно было только
+                        // создать, и управлять ей было нечем.
+                        if (collection.id == state.renamingId) {
+                            RenameRow(state = state, viewModel = viewModel)
+                        } else if (collection.id == state.selectedId) {
+                            CollectionRow(collection = collection, viewModel = viewModel)
+                            CollectionActions(
+                                collection = collection,
+                                viewModel = viewModel,
+                                onClose = { viewModel.onSelect("") },
+                            )
+                        } else {
+                            EinkListRow(
+                                title = collection.name,
+                                subtitle = collectionSubtitle(collection),
+                                trailing = collection.bookCount.toString(),
+                                onClick = { viewModel.onSelect(collection.id) },
+                            )
+                            EinkButton(
+                                text = "Открыть",
+                                onClick = { onOpenCollection(collection.id) },
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Выбранная полка: название, правила и две кнопки под ней.
+ *
+ * Подтверждения удаления здесь нет намеренно: полка удаляется из базы, книги остаются в
+ * библиотеке, а отменить действие нельзя — поэтому кнопка на втором касании подряд, рядом.
+ */
+@Composable
+private fun CollectionActions(
+    collection: CollectionUi,
+    viewModel: CollectionsViewModel,
+    onClose: () -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall / 2),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        EinkButton(text = "Переименовать", onClick = { viewModel.onStartRename(collection) })
+        EinkButton(text = "Удалить", onClick = { viewModel.onDelete(collection.id) })
+        EinkButton(text = "Закрыть", onClick = onClose)
+    }
+}
+
+/** Поле переименования на месте полки: «Сохранить» пишет, «Отмена» возвращает как было. */
+@Composable
+private fun RenameRow(
+    state: CollectionsUiState,
+    viewModel: CollectionsViewModel,
+) {
+    val dimens = LocalEinkDimens.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+        verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        EinkTextField(
+            value = state.renameDraft,
+            onValueChange = viewModel::onRenameDraftChanged,
+            label = "Новое название",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
+            EinkButton(text = "Сохранить", onClick = viewModel::onCommitRename, primary = true)
+            EinkButton(text = "Отмена", onClick = viewModel::onCancelRename)
+        }
+    }
+}
+
+@Composable
+private fun CollectionRow(
+    collection: CollectionUi,
+    viewModel: CollectionsViewModel,
+) {
+    EinkListRow(
+        title = collection.name,
+        subtitle = collectionSubtitle(collection),
+        trailing = collection.bookCount.toString(),
+        selected = true,
+        onClick = { viewModel.onSelect(collection.id) },
+    )
 }
 
 /** Подпись под названием полки: ручная она или умная и по каким правилам. */

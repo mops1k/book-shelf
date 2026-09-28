@@ -1,0 +1,161 @@
+package io.github.bookshelf.core.database
+
+import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.test.platform.app.InstrumentationRegistry
+import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.database.migration.MIGRATION_1_2
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * Миграции схемы БД (docs/architecture.md §3.4, docs/tdd.md §4).
+ *
+ * Проверяется ровно то, что обязано выполняться и чего не видно в обычных тестах: у пользователя с
+ * уже установленной версией миграция обязана сохранить библиотеку. Поэтому тест создаёт базу
+ * **версии 1**, кладёт в неё книгу, прогоняет миграцию и сверяет результат не только глазами, но и
+ * через `runMigrationsAndValidate` — Room сама сравнит схему с экспортированным `schemas/2.json`
+ * и провалит тест при любом расхождении, включая забытый индекс.
+ *
+ * Про внешние ключи: `MigrationTestHelper` отдаёт «сырую» `SupportSQLiteDatabase`, где
+ * `PRAGMA foreign_keys` выключен, поэтому `ON DELETE CASCADE` здесь не срабатывает. Поведение
+ * каскада в боевом пути проверяется отдельно в `MetadataOverrideCascadeTest` на настоящей базе Room.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [24])
+class BookshelfDatabaseMigrationTest {
+
+    @get:Rule
+    val helper = MigrationTestHelper(
+        InstrumentationRegistry.getInstrumentation(),
+        BookshelfDatabase::class.java,
+    )
+
+    @Test
+    fun migrate_1_to_2_preserves_books_written_in_version_1() {
+        givenVersion1WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            assertThat(db.stringOf("SELECT title FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo("Война и мир")
+        }
+    }
+
+    @Test
+    fun migrate_1_to_2_creates_usable_metadata_overrides_table() {
+        givenVersion1WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            db.execSQL(
+                "INSERT OR REPLACE INTO metadata_overrides (bookId, title, updatedAt) VALUES (?, ?, ?)",
+                arrayOf<Any>(BOOK_ID, "Моя редакция", 1000L),
+            )
+
+            assertThat(db.stringOf("SELECT title FROM metadata_overrides WHERE bookId = ?", BOOK_ID))
+                .isEqualTo("Моя редакция")
+        }
+    }
+
+    @Test
+    fun migrate_1_to_2_books_added_before_migration_become_searchable() {
+        givenVersion1WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            // Книга лежит в books ещё с версии 1, а индекса FTS тогда не существовало: внешнее
+            // содержимое читается из books, но сам индекс пуст. Без пересборки MATCH её не найдёт.
+            assertThat(db.ftsHits("толстой")).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun migrate_1_to_2_books_added_after_migration_are_indexed_by_triggers() {
+        givenVersion1WithoutBooks()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            db.execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Анна Каренина"))
+
+            assertThat(db.ftsHits("каренина")).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun migrate_1_to_2_editing_a_book_keeps_the_index_in_sync() {
+        givenVersion1WithoutBooks()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            db.execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Анна Каренина"))
+            assertThat(db.ftsHits("каренина")).isEqualTo(1)
+
+            db.execSQL(
+                "UPDATE books SET title = ?, sortTitle = ? WHERE id = ?",
+                arrayOf<Any>("Отцы и дети", "Отцы и дети", BOOK_ID),
+            )
+
+            assertThat(db.ftsHits("каренина")).isEqualTo(0)
+            assertThat(db.ftsHits("отцы")).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun migrate_1_to_2_deleting_a_book_removes_it_from_the_index() {
+        givenVersion1WithoutBooks()
+
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2).use { db ->
+            db.execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Анна Каренина"))
+            assertThat(db.ftsHits("каренина")).isEqualTo(1)
+
+            db.execSQL("DELETE FROM books WHERE id = ?", arrayOf<Any>(BOOK_ID))
+
+            assertThat(db.ftsHits("каренина")).isEqualTo(0)
+        }
+    }
+
+    private fun givenVersion1WithBook() {
+        helper.createDatabase(TEST_DB, 1).apply {
+            execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
+            close()
+        }
+    }
+
+    private fun givenVersion1WithoutBooks() {
+        helper.createDatabase(TEST_DB, 1).close()
+    }
+
+    private fun SupportSQLiteDatabase.stringOf(sql: String, id: String): String =
+        query(sql, arrayOf<Any>(id)).use { cursor ->
+            check(cursor.moveToFirst()) { "запрос не вернул строк: $sql" }
+            cursor.getString(0)
+        }
+
+    private fun SupportSQLiteDatabase.ftsHits(term: String): Int = query(
+        "SELECT COUNT(*) FROM books INNER JOIN books_fts ON books.rowid = books_fts.rowid " +
+            "WHERE books_fts MATCH ?",
+        arrayOf<Any>(term),
+    ).use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(0)
+    }
+
+    private fun bookArgs(id: String, title: String): Array<Any> =
+        arrayOf<Any>(id, title, title, "Лев Толстой")
+
+    private companion object {
+        const val TEST_DB = "migration-test.db"
+        const val BOOK_ID = "book-1"
+
+        /**
+         * Вставка только обязательных полей: схема требует `metadataSource`, `parseState`,
+         * `readingStatus`, `openCount`, `favorite` и `isMissing` — у них нет DEFAULT в SQL.
+         * Плейсхолдеры идут в порядке колонок: id, title, sortTitle, authorsText.
+         */
+        const val INSERT_BOOK_SQL =
+            "INSERT INTO books (id, sourceId, documentUri, relativePath, fileName, extension, " +
+                "mimeType, sizeBytes, lastModified, title, sortTitle, authorsText, metadataSource, " +
+                "parseState, readingStatus, openCount, favorite, isMissing, addedAt, updatedAt, " +
+                "lastSeenAt) VALUES (?, 's1', 'content://x', 'a/b.fb2', 'b.fb2', 'fb2', " +
+                "'application/fb2', 10, 1, ?, ?, ?, 'NONE', 'PENDING', 'UNREAD', 0, 0, 0, 1, 1, 1)"
+    }
+}

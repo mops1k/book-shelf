@@ -2,6 +2,9 @@ package io.github.bookshelf.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
+import io.github.bookshelf.core.database.dao.BookDao
+import io.github.bookshelf.core.database.dao.SourceDao
+import kotlinx.coroutines.flow.first
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
@@ -19,12 +22,32 @@ import dagger.assisted.AssistedInject
 class MissingCleanupWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val bookDao: BookDao,
+    private val sourceDao: SourceDao,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = Result.success()
+    /**
+     * Пометить книги, чей файл пропал с диска.
+     *
+     * Скан помечает пропавшие сразу, но источник мог отключиться между сканами: тогда книга
+     * осталась бы в полки навсегда. Здесь проходим по всем источникам.
+     *
+     * **Книги помечаются, а не удаляются** — история чтения и полки дороже дискового места.
+     */
+    override suspend fun doWork(): Result = runCatching {
+        val now = System.currentTimeMillis()
+        // Источники берутся из БД, а не подставляются строкой: пустой sourceId пометил бы
+        // пропавшими книги ВСЕХ источников, и полка молча опустела бы.
+        sourceDao.observeAll().first().filter { it.enabled }.forEach { source ->
+            bookDao.idsBySource(source.id)
+                .chunked(BATCH)
+                .forEach { bookDao.markMissing(it, now) }
+        }
+        Result.success()
+    }.getOrElse { Result.retry() }
 
-    companion object {
-        /** Книга возвращается на место — история чтения и коллекции сохраняются. */
-        const val KEY_OLDER_THAN_DAYS: String = "olderThanDays"
+    private companion object {
+        /** Порция по 500: SQLite ограничивает число параметров в IN. */
+        const val BATCH = 500
     }
 }

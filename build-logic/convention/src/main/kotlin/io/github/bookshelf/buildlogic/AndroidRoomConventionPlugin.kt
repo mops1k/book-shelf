@@ -1,10 +1,12 @@
 package io.github.bookshelf.buildlogic
 
+import com.android.build.api.dsl.LibraryExtension
 import com.google.devtools.ksp.gradle.KspExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.getByType
 
 /**
  * Room (KSP) с экспортом схемы.
@@ -26,6 +28,14 @@ class AndroidRoomConventionPlugin : Plugin<Project> {
 
         extensions.configure<KspExtension> {
             arg("room.schemaLocation", "$projectDir/schemas")
+        }
+
+        // MigrationTestHelper читает экспортированные схемы из assets теста, а не с диска:
+        // без этого он падает с FileNotFoundException на `…/BookshelfDatabase/1.json`.
+        // Подключаем весь каталог schemas/ — он один на модуль и коммитится в репозиторий.
+        pluginManager.withPlugin("com.android.library") {
+            val android = extensions.getByType<LibraryExtension>()
+            android.sourceSets.getByName("test").assets.srcDir(file("$projectDir/schemas"))
         }
     }
 }

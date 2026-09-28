@@ -49,7 +49,7 @@ class AppResultTest {
         val fallback: (AppError) -> Int = { -1 }
 
         assertThat(AppResult.success(7).getOrElse(fallback)).isEqualTo(7)
-        assertThat(AppResult.failure(AppError.AccessLost).getOrElse(fallback)).isEqualTo(-1)
+        assertThat(AppResult.failure<Int>(AppError.AccessLost).getOrElse(fallback)).isEqualTo(-1)
     }
 
     @Test

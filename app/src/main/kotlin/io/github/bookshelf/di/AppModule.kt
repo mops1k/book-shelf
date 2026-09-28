@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.di.ApplicationScope
 import io.github.bookshelf.core.common.di.CoverCacheDir
+import io.github.bookshelf.core.common.di.OpdsCacheDir
 import io.github.bookshelf.core.common.di.DefaultDispatcher
 import io.github.bookshelf.core.common.di.ExportDir
 import io.github.bookshelf.core.common.di.TempDir
@@ -54,4 +55,18 @@ object AppModule {
     @ExportDir
     fun provideExportDir(@ApplicationContext context: Context): File =
         File(context.cacheDir, "export").apply { if (!exists()) mkdirs() }
+
+    /**
+     * Каталог тел фидов OPDS.
+     *
+     * Отдельный от обложек намеренно: чистка обложек не должна сносить кэш каталогов, а
+     * очистка каталогов — обложки. Внутри `cacheDir`, чтобы ОС убрала его сама.
+     */
+    @Provides
+    @Singleton
+    @OpdsCacheDir
+    fun provideOpdsCacheDir(@ApplicationContext context: Context): File =
+        File(context.cacheDir, OPDS_CACHE_DIR).apply { mkdirs() }
+
+    private const val OPDS_CACHE_DIR = "opds"
 }

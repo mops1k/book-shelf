@@ -1,6 +1,9 @@
 package io.github.bookshelf.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.github.bookshelf.core.data.sync.MetadataBackfill
+import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.designsystem.theme.EinkDensity
 import io.github.bookshelf.core.designsystem.theme.FontScale
@@ -26,7 +29,17 @@ data class ThemeState(
  * чтобы тема, плотность и масштаб уже были частью каркаса.
  */
 @HiltViewModel
-class MainViewModel @Inject constructor() : ViewModel() {
+class MainViewModel @Inject constructor(
+    /**
+     * Разовый бэкфилл жанров: без него у уже разобранных книг жанров в базе не появится,
+     * и умная полка «по жанру» останется пустой (см. `MetadataBackfill`).
+     */
+    private val metadataBackfill: MetadataBackfill,
+) : ViewModel() {
+
+    init {
+        viewModelScope.launch { metadataBackfill.runOnce() }
+    }
 
     private val _themeState = MutableStateFlow(ThemeState())
     val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()

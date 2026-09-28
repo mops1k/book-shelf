@@ -17,4 +17,12 @@ dependencies {
     // DocumentsContract напрямую (docs/architecture.md §4.2)
     implementation(libs.androidx.documentfile)
     implementation(libs.kotlinx.serialization.json)
+    // runTest нужен тестам обхода; проверки — на Truth, как во всём проекте.
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.truth)
+    testImplementation(libs.robolectric)
+    // mockk нужен BookContentOpenerTest: ContentResolver.openInputStream final,
+    // и подменить его можно только мок-библиотекой.
+    testImplementation(libs.mockk)
+    testImplementation(project(":core:testing"))
 }

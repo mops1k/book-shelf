@@ -43,6 +43,8 @@ class SettingsDefaultsTest {
         val library = AppSettings().library
 
         assertThat(library.gridColumns).isEqualTo(2)
+        // Полка по умолчанию открывается сеткой обложек: обзор по категориям — осознанный выбор.
+        assertThat(library.viewPreset).isEqualTo(ShelfViewPreset.GRID)
         assertThat(library.sortOrder).isEqualTo(SortOrder.TITLE)
         assertThat(library.sortDescending).isFalse()
         assertThat(library.grouping).isEqualTo(Grouping.NONE)

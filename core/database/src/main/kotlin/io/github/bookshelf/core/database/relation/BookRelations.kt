@@ -71,17 +71,43 @@ data class BookAuthorRelation(
     val position: Int,
 )
 
-/** Фасет «автор»: автор и число книг, доступных при текущих фильтрах. */
+/**
+ * Фасет «автор»: имя и число книг, доступных при текущих фильтрах.
+ *
+ * Имя — это ключ (`books.authorsText`), а не id нормализованной таблицы: `authors`/`book_authors`
+ * в приложении не заполняются, и фасет по ним всегда был пустым (проверено на устройстве).
+ */
 data class AuthorFacet(
-    val authorId: String,
     val name: String,
-    val sortName: String,
     val bookCount: Int,
 )
 
 /** Фасет «серия»: имя серии и число книг. */
 data class SeriesFacet(
     val seriesName: String,
+    val bookCount: Int,
+)
+
+/**
+ * Серия конкретного автора: имя серии и число книг.
+ *
+ * `seriesName = null` означает книги этого автора **вне серий** — в обзоре они показываются
+ * отдельной категорией («Вне серий»), иначе такие книги были бы недостижимы из обзора.
+ */
+data class AuthorSeriesFacet(
+    val seriesName: String?,
+    val bookCount: Int,
+)
+
+/**
+ * Фасет «жанр/тег»: имя и число книг.
+ *
+ * Жанры приходят из метаданных FB2 (`<genre>`) и EPUB (`dc:subject`) и хранятся в `tags`.
+ * До появления этого фасета `FilterRepositoryImpl` отдавал `tags = emptyList()`, и жанры
+ * в фильтрах и умных полках не были видны вообще.
+ */
+data class TagFacet(
+    val name: String,
     val bookCount: Int,
 )
 

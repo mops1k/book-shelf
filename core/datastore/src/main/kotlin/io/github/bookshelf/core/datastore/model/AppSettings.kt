@@ -54,6 +54,10 @@ data class EinkSettings(
 /** Полка: сетка/список, сортировка, группировка, скан и лимиты (docs/eink-ux.md §6.2, §6.8). */
 data class LibrarySettings(
     val gridColumns: Int = SettingsKeys.Defaults.GRID_COLUMNS,
+    /** Вид полки по умолчанию: чем открывается библиотека (сетка … обзор по сериям). */
+    val viewPreset: ShelfViewPreset = SettingsKeys.Defaults.VIEW_PRESET,
+    /** Разовый бэкфилл жанров уже запускался (см. `MetadataBackfill`). */
+    val metadataBackfillDone: Boolean = SettingsKeys.Defaults.METADATA_BACKFILL_DONE,
     val rowsPerPage: Int = SettingsKeys.Defaults.ROWS_PER_PAGE,
     val sortOrder: SortOrder = SettingsKeys.Defaults.SORT_ORDER,
     val sortDescending: Boolean = SettingsKeys.Defaults.SORT_DESCENDING,

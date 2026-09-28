@@ -29,49 +29,49 @@ class Converters {
     fun parseStateToString(value: ParseState?): String? = value?.name
 
     @TypeConverter
-    fun stringToParseState(value: String?): ParseState? = enumFromName(value)
+    fun stringToParseState(value: String?): ParseState? = enumFromName<ParseState>(value)
 
     @TypeConverter
     fun metadataSourceToString(value: MetadataSource?): String? = value?.name
 
     @TypeConverter
-    fun stringToMetadataSource(value: String?): MetadataSource? = enumFromName(value)
+    fun stringToMetadataSource(value: String?): MetadataSource? = enumFromName<MetadataSource>(value)
 
     @TypeConverter
     fun readingStatusToString(value: ReadingStatus?): String? = value?.name
 
     @TypeConverter
-    fun stringToReadingStatus(value: String?): ReadingStatus? = enumFromName(value)
+    fun stringToReadingStatus(value: String?): ReadingStatus? = enumFromName<ReadingStatus>(value)
 
     @TypeConverter
     fun sourceKindToString(value: SourceKind?): String? = value?.name
 
     @TypeConverter
-    fun stringToSourceKind(value: String?): SourceKind? = enumFromName(value)
+    fun stringToSourceKind(value: String?): SourceKind? = enumFromName<SourceKind>(value)
 
     @TypeConverter
     fun collectionTypeToString(value: CollectionType?): String? = value?.name
 
     @TypeConverter
-    fun stringToCollectionType(value: String?): CollectionType? = enumFromName(value)
+    fun stringToCollectionType(value: String?): CollectionType? = enumFromName<CollectionType>(value)
 
     @TypeConverter
     fun scanRunStatusToString(value: ScanRunStatus?): String? = value?.name
 
     @TypeConverter
-    fun stringToScanRunStatus(value: String?): ScanRunStatus? = enumFromName(value)
+    fun stringToScanRunStatus(value: String?): ScanRunStatus? = enumFromName<ScanRunStatus>(value)
 
     @TypeConverter
     fun opdsDownloadStateToString(value: OpdsDownloadState?): String? = value?.name
 
     @TypeConverter
-    fun stringToOpdsDownloadState(value: String?): OpdsDownloadState? = enumFromName(value)
+    fun stringToOpdsDownloadState(value: String?): OpdsDownloadState? = enumFromName<OpdsDownloadState>(value)
 
     @TypeConverter
     fun bookmarkKindToString(value: BookmarkKind?): String? = value?.name
 
     @TypeConverter
-    fun stringToBookmarkKind(value: String?): BookmarkKind? = enumFromName(value)
+    fun stringToBookmarkKind(value: String?): BookmarkKind? = enumFromName<BookmarkKind>(value)
 
     /** Список строк (MIME-типы, glob-шаблоны) — одной строкой через [LIST_SEPARATOR]. */
     @TypeConverter

@@ -1,11 +1,15 @@
 package io.github.bookshelf.core.readerlink.launch
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
-import io.github.bookshelf.core.readerlink.profile.ReaderProfile
 import javax.inject.Inject
 import javax.inject.Singleton
+import io.github.bookshelf.core.readerlink.profile.ReaderProfile
 
 /**
  * Запуск книги во внешней читалке (уровень L1).
@@ -101,11 +105,87 @@ fun ReaderLaunchError.toAppError(): AppError = when (this) {
  * читалки; при `SecurityException` — автоповтор с копией (docs/reader-integration.md §7).
  */
 @Singleton
-class DefaultReaderLauncher @Inject constructor() : ReaderLauncher {
+class DefaultReaderLauncher @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : ReaderLauncher {
 
-    // STUB(Sprint 5): получить Context, собрать Intent по профилю и перебрать стратегии URI.
+    /**
+     * Запуск книги в выбранной читалке (L1, docs/reader-integration.md §7).
+     *
+     * **Каждая попытка ограничена пакетом профиля.** Общего `ACTION_VIEW` без пакета здесь
+     * нет намеренно: под книжные MIME-типы подходит не только читалка (на устройстве подходили
+     * AniLabX и ещё несколько посторонних приложений), и система без нашего участия отдавала
+     * книгу первому попавшемуся. Пользователь выбрал читалку — открываем в ней, а если она не
+     * справилась, сообщаем об этом, вместо того чтобы молча подменить приложение.
+     *
+     * Внутри пакета перебираются два способа, потому что один не срабатывает всегда:
+     * 1. явный компонент «пакет + activity», если профиль её знает;
+     * 2. `ACTION_VIEW` с MIME внутри пакета — пакет сам выберет подходящую activity.
+     *
+     * Второй способ нужен потому, что activity в профиле может быть переименована: жёстко
+     * заколоченный компонент тогда даёт «не найдено», хотя читалка стоит и формат умеет.
+     *
+     * `ActivityNotFoundException` — нормальная ситуация, а не сбой: читалка может быть
+     * установлена, но не уметь этот формат.
+     */
+    override suspend fun launch(request: LaunchRequest): AppResult<Unit> = runCatching {
+        val profile = request.profile
+        check(profile.packageName.isNotBlank()) {
+            "У профиля читалки не задан пакет"
+        }
+        val attempts = buildList {
+            profile.activityName?.let { activityName ->
+                add(viewIntent(request.documentUri, request.mimeType, profile.packageName, activityName))
+            }
+            add(viewIntent(request.documentUri, request.mimeType, profile.packageName, activityName = null))
+        }
 
-    override suspend fun launch(request: LaunchRequest): AppResult<Unit> = TODO(
-        "STUB(Sprint 5): собрать Intent и автоматически выбрать рабочий способ URI",
+        var lastError: Throwable? = null
+        for (intent in attempts) {
+            val resolved = context.packageManager.resolveActivity(intent, 0)
+            if (resolved == null) {
+                lastError = ActivityNotFoundException("Нет приложения для ${request.mimeType}")
+                continue
+            }
+            try {
+                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return@runCatching
+            } catch (notFound: ActivityNotFoundException) {
+                lastError = notFound
+            }
+        }
+        throw lastError ?: ActivityNotFoundException("Нет приложения для ${request.mimeType}")
+    }.fold(
+        onSuccess = { AppResult.success(Unit) },
+        onFailure = { error ->
+            AppResult.failure(
+                if (error is ActivityNotFoundException) {
+                    AppError.NotFound(
+                        what = "reader",
+                        message = "Читалка «${request.profile.name}» не открывает этот формат",
+                    )
+                } else if (error is SecurityException) {
+                    AppError.PermissionDenied(message = "Читалка отказала в доступе к файлу")
+                } else {
+                    AppError.Unknown(message = error.message, cause = error)
+                },
+            )
+        },
     )
+
+    /**
+     * Один вариант intent на запуск, всегда привязанный к пакету читалки.
+     */
+    private fun viewIntent(
+        documentUri: Uri,
+        mimeType: String,
+        packageName: String,
+        activityName: String?,
+    ): Intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(documentUri, mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addCategory(Intent.CATEGORY_DEFAULT)
+        if (activityName != null) setClassName(packageName, activityName)
+        setPackage(packageName)
+    }
 }

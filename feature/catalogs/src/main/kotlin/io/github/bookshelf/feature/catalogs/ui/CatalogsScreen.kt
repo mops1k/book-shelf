@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.catalogs.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,13 +9,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,10 +35,10 @@ import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkProgress
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkTextField
-import io.github.bookshelf.core.designsystem.component.TapZoneLayout
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
+import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.catalogs.CatalogUi
@@ -42,6 +47,11 @@ import io.github.bookshelf.feature.catalogs.CatalogsUiState
 import io.github.bookshelf.feature.catalogs.CatalogsViewModel
 import io.github.bookshelf.feature.catalogs.DownloadUi
 import io.github.bookshelf.feature.catalogs.FeedEntryUi
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /** Сколько каталогов, записей и загрузок помещается на «страницу». */
 private const val CATALOGS_PAGE_SIZE = 12
@@ -61,13 +71,17 @@ fun CatalogsScreen(
     catalogId: String?,
     onBack: () -> Unit,
     onOpenBook: (String) -> Unit,
+    onOpenEntry: (String, String, String?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CatalogsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(catalogId) {
-        if (catalogId != null) viewModel.onOpenCatalog(catalogId)
+        // Не null, а пустая строка: шаблон маршрута содержит ?catalogId={catalogId}, и незаполненный
+        // аргумент приходит как "". Проверка на null проходила, и экран открывал фид каталога "",
+        // уходя из списка. Поэтому пустое — тоже отсутствие.
+        if (!catalogId.isNullOrBlank()) viewModel.onOpenCatalog(catalogId)
     }
 
     when (state.mode) {
@@ -88,7 +102,9 @@ fun CatalogsScreen(
         CatalogsMode.FEED -> FeedBrowserScreen(
             state = state,
             viewModel = viewModel,
-            onBack = viewModel::onBackToList,
+            // Уровень выше по истории разделов, а в корне каталога — к списку каталогов.
+            onBack = viewModel::onBack,
+            onOpenEntry = onOpenEntry,
             modifier = modifier,
         )
 
@@ -132,25 +148,32 @@ private fun CatalogsListScreen(
                 else -> Unit
             }
         },
-        footer = { StatusFooter(label = pager.statusLabel("каталогов")) },
+        footer = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                StatusFooter(label = pager.statusLabel("каталогов"))
+                EinkButton(
+                    text = "Добавить каталог",
+                    onClick = viewModel::onOpenAddForm,
+                    primary = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
     ) {
         val error = state.error
         if (error != null) {
             EinkErrorBanner(message = error, actionLabel = "Обновить", onAction = viewModel::onBackToList)
         }
 
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (state.catalogs.isEmpty()) {
                 EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 8",
-                    message = "Здесь появятся OPDS-каталоги: добавление по URL с логином и паролем, " +
-                        "браузер фида с хлебными крошками и загрузка книг в библиотеку.",
-                    actionLabel = "Добавить каталог",
-                    onAction = viewModel::onOpenAddForm,
+                    title = "Каталогов пока нет",
+                    message = "Добавьте каталог по адресу — например, https://m.flibusta.is/opds " +
+                        "без логина. Каталогов может быть сколько угодно, и каждый открывается отдельно. " +
+                        "Нажмите «Добавить каталог» внизу экрана.",
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -209,6 +232,20 @@ private fun AddCatalogScreen(
             }
         },
     ) {
+        // Ошибка валидации раньше не отображалась вовсе: нажатие выглядело как «ничего не
+        // происходит». В footer её ставить нельзя — там Row с кнопками, и баннер их вытеснял.
+        state.error?.let { message ->
+            EinkErrorBanner(message = message, actionLabel = null, onAction = {})
+        }
+
+        if (state.isLoading) {
+            Text(
+                text = "Проверяем каталог…",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = dimens.gutterSmall),
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -244,7 +281,6 @@ private fun AddCatalogScreen(
                 onCheckedChange = viewModel::onFormOpenImmediatelyChange,
                 label = "Открывать этот каталог сразу",
             )
-            StubNotice(sprint = 8)
         }
     }
 }
@@ -255,6 +291,7 @@ private fun FeedBrowserScreen(
     state: CatalogsUiState,
     viewModel: CatalogsViewModel,
     onBack: () -> Unit,
+    onOpenEntry: (String, String, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalEinkColors.current
@@ -279,7 +316,17 @@ private fun FeedBrowserScreen(
                 else -> Unit
             }
         },
-        footer = { StatusFooter(label = pager.statusLabel("записей")) },
+        // Страниц у фида больше нет: весь список прокручивается. Подпись «Стр. 1/2» вводила
+        // в заблуждение — вторая страница была недостижима, а список на самом деле целиком.
+        footer = {
+            StatusFooter(
+                label = feedStatusLabel(
+                    loaded = entries.size,
+                    hasNext = feed?.hasNextPage == true,
+                    isNavigation = feed?.isNavigation == true,
+                ),
+            )
+        },
     ) {
         Row(
             modifier = Modifier
@@ -296,30 +343,37 @@ private fun FeedBrowserScreen(
             EinkButton(text = "Искать", onClick = viewModel::onSearchInFeed)
         }
 
-        Text(
-            text = "Найдено записей: ${entries.size}",
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.foreground,
-            modifier = Modifier.padding(horizontal = dimens.gutter),
-        )
+        // Индикация загрузки: переход по разделам ждёт сеть, и без подписи экран выглядел
+        // зависшим — пользователь не понимал, идёт работа или приложение задумалось.
+        if (state.isLoading) {
+            LoadingRow(label = "Загружаем раздел каталога…")
+        }
 
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (entries.isEmpty()) {
-                EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 8",
-                    message = "Здесь появятся записи фида: хлебные крошки, обложки, форматы и размер, " +
-                        "действия «Скачать» и «Скачать в другую папку…». Пагинация — страницами фида.",
-                    modifier = Modifier.fillMaxSize(),
-                )
+                if (state.isLoading) {
+                    // Первый фид: пустая подсказка «фид не загружен» противоречила бы индикатору.
+                    LoadingRow(label = "Загружаем фид каталога…")
+                } else {
+                    EinkEmptyState(
+                        title = "Фид не загружен",
+                        message = "Здесь появятся записи фида: хлебные крошки, обложки, форматы и размер. " +
+                            "Нажмите на книгу — откроется карточка с описанием и кнопкой «Скачать».",
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             } else {
-                EntryGrid(
-                    entries = entries.drop(pager.offset).take(pager.pageSize),
-                    columns = dimens.gridColumns,
-                    onDownload = { entry -> viewModel.onDownloadEntry(entry.id) },
+                // Список один и прокручивается целиком; когда пользователь доходит до конца,
+                // следующая страница фида догружается сама (rel="next").
+                FeedContent(
+                    entries = entries,
+                    columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
+                    hasNextPage = feed?.hasNextPage == true,
+                    isLoadingMore = state.isLoadingMore,
+                    onOpen = { entry -> viewModel.onOpenEntry(entry.id, onOpenEntry) },
+                    onLoadMore = viewModel::onLoadNextPage,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -327,26 +381,97 @@ private fun FeedBrowserScreen(
     }
 }
 
-/** Сетка записей фида: обложка, название, авторы, форматы. */
+/**
+ * Подпись о записях фида.
+ *
+ * Точное число показывается только там, где точно известно, что страниц больше нет
+ * (`rel="next"` отсутствует): OPDS не отдаёт общее количество записей, и «записей: 20» на фиде
+ * из двухсот книг читалось как реальное число, хотя это была всего одна страница.
+ */
+private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean): String = when {
+    hasNext -> "загружено $loaded, есть ещё"
+    isNavigation -> "разделов: $loaded"
+    else -> "книг: $loaded"
+}
+
+/**
+ * Строка индикации загрузки: подпись, что именно грузится.
+ *
+ * Без полосы прогресса: у запроса фида нет измеримого прогресса, а полоса «на глаз» или на нуле
+ * врала бы о состоянии. На e-ink статичная подпись честнее и не мигает (docs/eink-ux.md §5).
+ */
 @Composable
-private fun EntryGrid(
+private fun LoadingRow(label: String) {
+    EinkListRow(
+        title = label,
+        subtitle = "Идёт запрос к каталогу по сети",
+        hasDivider = false,
+    )
+}
+
+/**
+ * Записи фида: разделы каталога — списком, книги — плитками с обложками, как на главной полке.
+ *
+ * Один ленивый контейнер и навигационные строки во всю ширину (span): смешанный фид встречается
+ * у Флибусты, и два независимых списка прокручивались бы по отдельности.
+ */
+@Composable
+private fun FeedContent(
     entries: List<FeedEntryUi>,
-    columns: Int,
-    onDownload: (FeedEntryUi) -> Unit,
+    columns: GridCells,
+    hasNextPage: Boolean,
+    isLoadingMore: Boolean,
+    onOpen: (FeedEntryUi) -> Unit,
+    onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val gridState = rememberLazyGridState()
+
+    // Текучая догрузка: как только до конца списка осталось меньше экрана, просим следующую
+    // страницу фида. Без этого фид длиннее одной страницы обрывался на первой.
+    val atListEnd by remember {
+        derivedStateOf {
+            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= gridState.layoutInfo.totalItemsCount - LOAD_MORE_THRESHOLD
+        }
+    }
+    LaunchedEffect(atListEnd, hasNextPage) {
+        if (atListEnd && hasNextPage) onLoadMore()
+    }
+
     LazyVerticalGrid(
-        columns = GridCells.Fixed(columns),
+        columns = columns,
+        state = gridState,
         modifier = modifier.fillMaxSize(),
-        userScrollEnabled = false,
     ) {
-        gridItems(items = entries, key = { entry -> entry.id }) { entry ->
-            EntryCard(entry = entry, onClick = { onDownload(entry) })
+        val sections = entries.filter { entry -> entry.isSection }
+        val books = entries.filterNot { entry -> entry.isSection }
+
+        sections.forEach { section ->
+            item(span = { GridItemSpan(maxLineSpan) }, key = "section:${section.id}") {
+                EinkListRow(
+                    title = section.title,
+                    subtitle = section.authors.takeIf { it.isNotBlank() },
+                    trailing = "раздел",
+                    onClick = { onOpen(section) },
+                )
+            }
+        }
+        gridItemsIndexed(items = books, key = { index, entry -> "$index:${entry.id}" }) { _, entry ->
+            EntryCard(entry = entry, onClick = { onOpen(entry) })
+        }
+        if (isLoadingMore) {
+            item(span = { GridItemSpan(maxLineSpan) }, key = "loading-more") {
+                LoadingRow(label = "Загружаем следующую страницу…")
+            }
         }
     }
 }
 
-/** Карточка записи фида: тап по карточке и кнопка «Скачать» делают одно и то же. */
+/** За сколько записей до конца списка начинать догрузку: примерно один экран на e-ink. */
+private const val LOAD_MORE_THRESHOLD = 6
+
+/** Карточка записи фида: тап и кнопка делают одно и то же — открывают раздел или качают книгу. */
 @Composable
 private fun EntryCard(
     entry: FeedEntryUi,
@@ -389,7 +514,10 @@ private fun EntryCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        EinkButton(text = "Скачать", onClick = onClick)
+        // Отдельной кнопки нет намеренно: карточка целиком и есть элемент управления.
+        // Кнопка внутри кликабельной карточки была мёртвой — нажатие на подпись не
+        // срабатывало, хотя рядом работало нажатие на саму карточку, и это выглядело как
+        // «приложение зависло». Одно действие — одна зона касания.
     }
 }
 
@@ -402,9 +530,10 @@ private fun DownloadsScreen(
     onOpenBook: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pager = rememberEinkPagerState(pageSize = CATALOGS_PAGE_SIZE, totalItems = state.downloads.size)
-
-    LaunchedEffect(state.downloads.size) { pager.updateTotalItems(state.downloads.size) }
+    // Постраничной нарезки больше нет: список один и длинный, и до второй страницы пальцем
+    // было не добраться (прокрутка была выключена, листали только аппаратные клавиши).
+    val listState = rememberLazyListState()
+    val scrollByPage = rememberListPageScroller(listState)
 
     EinkScaffold(
         title = "Загрузки",
@@ -413,30 +542,27 @@ private fun DownloadsScreen(
         onBack = onBack,
         onKeyAction = { action ->
             when (action) {
-                EinkAction.PREVIOUS_PAGE -> pager.previous()
-                EinkAction.NEXT_PAGE -> pager.next()
+                EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+                EinkAction.NEXT_PAGE -> scrollByPage(1)
                 EinkAction.BACK -> onBack()
                 else -> Unit
             }
         },
-        footer = { StatusFooter(label = pager.statusLabel("загрузок")) },
+        footer = { StatusFooter(label = downloadCountLabel(state.downloads.size)) },
     ) {
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (state.downloads.isEmpty()) {
                 EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 8",
-                    message = "Здесь появится очередь загрузок: прогресс, отмена, повтор и переход " +
-                        "к уже скачанной книге.",
+                    title = "Загрузок пока нет",
+                    message = "Вы ещё ничего не скачивали. Здесь появится очередь: прогресс, " +
+                        "отмена, причина ошибки и переход к уже скачанной книге.",
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                val visible = state.downloads.drop(pager.offset).take(pager.pageSize)
-                LazyColumn(modifier = Modifier.fillMaxSize(), userScrollEnabled = false) {
-                    listItems(items = visible, key = { download -> download.id }) { download ->
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    listItems(items = state.downloads, key = { download -> download.id }) { download ->
                         DownloadRow(
                             download = download,
                             onCancel = { viewModel.onCancelDownload(download.id) },
@@ -445,6 +571,25 @@ private fun DownloadsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Подпись под списком загрузок: сколько всего строк в очереди и в истории. */
+private fun downloadCountLabel(count: Int): String = when (count) {
+    0 -> "загрузок нет"
+    1 -> "1 загрузка"
+    else -> "загрузок: $count"
+}
+
+/** Листание списка загрузок аппаратными клавишами: прокрутка на высоту экрана. */
+@Composable
+private fun rememberListPageScroller(listState: LazyListState): (Int) -> Unit {
+    val scope = rememberCoroutineScope()
+    return { direction ->
+        val amount = listState.layoutInfo.viewportSize.height
+        if (amount > 0) {
+            scope.launch { listState.scrollBy((direction * amount).toFloat()) }
         }
     }
 }
@@ -513,13 +658,3 @@ private fun entryMeta(entry: FeedEntryUi): String {
     return parts.joinToString(separator = " · ")
 }
 
-/** Пометка этапа каркаса: видно, что экран ещё не реализован, и в каком спринте будет. */
-@Composable
-private fun StubNotice(sprint: Int) {
-    val colors = LocalEinkColors.current
-    Text(
-        text = "Раздел в разработке — Спринт $sprint",
-        style = MaterialTheme.typography.labelMedium,
-        color = colors.foreground,
-    )
-}

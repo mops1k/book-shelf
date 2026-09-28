@@ -32,9 +32,12 @@ data class ReadingProgressSnapshot(
  * Адаптер [FbReaderApi] к доменному [ReadingProgressSource].
  *
  * Класс без `@Inject`: конструктор принимает [FbReaderApi], привязка которого к AIDL-реализации
- * появляется в Sprint 7 вместе с вендорингом AIDL. До этого момента DI-граф его не собирает.
+ * появляется в Sprint 7 вместе с вендорингом AIDL. До этого момента DI-граф его не собирает,
+ * а параметр держится без сохранения в свойство: пока тело — заглушка, хранить его нечего.
  */
 class FbReaderAdapter(
+    // Sprint 7: понадобится с вендорингом AIDL.
+    @Suppress("UnusedPrivateProperty")
     api: FbReaderApi,
 ) : ReadingProgressSource {
 

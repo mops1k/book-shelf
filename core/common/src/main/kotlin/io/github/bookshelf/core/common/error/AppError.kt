@@ -14,6 +14,19 @@ sealed interface AppError {
     /** Запись/файл/каталог не найден. */
     data class NotFound(val what: String, override val message: String? = null) : AppError
 
+    /**
+     * Значение не проходит проверку: вне диапазона, неизвестная константа, пустая строка там,
+     * где она обязательна.
+     *
+     * Отдельный тип нужен, чтобы UI показал «оценка должна быть от 0 до 5» рядом с полем ввода,
+     * а не общее «что-то пошло не так». Проверка живёт в вызывающем слое (репозитории), потому
+     * что только он знает допустимые пределы.
+     */
+    data class InvalidArgument(
+        val what: String,
+        override val message: String? = null,
+    ) : AppError
+
     /** Нет разрешения на доступ (SAF/URI/уведомления). */
     data class PermissionDenied(val uri: String? = null, override val message: String? = null) : AppError
 

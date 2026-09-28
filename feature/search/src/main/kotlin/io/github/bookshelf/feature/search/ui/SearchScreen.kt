@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.search.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,9 +25,9 @@ import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.component.EinkTextField
-import io.github.bookshelf.core.designsystem.component.TapZoneLayout
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
+import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.search.SearchViewModel
@@ -71,7 +72,9 @@ fun SearchScreen(
         },
         footer = {
             Text(
-                text = pager.statusLabel("результатов"),
+                // Число берётся из того же состояния, что и список, а не из пагинатора:
+                // пагинатор обновлялся отдельной подпиской и мог отставать от списка.
+                text = resultCountLabel(state.total),
                 style = MaterialTheme.typography.labelMedium,
                 color = colors.foreground,
                 modifier = Modifier
@@ -143,16 +146,21 @@ fun SearchScreen(
                 }
             }
 
+            // Подсказки и результаты — разные списки, и раньше они шли подряд без разметки:
+            // подсказки выглядели как найденные книги, а счётчик результатов при этом честно
+            // показывал 0, и выглядело как «поиск сломан». Заголовки разводят списки.
+            if (state.suggestions.isNotEmpty()) {
+                EinkSectionHeader(title = "Подсказки", count = state.suggestions.size)
+            }
+
             EinkSectionHeader(title = "Результаты", count = state.total)
 
-            TapZoneLayout(
-                onPrevious = pager::previous,
-                onNext = pager::next,
+            Box(
                 modifier = Modifier.weight(1f),
             ) {
                 if (state.results.isEmpty()) {
                     EinkEmptyState(
-                        title = "Раздел в разработке — Спринт 4",
+                        title = "Ничего не найдено",
                         message = "Здесь появятся результаты полнотекстового поиска: совпадение " +
                             "выделяется рамкой, ниже — фильтры «только непрочитанные», " +
                             "«только избранное», формат.",
@@ -174,3 +182,7 @@ fun SearchScreen(
         }
     }
 }
+
+
+/** Подпись числа результатов: «Найдено: 7». */
+private fun resultCountLabel(total: Int): String = "Найдено: $total"

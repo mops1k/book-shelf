@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.metadata.registry
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.metadata.parser.BookMetadataParser
 import io.github.bookshelf.core.metadata.parser.impl.CbrParser
 import io.github.bookshelf.core.metadata.parser.impl.CbzParser
@@ -91,7 +92,7 @@ class ParserRegistryTest {
             TxtParser(),
             MobiParser(),
             CbzParser(),
-            CbrParser(),
+            CbrParser(FakeFeatureFlags()),
             DocxParser(),
             OdtParser(),
             RtfParser(),

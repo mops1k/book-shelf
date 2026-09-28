@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,8 +76,33 @@ fun EinkButton(
 }
 
 /**
+ * Пункт меню действий: та же кнопка, но во всю ширину.
+ *
+ * В меню команды идут столбцом (docs/eink-ux.md §6.2): цель крупная, подпись не переносится,
+ * а порядок читается сверху вниз — в отличие от ряда кнопок в шапке, где они «уезжают» вниз
+ * и перекрывают содержимое.
+ */
+@Composable
+fun EinkMenuButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    EinkButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
+    )
+}
+
+/**
  * Чип фильтра: выбранное состояние — инверсия, число рядом с названием помогает понять,
  * сколько книг останется после применения (фасетные фильтры, docs/architecture.md §3.5).
+ *
+ * Подпись центрируется внутри чипа: когда чип шире текста (растянут по строке), прижатая влево
+ * подпись выглядит как обрезанная.
  */
 @Composable
 fun EinkChip(
@@ -103,7 +129,7 @@ fun EinkChip(
             )
             .padding(horizontal = dimens.gutterSmall, vertical = dimens.gutterSmall),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        horizontalArrangement = Arrangement.Center,
     ) {
         val textColor = if (selected) colors.invertedForeground else colors.foreground
         Text(

@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.bookdetails
 
 import androidx.navigation.NamedNavArgument
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
@@ -28,24 +29,25 @@ object BookDetailsRoute {
  * Регистрирует карточку книги в навигационном графе.
  *
  * @param onBack возврат на полку.
- * @param onRead открытие книги во внешней читалке (Sprint 5).
  * @param onOpenCollections добавление книги в коллекцию (Sprint 7).
- * @param onEditMetadata редактирование метаданных вручную (Sprint 7).
  */
 fun NavGraphBuilder.bookDetailsScreen(
     onBack: () -> Unit,
-    onRead: (String) -> Unit,
     onOpenCollections: (String) -> Unit,
-    onEditMetadata: (String) -> Unit,
 ) {
     composable(route = BookDetailsRoute.route, arguments = BookDetailsRoute.arguments) { entry ->
         val bookId = entry.arguments?.getString(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
+        // Тот же экземпляр, что и у экрана: hiltViewModel() привязан к NavBackStackEntry.
+        val viewModel: BookDetailsViewModel = hiltViewModel()
         BookDetailsScreen(
+            viewModel = viewModel,
             bookId = bookId,
             onBack = onBack,
-            onRead = onRead,
+            // Переход-заглушка от навигации: открытие — команда ViewModel, а не переход.
+            onRead = { viewModel.onRead() },
             onOpenCollections = onOpenCollections,
-            onEditMetadata = onEditMetadata,
+            // Как и открытие: это команда ViewModel, а не переход между экранами.
+            onEditMetadata = { viewModel.onEditMetadata() },
         )
     }
 }

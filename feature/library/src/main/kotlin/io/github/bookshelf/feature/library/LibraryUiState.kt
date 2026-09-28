@@ -3,7 +3,6 @@ package io.github.bookshelf.feature.library
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.model.SortOrder
-import io.github.bookshelf.feature.library.model.ViewMode
 
 /**
  * Карточка книги на полке (UI-модель).
@@ -68,16 +67,18 @@ data class LibraryUiState(
     val page: Int = 0,
     /** Размер страницы: берётся из плотности интерфейса (docs/eink-ux.md §2.3). */
     val pageSize: Int = DEFAULT_PAGE_SIZE,
-    /** Режим отображения: сетка, список или компактный список. */
-    val mode: ViewMode = ViewMode.GRID,
     /** Порядок сортировки — доменный enum, чтобы не дублировать его в UI. */
     val sort: SortOrder = SortOrder.AUTHOR,
     /** Группировка с заголовками-разделителями. */
     val grouping: Grouping = Grouping.NONE,
     /** Чипы активных фильтров над полкой. */
     val activeFilters: FilterChipsUi = FilterChipsUi(),
+    /** Обзор по категориям (авторы/серии) вместо плоского списка книг. */
+    val browse: BrowseUi = BrowseUi(),
     /** Идёт загрузка страницы. */
     val isLoading: Boolean = false,
+    /** Идёт пересканирование: база очищена, сканы запущены. */
+    val isRescanning: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 ) {
@@ -89,4 +90,62 @@ data class LibraryUiState(
 
     /** Доступна ли следующая страница. */
     val hasNext: Boolean get() = hasNextPage(page, total, pageSize)
+}
+
+/** Режим обзора полки: плоский список книг или категории (docs/eink-ux.md §6.2). */
+enum class BrowseMode {
+    /** Обычная полка. */
+    OFF,
+
+    /** Категории верхнего уровня — авторы. */
+    AUTHORS,
+
+    /** Категории верхнего уровня — серии. */
+    SERIES,
+}
+
+/**
+ * Уровень обзора.
+ *
+ * Автор — совмещённый экран: его серии идут категориями, а книги вне серий показываются ниже
+ * обычным списком/сеткой полки (docs/eink-ux.md §6.2). Так книга без серии находится одним
+ * взглядом, без лишнего уровня «Вне серий». Если серий у автора нет, категорий не будет вовсе,
+ * и на экране останется тот же список его книг.
+ */
+sealed interface BrowseLevel {
+
+    /** Список категорий верхнего уровня. */
+    data object Root : BrowseLevel
+
+    /** Выбран автор: сверху его серии, снизу — его книги вне серий. */
+    data class Author(val name: String) : BrowseLevel
+
+    /** Выбрана серия: показываем её книги. */
+    data class Series(val name: String) : BrowseLevel
+}
+
+/** Строка категории в обзоре: подпись и число книг. */
+data class CategoryItemUi(
+    /** Значение для фильтра: имя автора или имя серии. */
+    val id: String,
+    val label: String,
+    val count: Int,
+)
+
+/** Состояние обзора полки. */
+data class BrowseUi(
+    val mode: BrowseMode = BrowseMode.OFF,
+    val level: BrowseLevel = BrowseLevel.Root,
+    /** Категории текущего уровня; пустой список при уровне «серия» — тогда показываются книги. */
+    val categories: List<CategoryItemUi> = emptyList(),
+    /** Подпись уровня: «Авторы», «Серии», «Автор: …», «Серия: …». */
+    val title: String? = null,
+    /** Есть ли куда вернуться (у корня «назад» выключает обзор). */
+    val canGoBack: Boolean = false,
+) {
+    /** Показывать категории вместо книг: только там, где они действительно есть. */
+    val showsCategories: Boolean get() = mode != BrowseMode.OFF && categories.isNotEmpty()
+
+    /** Обзор включён хотя бы для одной размерности. */
+    val isActive: Boolean get() = mode != BrowseMode.OFF
 }

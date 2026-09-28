@@ -2,18 +2,22 @@ package io.github.bookshelf.core.opds.di
 
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.opds.auth.CredentialStore
 import io.github.bookshelf.core.opds.auth.DefaultCredentialStore
 import io.github.bookshelf.core.opds.cache.DefaultOpdsFeedCache
 import io.github.bookshelf.core.opds.cache.OpdsFeedCache
+import io.github.bookshelf.core.opds.client.DohResolver
+import io.github.bookshelf.core.opds.client.HostResolver
 import io.github.bookshelf.core.opds.client.OkHttpOpdsClient
 import io.github.bookshelf.core.opds.client.OpdsHttpClient
 import io.github.bookshelf.core.opds.download.DefaultOpdsDownloader
 import io.github.bookshelf.core.opds.download.OpdsDownloader
 import io.github.bookshelf.core.opds.parser.Opds1XmlParser
 import io.github.bookshelf.core.opds.parser.OpdsFeedParser
+import javax.inject.Singleton
 
 /**
  * DI-модуль OPDS.
@@ -54,4 +58,19 @@ internal abstract class OpdsModule {
     abstract fun bindCredentialStore(
         impl: DefaultCredentialStore,
     ): CredentialStore
+
+    /**
+     * Резолвер имён для каталогов: системный DNS, а при его отказе — DoH.
+     *
+     * Отдельной привязкой, а не внутри клиента: так клиент можно проверить подставным резолвером,
+     * а политика резолвинга остаётся в одном месте (docs/opds.md). В companion — потому что модуль
+     * абстрактный (`@Binds`), а Dagger запрещает смешивать в одном модуле абстрактные привязки
+     * и обычные `@Provides`.
+     */
+    companion object {
+
+        @Provides
+        @Singleton
+        fun provideHostResolver(): HostResolver = DohResolver(DohResolver.defaultHttpClient())
+    }
 }

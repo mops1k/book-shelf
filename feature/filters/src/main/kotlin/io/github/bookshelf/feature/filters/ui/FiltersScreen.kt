@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.filters.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,9 +22,9 @@ import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
-import io.github.bookshelf.core.designsystem.component.TapZoneLayout
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
+import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.FacetChipUi
@@ -127,14 +128,12 @@ fun FiltersScreen(
             )
         }
 
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (sections.isEmpty()) {
                 EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 4",
+                    title = "Фильтры появятся, когда в библиотеке будут книги",
                     message = "Здесь появятся фасеты: авторы, серии, жанры и теги, форматы и статус — " +
                         "чипами с числом книг, множественным выбором и кнопками «Сбросить» и «Применить».",
                     modifier = Modifier.fillMaxSize(),

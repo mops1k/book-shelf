@@ -34,10 +34,12 @@ object CatalogsRoute {
  *
  * @param onBack возврат на предыдущий экран.
  * @param onOpenBook открытие карточки уже скачанной книги.
+ * @param onOpenEntry открытие карточки записи каталога (описание книги + «Скачать»).
  */
 fun NavGraphBuilder.catalogsScreen(
     onBack: () -> Unit,
     onOpenBook: (String) -> Unit,
+    onOpenEntry: (catalogId: String, entryId: String, feedUrl: String?) -> Unit,
 ) {
     composable(route = CatalogsRoute.route, arguments = CatalogsRoute.arguments) { entry ->
         val catalogId = entry.arguments?.getString(CatalogsRoute.ARG_CATALOG_ID)
@@ -45,6 +47,7 @@ fun NavGraphBuilder.catalogsScreen(
             catalogId = catalogId,
             onBack = onBack,
             onOpenBook = onOpenBook,
+            onOpenEntry = onOpenEntry,
         )
     }
 }

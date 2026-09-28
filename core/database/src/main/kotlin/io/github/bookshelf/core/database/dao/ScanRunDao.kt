@@ -86,6 +86,16 @@ interface ScanRunDao {
     )
     suspend fun findResumable(sourceId: String): ScanRunEntity?
 
+    /**
+     * Все прогоны, свежие сверху.
+     *
+     * Нужна истории отчётов: `observeLastRun` показывает только последний прогон источника,
+     * а экран обязан видеть все завершённые. Room сам перевыдаёт поток при изменении таблицы,
+     * поэтому отдельная подписка на инвалидацию не нужна.
+     */
+    @Query("SELECT * FROM scan_runs ORDER BY startedAt DESC")
+    fun observeAllRuns(): Flow<List<ScanRunEntity>>
+
     /** Наблюдать все активные прогоны — индикатор в UI и foreground-уведомление. */
     @Query("SELECT * FROM scan_runs WHERE status = 'RUNNING' ORDER BY startedAt DESC")
     fun observeRunning(): Flow<List<ScanRunEntity>>

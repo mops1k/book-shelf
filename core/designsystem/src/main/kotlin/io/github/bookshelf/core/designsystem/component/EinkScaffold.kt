@@ -2,6 +2,7 @@ package io.github.bookshelf.core.designsystem.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,11 +29,18 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 
 /**
- * Каркас экрана: заголовок, содержимое, нижняя строка (номер страницы), обработка
- * аппаратных кнопок и полный перерисон при входе на экран.
+ * Каркас экрана: тулбар в одну строку, содержимое, нижняя строка, обработка аппаратных кнопок
+ * и полный перерисон при входе на экран.
  *
- * Экран не анимируется при появлении: на e-ink переход — это мгновенная смена кадра,
- * а полный refresh делает «чистый» кадр без остатков предыдущего экрана.
+ * Тулбар принципиально **не переносится** на вторую строку. Дизайн-док (docs/eink-ux.md §6.2)
+ * требует одну строку «заголовок + 2–3 действия + меню»: каждый лишний ряд шапки — это минус
+ * строка книг на полке, а «лестница» из кнопок вразнобой ещё и читается как случайный список.
+ * Поэтому в [actions] место для двух-трёх частых команд, а остальные экран складывает в [menu]:
+ * оно открывается кнопкой «Ещё» или аппаратной клавишей MENU.
+ *
+ * Меню — непрозрачная панель **поверх** содержимого, а не всплывающий слой с тенью: на e-ink
+ * полупрозрачность, тени и анимации запрещены (docs/eink-ux.md §5). Содержимое при этом остаётся
+ * в дереве композиции, поэтому позиция прокрутки списка не сбрасывается при открытии меню.
  */
 @Composable
 fun EinkScaffold(
@@ -37,6 +49,8 @@ fun EinkScaffold(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
+    menuTitle: String = "Действия",
     footer: @Composable (() -> Unit)? = null,
     volumeKeysAsPageTurn: Boolean = true,
     onKeyAction: (EinkAction) -> Unit = {},
@@ -44,6 +58,7 @@ fun EinkScaffold(
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
+    var isMenuOpen by remember { mutableStateOf(false) }
 
     RequestRefreshOnEnter(RefreshReason.SCREEN_CHANGED)
 
@@ -51,7 +66,18 @@ fun EinkScaffold(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background)
-            .onEinkKeys(volumeKeysAsPageTurn = volumeKeysAsPageTurn, onAction = onKeyAction),
+            .onEinkKeys(
+                volumeKeysAsPageTurn = volumeKeysAsPageTurn,
+                onAction = { action ->
+                    // Аппаратная MENU открывает то же меню, что и кнопка «Ещё»: отдельной кнопки
+                    // для этого на экране нет, а клавиша есть у каждой e-ink модели.
+                    if (action == EinkAction.MENU && menu != null) {
+                        isMenuOpen = !isMenuOpen
+                    } else {
+                        onKeyAction(action)
+                    }
+                },
+            ),
     ) {
         Row(
             modifier = Modifier
@@ -59,12 +85,12 @@ fun EinkScaffold(
                 .defaultMinSize(minHeight = dimens.touchComfort)
                 .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
         ) {
             if (onBack != null) {
                 EinkButton(text = "← Назад", onClick = onBack)
             }
-            Column(modifier = Modifier.weight(1f).padding(horizontal = dimens.gutterSmall)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
@@ -82,16 +108,38 @@ fun EinkScaffold(
                     )
                 }
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                content = actions,
-            )
+            actions()
+            if (menu != null) {
+                EinkButton(
+                    text = if (isMenuOpen) "Закрыть" else "Ещё",
+                    onClick = { isMenuOpen = !isMenuOpen },
+                    primary = isMenuOpen,
+                )
+            }
         }
 
         EinkDivider()
 
-        Column(modifier = Modifier.weight(1f).fillMaxWidth(), content = content)
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxSize(), content = content)
+
+            val openedMenu = menu
+            if (isMenuOpen && openedMenu != null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(colors.background)
+                        // Панель обязана и поглощать касания: иначе пустые места меню
+                        // «протекают» в список под ним.
+                        .clickableNoIndication(onClick = {})
+                        .padding(horizontal = dimens.gutter),
+                    verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+                ) {
+                    EinkSectionHeader(title = menuTitle)
+                    openedMenu.invoke(this, { isMenuOpen = false })
+                }
+            }
+        }
 
         if (footer != null) {
             EinkDivider()

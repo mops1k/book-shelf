@@ -2,6 +2,7 @@ package io.github.bookshelf.core.datastore
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import io.github.bookshelf.core.datastore.model.AppSettings
 import java.io.IOException
@@ -17,17 +18,18 @@ import kotlinx.coroutines.flow.map
  *
  * Конструктор и DI-обвязка боевые: `DataStore<Preferences>` приходит из
  * [io.github.bookshelf.core.datastore.di.DataStoreModule] (единый файл
- * `filesDir/datastore/bookshelf_settings.preferences_pb`).
+ * `filesDir/datastore/bookshelf_settings.preferences_pb`), который собирается той же фабрикой
+ * [createSettingsDataStore], что и в тестах.
  *
- * STUB(Sprint 1): сопоставление ключей [SettingsKeys] ↔ [AppSettings] (чтение и запись) ещё не
- *  реализовано. Сейчас:
- *  * [settings] и [current] отдают документированные значения по умолчанию, чтобы UI и воркеры
- *    запускались (важно для DoD Sprint 1 «запускается на API 24 и на реальном e-ink»);
- *  * [update] намеренно падает с `TODO`, а не молча теряет запись: тихая потеря настройки хуже
- *    громкой ошибки на этапе каркаса.
+ * Разделение ролей: чтение и запись ключей живут в [SettingsCodec], здесь — только ввод-вывод.
  *
- *  В Sprint 1: чтение каждого ключа с `?: Defaults…`, запись в `dataStore.edit { }`, устойчивость
- *  к битому файлу (`ReplaceFileCorruptionHandler`) и экспорт/импорт настроек в JSON.
+ * [update] выполняет чтение и запись **внутри одной транзакции** `edit`. Это не оптимизация, а
+ * требование корректности: два параллельных изменения (пользователь на полке и воркер очистки
+ * кэша) иначе могли бы переписать друг друга — второй снимок был бы прочитан до записи первого.
+ * Наружу приходит только результат [transform].
+ *
+ * Настройки применяются без перезапуска (docs/roadmap.md, DoD Sprint 5): потребители обязаны
+ * подписываться на [settings], а не читать [current] один раз при старте.
  */
 @Singleton
 class DataStoreSettingsRepository @Inject constructor(
@@ -37,17 +39,20 @@ class DataStoreSettingsRepository @Inject constructor(
     override val settings: Flow<AppSettings> = dataStore.data
         .catch { throwable ->
             // Битый или недоступный файл не должен ронять приложение: работаем на умолчаниях.
+            // Фабрика уже подменила битый файл пустыми настройками, но полностью недоступное
+            // хранилище (кончилось место, отозван доступ) приходит сюда отдельным IOException.
             if (throwable is IOException) {
                 emit(emptyPreferences())
             } else {
                 throw throwable
             }
         }
-        // STUB(Sprint 1): ключи SettingsKeys -> AppSettings.
-        .map { AppSettings() }
+        .map(SettingsCodec::decode)
 
     override suspend fun update(transform: (AppSettings) -> AppSettings) {
-        TODO("STUB(Sprint 1): dataStore.edit { } — записать все ключи из transform(current())")
+        dataStore.edit { preferences ->
+            SettingsCodec.encode(preferences, transform(SettingsCodec.decode(preferences)))
+        }
     }
 
     override suspend fun current(): AppSettings = settings.first()

@@ -19,7 +19,7 @@ class LibraryQueryTest {
     @Test
     fun any_filter_makes_query_not_empty() {
         assertThat(BookQuery(sourceIds = setOf("src-1")).isEmpty).isFalse()
-        assertThat(BookQuery(authorIds = setOf("author-1")).isEmpty).isFalse()
+        assertThat(BookQuery(authorNames = setOf("author-1")).isEmpty).isFalse()
         assertThat(BookQuery(series = setOf("Серия")).isEmpty).isFalse()
         assertThat(BookQuery(formats = setOf("fb2")).isEmpty).isFalse()
         assertThat(BookQuery(statuses = setOf(ReadingStatus.UNREAD)).isEmpty).isFalse()
@@ -36,12 +36,12 @@ class LibraryQueryTest {
 
     @Test
     fun with_author_copies_and_appends_authors() {
-        val original = BookQuery(authorIds = setOf("author-1"))
+        val original = BookQuery(authorNames = setOf("author-1"))
         val updated = original.withAuthor("author-2", "author-3")
 
-        assertThat(updated.authorIds).containsExactly("author-1", "author-2", "author-3")
+        assertThat(updated.authorNames).containsExactly("author-1", "author-2", "author-3")
         // Исходное значение не изменилось: BookQuery — неизменяемое значение.
-        assertThat(original.authorIds).containsExactly("author-1")
+        assertThat(original.authorNames).containsExactly("author-1")
         assertThat(updated).isNotSameInstanceAs(original)
     }
 

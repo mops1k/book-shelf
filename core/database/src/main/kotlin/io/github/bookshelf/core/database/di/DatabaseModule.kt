@@ -16,6 +16,7 @@ import io.github.bookshelf.core.database.dao.CollectionDao
 import io.github.bookshelf.core.database.dao.CoverCacheEntryDao
 import io.github.bookshelf.core.database.dao.FacetDao
 import io.github.bookshelf.core.database.dao.FormatDefaultDao
+import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.OpdsCatalogDao
 import io.github.bookshelf.core.database.dao.OpdsDownloadDao
 import io.github.bookshelf.core.database.dao.OpdsFeedCacheDao
@@ -56,6 +57,10 @@ object DatabaseModule {
 
     @Provides
     fun provideBookDao(database: BookshelfDatabase): BookDao = database.bookDao()
+
+    @Provides
+    fun provideMetadataOverrideDao(database: BookshelfDatabase): MetadataOverrideDao =
+        database.metadataOverrideDao()
 
     @Provides
     fun provideSourceDao(database: BookshelfDatabase): SourceDao = database.sourceDao()

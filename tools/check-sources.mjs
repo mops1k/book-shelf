@@ -9,6 +9,7 @@
 // Использование:
 //   node tools/check-sources.mjs            # проверка, код возврата 1 при ошибках
 //   node tools/check-sources.mjs --warn     # показывать и предупреждения
+//   node tools/check-sources.mjs --self-test  # проверить сам разбор литералов (без файлов проекта)
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative } from 'node:path';
@@ -127,13 +128,28 @@ function codeOnly(source) {
       continue;
     }
     if (char === "'") {
-      // Символьный литерал: '(', '*', '\'', '\\', '\n' — закрывающая кавычка может быть
-      // не сразу после первого символа, поэтому ищем её аккуратно.
+      // Символьный литерал: '(', '*', '\'', '\\', '\n', '\u0000'. Escape бывает длиннее
+      // двух символов, и считать его как «обратный слэш + один символ» нельзя: на `'\u0000'`
+      // закрывающая кавычка не находилась, следующая `)` съедалась как «литерал» и баланс
+      // скобок уезжал — так возникало ложное «несбалансированные скобки» на верном файле.
       let j = i + 1;
-      if (source[j] === '\\') j += 2;
-      else j += 1;
+      if (source[j] === '\\') {
+        const escape = source[j + 1];
+        if (escape === 'u' && source[j + 2] === '{') {
+          const closingBrace = source.indexOf('}', j + 2);
+          j = closingBrace === -1 ? j + 2 : closingBrace + 1;
+        } else if (escape === 'u') {
+          j += 6;
+        } else if (escape === 'x') {
+          j += 4;
+        } else {
+          j += 2;
+        }
+      } else {
+        j += 1;
+      }
       if (source[j] === "'") j += 1;
-      out += ' '.repeat(j - i);
+      out += ' '.repeat(Math.max(0, j - i));
       i = j;
       continue;
     }
@@ -142,6 +158,46 @@ function codeOnly(source) {
     i += 1;
   }
   return out;
+}
+
+/** Баланс круглых скобок в коде без строк, символьных литералов и комментариев. */
+function parenBalance(code) {
+  let balance = 0;
+  for (const char of codeOnly(code)) {
+    if (char === '(') balance += 1;
+    else if (char === ')') balance -= 1;
+  }
+  return balance;
+}
+
+/**
+ * Самопроверка разбора литералов: запускается флагом `--self-test` и не требует JDK.
+ *
+ * Регрессия, из-за которой она появилась: escape `\uXXXX` в символьном литерале ломал подсчёт
+ * скобок, и валидный файл (`charArrayOf('/', '\\', '\u0000')`) объявлялся несбалансированным.
+ */
+function selfTest() {
+  const cases = [
+    { code: String.raw`val chars = charArrayOf('/', '\\', ':', '\u0000')`, expected: 0 },
+    { code: String.raw`val single = '\u0000'`, expected: 0 },
+    { code: String.raw`val hex = '\x41'`, expected: 0 },
+    { code: String.raw`val braced = '\u{1F600}'`, expected: 0 },
+    { code: String.raw`val quote = '\''`, expected: 0 },
+    { code: String.raw`val text = "скобка ( внутри строки"`, expected: 0 },
+    { code: String.raw`val comment = 1 // ( в комментарии`, expected: 0 },
+    { code: String.raw`val broken = call(one(2)`, expected: 1 },
+  ];
+  const failures = cases.filter((item) => parenBalance(item.code) !== item.expected);
+  if (failures.length) {
+    for (const item of failures) {
+      console.error(
+        `  FAIL  ${item.code}: ожидался баланс ${item.expected}, получен ${parenBalance(item.code)}`,
+      );
+    }
+    console.error(`\nСамопроверка не прошла: ${failures.length} из ${cases.length}.`);
+    process.exit(1);
+  }
+  console.log(`Самопроверка разбора литералов: ${cases.length} случаев, всё сходится.`);
 }
 
 function isCommentLine(line) {
@@ -208,6 +264,11 @@ function checkFile(file) {
   } else if (/Thread\.sleep\(/.test(stripped)) {
     errors.push(`${rel}: Thread.sleep в тесте — запрещено (docs/tdd.md §2)`);
   }
+}
+
+if (process.argv.includes('--self-test')) {
+  selfTest();
+  process.exit(0);
 }
 
 const files = walk(ROOT).sort();

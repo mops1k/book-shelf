@@ -75,7 +75,30 @@ private fun Project.configureKotlinAndroidOptions() {
             jvmTarget.set(JvmTarget.JVM_17)
         }
     }
+
+    // Opt-in Compose-маркера подключается только модулям с Compose: в чистых модулях логики
+    // (`core:data`, `core:opds`, `core:metadata` и т. п.) самой зависимости нет, и компилятор
+    // с KSP пишут «unresolved opt-in marker androidx.compose.foundation.layout.ExperimentalLayoutApi».
+    // Маркер нужен для FlowRow: без него каждый экран с блоком `actions` обязан ставить `@OptIn`
+    // у себя — 13 аннотаций вместо одной настройки, и любая новая кнопка снова ломает сборку.
+    COMPOSE_ENABLED_PLUGINS.forEach { pluginId ->
+        pluginManager.withPlugin(pluginId) { addFlowRowOptIn() }
+    }
 }
+
+private fun Project.addFlowRowOptIn() {
+    extensions.configure<KotlinAndroidProjectExtension> {
+        compilerOptions {
+            optIn.add("androidx.compose.foundation.layout.ExperimentalLayoutApi")
+        }
+    }
+}
+
+/** Плагины, после которых в модуле точно есть `androidx.compose.foundation`. */
+private val COMPOSE_ENABLED_PLUGINS = listOf(
+    "bookshelf.android.library.compose",
+    "bookshelf.android.application",
+)
 
 /** Kotlin/JVM-модуль (без Android): нужен для чистых парсеров, которые не тянут платформу. */
 internal fun Project.configureKotlinJvm() {
@@ -105,10 +128,13 @@ internal fun Project.configureUnitTests() {
         add("testImplementation", lib("robolectric"))
         add("testImplementation", lib("androidx-test-core-ktx"))
 
-        // Фейки ядра (часы, логгер, диспетчеры) доступны всем тестам, кроме тестов самого ядра:
-        // ссылка на собственные testFixtures была бы циклической зависимостью.
-        if (path != ":core:common") {
-            add("testImplementation", testFixtures(project(":core:common")))
+        // Общие фейки (часы, логгер, диспетчеры, флаги) живут в `:core:testing` и подключаются
+        // обычной зависимостью, а не через Android-фичу `testFixtures`: на AGP 8.7.3 + KGP 2.0.21
+        // для `testFixtures` не создаётся задача компиляции Kotlin, поэтому `.kt` из
+        // `src/testFixtures` молча не собираются, а `testImplementation(testFixtures(...))`
+        // подключает пустую банку. Исключения — сам `:core:common` и `:core:testing`, иначе цикл.
+        if (path != ":core:common" && path != ":core:testing") {
+            add("testImplementation", project(":core:testing"))
         }
     }
 

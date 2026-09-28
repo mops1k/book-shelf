@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.scan.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +24,9 @@ import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkProgress
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
-import io.github.bookshelf.core.designsystem.component.TapZoneLayout
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
+import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.scan.DuplicateGroupUi
@@ -53,6 +54,8 @@ fun ScanScreen(
     viewModel: ScanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // «Отменить» должна работать как «Назад», когда отменять нечего.
+    LaunchedEffect(Unit) { viewModel.setOnExit(onBack) }
 
     when (state.mode) {
         ScanMode.PROGRESS -> ProgressScreen(
@@ -112,9 +115,9 @@ private fun ProgressScreen(
 
         if (progress == null) {
             EinkEmptyState(
-                title = "Раздел в разработке — Спринт 2",
-                message = "Здесь появится прогресс сканирования: «Просканировано 4 300 из 12 000», " +
-                    "кнопка мягкой отмены и продолжение с сохранённого места.",
+                title = "Сканирование ещё не запускалось",
+                message = "Нажмите «Сканировать» — приложение пройдёт по дереву папки и найдёт книги. " +
+                    "Найденное сохраняется, прерванный скан продолжится с того же места.",
                 actionLabel = "Сканировать",
                 onAction = viewModel::onStartScan,
                 modifier = Modifier.weight(1f),
@@ -181,8 +184,8 @@ private fun ReportScreen(
     ) {
         if (report == null) {
             EinkEmptyState(
-                title = "Раздел в разработке — Спринт 2",
-                message = "Здесь появится отчёт: сколько добавлено, обновлено, пропало и не разобрано, " +
+                title = "Отчёта пока нет",
+                message = "Здесь появится итог скана: сколько добавлено, обновлено, пропало и не разобрано, " +
                     "и список проблемных файлов с причиной ошибки.",
                 actionLabel = "К дубликатам",
                 onAction = viewModel::onShowDuplicates,
@@ -268,14 +271,12 @@ private fun DuplicatesScreen(
             )
         },
     ) {
-        TapZoneLayout(
-            onPrevious = pager::previous,
-            onNext = pager::next,
-            modifier = Modifier.weight(1f),
-        ) {
+        Box(
+                modifier = Modifier.weight(1f),
+            ) {
             if (state.duplicates.isEmpty()) {
                 EinkEmptyState(
-                    title = "Раздел в разработке — Спринт 7",
+                    title = "Дубликатов не найдено",
                     message = "Здесь появятся группы книг с одинаковым contentHash: «оставить этот», " +
                         "«скрыть остальные», «удалить из библиотеки» — по одному решению на группу.",
                     modifier = Modifier.fillMaxSize(),

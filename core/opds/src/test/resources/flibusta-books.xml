@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="utf-8"?>
+ <feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:os="http://a9.com/-/spec/opensearch/1.1/" xmlns:opds="http://opds-spec.org/2010/catalog"> <id>tag:search:new:book:0</id>
+ <title>Новинки с 18.09.2026 по 25.09.2026</title>
+ <updated>2026-09-25T17:41:23+02:00</updated>
+ <icon>/favicon.ico</icon>
+ <link href="/opds-opensearch.xml" rel="search" type="application/opensearchdescription+xml" />
+ <link href="/opds/search?searchTerm={searchTerms}" rel="search" type="application/atom+xml" />
+ <link href="/opds" rel="start" type="application/atom+xml;profile=opds-catalog" />
+ <link href="/opds/new/1/new/" rel="next" type="application/atom+xml;profile=opds-catalog" />
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Кольцо</title>
+ <author> <name>Бакстер Стивен</name>
+ <uri>/a/750</uri>
+</author>
+ <link href="/opds/author/750" rel="related" type="application/atom+xml" title="Все книги автора Бакстер Стивен" />
+ <category term="Космическая фантастика" label="Космическая фантастика" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <link href="/opds/sequencebooks/24147" rel="related" type="application/atom+xml" title="Все книги серии &quot;Ксили&quot;" />
+ <content type="text/html">
+    &lt;p class=&quot;book&quot;&gt;Космический релятивистский корабль поколений с интерфейсом червоточины на борту отправляется в амбициозный полет по замкнутой траектории, чтобы через тысячу субъективных лет прибыть обратно, вернуться через червоточину в свою эпоху и, зная будущее, изменить историю в лучшую сторону. За прошедшие снаружи пять миллионов лет темная материя необычайно ускорила эволюцию большинства звезд вселенной, включая досрочно ставшее красным гигантом Солнце. Параллельно в результате звездных войн исчезло все человечество, кроме уцелевшего экипажа, а он не может повлиять на прошлое из-за разрушенного интерфейса. Приспособив для межгалактических путешествий найденный чужой корабль, люди с огромным трудом добираются до созданного ксили в безнадежной борьбе с темной материей последнего убежища-сингулярности в центре быстро вращающейся массивной космической струны и через нее попадают в иную молодую вселенную, становясь зародышем новой цивилизации. &lt;/p&gt;
+    &lt;p class=&quot;book&quot;&gt;В конце книги приведена хронология цикла &quot;Ксили&quot;, включая опубликованные на тот момент произведения.&lt;/p&gt;
+   &lt;br/&gt;Перевод: Фурзиков Николай Порфирьевич&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1891 Kb&lt;br/&gt;Серия: Ксили #4&lt;br/&gt;</content>
+ <link href="/i/6/890606/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/6/890606/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/6/890606/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/6/890606/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890606/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890606/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890606/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890606/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890606/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890606/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890606" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:db0a8d89d26b40bb28c5d397041e0485</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Развод. Бывшая жена генерала</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Когда генерал-лейтенант Максим Воронцов подаёт на развод, Софья понимает: все годы брака она была не любимой женщиной, а частью его безупречной биографии. Он уверен, что бывшая жена уйдёт тихо, сохранив его репутацию и привычный порядок. Но, потеряв статус, Софья неожиданно обретает себя — и мужчину, рядом с которым впервые чувствует не страх, а покой. Вот только генерал не привык проигрывать. Особенно когда понимает, что женщина, которую он отпустил, была единственной, кого он по-настоящему любил.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 730 Kb&lt;br/&gt;</content>
+ <link href="/i/5/890605/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/5/890605/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/5/890605/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/5/890605/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890605/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890605/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890605/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890605/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890605/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890605/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890605" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:2e97a39b2c2e8295bb79f216e4391ba0</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Развод в 42. Новый директор младше меня</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Мне сорок два, я три недели как разведена и впервые за восемь лет снова стою в цехе. На приемке новой формы дважды лопается шов — и один дефект ставит под удар заказ на семь тысяч двести комплектов, кредит фабрики и работу восьмидесяти двух человек.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;У Ильи Берестова, нового директора младше меня на семь лет, есть восемь недель, чтобы доказать: производство можно сохранить. У меня — собственный договор, репутация и право уйти. Мы спорим о сроках, деньгах и людях, пока профессиональное уважение не становится опасно личным.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Но Илья совершает ту же ошибку, из-за которой распался мой брак: решает без меня, какое будущее для меня лучше.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Я уже однажды позволила чужому плану заменить мой. Теперь мне предстоит спасти фабрику, выбрать собственную карьеру и понять, возможна ли любовь, в которой мое «я решу сама» действительно услышат.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 898 Kb&lt;br/&gt;</content>
+ <link href="/i/4/890604/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/4/890604/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/4/890604/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/4/890604/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890604/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890604/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890604/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890604/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890604/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890604/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890604" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:876800b31778d7e495d7dda1c90228a3</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Рождество на Линдурмфесте</title>
+ <author> <name>Вальтер Моэрс,</name>
+ <uri>/a/345706</uri>
+</author>
+ <link href="/opds/author/345706" rel="related" type="application/atom+xml" title="Все книги автора Вальтер Моэрс," />
+ <category term="Любительский перевод" label="Любительский перевод" />
+ <category term="Фэнтези" label="Фэнтези" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2018</dc:issued>
+ <link href="/opds/sequencebooks/16787" rel="related" type="application/atom+xml" title="Все книги серии &quot;Замония&quot;" />
+ <content type="text/html">
+    &lt;p class=&quot;book&quot;&gt;Перебирая переписку Хильдегунста фон Мифореза с книгородским эйдетом Хахмедом бен Кибитцером, Вальтер Моэрс находит письмо о Хамулимеппе — ежегодном трёхдневном празднике драконгорцев, удивительно напоминающем наше Рождество.&lt;/p&gt;
+    &lt;p class=&quot;book&quot;&gt;В письме оживают причудливые обычаи Линдурмфеста: Хамули и Мепп, хамулимепповые дракончики-карлики, праздничные угощения, уберикниги и безогненный фейерверк. С присущей Моэрсу иронией эта история знакомит с культурой Замонии и превращает рождественское чтение в путешествие на Линдурмфест.&lt;/p&gt;
+   &lt;br/&gt;Год издания: 2018&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 5105 Kb&lt;br/&gt;Серия: Замония #8&lt;br/&gt;</content>
+ <link href="/i/2/890602/img-0000" rel="http://opds-spec.org/image" type="image/" />
+ <link href="/i/2/890602/img-0000" rel="x-stanza-cover-image" type="image/" />
+ <link href="/i/2/890602/img-0000" rel="http://opds-spec.org/thumbnail" type="image/" />
+ <link href="/i/2/890602/img-0000" rel="x-stanza-cover-image-thumbnail" type="image/" />
+ <link href="/b/890602/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890602/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890602/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890602/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890602/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890602/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890602" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:1efcb01ce534da85242107a771f63c11</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Развод в 40. Генерал, я больше не ваша жена</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;В сорок лет я сняла обручальное кольцо на юбилее собственного мужа.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Двадцать лет я была женой генерала Александра Царева. Его домом, его тылом, его удобной тишиной. Я принимала гостей, берегла репутацию семьи, растила дочь и слишком долго верила, что терпение — это тоже любовь.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;А потом на его юбилее появилась Виолетта Дрозд.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Молодая. Уверенная. Слишком хорошо знающая мой дом.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Она распоряжалась бокалами, говорила с прислугой так, будто давно имела на это право, и стояла рядом с Александром на моем месте. А когда один из гостей принял ее за жену генерала, мой муж услышал.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;И не поправил сразу.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Он думал, я снова промолчу.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Я всегда молчала.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Но в ту ночь я сняла кольцо и ушла.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;А утром сказала юристу:&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;— Я хочу развод.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Александр Царев привык побеждать. Привык отдавать приказы, решать за других и считать, что жена никуда не денется после двадцати лет брака.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Только он не знал одного: женщина, которая слишком долго была удобной, однажды перестает просить разрешения.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Она уходит.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Тихо.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Законно.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1312 Kb&lt;br/&gt;</content>
+ <link href="/i/1/890601/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/1/890601/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/1/890601/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/1/890601/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890601/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890601/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890601/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890601/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890601/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890601/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890601" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:58d8b7c3d8cf710e57be4c74c93cddb3</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Пышка-ассистентка, которую он потерял</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Мила Орлова пять лет была идеальной ассистенткой Демьяна Волкова. Она знала его расписание, спасала сделки, закрывала чужие ошибки и держала компанию в порядке. Для всех она была просто пышкой из приемной: удобной, спокойной, незаметной.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Но однажды Мила нашла в документах подмену, из-за которой «Волков Групп» мог потерять миллиарды. Она принесла Демьяну доказательства, а он выбрал поверить не ей.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;На заседании совета ее отстранили при всех. Без защиты. Без права договорить. Мила сняла пропуск, положила его на стол и ушла.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;И только тогда Демьян понял: он потерял не сотрудницу, а женщину, которая держала его мир. Теперь ему придется не приказом вернуть ее, не подарками купить прощение, а доказать делом, что он видит в Миле не удобную помощницу, а женщину, которую однажды не сумел защитить.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 995 Kb&lt;br/&gt;</content>
+ <link href="/i/99/890599/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/99/890599/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/99/890599/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/99/890599/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890599/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890599/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890599/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890599/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890599/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890599/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890599" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:257191c9b2e967cab804bd3decf31536</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>После развода. Бывший работает на меня</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Наш брак разрушила не измена. Четыре года назад Михаил выдал мой антикризисный план за работу своей команды, решив, что спасенные рабочие места оправдывают ложь. Я ушла с завода, а потом — от него.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Теперь мне сорок два, и я вернулась временным генеральным директором. У меня сорок пять дней, чтобы спасти предприятие от продажи. Только главный инженер — мой бывший муж, а первая же проверка обнаруживает опасный дефект, семьдесят восемь миллионов долга и подмену в документах.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Чтобы сохранить завод и сотни рабочих мест, нам придется снова стать командой. Но доверять Михаилу я смогу лишь тогда, когда он научится говорить правду до того, как решит все за меня.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;А если второй шанс нужен не прежнему браку, а двум людям, которые наконец готовы строить отношения по другим правилам?&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 860 Kb&lt;br/&gt;</content>
+ <link href="/i/98/890598/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/98/890598/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/98/890598/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/98/890598/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890598/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890598/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890598/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890598/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890598/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890598/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890598" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:bb306e90bfb61e034ae5b7eb3a25ecd1</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>После развода в 42. Новая жена бывшего пришла ко мне за помощью</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;В 22:10 новая жена моего бывшего положила на мой стол договоры с моей подписью. Я их не подписывала.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Алина пришла не просить прощения. Подделали и ее подпись, а Сергей уже готовит сделку: производственная линия уйдет связанной фирме, опасные модули — заказчику, а виноватыми останемся мы. Первая жена, которая когда-то предпочла удобное молчание. И новая, которая слишком долго ему верила.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Чтобы доказать подмену, мне придется работать с Михаилом Рудневым — инженером, чью карьеру шесть лет назад разрушил мой неполный отчет. Он имеет все основания не доверять мне. Но именно рядом с ним я впервые понимаю: помощь не всегда означает контроль, а любовь не требует отказываться от собственного имени.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;У нас сорок один день, чтобы остановить поставку и сохранить доказательства. А мне придется решить, можно ли довериться мужчине, перед которым я однажды выбрала мужа.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 974 Kb&lt;br/&gt;</content>
+ <link href="/i/97/890597/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/97/890597/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/97/890597/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/97/890597/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890597/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890597/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890597/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890597/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890597/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890597/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890597" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:daa8fb573b161f195a4bf12d8a26b29d</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>После развода — в ведьмы. Бывший муж и прочая нечисть</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;В день развода бывший муж предложил мне шестьсот пятьдесят тысяч за бабушкин дом, который называл бесполезной развалиной. Я отказалась — и уже через два дня узнала: под старой аптекарской лавкой бьёт магический источник, на доме висит поддельный залог, а во мне проснулся ведьмин дар.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Теперь у меня тридцать дней, чтобы получить лицензию, очистить лавку от договорного морока и доказать, что Денис годами распоряжался моей подписью. Иначе я потеряю единственный дом, который действительно принадлежит мне.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Помочь может Арсений Ратников — принципиальный инспектор-проклятолог с опасным ремеслом и привычкой защищать людей, не спрашивая разрешения. Но я только что ушла от одного мужчины, решавшего за меня, и доверять другому не собираюсь. Даже если рядом с Арсением мне впервые за много лет хочется не бежать, а остаться.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;А бывший тем временем доказывает: главная нечисть не всегда прячется в подвале.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1360 Kb&lt;br/&gt;</content>
+ <link href="/i/96/890596/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/96/890596/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/96/890596/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/96/890596/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890596/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890596/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890596/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890596/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890596/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890596/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890596" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:5827e64921160f3d2ec98fb21fad7476</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>VRM-547 [VRM-547]</title>
+ <author> <name>Томпсон Уолтер Р</name>
+ <uri>/a/345705</uri>
+</author>
+ <link href="/opds/author/345705" rel="related" type="application/atom+xml" title="Все книги автора Томпсон Уолтер Р" />
+ <category term="Научная фантастика" label="Научная фантастика" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <content type="text/html">
+    &lt;p class=&quot;book&quot;&gt;Вы когда-нибудь задумывались, каким вас видит ваш компьютер?&lt;/p&gt;
+   &lt;br/&gt;Перевод: Жевняк Олег&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 304 Kb&lt;br/&gt;</content>
+ <link href="/i/95/890595/image001.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/95/890595/image001.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/95/890595/image001.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/95/890595/image001.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890595/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890595/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890595/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890595/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890595/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890595/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890595" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:8af7bc9c034a7e6e89cca6cb121c6228</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Нет времени на отношения ради отношений</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Эта книга — для женщин, которые устали от пустых романов, тревожной привязанности, эмоциональных крох и отношений, в которых слишком много ожидания и слишком мало жизни.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Почему мы так часто держимся за тех, кто не выбирает нас по-настоящему? Почему путаем любовь с тревогой, сильное притяжение — с глубиной, а страх одиночества — с готовностью к отношениям? Почему даже умные, сильные и взрослые женщины годами терпят недолюбовь, надеясь, что однажды все станет по-настоящему?&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;«Нет времени на отношения ради отношений» — честная и психологически точная книга о женской самоценности, эмоциональной зрелости и праве не соглашаться на половинчатое. О том, как перестать жить на надежде, перестать путать крохи с близостью и научиться выбирать не сам факт пары, а отношения, в которых действительно есть жизнь, ясность, взаимность и уважение.&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 902 Kb&lt;br/&gt;</content>
+ <link href="/i/94/890594/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/94/890594/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/94/890594/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/94/890594/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890594/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890594/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890594/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890594/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890594/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890594/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890594" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:0849e6bb6562bdedde96893a69ad1edd</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Ненужная леди Асгарда</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Попаданцы" label="Попаданцы" />
+ <category term="Самиздат, сетевая литература" label="Самиздат, сетевая литература" />
+ <category term="Фэнтези" label="Фэнтези" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Эйрину Вальд привозят в Асгард как невесту по древнему договору. Обедневший Дом Вальдов надеется спастись за ее счет, Совет смотрит на нее как на удобную ошибку, а лорд Астор Рейвен, хранитель Северной башни, публично отказывается признать ее право.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Но в теле тихой, сломленной Эйрины просыпается Варвара Соколова — женщина из другого мира, привыкшая восстанавливать стертые тексты и находить правду под чужими правками.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Асгард кажется сияющим магическим городом, где семь Великих Домов веками хранят порядок. Только этот порядок построен на поддельных клятвах, украденной памяти и Нижнем городе, который давно объявили несуществующим.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Варваре дают семь дней, чтобы доказать право на имя, договор и место в Асгарде. Семь дней — против Совета, Морвенов, зеркальной магии и прошлого, которое не хочет оставаться похороненным.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;А рядом с ней — Астор Рейвен. Холодный, опасный, связанный старой виной и дверью, которую однажды закрыл не по своей воле. Он не верит ей сразу. Не обещает спасения. &lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1295 Kb&lt;br/&gt;</content>
+ <link href="/i/93/890593/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/93/890593/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/93/890593/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/93/890593/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890593/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890593/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890593/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890593/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890593/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890593/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890593" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:cf72e01350c197f96084075480b3f6c0</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Ненужная жена красного дракона</title>
+ <author> <name>Весна Виолетта</name>
+ <uri>/a/345663</uri>
+</author>
+ <link href="/opds/author/345663" rel="related" type="application/atom+xml" title="Все книги автора Весна Виолетта" />
+ <category term="Неотсортированное" label="Неотсортированное" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;Элиана Вейр никогда не мечтала стать женой красного дракона. Её отдали в брак по старому договору — без любви, без выбора, без права отказаться. Для князя Райгара Ардента она должна была стать лишь удобной супругой, политической необходимостью и тихой тенью при его огненном троне.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Но в первую же ночь Элиана понимает: во дворце Красного Пламени её ждали не как жену, а как ключ.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;В её крови дремлет древняя сила Пепельной Зари — магия, способная исцелить проклятое драконье пламя или погасить его навсегда. За ней охотятся заговорщики, старые враги драконьих домов и те, кто веками превращал женские клятвы в цепи. А рядом с ней — муж, который привык приказывать, защищать и владеть всем, что боится потерять.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Только Элиана не собирается быть покорной.&lt;/p&gt;&lt;p class=&quot;book&quot;&gt;Чтобы выжить, ей придётся раскрыть тайну смерти матери, пройти через пепельный храм, бросить вызов древнему Престолу Первого Пламени и решить, можно ли доверять дракону&lt;/p&gt;&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1855 Kb&lt;br/&gt;</content>
+ <link href="/i/92/890592/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/92/890592/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/92/890592/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/92/890592/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890592/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890592/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890592/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890592/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890592/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890592/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890592" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:14bebce4065f53deac4ed05cfd152f3a</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Приключения в Кармашкино</title>
+ <author> <name>Ситников Алексей</name>
+ <uri>/a/345704</uri>
+</author>
+ <link href="/opds/author/345704" rel="related" type="application/atom+xml" title="Все книги автора Ситников Алексей" />
+ <category term="Детская литература: прочее" label="Детская литература: прочее" />
+ <category term="Детская проза: приключения" label="Детская проза: приключения" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <content type="text/html">&lt;p class=&quot;book&quot;&gt;В каждом парке развлечений есть секретные уголки, куда никогда не заглядывает посторонний. Но если вы испуганный щенок, от которого решили избавиться, то лапы сами примчат вас к таинственному оврагу, старому дубу, пруду, заброшенной железной дороге и волшебной поляне… Вы побываете в комнате страха, заберетесь на колесо обозрения и даже прокатитесь на пони. Вы обретете много друзей, раскроете тайны и получите ценные советы.&lt;/p&gt;&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 1391 Kb&lt;br/&gt;</content>
+ <link href="/i/91/890591/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/91/890591/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/91/890591/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/91/890591/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890591/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890591/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890591/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890591/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890591/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890591/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890591" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:edb962bb4579cbc30259efe0aae1eb57</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Город прощения [litres][宽恕之城][City of Forgiveness]</title>
+ <author> <name>Ми Лэй</name>
+ <uri>/a/280217</uri>
+</author>
+ <link href="/opds/author/280217" rel="related" type="application/atom+xml" title="Все книги автора Ми Лэй" />
+ <category term="Детективы" label="Детективы" />
+ <category term="Полицейский детектив" label="Полицейский детектив" />
+ <category term="Триллер" label="Триллер" />
+ <dc:language>ru</dc:language>
+ <dc:format>fb2+zip</dc:format>
+ <dc:issued>2026</dc:issued>
+ <link href="/opds/sequencebooks/82941" rel="related" type="application/atom+xml" title="Все книги серии &quot;Фан Му – Преступления Востока&quot;" />
+ <content type="text/html">
+    &lt;p class=&quot;book&quot;&gt;ПРОФАЙЛЕР ФАН МУ ВОЗВРАЩАЕТСЯ!&lt;/p&gt;
+    &lt;p class=&quot;book&quot;&gt;СИКВЕЛ «ПРИЮТА РУСАЛКИ» И «ТЕНИ МЕРТВЕЦА».&lt;/p&gt;
+    &lt;p class=&quot;book&quot;&gt;Город потрясает серия жестоких убийств, и каждый раз преступник забирает у жертвы какой-либо внутренний орган. Убийца действует хладнокровно и точно, словно оставляет следствию не улику, а послание.&lt;/p&gt;
+    &lt;p class=&quot;book&quot;&gt;Подключившийся к делу Фан Му быстро понимает: это не случайные преступления – убийца методично вычеркивает виновных из своего списка. Нити расследования ведут в мир, где человеческая жизнь может стать товаром: частные клиники, черный рынок трансплантации и люди, которым есть что скрывать. И чем глубже Фан Му и следователь Тай Вэй погружаются в расследование, тем отчетливее проступает связь с давно забытым прошлым, историей, которую кто-то очень хотел похоронить. Делом «Русалки»…&lt;/p&gt;
+   &lt;br/&gt;Перевод: Власова Наталья Николаевна&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: fb2&lt;br/&gt;Язык: ru&lt;br/&gt;Размер: 3031 Kb&lt;br/&gt;Серия: Фан Му – Преступления Востока #7&lt;br/&gt;</content>
+ <link href="/i/90/890590/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/90/890590/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/90/890590/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/90/890590/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890590/fb2" rel="http://opds-spec.org/acquisition/open-access" type="application/fb2+zip" />
+ <link href="/b/890590/html" rel="http://opds-spec.org/acquisition/open-access" type="application/html+zip" />
+ <link href="/b/890590/txt" rel="http://opds-spec.org/acquisition/open-access" type="application/txt+zip" />
+ <link href="/b/890590/rtf" rel="http://opds-spec.org/acquisition/open-access" type="application/rtf+zip" />
+ <link href="/b/890590/epub" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" />
+ <link href="/b/890590/mobi" rel="http://opds-spec.org/acquisition/open-access" type="application/x-mobipocket-ebook" />
+ <link href="/b/890590" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:1639beb6c9ca2fc15ddfb4cb956d8fcf</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Eкспрес до Іншого Світу</title>
+ <author> <name>Ямбао Саманта Сотто</name>
+ <uri>/a/343903</uri>
+</author>
+ <link href="/opds/author/343903" rel="related" type="application/atom+xml" title="Все книги автора Ямбао Саманта Сотто" />
+ <category term="Научная фантастика" label="Научная фантастика" />
+ <dc:language>uk</dc:language>
+ <dc:format>epub</dc:format>
+ <dc:issued>2026</dc:issued>
+ <content type="text/html">Коли ви втрачаєте орієнтири в житті, «Експрес до Іншого Світу» може вас знайти. Сідайте на цей потяг, який доправить вас до сенсу вашого життя, у цій затишній та надихаючій фантастичній історії від автора національного бестселера «Водяний Місяць».
+
+Це вигадливе розкішне перше видання у твердій палітурці містить дизайнерські краї сторінок, повнокольорову ілюстровану коробку з зображеннями персонажів та інтерактивні форзаци зі сценою, яку можна розфарбувати — керівництво є в наявності!
+
+Квиток на «Експрес до Іншого Світу» не можна купити. Цей чарівний поїзд, що з’являється лише перед тими, чиє життя збилося з курсу, везе дуже рідкісний і особливий вантаж: відчуття мети, спокою та приналежності.
+
+Рая — одна з таких загублених душ. Вона мріяла стати авторкою пісень, але коли помер її брат, вона відмовилася від своєї мрії й почала жити його життям.
+
+Одного дня в метро, коли її думки блукали, вона опинилася на «Експрес до Іншого Світу». Там вона зустрічає Кью — чарівного, вродливого художника, який, як і вона, втратив своє місце у світі.
+
+Разом вони відкривають для себе поїзд, сповнений чудес: від вагона для посадки, що водночас є лугом, до вагона-ресторану, де пасажири можуть влаштувати пікнік на листях латаття, та до бару, де медузи й кити плавають крізь рожеві хмари.
+
+Але вони також виявляють, що поїзд приховує таємниці — і небезпеку: таємничий незнайомець проник на борт і приніс із собою темну, злісну магію, яка загрожує знищити поїзд.
+
+Однак, розслідуючи особу цього безбілетника, Рая також наближається до головного питання: яка насправді її мрія?&lt;br/&gt;Год издания: 2026&lt;br/&gt;Формат: epub&lt;br/&gt;Язык: uk&lt;br/&gt;Размер: 21474 Kb&lt;br/&gt;</content>
+ <link href="/i/89/890589/images/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/89/890589/images/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/89/890589/images/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/89/890589/images/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890589/download" rel="http://opds-spec.org/acquisition/open-access" type="application/epub" />
+ <link href="/b/890589" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:2e0187c5c1bb7c238186ba7d6e4f0b8a</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Ми легіон (Ми Боб)</title>
+ <author> <name>Тейлор Деннис Э.</name>
+ <uri>/a/245395</uri>
+</author>
+ <link href="/opds/author/245395" rel="related" type="application/atom+xml" title="Все книги автора Тейлор Деннис Э." />
+ <category term="Научная фантастика" label="Научная фантастика" />
+ <dc:language>uk</dc:language>
+ <dc:format>epub</dc:format>
+ <dc:issued>2016</dc:issued>
+ <link href="/opds/sequencebooks/113456" rel="related" type="application/atom+xml" title="Все книги серии &quot;Всесвіт Боба&quot;" />
+ <content type="text/html">Ми - легіон (Ми – Боб) – це перша частина фантастичної трилогії “Бобів усесвіт”, що поєднує наукову фантастику, гумор і філософські роздуми. Роман розповідає про Боба Йохансена – звичайного програміста, який після смерті прокидається в майбутньому у вигляді штучного інтелекту, вбудованого в міжзоряний корабель. Його місія – дослідження космосу, але невдовзі він починає битву за виживання в небезпечному світі, де людство, інопланетні цивілізації та інші штучні інтелекти змагаються за владу й ресурси.&lt;br/&gt;Год издания: 2016&lt;br/&gt;Формат: epub&lt;br/&gt;Язык: uk&lt;br/&gt;Размер: 2012 Kb&lt;br/&gt;Серия: Всесвіт Боба #1&lt;br/&gt;</content>
+ <link href="/i/88/890588/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/88/890588/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/88/890588/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/88/890588/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890588/download" rel="http://opds-spec.org/acquisition/open-access" type="application/epub" />
+ <link href="/b/890588" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:3ff271e0c68cdc76bbc7b5449196fa4e</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Бо нас безліч</title>
+ <author> <name>Тейлор Деннис Э.</name>
+ <uri>/a/245395</uri>
+</author>
+ <link href="/opds/author/245395" rel="related" type="application/atom+xml" title="Все книги автора Тейлор Деннис Э." />
+ <category term="Научная фантастика" label="Научная фантастика" />
+ <dc:language>uk</dc:language>
+ <dc:format>epub</dc:format>
+ <dc:issued>2025</dc:issued>
+ <link href="/opds/sequencebooks/113456" rel="related" type="application/atom+xml" title="Все книги серии &quot;Всесвіт Боба&quot;" />
+ <content type="text/html">Роман Денніса І. Тейлора «Бо нас безліч» — наступний крок у пригоді, що почалася з оцифрування людського мозку. Бобів стає все більше, а їхні місії усе більше складнішають. 
+
+У кожного з Бобів своя мета: будівництво колоній, захист людства, дослідження нових світів або навіть власна самотність. Та виникає новий ворог і заразом головне запитання: що станеться, коли копії почнуть діяти одна проти одної?
+
+Захоплива хроніка пошуку рівноваги між свободою, розумом і множинністю.&lt;br/&gt;Год издания: 2025&lt;br/&gt;Формат: epub&lt;br/&gt;Язык: uk&lt;br/&gt;Размер: 1853 Kb&lt;br/&gt;Серия: Всесвіт Боба #2&lt;br/&gt;</content>
+ <link href="/i/87/890587/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/87/890587/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/87/890587/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/87/890587/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890587/download" rel="http://opds-spec.org/acquisition/open-access" type="application/epub" />
+ <link href="/b/890587" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:296785dab59a38535514c13807aafd3d</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Атомні звички. Легкий і перевірений спосіб набути корисних звичок і позбутися звичок шкідливих</title>
+ <author> <name>Клир Джеймс</name>
+ <uri>/a/223961</uri>
+</author>
+ <link href="/opds/author/223961" rel="related" type="application/atom+xml" title="Все книги автора Клир Джеймс" />
+ <category term="Научная литература" label="Научная литература" />
+ <dc:language>uk</dc:language>
+ <dc:format>epub</dc:format>
+ <dc:issued>2018</dc:issued>
+ <content type="text/html">Незначні зміни, значні результати! Дізнайтеся секрет тривалих результатів!Нашпигована заснованими на фактах стратегіями із самовдосконалення, книга «Атомні звички» навчить, як набути манер і навиків, що працюватимуть на вас, а не проти вас.
+
+У книзі Джеймс Клір ділиться надзвичайно цікавою і по-справжньому продуктивною методикою напрацювання корисних звичок. В її основі лежить поняття чотириступеневої моделі звичок (подразник, прагнення, відгук, винагорода), а також чотири породжені цією моделлю закони зміни поведінки. Викладений матеріал підтверджується результатами наукових досліджень, проте книгу слід трактувати не як наукову розвідку, а як посібник з експлуатації, що містить мудрі практичні поради та пояснення механізмів створення і змінювання власних звичок. Єдиного правильного способу набуття корисних звичок, звісно, не існує, але автор пропонує найкращий із відомих підхід, який спрацює незалежно від того, з чого саме ви починаєте і що саме намагаєтеся змінити. Викладені стратегії стануть у пригоді всім, хто потребує покрокової інструкції з покращення незалежно від того, що мається на меті — покращення здоров&#039;я чи добробуту, продуктивності праці чи стосунків, а можливо, всього переліченого разом.
+
+Джеймс Клір — автор і лектор, який велику увагу приділяє таким питанням, як людські звички, механізм ухвалення рішень і методи постійного самовдосконалення. Його доробки друкувались у The New York Times, Entrepreneur, Time, а також були представлені глядачі американської ранкової телепрограми This Morning на CBS. Щомісяця веб-сайт Джеймса відвідують мільйони людей, а сотні тисяч підписані на його популярну електронну розсилку новин. Кліра як лектора постійно запрошують виступити компанії, що входять до списку Fortune 500, а його ідеї і напрацювання використовують члени команд Національної футбольної ліги, Національної баскетбольної асоціації і Головної ліги бейсболу.
+&lt;br/&gt;Год издания: 2018&lt;br/&gt;Формат: epub&lt;br/&gt;Язык: uk&lt;br/&gt;Размер: 4552 Kb&lt;br/&gt;</content>
+ <link href="/i/86/890586/OEBPS/image/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/86/890586/OEBPS/image/cover.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/86/890586/OEBPS/image/cover.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/86/890586/OEBPS/image/cover.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890586/download" rel="http://opds-spec.org/acquisition/open-access" type="application/epub" />
+ <link href="/b/890586" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:dabb55404a39acad08116686b7bfcfa1</id>
+</entry>
+ <entry> <updated>2026-09-25T17:41:23+02:00</updated>
+ <title>Листи Асперна</title>
+ <author> <name>Джеймс Генри</name>
+ <uri>/a/2829</uri>
+</author>
+ <link href="/opds/author/2829" rel="related" type="application/atom+xml" title="Все книги автора Джеймс Генри" />
+ <category term="Проза" label="Проза" />
+ <dc:language>uk</dc:language>
+ <dc:format>epub</dc:format>
+ <dc:issued>2019</dc:issued>
+ <content type="text/html">У Венеції, у ветхому палаццо, що припадає пилом, мешкає стара міс Бордеро з племінницею, ревно оберігаючи свій скарб – в’язку листів, які написав їй в юності закоханий у неї славетний поет Джеффрі Асперн. Оповідач, літературний критик під видуманим ім’ям проникає в палац, винайнявши у ньому кімнати. Він сповнений рішучості за будь-яку ціну заволодіти спадком Асперна...
+
+Новела «Листи Асперна» постійно тримає читача у напрузі, цей твір вважають одним з найкращих у доробку Генрі Джеймса.&lt;br/&gt;Год издания: 2019&lt;br/&gt;Формат: epub&lt;br/&gt;Язык: uk&lt;br/&gt;Размер: 252 Kb&lt;br/&gt;</content>
+ <link href="/i/85/890585/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/image" type="image/jpeg" />
+ <link href="/i/85/890585/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image" type="image/jpeg" />
+ <link href="/i/85/890585/OEBPS/Images/cover.jpg.jpg" rel="http://opds-spec.org/thumbnail" type="image/jpeg" />
+ <link href="/i/85/890585/OEBPS/Images/cover.jpg.jpg" rel="x-stanza-cover-image-thumbnail" type="image/jpeg" />
+ <link href="/b/890585/download" rel="http://opds-spec.org/acquisition/open-access" type="application/epub" />
+ <link href="/b/890585" rel="alternate" type="text/html" title="Книга на сайте" />
+ <id>tag:book:e65a35b08587ee7caec984eeba99a0cd</id>
+</entry>
+</feed>

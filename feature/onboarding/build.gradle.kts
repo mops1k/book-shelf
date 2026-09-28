@@ -11,6 +11,8 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":core:storage"))
-    testImplementation(testFixtures(project(":core:data")))
+    // Системный пикер папок ACTION_OPEN_DOCUMENT_TREE. Нужен только этому модулю:
+    // выбрать папку SAF умеет лишь онбординг.
+    implementation(libs.androidx.activity.compose)
     testImplementation(project(":core:testing"))
 }

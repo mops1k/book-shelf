@@ -1,24 +1,26 @@
 package io.github.bookshelf.feature.search
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.repository.SearchRepository
+import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * ViewModel поиска по FTS (docs/eink-ux.md §6.5, Sprint 4).
+ * ViewModel поиска по FTS (docs/eink-ux.md §6.5).
  *
- * На этапе каркаса отдаёт только начальное состояние: репозиторий внедрён как контракт
- * и не вызывается. Ввод текста и очистка — чистое UI-состояние, они работают уже сейчас.
- *
- * После Sprint 4 появятся действия:
- * * [onSearch] — `SearchRepository.search(query)` по `books_fts` с подсветкой совпадений;
- * * [onQueryChange] — debounce и префиксный запрос подсказок (`term*`);
- * * [onClearHistory] — очистка истории последних запросов;
- * * фильтры результатов: только непрочитанные, только избранное, формат.
+ * Поиск и подсказки подписываются на потоки репозитория в [viewModelScope]. Введённый запрос
+ * отменяет предыдущие подписки, поэтому результаты старого термина не появляются после нового ввода.
  */
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -27,40 +29,154 @@ class SearchViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SearchUiState())
 
+    private var suggestionsJob: Job? = null
+
+    private var searchJob: Job? = null
+
     /** Состояние экрана поиска для `collectAsStateWithLifecycle`. */
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-    /** Ввод запроса: текст меняется сразу, подсказки появятся в Sprint 4. */
+    /** Ввод запроса: подсказки запрашиваются с задержкой, чтобы не обращаться к БД на каждый символ. */
+    @Suppress("TooGenericExceptionCaught")
     fun onQueryChange(query: String) {
-        _uiState.value = _uiState.value.copy(query = query)
-        // STUB(Sprint 4): debounce ~200 мс и префиксный запрос подсказок по books_fts
+        searchJob?.cancel()
+        suggestionsJob?.cancel()
+        _uiState.update {
+            it.copy(
+                query = query,
+                suggestions = emptyList(),
+                results = emptyList(),
+                total = 0,
+                isSearching = false,
+                error = null,
+            )
+        }
+        if (query.isBlank()) return
+
+        suggestionsJob = viewModelScope.launch {
+            delay(SUGGESTION_DELAY_MS)
+            try {
+                searchRepository.autocomplete(query.trim(), SUGGESTION_LIMIT).collect { suggestions ->
+                    _uiState.update { state ->
+                        if (state.query == query) state.copy(suggestions = suggestions) else state
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update { state ->
+                    if (state.query == query) {
+                        state.copy(error = error.message ?: "Не удалось получить подсказки")
+                    } else {
+                        state
+                    }
+                }
+            }
+        }
     }
 
-    /** Выбор подсказки автодополнения. */
+    /** Выбор подсказки автодополнения сразу запускает поиск по выбранному термину. */
     fun onSelectSuggestion(suggestion: String) {
-        _uiState.value = _uiState.value.copy(query = suggestion)
-        // STUB(Sprint 4): сразу выполнить поиск по выбранной подсказке
+        _uiState.update { it.copy(query = suggestion, suggestions = emptyList(), error = null) }
+        suggestionsJob?.cancel()
+        onSearch()
     }
 
     /** Запустить поиск по введённому запросу. */
+    @Suppress("TooGenericExceptionCaught")
     fun onSearch() {
-        // STUB(Sprint 4): FTS-запрос с unicode61 и подсветкой совпадений
-        TODO("STUB(Sprint 4): searchRepository.search(query.trim())")
+        val term = _uiState.value.query.trim()
+        suggestionsJob?.cancel()
+        searchJob?.cancel()
+        if (term.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    suggestions = emptyList(),
+                    results = emptyList(),
+                    total = 0,
+                    isSearching = false,
+                    error = null,
+                )
+            }
+            return
+        }
+
+        _uiState.update { it.copy(isSearching = true, error = null) }
+        searchJob = viewModelScope.launch {
+            try {
+                searchRepository.search(term, SEARCH_LIMIT).collect { books ->
+                    val results = books.map { book -> book.toResult() }
+                    _uiState.update { state ->
+                        if (state.query.trim() == term) {
+                            state.copy(
+                                results = results,
+                                total = results.size,
+                                isSearching = false,
+                                error = null,
+                                recentQueries = state.recentQueries.withRecent(term),
+                            )
+                        } else {
+                            state
+                        }
+                    }
+                }
+                _uiState.update { state ->
+                    if (state.query.trim() == term) state.copy(isSearching = false) else state
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update { state ->
+                    if (state.query.trim() == term) {
+                        state.copy(
+                            isSearching = false,
+                            error = error.message ?: "Не удалось выполнить поиск",
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
+        }
     }
 
-    /** Очистить поле и результаты — чистое UI-состояние. */
+    /** Очистить поле и результаты, сохранив локальную историю запросов. */
     fun onClearQuery() {
-        _uiState.value = _uiState.value.copy(
-            query = "",
-            suggestions = emptyList(),
-            results = emptyList(),
-            total = 0,
-        )
+        suggestionsJob?.cancel()
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                query = "",
+                suggestions = emptyList(),
+                results = emptyList(),
+                total = 0,
+                isSearching = false,
+                error = null,
+            )
+        }
     }
 
-    /** Очистить историю последних запросов. */
+    /** Очистить историю последних запросов, хранящуюся в состоянии ViewModel. */
     fun onClearHistory() {
-        // STUB(Sprint 4): удалить историю запросов из DataStore
-        TODO("STUB(Sprint 4): searchRepository.clearHistory()")
+        _uiState.update { it.copy(recentQueries = emptyList()) }
+    }
+
+    private fun Book.toResult(): SearchResultUi = SearchResultUi(
+        id = id,
+        title = title,
+        authors = authorsText.ifBlank { authors.joinToString(", ") },
+        snippet = description?.take(SNIPPET_LENGTH),
+    )
+
+    private fun List<String>.withRecent(term: String): List<String> =
+        (listOf(term) + filterNot { it.equals(term, ignoreCase = true) })
+            .take(RECENT_QUERY_LIMIT)
+
+    private companion object {
+        const val SUGGESTION_DELAY_MS = 200L
+        const val SUGGESTION_LIMIT = 10
+        const val SEARCH_LIMIT = 50
+        const val RECENT_QUERY_LIMIT = 10
+        const val SNIPPET_LENGTH = 200
     }
 }

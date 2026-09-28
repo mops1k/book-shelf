@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"
+             xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>classic</genre>
+      <author><nickname>Лев Толстой</nickname></author>      <author><first-name>Фёдор</first-name><last-name>Достоевский</last-name></author>
+      <book-title>Преступление и наказание</book-title>
+      <annotation>Аннотация: краткое описание книги Преступление и наказание.</annotation>
+      <lang>ru</lang>
+    <sequence name="Классика" number="2"/>
+  </title-info>
+    <date value="1869-01-01"/>
+    <coverpage><image l:href="#cover.jpg"/></coverpage>
+  </description>
+  <publish-info>
+    <book-name>Преступление и наказание</book-name>
+    <publisher>Эксмо</publisher>
+    <year>1866</year>
+    <isbn>978-5-00-000000-1</isbn>
+  </publish-info>
+  <body>
+    <section>
+      <p>Текст книги ${title}.</p>
+    </section>
+  </body>
+</FictionBook>

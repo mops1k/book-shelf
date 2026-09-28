@@ -31,6 +31,10 @@ data class CollectionsUiState(
     val collections: List<CollectionUi> = emptyList(),
     /** Выделенная полка — цель действия «Открыть» с D-pad и аппаратных кнопок. */
     val selectedId: String? = null,
+    /** Id полки, которую сейчас переименовывают; `null` — обычный режим. */
+    val renamingId: String? = null,
+    /** Текст в поле переименования. */
+    val renameDraft: String = "",
     /** Идёт загрузка списка. */
     val isLoading: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */

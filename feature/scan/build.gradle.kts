@@ -11,6 +11,5 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":core:storage"))
-    testImplementation(testFixtures(project(":core:data")))
     testImplementation(project(":core:testing"))
 }

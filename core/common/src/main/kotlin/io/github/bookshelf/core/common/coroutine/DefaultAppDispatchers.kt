@@ -5,7 +5,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.concurrent.Executors
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.limitedParallelism
 
 /**
  * Боевые диспетчеры.

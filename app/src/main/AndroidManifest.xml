@@ -9,6 +9,17 @@
       * src/play — только SAF и <queries> (политики Google Play, ADR-007).
     -->
 
+    <!--
+        Открытый HTTP разрешён осознанно: `targetSdk 35` запрещает cleartext по умолчанию, а
+        каталоги OPDS в большинстве случаев живут без TLS. Без этого «Проверить и добавить»
+        на http-ссылке падал с `CLEARTEXT communication ... not permitted`, и ловился
+        пользователем как «ссылка не открывается».
+
+        Чем это оплачивается: у таких фидов нет ни шифрования, ни проверки целостности ответа.
+        Для анонимного каталога с книгами это приемлемо, но пароль от каталога по http уходить
+        не должен — вкладку с авторизацией для таких адресов закрывать.
+    -->
+
     <!-- OPDS — единственный сценарий с сетью. Аналитики и крашлитики в приложении нет. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -29,7 +40,57 @@
       (Google Play: «most apps are not allowed») объявляем только то, что реально нужно.
     -->
     <queries>
+        <!--
+            FBReader — целевая читалка проекта (ADR-005). Пакет объявлен явно: на Android 11+
+            читалка не видна без `<queries>`, и кнопка «Читать» уходила в посторонние
+            приложения, объявившие те же книжные MIME-типы (проверено на устройстве 2026-09-25:
+            вместо FBReader открывался AniLabX). Значение `com.fbreader` подтверждено
+            `dumpsys package`; `org.geometerplus.zlibrary.ui.android` — старый FBReader for Android.
+        -->
+        <package android:name="com.fbreader" />
         <package android:name="org.geometerplus.zlibrary.ui.android" />
+        <!-- Остальные поддерживаемые читалки: без `<queries>` они на Android 11+ не видны,
+             даже если установлены и объявили нужные MIME-типы. Список — в FbReaderPreset. -->
+        <package android:name="org.coolreader" />
+        <package android:name="org.koreader.launcher" />
+        <package android:name="org.koreader.launcher.fdroid" />
+        <package android:name="com.foobnix.pdf.reader" />
+        <package android:name="com.neverland.alreader" />
+
+        <intent>
+            <action android:name="android.fbreader.action.VIEW" />
+        </intent>
+        <intent>
+            <action android:name="android.fbreader.action.API" />
+        </intent>
+        <intent>
+            <action android:name="android.fbreader.action.LIBRARY_SERVICE" />
+        </intent>
+
+        <!--
+            Читалки объявляют фильтры со схемой `content`/`file`, поэтому запрос тоже должен
+            нести схему: без неё фильтр с `StaticType` не совпадает и пакет остаётся скрытым.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:scheme="content" android:mimeType="application/octet-stream" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:scheme="content" android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:scheme="content" android:mimeType="application/epub+zip" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:scheme="file" android:mimeType="application/octet-stream" />
+        </intent>
 
         <intent>
             <action android:name="android.fbreader.action.VIEW" />
@@ -66,11 +127,43 @@
             <category android:name="android.intent.category.DEFAULT" />
             <data android:mimeType="application/octet-stream" />
         </intent>
+        <!--
+            Форматы, которые приложение открывает, но которые раньше не были объявлены здесь.
+            Без них на Android 11+ система скрывает подходящие читалки целиком (package
+            visibility), и «открыть в читалке» не находит ничего.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="application/rtf" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="application/vnd.comicbook+zip" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="application/vnd.comicbook-rar" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="application/vnd.oasis.opendocument.text" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data
+                android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        </intent>
     </queries>
 
     <application
         android:name=".BookShelfApplication"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
