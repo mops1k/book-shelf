@@ -523,7 +523,13 @@ private fun LibraryFooter(
         // Сортировка переехала в подвал и открывается касанием: в строке видов её место заняли
         // пять кнопок обзора, а подвал раньше только показывал значение (docs/eink-ux.md §6.2).
         Text(
-            text = "Сортировка: ${sortLabel(state.sort)} · ${groupingLabel(state.grouping)}",
+            // Внутри одной серии порядок не выбирается: книги идут по выпуску (номер в серии,
+            // затем год издания), поэтому подпись «Сортировка: Автор» здесь была бы неправдой.
+            text = if (state.activeFilters.series.size == 1) {
+                "Порядок серии: по выпуску"
+            } else {
+                "Сортировка: ${sortLabel(state.sort)} · ${groupingLabel(state.grouping)}"
+            },
             style = MaterialTheme.typography.labelMedium,
             color = colors.foreground,
             modifier = Modifier.clickableNoIndication(onClick = onPickSort),

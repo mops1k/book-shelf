@@ -27,6 +27,18 @@ import io.github.bookshelf.core.data.search.ftsQueryOf
  *    нестабильна: строки с одинаковым заголовком или годом могут возвращаться то на одной
  *    странице, то на другой, и пользователь увидит дубли и пропуски.
  */
+/**
+ * Порядок чтения серии: сначала книги с номером (по возрастанию), затем без номера
+ * (по году издания по возрастанию), внутри одного года — по названию.
+ *
+ * `IS NULL` в начале каждого ключа ставит книги без значения в конец: в SQLite `NULL`
+ * по умолчанию сортируется первым, и серия начиналась бы с книги без номера.
+ */
+private const val SERIES_ORDER: String =
+    "ORDER BY books.seriesIndex IS NULL, books.seriesIndex ASC, " +
+        "books.publishedYear IS NULL, books.publishedYear ASC, " +
+        "books.sortTitle COLLATE NOCASE ASC, books.id ASC"
+
 internal object BookPageSql {
 
     /** Выборка страницы. */
@@ -109,6 +121,12 @@ internal object BookPageSql {
      * `ORDER BY`: сначала ключ группировки, потом выбранная сортировка, всегда с добивкой по `id`.
      */
     private fun orderBy(query: LibraryQuery): String {
+        // Внутри одной серии книги читаются по порядку выпуска, а не по выбранной сортировке:
+        // у большинства книг есть номер в серии (`books.seriesIndex`), у остальных — год издания.
+        // Так серия «1, 2, 3» не превращается в алфавитный список, куда бы пользователь ни зашёл —
+        // из обзора по авторам или из обзора по сериям.
+        if (query.bookQuery.series.size == 1) return SERIES_ORDER
+
         val direction = if (query.descending) "DESC" else "ASC"
         val groupingColumn = when (query.grouping) {
             Grouping.NONE -> null

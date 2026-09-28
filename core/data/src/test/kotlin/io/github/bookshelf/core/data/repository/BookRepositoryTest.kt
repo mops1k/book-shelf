@@ -114,7 +114,9 @@ class BookRepositoryTest {
             LibraryQuery(bookQuery = BookQuery(series = setOf("Классика"))),
         ).first()
 
-        assertThat(page.items.map { it.title }).isEqualTo(listOf("Анна Каренина", "Война и мир"))
+        // Внутри одной серии порядок — по выпуску: «Война и мир» (1869) раньше «Анны Карениной»
+        // (1877). Номера в серии у этих книг нет, поэтому решает год издания.
+        assertThat(page.items.map { it.title }).isEqualTo(listOf("Война и мир", "Анна Каренина"))
     }
 
     @Test
@@ -125,7 +127,9 @@ class BookRepositoryTest {
             LibraryQuery(bookQuery = BookQuery(authorNames = setOf(TOLSTOY), series = setOf("Классика"))),
         ).first()
 
-        assertThat(page.items.map { it.title }).isEqualTo(listOf("Анна Каренина", "Война и мир"))
+        // Внутри одной серии порядок — по выпуску: «Война и мир» (1869) раньше «Анны Карениной»
+        // (1877). Номера в серии у этих книг нет, поэтому решает год издания.
+        assertThat(page.items.map { it.title }).isEqualTo(listOf("Война и мир", "Анна Каренина"))
     }
 
     @Test
@@ -337,6 +341,34 @@ class BookRepositoryTest {
 
         assertThat(repository.getById("war").getOrNull()).isNull()
         assertThat(repository.observePage(LibraryQuery()).first().totalCount).isEqualTo(4)
+    }
+
+
+    @Test
+    fun `books inside one series are ordered by series index then year`() = runBlocking {
+        givenLibrary()
+        database.bookDao().upsertAll(
+            listOf(
+                // Заведомо перемешаны: проверяется порядок чтения серии, а не порядок вставки.
+                book("chronicle-3", "Третья", "Лев Толстой", series = "Хроники", year = 2003, ext = "fb2")
+                    .copy(seriesIndex = 3.0),
+                book("chronicle-1", "Первая", "Лев Толстой", series = "Хроники", year = 2001, ext = "fb2")
+                    .copy(seriesIndex = 1.0),
+                book("chronicle-2", "Вторая", "Лев Толстой", series = "Хроники", year = 2002, ext = "fb2")
+                    .copy(seriesIndex = 2.0),
+                // Без номера в серии: уходит в конец, внутри «без номера» — по году издания.
+                book("chronicle-late", "Поздняя", "Лев Толстой", series = "Хроники", year = 2010, ext = "fb2"),
+            ),
+        )
+
+        val page = repository.observePage(
+            LibraryQuery(bookQuery = BookQuery(series = setOf("Хроники")), pageSize = 20),
+        ).first()
+
+        // Порядок выпуска важнее выбранной сортировки: серия «1, 2, 3, затем без номера».
+        assertThat(page.items.map { book -> book.id })
+            .containsExactly("chronicle-1", "chronicle-2", "chronicle-3", "chronicle-late")
+            .inOrder()
     }
 
     private fun AppResult<Unit>.assertOk() {
