@@ -7,6 +7,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.di.ApplicationScope
+import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
+import io.github.bookshelf.work.ReadingProgressSyncScheduler
 import io.github.bookshelf.core.common.di.CoverCacheDir
 import io.github.bookshelf.core.common.di.OpdsCacheDir
 import io.github.bookshelf.core.common.di.DefaultDispatcher
@@ -27,6 +29,18 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    /**
+     * Расписание синхронизации прогресса чтения.
+     *
+     * Реализация живёт в `:app`, потому что завязана на WorkManager, а порт объявлен в `:core:data`:
+     * экран настроек (feature-модуль) не может зависеть от приложения, но обязан уметь сказать
+     * «расписание изменилось».
+     */
+    @Provides
+    @Singleton
+    fun provideProgressSyncSchedule(scheduler: ReadingProgressSyncScheduler): ProgressSyncSchedule =
+        scheduler
 
     @Provides
     @Singleton

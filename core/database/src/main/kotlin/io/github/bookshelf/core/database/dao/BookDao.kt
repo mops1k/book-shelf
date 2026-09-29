@@ -34,6 +34,15 @@ interface BookDao {
     suspend fun update(book: BookEntity)
 
     /**
+     * Книга по адресу документа.
+     *
+     * Нужно синхронизации прогресса: читалка отдаёт адрес открытой книги, и для наших книг это ровно
+     * тот `content://`, которым мы её открыли (`books.documentUri`).
+     */
+    @Query("SELECT * FROM books WHERE documentUri = :documentUri LIMIT 1")
+    suspend fun getByDocumentUri(documentUri: String): BookEntity?
+
+    /**
      * Все книги одним списком.
      *
      * Нужен поиску дублей: он сравнивает содержимое файлов и не может опираться на страницу полки

@@ -1,9 +1,10 @@
 package io.github.bookshelf.core.storage.files
 
 import com.google.common.truth.Truth.assertThat
-import io.mockk.every
-import io.mockk.mockk
+import io.github.bookshelf.core.common.error.AppResult
 import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.nio.channels.FileChannel
 import org.junit.Test
 
 /**
@@ -38,8 +39,7 @@ class ContentHasherTest {
 
     @Test
     fun `unreadable file gives null`() {
-        val opener = mockk<BookContentOpener>(relaxed = true)
-        every { opener.openStream(any()) } returns null
+        val opener = FakeContentOpener(bytes = null)
 
         assertThat(DefaultContentHasher(opener).contentHash("content://doc/a")).isNull()
     }
@@ -51,9 +51,23 @@ class ContentHasherTest {
      * первым обращением, и второе вернуло бы пустое содержимое — тест «одинаковые байты» ловил бы
      * ошибку самого теста, а не приложения.
      */
-    private fun opener(bytes: ByteArray): BookContentOpener {
-        val opener = mockk<BookContentOpener>(relaxed = true)
-        every { opener.openStream(any()) } answers { ByteArrayInputStream(bytes) }
-        return opener
+    private fun opener(bytes: ByteArray): BookContentOpener = FakeContentOpener(bytes)
+
+    /**
+     * Свой фейк, а не `mockk`: `BookContentOpener` — интерфейс проекта, а собственные типы в тестах
+     * не мокаются (ADR-012, правило 2). Здесь же видно и поведение: `null` означает «файл не
+     * открылся», и это отдельный случай теста.
+     */
+    private class FakeContentOpener(private val bytes: ByteArray?) : BookContentOpener {
+
+        override fun openStream(documentUri: String): InputStream? =
+            bytes?.let { content -> ByteArrayInputStream(content) }
+
+        override fun openSeekableChannel(documentUri: String): FileChannel? = null
+
+        override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
+
+        override fun tempCopy(documentUri: String): AppResult<String> =
+            AppResult.failure(io.github.bookshelf.core.common.error.AppError.Unknown(message = "файл не нужен"))
     }
 }

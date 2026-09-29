@@ -169,6 +169,10 @@ data class AppSettingsUi(
     val askReaderAlways: Boolean = false,
     /** Лимит дискового кэша обложек, МБ: 100 / 200 / 500 (`CoverCleanupWorker`). */
     val coverCacheLimitMb: Int = 200,
+    /** Синхронизация прогресса чтения с читалкой (FBReader): по умолчанию выключена. */
+    val isFbReaderProgressEnabled: Boolean = false,
+    /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
+    val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Лимит временной копии книги из облачного источника, МБ: 50 / 100 / 200. */
     val tempCopyLimitMb: Int = 100,
     /** Шаблон имени скачанного файла (`opds.downloadFileNameTemplate`). */
@@ -209,6 +213,10 @@ data class SettingsUiState(
     val isClearingCoverCache: Boolean = false,
     /** Результат очистки кэша обложек: «освобождено 12,4 МБ» или причина сбоя. */
     val coverCacheMessage: String? = null,
+    /** Идёт проверка связи с читалкой (API-сервис FBReader). */
+    val isCheckingReaderApi: Boolean = false,
+    /** Результат проверки связи: «API отвечает…» или причина отказа. `null` — ещё не проверяли. */
+    val readerApiStatus: String? = null,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 )

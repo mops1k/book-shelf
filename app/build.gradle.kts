@@ -28,6 +28,12 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.okhttp)
 
+    // Проба внешних API на живом устройстве (спайк FBReader): обычные юнит-тесты привязку
+    // к чужому сервису и запросы к чужому провайдеру проверить не могут.
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.core.ktx)
+
     // features
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:library"))

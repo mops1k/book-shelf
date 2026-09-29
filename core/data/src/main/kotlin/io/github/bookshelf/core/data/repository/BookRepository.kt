@@ -42,6 +42,30 @@ interface BookRepository {
     /** Отметить статус чтения вручную. */
     suspend fun markRead(bookId: String, status: ReadingStatus): AppResult<Unit>
 
+    /**
+     * Книга по адресу документа.
+     *
+     * Адрес — тот самый `content://`, которым книга открывается в читалке: синхронизация прогресса
+     * получает от читалки именно его (проверено на устройстве 29.09.2026), поэтому поиск идёт по
+     * `books.documentUri`, а не по пути и не по хешу.
+     */
+    suspend fun findByDocumentUri(documentUri: String): AppResult<Book?>
+
+    /**
+     * Сохранить прогресс чтения книги.
+     *
+     * @param percent доля прочитанного 0f..1f — в таблице `reading_progress` хранится доля, а не
+     *   проценты: читалка отдаёт проценты, перевод делает вызывающий.
+     * @param locatorJson позиция в формате читалки; `null`, если её нет.
+     * @param source канал получения прогресса ([ReadingProgressOrigins]).
+     */
+    suspend fun saveReadingProgress(
+        bookId: String,
+        percent: Float,
+        locatorJson: String? = null,
+        source: String = ReadingProgressOrigins.MANUAL,
+    ): AppResult<Unit>
+
     /** Удалить запись из библиотеки. Файл книги не удаляется никогда (docs/eink-ux.md §6.7). */
     suspend fun delete(bookId: String): AppResult<Unit>
 
@@ -79,3 +103,18 @@ data class DeletionResult(
     val deleted: Int,
     val failed: Int,
 )
+
+/**
+ * Откуда пришёл прогресс чтения.
+ *
+ * Значения — строки в `reading_progress.source`: так их видно в базе и в диагностике, а новый канал
+ * (встроенная читалка, ручная правка) добавляется без миграции.
+ */
+object ReadingProgressOrigins {
+
+    /** Отметка вручную или правка на экране. */
+    const val MANUAL = "MANUAL"
+
+    /** Прочитано из API-сервиса FBReader. */
+    const val FBREADER_AIDL = "FBREADER_AIDL"
+}

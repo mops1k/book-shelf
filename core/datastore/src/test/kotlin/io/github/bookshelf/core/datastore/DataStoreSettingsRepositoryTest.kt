@@ -99,6 +99,7 @@ class DataStoreSettingsRepositoryTest {
                 lastUsedReaderByFormat = mapOf("pdf" to "profile-3"),
                 enableFbReaderProgress = true,
                 tempExportEnabled = false,
+                progressSyncIntervalMinutes = 2,
             ),
             opds = io.github.bookshelf.core.datastore.model.OpdsSettings(
                 enableOpds = false,
@@ -209,6 +210,10 @@ class DataStoreSettingsRepositoryTest {
         assertThat(current.library.gridColumns).isEqualTo(SettingsKeys.Defaults.GRID_COLUMNS)
         assertThat(current.library.rowsPerPage).isEqualTo(SettingsKeys.Defaults.ROWS_PER_PAGE)
         assertThat(current.eink.frontLightLevel).isEqualTo(100)
+        assertThat(current.reader.progressSyncIntervalMinutes)
+            .isEqualTo(SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES)
+        assertThat(current.reader.enableFbReaderProgress)
+            .isEqualTo(SettingsKeys.Defaults.ENABLE_FBREADER_PROGRESS)
     }
 
     @Test

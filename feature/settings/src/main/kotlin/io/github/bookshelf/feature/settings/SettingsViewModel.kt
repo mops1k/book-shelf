@@ -12,7 +12,10 @@ import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
+import io.github.bookshelf.core.datastore.ProgressSyncInterval
 import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
@@ -48,6 +51,8 @@ class SettingsViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val einkController: EinkController,
     private val coverCache: CoverCache,
+    private val progressSchedule: ProgressSyncSchedule,
+    private val fbReaderApi: FbReaderApi,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -166,6 +171,57 @@ class SettingsViewModel @Inject constructor(
     fun onSetViewPreset(preset: ShelfViewPreset) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
             settings.copy(library = settings.library.copy(viewPreset = preset))
+        }
+    }
+
+    /**
+     * Команды блока «Прогресс чтения» в категории «Читалки».
+     *
+     * Одна точка входа, а не два сеттера: в классе 29 методов при пороге detekt `TooManyFunctions`
+     * 30, и каждый новый метод приближает нарушение. Действие описывает намерение целиком, поэтому
+     * читается не хуже двух отдельных функций.
+     */
+    fun onReaderProgress(action: ReaderProgressAction) {
+        when (action) {
+            is ReaderProgressAction.SetEnabled -> {
+                updateSettings(
+                    settingsRepository,
+                    _uiState,
+                    viewModelScope,
+                    afterWrite = { progressSchedule.review() },
+                ) { settings ->
+                    settings.copy(reader = settings.reader.copy(enableFbReaderProgress = action.enabled))
+                }
+            }
+
+            ReaderProgressAction.CheckApi -> viewModelScope.launch {
+                _uiState.update { it.copy(isCheckingReaderApi = true) }
+                val available = fbReaderApi.connect()
+                val openBook = if (available) fbReaderApi.currentBook() else null
+                if (available) fbReaderApi.disconnect()
+                _uiState.update {
+                    it.copy(
+                        isCheckingReaderApi = false,
+                        readerApiStatus = when {
+                            !available -> "Читалка не отвечает: API недоступен"
+                            openBook == null -> "API отвечает, книга не открыта"
+                            else -> "API отвечает: открыто «${openBook.title ?: openBook.path}»"
+                        },
+                    )
+                }
+            }
+
+            is ReaderProgressAction.SetInterval -> {
+                val minutes = ProgressSyncInterval.minutesOrDefault(action.minutes)
+                updateSettings(
+                    settingsRepository,
+                    _uiState,
+                    viewModelScope,
+                    afterWrite = { progressSchedule.review() },
+                ) { settings ->
+                    settings.copy(reader = settings.reader.copy(progressSyncIntervalMinutes = minutes))
+                }
+            }
         }
     }
 
@@ -396,35 +452,40 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Лимит кэша обложек, МБ: 100 / 200 / 500.
+     * Лимиты диска: кэш обложек и временная копия.
      *
-     * Значение читает `CoverCleanupWorker` при уборке кэша, поэтому оно действительно
-     * ограничивает место на диске, а не только подпись на экране. Набор вариантов проверяется:
-     * сохранённое «со стороны» значение вне набора означало бы лимит, которого на экране нет.
+     * Одна точка входа на два родственных лимита, потому что у класса ровно 29 методов при пороге
+     * detekt `TooManyFunctions` 30: два отдельных сеттера упёрлись бы в порог. Наборы вариантов
+     * проверяются: сохранённое «со стороны» значение вне набора означало бы лимит, которого на
+     * экране нет.
      */
-    fun onSetCoverCacheLimitMb(limitMb: Int) {
-        if (limitMb !in COVER_CACHE_LIMIT_CHOICES_MB) {
-            _uiState.showError("Лимит кэша обложек: допустимо ${COVER_CACHE_LIMIT_CHOICES_MB.joinToString(" / ")} МБ")
-            return
-        }
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(library = settings.library.copy(coverCacheLimitMb = limitMb))
-        }
-    }
+    fun onSetDiskLimit(action: DiskLimitAction) {
+        when (action) {
+            is DiskLimitAction.SetCoverCacheMb -> {
+                if (action.limitMb !in COVER_CACHE_LIMIT_CHOICES_MB) {
+                    _uiState.showError(
+                        "Лимит кэша обложек: допустимо " +
+                            COVER_CACHE_LIMIT_CHOICES_MB.joinToString(" / ") + " МБ",
+                    )
+                    return
+                }
+                updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
+                    settings.copy(library = settings.library.copy(coverCacheLimitMb = action.limitMb))
+                }
+            }
 
-    /**
-     * Лимит временной копии книги, МБ: 50 / 100 / 200.
-     *
-     * Копия создаётся для облачных источников, где файл нельзя читать с произвольным доступом:
-     * больше лимит — открываются большие книги, но и места на диске уходит больше.
-     */
-    fun onSetTempCopyLimitMb(limitMb: Int) {
-        if (limitMb !in TEMP_COPY_LIMIT_CHOICES_MB) {
-            _uiState.showError("Лимит временной копии: допустимо ${TEMP_COPY_LIMIT_CHOICES_MB.joinToString(" / ")} МБ")
-            return
-        }
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(library = settings.library.copy(tempCopyLimitMb = limitMb))
+            is DiskLimitAction.SetTempCopyMb -> {
+                if (action.limitMb !in TEMP_COPY_LIMIT_CHOICES_MB) {
+                    _uiState.showError(
+                        "Лимит временной копии: допустимо " +
+                            TEMP_COPY_LIMIT_CHOICES_MB.joinToString(" / ") + " МБ",
+                    )
+                    return
+                }
+                updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
+                    settings.copy(library = settings.library.copy(tempCopyLimitMb = action.limitMb))
+                }
+            }
         }
     }
 
@@ -526,6 +587,8 @@ private fun appErrorMessage(error: AppError?, fallback: String): String = when {
 }
 
 private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = copy(
+    isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
+    progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     densityLabel = when (settings.appearance.density) {
         EinkDensityLike.LARGE -> "Крупный"
         EinkDensityLike.NORMAL -> "Обычный"
@@ -654,12 +717,17 @@ private fun updateSettings(
     repository: SettingsRepository,
     state: MutableStateFlow<SettingsUiState>,
     scope: CoroutineScope,
+    // `afterWrite` стоит ПЕРЕД `transform`: завершающая лямбда привязывается к последнему
+    // параметру, и при обратном порядке все вызовы `updateSettings(...) { settings -> ... }`
+    // начали бы передавать преобразование в «действие после записи».
+    afterWrite: suspend () -> Unit = {},
     transform: (AppSettings) -> AppSettings,
 ) {
     scope.launch {
         state.value = state.value.copy(isLoading = true, error = null)
         try {
             repository.update(transform)
+            afterWrite()
             state.value = state.value.copy(isLoading = false, error = null)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -722,3 +790,38 @@ private fun ReaderItemUi.withDefaultFlag(defaultReaderIds: Set<String>): ReaderI
 /** Текст ошибки из исключения: пустое сообщение (или его отсутствие) важнее заменить подсказкой. */
 private fun Throwable.userMessage(fallback: String): String =
     message?.takeIf { it.isNotBlank() } ?: fallback
+
+/**
+ * Что меняет пользователь в блоке «Прогресс чтения».
+ *
+ * @param SetEnabled включение синхронизации с читалкой.
+ * @param SetInterval интервал опроса в минутах (значение приводится к `ProgressSyncInterval`).
+ */
+sealed interface ReaderProgressAction {
+
+    data class SetEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    data class SetInterval(val minutes: Int) : ReaderProgressAction
+
+    /**
+     * Проверить связь с читалкой и показать результат рядом с переключателем.
+     *
+     * Связь может пропасть по причинам, которых не видно снаружи: читалку обновили, её сервис
+     * переименовали, систему ограничила фоновую работу. Без такой проверки человек видит только
+     * «процент не обновляется» и не понимает, что именно не работает.
+     */
+    data object CheckApi : ReaderProgressAction
+}
+
+/**
+ * Какой лимит диска меняет пользователь.
+ *
+ * @param SetCoverCacheMb лимит кэша обложек, МБ.
+ * @param SetTempCopyMb лимит временной копии книги из облака, МБ.
+ */
+sealed interface DiskLimitAction {
+
+    data class SetCoverCacheMb(val limitMb: Int) : DiskLimitAction
+
+    data class SetTempCopyMb(val limitMb: Int) : DiskLimitAction
+}

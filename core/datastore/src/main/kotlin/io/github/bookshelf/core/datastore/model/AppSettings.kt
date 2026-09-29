@@ -85,6 +85,7 @@ data class ReaderSettings(
     val lastUsedReaderByFormat: Map<String, String> = emptyMap(),
     val enableFbReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_FBREADER_PROGRESS,
     val tempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
+    val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
 )
 
 /** OPDS: каталоги и загрузки (docs/opds.md, ADR-006). */

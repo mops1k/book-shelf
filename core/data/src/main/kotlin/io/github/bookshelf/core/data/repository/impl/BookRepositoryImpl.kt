@@ -3,11 +3,13 @@ package io.github.bookshelf.core.data.repository.impl
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
+import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.DeletionResult
+import io.github.bookshelf.core.data.repository.ReadingProgressOrigins
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.data.mapper.BookPageSql
@@ -23,6 +25,7 @@ import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.ReadingProgressDao
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.MetadataOverrideEntity
+import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.relation.BookWithRelations
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,6 +59,7 @@ class BookRepositoryImpl @Inject constructor(
     private val scanRepository: ScanRepository,
     private val duplicateFinder: DuplicateFinder,
     private val fileRemover: SafTreeWriter,
+    private val clock: AppClock,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -107,6 +111,27 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun markRead(bookId: String, status: ReadingStatus): AppResult<Unit> =
         forExistingBook(bookId) { bookDao.setReadingStatus(bookId, status.name) }
+
+    override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> = appRunCatching {
+        bookDao.getByDocumentUri(documentUri)?.toDomain(authors = emptyList())
+    }
+
+    override suspend fun saveReadingProgress(
+        bookId: String,
+        percent: Float,
+        locatorJson: String?,
+        source: String,
+    ): AppResult<Unit> = forExistingBook(bookId) {
+        readingProgressDao.upsert(
+            ReadingProgressEntity(
+                bookId = bookId,
+                percent = percent.coerceIn(0f, 1f),
+                locatorJson = locatorJson,
+                updatedAt = clock.nowMillis(),
+                source = source,
+            ),
+        )
+    }
 
     override suspend fun delete(bookId: String): AppResult<Unit> =
         forExistingBook(bookId) { bookDao.deleteById(bookId) }
@@ -186,8 +211,15 @@ class BookRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun Book.withProgress(percent: Float?): Book =
-        if (percent == null) this else copy(progressPercent = percent)
+    /**
+     * Подставить прогресс чтения в книгу.
+     *
+     * В таблице `reading_progress` хранится доля 0..1 (так её пишет и синхронизация с читалкой, и
+     * ручная правка), а наружу отдаётся процент 0..100: полка печатает значение с знаком процента
+     * (`ReadingStatus.badge`), и с долей книга «на четверть прочитана» показывалась бы как «0 %».
+     */
+    private fun Book.withProgress(share: Float?): Book =
+        if (share == null) this else copy(progressPercent = share * PERCENT)
 
     /**
      * Выполнить команду, только если книга существует.
@@ -210,6 +242,9 @@ class BookRepositoryImpl @Inject constructor(
     private companion object {
         const val MIN_RATING = 0
         const val MAX_RATING = 5
+
+        /** Доля в таблице прогресса (0..1) → проценты для полки (0..100). */
+        const val PERCENT = 100f
 
         /**
          * Время сохранения правки. Нужно только для показа «изменено вручную», поэтому системных

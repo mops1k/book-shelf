@@ -185,6 +185,17 @@ class DuplicatesViewModelTest {
         }
 
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(report)
+        /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */
+        override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> =
+            AppResult.success(null)
+
+        override suspend fun saveReadingProgress(
+            bookId: String,
+            percent: Float,
+            locatorJson: String?,
+            source: String,
+        ): AppResult<Unit> = AppResult.success(Unit)
+
 
         override suspend fun rescanAll(): AppResult<Unit> = AppResult.success(Unit)
     }

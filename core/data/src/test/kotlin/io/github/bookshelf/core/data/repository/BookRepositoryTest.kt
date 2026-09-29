@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.storage.files.ContentHasher
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
@@ -68,8 +69,8 @@ class BookRepositoryTest {
     private val scans = mockk<ScanRepository>(relaxed = true)
 
     /** Удаление файлов и хеши содержимого: обе операции подменяются, файловой системы в тесте нет. */
-    private val files = mockk<SafTreeWriter>(relaxed = true)
-    private val hashes = mockk<ContentHasher>(relaxed = true)
+    private val files = FakeFileRemover()
+    private val hashes = FakeContentHasher()
 
     @Before
     fun setUp() {
@@ -85,6 +86,7 @@ class BookRepositoryTest {
             scanRepository = scans,
             duplicateFinder = DuplicateFinder(hashes),
             fileRemover = files,
+            clock = FakeAppClock(),
         )
     }
 
@@ -467,9 +469,28 @@ class BookRepositoryTest {
     }
 
     @Test
+    fun stored_share_of_reading_progress_is_exposed_as_percent() = runBlocking {
+        database.bookDao().insert(book(id = "progress", title = "Книга", author = "", ext = "fb2"))
+        database.readingProgressDao().upsert(
+            ReadingProgressEntity(
+                bookId = "progress",
+                percent = 0.25f,
+                updatedAt = 1_000L,
+                source = "FBREADER_AIDL",
+            ),
+        )
+
+        val loaded = repository.getById("progress").getOrNull()
+
+        // В таблице хранится доля 0..1, а полка печатает значение со знаком процента: отдай мы
+        // наружу долю — книга, прочитанная на четверть, показывалась бы как «читаю 0 %».
+        assertThat(loaded?.progressPercent).isWithin(0.01f).of(25f)
+    }
+
+    @Test
     fun deletePermanently_removes_the_file_and_the_row() = runBlocking {
         database.bookDao().insert(book(id = "gone", title = "Книга", author = "", ext = "fb2"))
-        coEvery { files.delete("content://tree/books/document/gone") } returns AppResult.success(Unit)
+        files.refuse = null
 
         val result = repository.deletePermanently(listOf("gone")).getOrNull()
 
@@ -481,9 +502,7 @@ class BookRepositoryTest {
     @Test
     fun deletePermanently_keeps_the_row_when_the_provider_refuses() = runBlocking {
         database.bookDao().insert(book(id = "kept", title = "Книга", author = "", ext = "fb2"))
-        coEvery { files.delete("content://tree/books/document/kept") } returns AppResult.failure(
-            io.github.bookshelf.core.common.error.AppError.Unknown(message = "нет доступа к папке"),
-        )
+        files.refuse = io.github.bookshelf.core.common.error.AppError.Unknown(message = "нет доступа к папке")
 
         val result = repository.deletePermanently(listOf("kept")).getOrNull()
 
@@ -498,13 +517,56 @@ class BookRepositoryTest {
     fun findDuplicates_reads_the_whole_library() = runBlocking {
         database.bookDao().insert(book(id = "one", title = "Книга", author = "", ext = "fb2"))
         database.bookDao().insert(book(id = "two", title = "Книга", author = "", ext = "fb2"))
-        every { hashes.contentHash(any()) } returns "одинаковый"
+        hashes.hash = "одинаковый"
 
         val report = repository.findDuplicates().getOrNull()
 
         // Обе книги одного размера и с одинаковым содержимым: одна группа, одна копия к удалению.
         assertThat(report?.groups).hasSize(1)
         assertThat(report?.duplicatesToRemove).isEqualTo(1)
+    }
+
+    /**
+     * Фейк удаления файлов: помнит, что просили удалить, и умеет отказать.
+     *
+     * Свой интерфейс — значит фейк, а не `mockk` (ADR-012, правило 2).
+     */
+    private class FakeFileRemover : SafTreeWriter {
+
+        var refuse: io.github.bookshelf.core.common.error.AppError? = null
+
+        val deleted = mutableListOf<String>()
+
+        override suspend fun write(
+            treeUri: String,
+            relativeDir: String,
+            fileName: String,
+            bytes: ByteArray,
+            mimeType: String,
+        ): AppResult<String> = AppResult.success("content://doc/fake")
+
+        override suspend fun writeStream(
+            treeUri: String,
+            relativeDir: String,
+            fileName: String,
+            mimeType: String,
+            onProgress: suspend (bytesWritten: Long, total: Long) -> Unit,
+            block: suspend (emit: suspend (ByteArray) -> Unit) -> Unit,
+        ): AppResult<String> = AppResult.success("content://doc/fake")
+
+        override suspend fun delete(documentUri: String): AppResult<Unit> {
+            refuse?.let { error -> return AppResult.failure(error) }
+            deleted += documentUri
+            return AppResult.success(Unit)
+        }
+    }
+
+    /** Фейк хеша содержимого: одна и та же строка означает «файлы идентичны». */
+    private class FakeContentHasher : ContentHasher {
+
+        var hash: String = "разный"
+
+        override fun contentHash(documentUri: String): String = hash
     }
 
     @Suppress("LongParameterList")

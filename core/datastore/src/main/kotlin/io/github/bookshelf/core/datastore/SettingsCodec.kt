@@ -96,6 +96,7 @@ internal object SettingsCodec {
             target[SettingsKeys.LAST_USED_READER_BY_FORMAT] = json.encodeToString(lastUsedReaderByFormat)
             target[SettingsKeys.ENABLE_FBREADER_PROGRESS] = enableFbReaderProgress
             target[SettingsKeys.TEMP_EXPORT_ENABLED] = tempExportEnabled
+            target[SettingsKeys.PROGRESS_SYNC_INTERVAL_MINUTES] = progressSyncIntervalMinutes
         }
         with(settings.opds) {
             target[SettingsKeys.ENABLE_OPDS] = enableOpds
@@ -210,6 +211,10 @@ internal object SettingsCodec {
             ?: SettingsKeys.Defaults.ENABLE_FBREADER_PROGRESS,
         tempExportEnabled = preferences[SettingsKeys.TEMP_EXPORT_ENABLED]
             ?: SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
+        progressSyncIntervalMinutes = positiveIntOrDefault(
+            preferences[SettingsKeys.PROGRESS_SYNC_INTERVAL_MINUTES],
+            SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
+        ),
     )
 
     private fun opds(preferences: Preferences) = OpdsSettings(

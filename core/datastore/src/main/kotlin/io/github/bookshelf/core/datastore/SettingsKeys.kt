@@ -73,6 +73,16 @@ object SettingsKeys {
     val ENABLE_FBREADER_PROGRESS: Preferences.Key<Boolean> = booleanPreferencesKey("reader.enable_fbreader_progress")
     val TEMP_EXPORT_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reader.temp_export_enabled")
 
+    /**
+     * Как часто опрашивать читалку ради прогресса, в минутах.
+     *
+     * Настраивается, потому что читают с разной скоростью: пятнадцати минут одному хватит с запасом,
+     * а другой за это время прочтёт главу и захочет увидеть прогресс раньше (решение Александра,
+     * 29.09.2026).
+     */
+    val PROGRESS_SYNC_INTERVAL_MINUTES: Preferences.Key<Int> =
+        intPreferencesKey("reader.progress_sync_interval_minutes")
+
     // --- OPDS ---
     val ENABLE_OPDS: Preferences.Key<Boolean> = booleanPreferencesKey("opds.enable")
     val FEED_CACHE_MAX_AGE_MINUTES: Preferences.Key<Int> = intPreferencesKey("opds.feed_cache_max_age_minutes")
@@ -126,6 +136,9 @@ object SettingsKeys {
         const val COVER_CACHE_LIMIT_MB = 200
 
         const val ENABLE_FBREADER_PROGRESS = false
+
+        /** Пять минут: достаточно часто, чтобы прогресс был свежим, и достаточно редко для батареи. */
+        const val PROGRESS_SYNC_INTERVAL_MINUTES = 5
         const val TEMP_EXPORT_ENABLED = true
 
         const val ENABLE_OPDS = true

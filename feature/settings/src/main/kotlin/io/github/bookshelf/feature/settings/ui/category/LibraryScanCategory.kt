@@ -25,6 +25,7 @@ import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.COVER_CACHE_LIMIT_CHOICES_MB
+import io.github.bookshelf.feature.settings.DiskLimitAction
 import io.github.bookshelf.feature.settings.DuplicatesUiState
 import io.github.bookshelf.feature.settings.DuplicatesViewModel
 import io.github.bookshelf.feature.settings.SettingsUiState
@@ -140,7 +141,7 @@ internal fun LibraryScanCategory(
                 options = COVER_CACHE_LIMIT_CHOICES_MB,
                 selected = state.settings.coverCacheLimitMb,
                 label = ::megabytesLabel,
-                onPick = viewModel::onSetCoverCacheLimitMb,
+                onPick = { limitMb -> viewModel.onSetDiskLimit(DiskLimitAction.SetCoverCacheMb(limitMb)) },
                 subtitle = "Больше лимит — дольше живут обложки, больше места на диске",
             )
         }
@@ -151,7 +152,7 @@ internal fun LibraryScanCategory(
                 options = TEMP_COPY_LIMIT_CHOICES_MB,
                 selected = state.settings.tempCopyLimitMb,
                 label = ::megabytesLabel,
-                onPick = viewModel::onSetTempCopyLimitMb,
+                onPick = { limitMb -> viewModel.onSetDiskLimit(DiskLimitAction.SetTempCopyMb(limitMb)) },
                 subtitle = "Копия нужна книге из облака: больше лимит — откроются крупные файлы, " +
                     "но и места уйдёт больше",
             )

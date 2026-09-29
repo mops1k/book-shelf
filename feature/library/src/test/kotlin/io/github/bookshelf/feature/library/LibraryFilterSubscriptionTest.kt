@@ -167,6 +167,17 @@ class LibraryFilterSubscriptionTest {
             AppResult.success(DeletionResult(deleted = bookIds.size, failed = 0))
 
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+        /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */
+        override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> =
+            AppResult.success(null)
+
+        override suspend fun saveReadingProgress(
+            bookId: String,
+            percent: Float,
+            locatorJson: String?,
+            source: String,
+        ): AppResult<Unit> = AppResult.success(Unit)
+
 
         /**
          * Пересканирование библиотеки.
