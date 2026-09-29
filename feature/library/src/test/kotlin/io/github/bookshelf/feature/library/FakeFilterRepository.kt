@@ -22,6 +22,8 @@ internal class FakeFilterRepository(
     series: List<FacetItem> = emptyList(),
     tags: List<FacetItem> = emptyList(),
     private val authorSeries: Map<String, AuthorSeries> = emptyMap(),
+    authorSets: List<AuthorSet> = emptyList(),
+    private val authorSetSeries: Map<String, AuthorSeries> = emptyMap(),
 ) : FilterRepository {
 
     /** Авторы и жанры меняются прямо в тесте: экран должен увидеть новые значения. */
@@ -34,6 +36,31 @@ internal class FakeFilterRepository(
     /** Запросы серий автора вместе с кодом жанра: `null` — без ограничения по жанру. */
     val authorSeriesQueries = mutableListOf<Pair<String, String?>>()
 
+    /**
+     * Запросы категорий-наборов: обзор «Авторы» и уровень жанра ходят сюда, а не за фасетом
+     * авторов — категория обзора это набор, а не человек.
+     */
+    val authorSetQueries = mutableListOf<BookQuery>()
+
+    /** Запросы серий набора вместе с кодом жанра. */
+    val authorSetSeriesQueries = mutableListOf<Pair<List<String>, String?>>()
+
+    /** Категории-наборы авторов: меняются прямо в тесте. */
+    val authorSetFacets = MutableStateFlow(authorSets)
+
+    override fun observeAuthorSets(query: BookQuery): Flow<List<AuthorSet>> {
+        authorSetQueries += query
+        return authorSetFacets
+    }
+
+    override fun observeAuthorSetSeries(
+        authorNames: List<String>,
+        genreCode: String?,
+    ): Flow<AuthorSeries> {
+        authorSetSeriesQueries += authorNames to genreCode
+        return flowOf(authorSetSeries[authorNames.joinToString("|")] ?: AuthorSeries())
+    }
+
     /** Запросы, с которыми полка обращалась за фасетами: проверяем, что фильтр уходит в БД. */
     val observedQueries = mutableListOf<BookQuery>()
 
@@ -43,15 +70,6 @@ internal class FakeFilterRepository(
             FacetSet(authors = authorsValue, series = seriesFacets.value, tags = tagFacets.value)
         }
     }
-
-    /** Категории-наборы обзора: сюда ходит обзор «Авторы»; в этих проверках наборы не нужны. */
-    override fun observeAuthorSets(query: BookQuery): Flow<List<AuthorSet>> = flowOf(emptyList())
-
-    /** Серии набора авторов: уровень категории обзора; здесь не используется. */
-    override fun observeAuthorSetSeries(
-        authorNames: List<String>,
-        genreCode: String?,
-    ): Flow<AuthorSeries> = flowOf(AuthorSeries())
 
     override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> {
         authorSeriesQueries += authorName to genreCode

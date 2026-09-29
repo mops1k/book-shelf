@@ -183,14 +183,17 @@ fun LibraryScreen(
                 onOpen = viewModel::onOpenCategory,
             )
 
-            // Уровень автора — совмещённый экран: серии категориями, ниже книги вне серий.
-            state.browse.level is BrowseLevel.Author -> AuthorBrowseContent(
-                categories = state.browse.categories,
-                books = state.books,
-                gridState = gridState,
-                onOpenCategory = viewModel::onOpenCategory,
-                onOpenBook = onOpenBook,
-            )
+            // Уровень автора и уровень набора — один и тот же совмещённый экран: серии
+            // категориями, ниже книги вне серий. Разница только в том, что фильтр набора —
+            // точный состав авторов, а не «все книги человека».
+            state.browse.level is BrowseLevel.Author || state.browse.level is BrowseLevel.AuthorSet ->
+                AuthorBrowseContent(
+                    categories = state.browse.categories,
+                    books = state.books,
+                    gridState = gridState,
+                    onOpenCategory = viewModel::onOpenCategory,
+                    onOpenBook = onOpenBook,
+                )
 
             else -> LibraryContent(
                 state = state,

@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
@@ -46,11 +47,19 @@ class LibraryBrowseTest {
     private val browseRequest = LibraryBrowseRequest()
     private val repository = RecordingBookRepository()
     private val filterRepository = FakeFilterRepository(
-        authors = listOf(
-            FacetItem(id = "Лев Толстой", label = "Лев Толстой", count = 3),
-            FacetItem(id = "Фёдор Достоевский", label = "Фёдор Достоевский", count = 1),
+        // Категория обзора — НАБОР авторов книги: у книги с одним автором набор из одного имени.
+        authorSets = listOf(
+            AuthorSet(names = listOf("Лев Толстой"), label = "Лев Толстой", count = 3),
+            AuthorSet(names = listOf("Фёдор Достоевский"), label = "Фёдор Достоевский", count = 1),
         ),
         series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
+        // Серии отдаются по обоим путям: категория обзора спрашивает набор, карточка книги — имя.
+        authorSetSeries = mapOf(
+            "Лев Толстой" to AuthorSeries(
+                series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
+                withoutSeries = 1,
+            ),
+        ),
         authorSeries = mapOf(
             "Лев Толстой" to AuthorSeries(
                 series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
@@ -97,7 +106,7 @@ class LibraryBrowseTest {
         // Уровень автора — совмещённый экран: категории показывают его серии, а список книг
         // под ними — книги ВНЕ серий (иначе они были бы недостижимы без отдельной категории).
         val query = repository.queries.last().bookQuery
-        assertThat(query.authorNames).containsExactly("Лев Толстой")
+        assertThat(query.authorSets).containsExactly(listOf("Лев Толстой"))
         assertThat(query.onlyWithoutSeries).isTrue()
         assertThat(query.series).isEmpty()
 
@@ -119,7 +128,7 @@ class LibraryBrowseTest {
         advanceUntilIdle()
 
         val query = repository.queries.last().bookQuery
-        assertThat(query.authorNames).containsExactly("Лев Толстой")
+        assertThat(query.authorSets).containsExactly(listOf("Лев Толстой"))
         assertThat(query.series).containsExactly("Классика")
         assertThat(query.onlyWithoutSeries).isFalse()
         // Уровень «серия» показывает книги, а не категории.
@@ -137,6 +146,9 @@ class LibraryBrowseTest {
             filterSelection = FilterSelection(),
             browseRequest = browseRequest,
             filterRepository = FakeFilterRepository(
+                authorSetSeries = mapOf(
+                    "Денис Грей" to AuthorSeries(series = emptyList(), withoutSeries = 1),
+                ),
                 authorSeries = mapOf(
                     "Денис Грей" to AuthorSeries(series = emptyList(), withoutSeries = 1),
                 ),
@@ -152,7 +164,7 @@ class LibraryBrowseTest {
         assertThat(browse.categories).isEmpty()
         assertThat(browse.showsCategories).isFalse()
         val query = repository.queries.last().bookQuery
-        assertThat(query.authorNames).containsExactly("Денис Грей")
+        assertThat(query.authorSets).containsExactly(listOf("Денис Грей"))
         assertThat(query.onlyWithoutSeries).isTrue()
     }
 
@@ -171,7 +183,7 @@ class LibraryBrowseTest {
 
         // Назад из серии: снова серии того же автора, а книги остаются его же.
         assertThat(viewModel.uiState.value.browse.title).isEqualTo("Автор: Лев Толстой")
-        assertThat(repository.queries.last().bookQuery.authorNames).containsExactly("Лев Толстой")
+        assertThat(repository.queries.last().bookQuery.authorSets).containsExactly(listOf("Лев Толстой"))
         assertThat(repository.queries.last().bookQuery.series).isEmpty()
 
         viewModel.onBrowseBack()
@@ -179,7 +191,7 @@ class LibraryBrowseTest {
 
         assertThat(viewModel.uiState.value.browse.title).isEqualTo("Авторы")
         assertThat(viewModel.uiState.value.browse.canGoBack).isFalse()
-        assertThat(repository.queries.last().bookQuery.authorNames).isEmpty()
+        assertThat(repository.queries.last().bookQuery.authorSets).isEmpty()
     }
 
     @Test

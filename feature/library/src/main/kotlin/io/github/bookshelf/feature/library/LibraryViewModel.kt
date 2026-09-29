@@ -3,7 +3,9 @@ package io.github.bookshelf.feature.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.data.author.authorSetNames
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
@@ -73,6 +75,14 @@ class LibraryViewModel @Inject constructor(
      * Дефект 29.09.2026: жанр оставался в запросе, и «Авторы» показывали только авторов этого жанра.
      */
     private var browseGenreCode: String? = null
+
+    /**
+     * Набор авторов, в который зашли в обзоре; `null` — уровень набора не открыт.
+     *
+     * Хранится рядом с уровнем, а не внутри него: из серии назад нужно вернуть именно набор
+     * с его подписью, а у уровня серии подписи набора нет. Так же устроен [browseGenreCode].
+     */
+    private var currentAuthorSet: BrowseLevel.AuthorSet? = null
 
     private var pageJob: Job? = null
 
@@ -221,6 +231,7 @@ class LibraryViewModel @Inject constructor(
         categoryJob?.cancel()
         // Смена вида — выход из категории: ограничения пути обзора снимаются.
         browseGenreCode = null
+        currentAuthorSet = null
         applyCategoryFilter()
         _uiState.update {
             it.copy(
@@ -236,7 +247,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     /**
-     * Открыть категорию: в корне — автора или серию, внутри автора — серию либо «Вне серий».
+     * Открыть категорию: в корне авторов — набор авторов, в корне серий — серию.
      *
      * Категория — это тот же [BookQuery], что и у фильтров, поэтому книги запрашиваются обычной
      * страницей полки, а сортировка и поиск продолжают работать внутри категории.
@@ -244,19 +255,25 @@ class LibraryViewModel @Inject constructor(
     fun onOpenCategory(category: CategoryItemUi) {
         val browse = _uiState.value.browse
         when {
-            browse.mode == BrowseMode.AUTHORS && browse.level == BrowseLevel.Root -> openAuthor(category)
+            // Категория обзора авторов — ТОЧНЫЙ набор авторов книги (решение владельца,
+            // 29.09.2026): «A, B» и «B, A» — одна категория, «A, B, C» — другая.
+            browse.mode == BrowseMode.AUTHORS && browse.level == BrowseLevel.Root ->
+                openAuthorSet(category)
 
-            browse.mode == BrowseMode.AUTHORS && browse.level is BrowseLevel.Author -> openSeries(category)
+            browse.mode == BrowseMode.AUTHORS && browse.level is BrowseLevel.AuthorSet ->
+                openSeries(category)
 
             browse.mode == BrowseMode.SERIES && browse.level == BrowseLevel.Root -> openSeries(category)
 
             // Обзор по жанрам идёт той же лестницей, что и по авторам, только с корнем «жанр»:
-            // жанр → его авторы → серии автора (внутри жанра) → книги серии.
+            // жанр → его наборы авторов → серии набора (внутри жанра) → книги серии.
             browse.mode == BrowseMode.GENRES && browse.level == BrowseLevel.Root -> openGenre(category)
 
-            browse.mode == BrowseMode.GENRES && browse.level is BrowseLevel.Genre -> openAuthor(category)
+            browse.mode == BrowseMode.GENRES && browse.level is BrowseLevel.Genre ->
+                openAuthorSet(category)
 
-            browse.mode == BrowseMode.GENRES && browse.level is BrowseLevel.Author -> openSeries(category)
+            browse.mode == BrowseMode.GENRES && browse.level is BrowseLevel.AuthorSet ->
+                openSeries(category)
 
             else -> Unit
         }
@@ -322,10 +339,12 @@ class LibraryViewModel @Inject constructor(
     fun onBrowseBack() {
         val browse = _uiState.value.browse
         val parent = when (val level = browse.level) {
+            // Из серии возвращаемся туда, откуда пришли: в набор авторов, если заходили в него,
+            // иначе к автору из карточки книги.
             is BrowseLevel.Series -> if (browse.mode == BrowseMode.AUTHORS ||
                 browse.mode == BrowseMode.GENRES
             ) {
-                BrowseLevel.Author(currentAuthorName().orEmpty())
+                currentAuthorSet ?: BrowseLevel.Author(currentAuthorName().orEmpty())
             } else {
                 BrowseLevel.Root
             }
@@ -334,6 +353,14 @@ class LibraryViewModel @Inject constructor(
             // в обзоре по авторам — к списку авторов. Решает режим, а не фильтр: фильтр по жанру
             // мог остаться с экрана фильтров, и в обзоре по авторам он не повод уводить в жанр.
             is BrowseLevel.Author -> if (browse.mode == BrowseMode.GENRES) {
+                currentGenreLevel() ?: BrowseLevel.Root
+            } else {
+                BrowseLevel.Root
+            }
+
+            // Уровень набора устроен как уровень автора: сверху серии набора, снизу его книги
+            // вне серий. Назад — в жанр (обзор по жанрам) или к списку категорий.
+            is BrowseLevel.AuthorSet -> if (browse.mode == BrowseMode.GENRES) {
                 currentGenreLevel() ?: BrowseLevel.Root
             } else {
                 BrowseLevel.Root
@@ -348,14 +375,16 @@ class LibraryViewModel @Inject constructor(
         }
         categoryJob?.cancel()
         if (parent == BrowseLevel.Root) {
-            // Вышли на корень — жанр обзора перестаёт ограничивать запрос.
+            // Вышли на корень — жанр обзора и набор перестают ограничивать запрос.
             browseGenreCode = null
+            currentAuthorSet = null
         }
-        // Уровень автора — совмещённый экран: его книги в списке — это книги ВНЕ серий,
-        // поэтому и при возврате из серии запрос восстанавливается тем же правилом.
+        // Уровень автора и уровень набора — совмещённые экраны: их книги в списке — это книги
+        // ВНЕ серий, поэтому и при возврате из серии запрос восстанавливается тем же правилом.
         applyCategoryFilter(
             authorName = (parent as? BrowseLevel.Author)?.name,
-            withoutSeries = parent is BrowseLevel.Author,
+            authorSetKey = (parent as? BrowseLevel.AuthorSet)?.key,
+            withoutSeries = parent is BrowseLevel.Author || parent is BrowseLevel.AuthorSet,
         )
         _uiState.update {
             it.copy(
@@ -379,6 +408,7 @@ class LibraryViewModel @Inject constructor(
      */
     private fun openGenre(category: CategoryItemUi) {
         browseGenreCode = category.id
+        currentAuthorSet = null
         applyCategoryFilter()
         val level = BrowseLevel.Genre(code = category.id, label = category.label)
         _uiState.update {
@@ -395,9 +425,43 @@ class LibraryViewModel @Inject constructor(
         refreshCategories()
     }
 
+    /**
+     * Открыть набор авторов — категорию обзора.
+     *
+     * Фильтр ставится по составу («ровно эти авторы»), а не по одному имени: иначе в категории
+     * «Александр Тарарев, Юрий Тарарев» показались бы и книги, где у Александра другие соавторы,
+     * и число в категории перестало бы совпадать с её содержимым.
+     */
+    private fun openAuthorSet(category: CategoryItemUi) {
+        currentAuthorSet = BrowseLevel.AuthorSet(key = category.id, label = category.label)
+        // Уровень набора — совмещённый экран, как и уровень автора: сверху серии набора,
+        // снизу его книги вне серий.
+        applyCategoryFilter(authorSetKey = category.id, withoutSeries = true)
+        val level = requireNotNull(currentAuthorSet)
+        _uiState.update {
+            it.copy(
+                page = 0,
+                browse = it.browse.copy(
+                    level = level,
+                    categories = emptyList(),
+                    title = browseTitle(it.browse.mode, level),
+                    canGoBack = true,
+                ),
+            )
+        }
+        refreshCategories()
+    }
+
+    /**
+     * Открыть автора из карточки книги — все его книги, в любой позиции и с любыми соавторами.
+     *
+     * Это не категория обзора: категория — точный набор авторов, и книга с соавторами в неё
+     * не попадает. Здесь же человек пришёл по конкретному человеку, поэтому фильтр — имя автора.
+     */
     private fun openAuthor(category: CategoryItemUi) {
         // Уровень автора — совмещённый экран: сверху его серии, снизу книги вне серий.
         // Поэтому в запрос сразу идёт `onlyWithoutSeries`, а не «все книги автора».
+        currentAuthorSet = null
         applyCategoryFilter(authorName = category.id, withoutSeries = true)
         val level = BrowseLevel.Author(category.id)
         _uiState.update {
@@ -415,7 +479,14 @@ class LibraryViewModel @Inject constructor(
     }
 
     private fun openSeries(category: CategoryItemUi) {
-        applyCategoryFilter(authorName = currentAuthorName(), seriesName = category.id)
+        // Набор, если зашли в него, сохраняется: серия внутри категории — серия её книг, а не
+        // всех книг библиотеки с таким именем.
+        val authorSetKey = (_uiState.value.browse.level as? BrowseLevel.AuthorSet)?.key
+        applyCategoryFilter(
+            authorName = currentAuthorName(),
+            authorSetKey = authorSetKey,
+            seriesName = category.id,
+        )
         val level = BrowseLevel.Series(category.id)
         _uiState.update {
             it.copy(
@@ -436,12 +507,14 @@ class LibraryViewModel @Inject constructor(
     /**
      * Категорийный фильтр запроса.
      *
-     * @param authorName ключ автора; `null` — ограничение по автору снимается;
+     * @param authorName имя автора (все его книги, в любой позиции); `null` — ограничение снимается;
+     * @param authorSetKey ключ набора авторов — категория обзора «книги ровно этого состава»;
      * @param seriesName имя серии; `null` без [withoutSeries] — серии не ограничивают;
      * @param withoutSeries только книги без серии (категория «Вне серий»).
      */
     private fun applyCategoryFilter(
         authorName: String? = null,
+        authorSetKey: String? = null,
         seriesName: String? = null,
         withoutSeries: Boolean = false,
         genreTags: Set<String> = browseTags(),
@@ -449,6 +522,9 @@ class LibraryViewModel @Inject constructor(
         query = query.copy(
             bookQuery = query.bookQuery.copy(
                 authorNames = authorName?.let { setOf(it) } ?: emptySet(),
+                // Набор ходит по UI ключом, а фильтру нужны имена: запрос сравнивает состав
+                // авторов, поэтому порядок имён в ключе на результат не влияет.
+                authorSets = authorSetKey?.let { key -> setOf(authorSetNames(key)) } ?: emptySet(),
                 series = seriesName?.let { setOf(it) } ?: emptySet(),
                 onlyWithoutSeries = withoutSeries,
                 // Жанры по умолчанию остаются как были: и выбранный в обзоре жанр, и фильтр с
@@ -489,9 +565,11 @@ class LibraryViewModel @Inject constructor(
         val browse = _uiState.value.browse
         val level = browse.level
         val categories: Flow<List<CategoryItemUi>> = when {
+            // Корень «Авторы» — категории-наборы: «Александр Тарарев, Юрий Тарарев» и
+            // «Юрий Тарарев, Александр Тарарев» обязаны быть одной категорией.
             browse.mode == BrowseMode.AUTHORS && level == BrowseLevel.Root ->
-                filterRepository.observeFacets(query.bookQuery)
-                    .map { facets -> facets.authors.map { it.toCategoryUi() } }
+                filterRepository.observeAuthorSets(query.bookQuery)
+                    .map { sets -> sets.map { it.toCategoryUi() } }
 
             browse.mode == BrowseMode.SERIES && level == BrowseLevel.Root ->
                 filterRepository.observeFacets(query.bookQuery)
@@ -503,20 +581,27 @@ class LibraryViewModel @Inject constructor(
                 filterRepository.observeFacets(query.bookQuery)
                     .map { facets -> facets.tags.map { it.toCategoryUi() } }
 
-            // Внутри жанра категориями идут авторы: запрос уже несёт тег жанра, поэтому фасет
-            // авторов считается только по книгам этого жанра.
+            // Внутри жанра категориями идут наборы авторов этого жанра: запрос уже несёт тег,
+            // поэтому фасет считается только по книгам этого жанра.
             browse.mode == BrowseMode.GENRES && level is BrowseLevel.Genre ->
-                filterRepository.observeFacets(query.bookQuery)
-                    .map { facets -> facets.authors.map { it.toCategoryUi() } }
+                filterRepository.observeAuthorSets(query.bookQuery)
+                    .map { sets -> sets.map { it.toCategoryUi() } }
 
-            browse.mode == BrowseMode.GENRES && level is BrowseLevel.Author ->
-                filterRepository.observeAuthorSeries(level.name, genreCode = currentGenreCode())
+            // Сериями уровня набора служат серии его книг — не серии соавтора целиком.
+            browse.mode == BrowseMode.GENRES && level is BrowseLevel.AuthorSet ->
+                filterRepository.observeAuthorSetSeries(
+                    authorNames = authorSetNames(level.key),
+                    genreCode = currentGenreCode(),
+                ).map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
+
+            // На уровне автора и набора категориями идут ТОЛЬКО их серии: книги вне серий
+            // показываются ниже обычным списком/сеткой полки, поэтому отдельной категории нет.
+            browse.mode == BrowseMode.AUTHORS && level is BrowseLevel.Author ->
+                filterRepository.observeAuthorSeries(level.name)
                     .map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
 
-            browse.mode == BrowseMode.AUTHORS && level is BrowseLevel.Author ->
-                // На уровне автора категориями идут ТОЛЬКО его серии: книги вне серий показываются
-                // ниже обычным списком/сеткой полки, поэтому отдельной категории для них нет.
-                filterRepository.observeAuthorSeries(level.name)
+            browse.mode == BrowseMode.AUTHORS && level is BrowseLevel.AuthorSet ->
+                filterRepository.observeAuthorSetSeries(authorNames = authorSetNames(level.key))
                     .map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
 
             else -> flowOf(emptyList())
@@ -535,6 +620,13 @@ class LibraryViewModel @Inject constructor(
         level == BrowseLevel.Root -> "Серии"
         level is BrowseLevel.Genre -> "Жанр: ${level.label}"
         level is BrowseLevel.Author -> "Автор: ${level.name}"
+        // «Автор» для одного имени и «Авторы» для набора: подпись набора перечисляет людей
+        // через запятую, и единственное число на ней читалось бы как ошибка.
+        level is BrowseLevel.AuthorSet -> if (level.label.contains(',')) {
+            "Авторы: ${level.label}"
+        } else {
+            "Автор: ${level.label}"
+        }
         level is BrowseLevel.Series -> "Серия: ${level.name}"
         else -> null
     }
@@ -619,3 +711,12 @@ class LibraryViewModel @Inject constructor(
 
 /** Фасет → строка категории: подпись и число книг приходят из БД. */
 private fun FacetItem.toCategoryUi(): CategoryItemUi = CategoryItemUi(id = id, label = label, count = count)
+
+/**
+ * Набор авторов → строка категории.
+ *
+ * `id` — ключ набора: по нему отличается категория «Александр Тарарев, Юрий Тарарев» от категорий
+ * отдельных авторов, и по нему же строится фильтр при заходе в категорию.
+ */
+private fun AuthorSet.toCategoryUi(): CategoryItemUi =
+    CategoryItemUi(id = key, label = label, count = count)

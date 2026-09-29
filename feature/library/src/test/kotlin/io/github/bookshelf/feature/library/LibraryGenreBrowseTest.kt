@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.repository.FilterSelection
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
@@ -38,7 +39,7 @@ class LibraryGenreBrowseTest {
     private val dispatcher = StandardTestDispatcher()
     private val books = FakeBookRepository()
     private val filters = FakeFilterRepository(
-        authorSeries = mapOf(
+        authorSetSeries = mapOf(
             "Лем Станислав" to AuthorSeries(
                 series = listOf(
                     FacetItem(id = "Приключения Флинкса", label = "Приключения Флинкса", count = 1),
@@ -86,8 +87,8 @@ class LibraryGenreBrowseTest {
         viewModel.onSetBrowse(BrowseMode.GENRES)
         advanceUntilIdle()
         // Дальше фасет отвечает уже по запросу с жанром: авторы этого жанра.
-        filters.authorFacets.value = listOf(
-            FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2),
+        filters.authorSetFacets.value = listOf(
+            AuthorSet(names = listOf("Лем Станислав"), label = "Лем Станислав", count = 2),
         )
 
         viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
@@ -110,8 +111,8 @@ class LibraryGenreBrowseTest {
         val viewModel = viewModel()
         viewModel.onSetBrowse(BrowseMode.GENRES)
         advanceUntilIdle()
-        filters.authorFacets.value = listOf(
-            FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2),
+        filters.authorSetFacets.value = listOf(
+            AuthorSet(names = listOf("Лем Станислав"), label = "Лем Станислав", count = 2),
         )
         viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
         advanceUntilIdle()
@@ -121,12 +122,12 @@ class LibraryGenreBrowseTest {
         advanceUntilIdle()
 
         val browse = viewModel.uiState.value.browse
-        assertThat(browse.level).isEqualTo(BrowseLevel.Author("Лем Станислав"))
+        assertThat(browse.level).isEqualTo(BrowseLevel.AuthorSet(key = "Лем Станислав", label = "Лем Станислав"))
         // Жанр не потерялся при заходе в автора: иначе «назад» и книги показали бы весь жанр целиком.
         assertThat(books.pageQueries.last().bookQuery.tags).containsExactly("sf_space")
-        assertThat(books.pageQueries.last().bookQuery.authorNames).containsExactly("Лем Станислав")
+        assertThat(books.pageQueries.last().bookQuery.authorSets).containsExactly(listOf("Лем Станислав"))
         // Серии спрошены вместе с кодом жанра — это и есть выбранное поведение.
-        assertThat(filters.authorSeriesQueries.last()).isEqualTo("Лем Станислав" to "sf_space")
+        assertThat(filters.authorSetSeriesQueries.last()).isEqualTo(listOf("Лем Станислав") to "sf_space")
         assertThat(browse.title).isEqualTo("Автор: Лем Станислав")
     }
 
@@ -139,9 +140,9 @@ class LibraryGenreBrowseTest {
             val viewModel = viewModel()
             viewModel.onSetBrowse(BrowseMode.GENRES)
             advanceUntilIdle()
-            filters.authorFacets.value = listOf(
-                FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2),
-            )
+            filters.authorSetFacets.value = listOf(
+            AuthorSet(names = listOf("Лем Станислав"), label = "Лем Станислав", count = 2),
+        )
             viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
             advanceUntilIdle()
             viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
@@ -215,7 +216,7 @@ class LibraryGenreBrowseTest {
         advanceUntilIdle()
 
         // Фильтр с экрана фильтров — выбор человека по всей библиотеке, его обзор не снимает.
-        assertThat(filters.observedQueries.last().tags).containsExactly("sf_space")
+        assertThat(filters.authorSetQueries.last().tags).containsExactly("sf_space")
     }
 
     private fun viewModel(selection: FilterSelection = FilterSelection()) = LibraryViewModel(
