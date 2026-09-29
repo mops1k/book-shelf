@@ -166,28 +166,43 @@ class LibraryGenreBrowseTest {
         }
 
     @Test
-    fun `leaving a genre drops its filter so the authors chip shows every author`() =
-        runTest(dispatcher) {
-            filters.tagFacets.value = listOf(
-                FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
-            )
-            val viewModel = viewModel()
-            viewModel.onSetBrowse(BrowseMode.GENRES)
-            advanceUntilIdle()
-            viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
-            advanceUntilIdle()
+    fun `going back to the genre root drops the genre from the query`() = runTest(dispatcher) {
+        filters.tagFacets.value = listOf(
+            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+        )
+        val viewModel = viewModel()
+        viewModel.onSetBrowse(BrowseMode.GENRES)
+        advanceUntilIdle()
+        viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
+        advanceUntilIdle()
 
-            // «Назад» на корень жанров, затем кнопка «Авторы»: жанр — часть пути обзора, а не
-            // постоянного запроса. Дефект Александра (29.09.2026): после жанрового обзора «Авторы»
-            // показывали только авторов этого жанра.
-            viewModel.onBrowseBack()
-            advanceUntilIdle()
-            viewModel.onSetBrowse(BrowseMode.AUTHORS)
-            advanceUntilIdle()
+        viewModel.onBrowseBack()
+        advanceUntilIdle()
 
-            assertThat(filters.observedQueries.last().tags).isEmpty()
-            assertThat(books.pageQueries.last().bookQuery.tags).isEmpty()
-        }
+        // Жанр — часть пути обзора: выйдя на корень, запрос обязан вернуться к выбору с экрана
+        // фильтров. Дефект Александра (29.09.2026): жанр оставался, и «Авторы» показывали только
+        // авторов этого жанра.
+        assertThat(books.pageQueries.last().bookQuery.tags).isEmpty()
+    }
+
+    @Test
+    fun `switching the view inside a genre drops the genre as a safety net`() = runTest(dispatcher) {
+        filters.tagFacets.value = listOf(
+            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+        )
+        val viewModel = viewModel()
+        viewModel.onSetBrowse(BrowseMode.GENRES)
+        advanceUntilIdle()
+        viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
+        advanceUntilIdle()
+
+        // Через интерфейс сюда не попасть (внутри категории кнопки скрыты), но смена вида не должна
+        // приносить жанр в чужой обзор, если такой путь появится, — например, из ссылки на жанр.
+        viewModel.onSetBrowse(BrowseMode.AUTHORS)
+        advanceUntilIdle()
+
+        assertThat(filters.observedQueries.last().tags).isEmpty()
+    }
 
     @Test
     fun `a genre chosen on the filters screen survives switching the view`() = runTest(dispatcher) {
