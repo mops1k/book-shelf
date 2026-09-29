@@ -25,4 +25,6 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.mockk)
+    // Общие фейки (свои интерфейсы в тестах не мокаются — ADR-012, правило 2).
+    testImplementation(project(":core:testing"))
 }

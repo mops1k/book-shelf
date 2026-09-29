@@ -9,10 +9,6 @@ import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.storage.files.ContentHasher
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.common.error.isSuccess
@@ -40,6 +36,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import io.github.bookshelf.core.testing.fake.FakeScanRepository
+import io.github.bookshelf.core.testing.fake.FakeSourceRepository
 
 /**
  * Чтение полки и команды над книгами (docs/architecture.md §3.1, §3.5).
@@ -65,8 +63,8 @@ class BookRepositoryTest {
     private lateinit var repository: BookRepository
 
     /** Источники и запуск сканов: только их и трогает пересканирование. */
-    private val sources = mockk<SourceRepository>(relaxed = true)
-    private val scans = mockk<ScanRepository>(relaxed = true)
+    private val sources = FakeSourceRepository()
+    private val scans = FakeScanRepository()
 
     /** Удаление файлов и хеши содержимого: обе операции подменяются, файловой системы в тесте нет. */
     private val files = FakeFileRemover()
@@ -392,11 +390,9 @@ class BookRepositoryTest {
 
 
     @Test
-    fun `rescanAll forgets every book and scans enabled sources`() = runBlocking {
+    fun `rescanAll forgets every book and scans enabled sources`() = runBlocking<Unit> {
         givenLibrary()
-        every { sources.observeSources() } returns flowOf(
-            listOf(source(id = "s1"), source(id = "s2", enabled = false)),
-        )
+        sources.sources = listOf(source(id = "s1"), source(id = "s2", enabled = false))
 
         repository.rescanAll()
 
@@ -404,8 +400,8 @@ class BookRepositoryTest {
         // таблица книг очищается, а записи возвращает следующий скан. Именно поэтому команда
         // живёт в настройках рядом с папками, а не рядом с книгами.
         assertThat(database.bookDao().countBySource(SOURCE_ID)).isEqualTo(0)
-        coVerify(exactly = 1) { scans.startScan("s1") }
-        coVerify(exactly = 0) { scans.startScan("s2") }
+        // Фейк помнит, какие источники просили сканировать: выключенный не должен попасть в список.
+        assertThat(scans.started).containsExactly("s1")
     }
 
     private fun source(id: String, enabled: Boolean = true): Source = Source(

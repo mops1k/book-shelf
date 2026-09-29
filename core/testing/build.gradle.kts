@@ -13,6 +13,12 @@ android {
 // :core:testing в своих тестах (циклическая зависимость) — там фейки объявляются локально.
 dependencies {
     api(project(":core:common"))
+    // Фейки репозиториев и DAO живут здесь: собственные интерфейсы в тестах не мокаются
+    // (ADR-012, правило 2), а `src/testFixtures` на AGP 8.7.3 не компилируют Kotlin.
+    // Обратной зависимости нет: :core:data и :core:database смотрят на :core:testing только
+    // в конфигурации testImplementation, поэтому цикла не возникает.
+    api(project(":core:data"))
+    api(project(":core:database"))
     api(libs.junit)
     api(libs.truth)
     api(libs.turbine)

@@ -13,9 +13,6 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.CollectionBookCrossRef
 import io.github.bookshelf.core.database.entity.CollectionEntity
 import io.github.bookshelf.core.data.repository.impl.CollectionRepositoryImpl
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -23,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import io.github.bookshelf.core.testing.fake.FakeBookDao
 
 /**
  * Полки (коллекции): создание, порядок и наполнение.
@@ -34,7 +32,12 @@ import org.junit.Test
 class CollectionRepositoryTest {
 
     private val dao = FakeCollectionDao()
-    private val bookDao = mockk<BookDao>(relaxed = true)
+    /**
+     * Фейк, а не `mockk`: `BookDao` — интерфейс проекта, свои типы в тестах не мокаются
+     * (ADR-012, правило 2). Фейк умеет ровно то, что читает репозиторий полок, а на остальное
+     * падает — «неожиданный путь» видно сразу, тогда как `relaxed`-мок вернул бы пустоту.
+     */
+    private val bookDao = FakeBookDao()
     private fun repository() = CollectionRepositoryImpl(dao, bookDao, FixedClock)
 
     @Test
@@ -67,14 +70,14 @@ class CollectionRepositoryTest {
         val repository = repository()
         val shelf = repository.create("Космос", CollectionType.SMART).getOrNull()!!
         repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
-        every { bookDao.observePage(any()) } returns flowOf(emptyList())
-        every { bookDao.observeCount(any()) } returns flowOf(4)
+        bookDao.pageFlow = flowOf(emptyList())
+        bookDao.countFlow = flowOf(4)
 
         repository.observeBooks(shelf.id).first()
 
         // Состав умной полки считается запросом по правилам, а не связями collection_books:
         // книг в связях у такой полки нет вовсе.
-        verify { bookDao.observePage(any()) }
+        assertThat(bookDao.pageCalls).isEqualTo(1)
         // И счётчик в списке полок берётся тем же предикатом, иначе умная полка показывала бы 0.
         assertThat(repository.observeCollections().first().single().bookCount).isEqualTo(4)
     }
@@ -84,11 +87,11 @@ class CollectionRepositoryTest {
         val repository = repository()
         val shelf = repository.create("Ручная").getOrNull()!!
         repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
-        every { bookDao.observeById(any()) } returns MutableStateFlow(null)
+        bookDao.byIdFlow = MutableStateFlow(null)
 
         repository.observeBooks(shelf.id).first()
 
-        verify(exactly = 0) { bookDao.observePage(any()) }
+        assertThat(bookDao.pageCalls).isEqualTo(0)
     }
 
     @Test
@@ -97,14 +100,14 @@ class CollectionRepositoryTest {
         val shelf = repository.create("Пустая умная", CollectionType.SMART).getOrNull()!!
 
         assertThat(repository.observeBooks(shelf.id).first()).isEmpty()
-        verify(exactly = 0) { bookDao.observePage(any()) }
+        assertThat(bookDao.pageCalls).isEqualTo(0)
     }
 
     @Test
     fun adds_and_removes_book() = runTest {
         val repository = repository()
         val collection = repository.create("Полка").getOrNull()!!
-        every { bookDao.observeById(any()) } returns MutableStateFlow(null)
+        bookDao.byIdFlow = MutableStateFlow(null)
 
         repository.addBook(collection.id, "book-1")
         assertThat(repository.observeBooks(collection.id).first()).isEmpty()
@@ -117,7 +120,7 @@ class CollectionRepositoryTest {
     fun book_order_follows_position() = runTest {
         val repository = repository()
         val collection = repository.create("Полка").getOrNull()!!
-        every { bookDao.observeById(any()) } returns MutableStateFlow(null)
+        bookDao.byIdFlow = MutableStateFlow(null)
 
         repository.addBook(collection.id, "book-1")
         repository.addBook(collection.id, "book-2")
@@ -144,10 +147,10 @@ class CollectionRepositoryTest {
         val repository = repository()
         val shelf = repository.create("Космос", CollectionType.SMART).getOrNull()!!
         repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
-        val book = mockk<BookEntity>(relaxed = true)
-        every { book.coverPath } returns "/covers/space.webp"
-        every { bookDao.observeCount(any()) } returns flowOf(2)
-        every { bookDao.observePage(any()) } returns flowOf(listOf(book))
+        // Настоящая сущность, а не мок: проверяется ровно одно поле — путь к обложке.
+        val book = bookEntity(coverPath = "/covers/space.webp")
+        bookDao.countFlow = flowOf(2)
+        bookDao.pageFlow = flowOf(listOf(book))
 
         // У умной полки обложки берутся предикатом правил: связей collection_books у неё нет.
         assertThat(repository.observeCollections().first().single().previewCovers)
@@ -179,6 +182,32 @@ class CollectionRepositoryTest {
         assertThat(dao.rows.value).isEmpty()
         assertThat(dao.refs).isEmpty()
     }
+
+    /**
+     * Настоящая сущность книги для проверок обложек.
+     *
+     * Раньше здесь стоял `mockk<BookEntity>(relaxed = true)` с одной подставленной строкой: тест
+     * проходил, даже если сущность перестанет отдавать обложку иначе. Настоящий объект заодно
+     * документирует, какие поля нужны странице.
+     */
+    private fun bookEntity(coverPath: String? = null): BookEntity = BookEntity(
+        id = "book-1",
+        sourceId = "source-1",
+        documentUri = "content://documents/book.fb2",
+        relativePath = "Автор/Книга.fb2",
+        fileName = "Книга.fb2",
+        extension = "fb2",
+        mimeType = "application/fb2",
+        sizeBytes = 1_000L,
+        lastModified = 1_000L,
+        title = "Книга",
+        sortTitle = "Книга",
+        authorsText = "Автор",
+        coverPath = coverPath,
+        addedAt = 1L,
+        updatedAt = 1L,
+        lastSeenAt = 1L,
+    )
 
     private class FakeCollectionDao : CollectionDao {
         val rows = MutableStateFlow<List<CollectionEntity>>(emptyList())

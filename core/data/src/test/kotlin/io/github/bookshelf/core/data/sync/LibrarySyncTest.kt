@@ -9,13 +9,11 @@ import io.github.bookshelf.core.data.model.Source
 import io.github.bookshelf.core.data.model.SourceKind
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import io.github.bookshelf.core.testing.fake.FakeScanRepository
+import io.github.bookshelf.core.testing.fake.FakeSourceRepository
 
 /**
  * Синхронизация библиотеки с файловой системой.
@@ -28,45 +26,40 @@ import org.junit.Test
 class LibrarySyncTest {
 
     private val clock = FakeAppClock(START_MILLIS)
-    private val sources = mockk<SourceRepository>()
-    private val scans = mockk<ScanRepository>(relaxed = true)
+    // Свои интерфейсы — только фейками (ADR-012, правило 2): mockk скрывал бы изменения
+    // интерфейса, а здесь видно, какие источники тест реально просил просканировать.
+    private val sources = FakeSourceRepository()
+    private val scans = FakeScanRepository()
 
     @Test
     fun `sync schedules a scan for every enabled source`() = runTest {
-        every { sources.observeSources() } returns flowOf(
-            listOf(source(id = "s1"), source(id = "s2")),
-        )
-        coEvery { scans.startScan(any()) } returns AppResult.success(Unit)
+        sources.sources = listOf(source(id = "s1"), source(id = "s2"))
 
         val scheduled = LibrarySyncImpl(sources, scans, clock).syncNow()
 
         assertThat(scheduled.getOrNull()).isEqualTo(2)
-        coVerify(exactly = 1) { scans.startScan("s1") }
-        coVerify(exactly = 1) { scans.startScan("s2") }
+        assertThat(scans.started.count { id -> id == "s1" }).isEqualTo(1)
+        assertThat(scans.started.count { id -> id == "s2" }).isEqualTo(1)
     }
 
     @Test
     fun `disabled and access-lost sources are skipped`() = runTest {
-        every { sources.observeSources() } returns flowOf(
-            listOf(
-                source(id = "enabled"),
-                source(id = "disabled", enabled = false),
-                source(id = "lost", accessLost = true),
-            ),
+        sources.sources = listOf(
+            source(id = "enabled"),
+            source(id = "disabled", enabled = false),
+            source(id = "lost", accessLost = true),
         )
-        coEvery { scans.startScan(any()) } returns AppResult.success(Unit)
 
         val scheduled = LibrarySyncImpl(sources, scans, clock).syncNow()
 
         assertThat(scheduled.getOrNull()).isEqualTo(1)
-        coVerify(exactly = 0) { scans.startScan("disabled") }
-        coVerify(exactly = 0) { scans.startScan("lost") }
+        assertThat(scans.started.count { id -> id == "disabled" }).isEqualTo(0)
+        assertThat(scans.started.count { id -> id == "lost" }).isEqualTo(0)
     }
 
     @Test
     fun `second call within the interval does nothing`() = runTest {
-        every { sources.observeSources() } returns flowOf(listOf(source(id = "s1")))
-        coEvery { scans.startScan(any()) } returns AppResult.success(Unit)
+        sources.sources = listOf(source(id = "s1"))
         val sync = LibrarySyncImpl(sources, scans, clock)
         sync.syncNow()
 
@@ -74,13 +67,12 @@ class LibrarySyncTest {
         val skipped = sync.syncIfStale()
 
         assertThat(skipped.getOrNull()).isEqualTo(0)
-        coVerify(exactly = 1) { scans.startScan("s1") }
+        assertThat(scans.started.count { id -> id == "s1" }).isEqualTo(1)
     }
 
     @Test
     fun `call after the interval syncs again`() = runTest {
-        every { sources.observeSources() } returns flowOf(listOf(source(id = "s1")))
-        coEvery { scans.startScan(any()) } returns AppResult.success(Unit)
+        sources.sources = listOf(source(id = "s1"))
         val sync = LibrarySyncImpl(sources, scans, clock)
         sync.syncNow()
 
@@ -89,32 +81,30 @@ class LibrarySyncTest {
 
         // Возврат в приложение после добавления книги обязан обновить библиотеку, а не отправить
         // пользователя жать «Пересканировать».
-        coVerify(exactly = 2) { scans.startScan("s1") }
+        assertThat(scans.started.count { id -> id == "s1" }).isEqualTo(2)
     }
 
     @Test
     fun `library without sources schedules nothing`() = runTest {
-        every { sources.observeSources() } returns flowOf(emptyList())
+        sources.sources = emptyList()
 
         val scheduled = LibrarySyncImpl(sources, scans, clock).syncNow()
 
         assertThat(scheduled.getOrNull()).isEqualTo(0)
-        coVerify(exactly = 0) { scans.startScan(any()) }
+        assertThat(scans.started).isEmpty()
     }
 
     @Test
     fun `broken source does not break the others`() = runTest {
-        every { sources.observeSources() } returns flowOf(listOf(source(id = "bad"), source(id = "good")))
-        coEvery { scans.startScan("bad") } returns AppResult.failure(
-            AppError.AccessLost,
-        )
-        coEvery { scans.startScan("good") } returns AppResult.success(Unit)
+        sources.sources = listOf(source(id = "bad"), source(id = "good"))
+        // Недоступный источник отвечает отказом: так ведёт себя потерявшая доступ папка.
+        scans.startResults["bad"] = AppResult.failure(AppError.AccessLost)
 
         val scheduled = LibrarySyncImpl(sources, scans, clock).syncNow()
 
         // Один недоступный источник не должен отменять синхронизацию остальных.
         assertThat(scheduled.getOrNull()).isEqualTo(1)
-        coVerify(exactly = 1) { scans.startScan("good") }
+        assertThat(scans.started.count { id -> id == "good" }).isEqualTo(1)
     }
 
     private fun source(
