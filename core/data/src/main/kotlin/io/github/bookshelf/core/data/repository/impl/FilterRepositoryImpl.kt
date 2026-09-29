@@ -80,8 +80,8 @@ class FilterRepositoryImpl @Inject constructor(
         )
     }.flowOn(dispatchers.metadata)
 
-    override fun observeAuthorSeries(authorName: String): Flow<AuthorSeries> =
-        facetDao.observeSeriesOfAuthor(authorName)
+    override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> =
+        facetDao.observeSeriesOfAuthor(authorName, genreCode)
             .map { rows ->
                 AuthorSeries(
                     // Серии автора — по алфавиту; NULL-имя в запросе означает «вне серий» и в

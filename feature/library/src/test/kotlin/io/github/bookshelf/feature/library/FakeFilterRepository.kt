@@ -19,11 +19,19 @@ import kotlinx.coroutines.flow.map
 internal class FakeFilterRepository(
     authors: List<FacetItem> = emptyList(),
     series: List<FacetItem> = emptyList(),
+    tags: List<FacetItem> = emptyList(),
     private val authorSeries: Map<String, AuthorSeries> = emptyMap(),
 ) : FilterRepository {
 
-    private val authorFacets = MutableStateFlow(authors)
+    /** Авторы и жанры меняются прямо в тесте: экран должен увидеть новые значения. */
+    val authorFacets = MutableStateFlow(authors)
+
+    val tagFacets = MutableStateFlow(tags)
+
     private val seriesFacets = MutableStateFlow(series)
+
+    /** Запросы серий автора вместе с кодом жанра: `null` — без ограничения по жанру. */
+    val authorSeriesQueries = mutableListOf<Pair<String, String?>>()
 
     /** Запросы, с которыми полка обращалась за фасетами: проверяем, что фильтр уходит в БД. */
     val observedQueries = mutableListOf<BookQuery>()
@@ -31,10 +39,12 @@ internal class FakeFilterRepository(
     override fun observeFacets(query: BookQuery): Flow<FacetSet> {
         observedQueries += query
         return authorFacets.map { authorsValue ->
-            FacetSet(authors = authorsValue, series = seriesFacets.value)
+            FacetSet(authors = authorsValue, series = seriesFacets.value, tags = tagFacets.value)
         }
     }
 
-    override fun observeAuthorSeries(authorName: String): Flow<AuthorSeries> =
-        flowOf(authorSeries[authorName] ?: AuthorSeries())
+    override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> {
+        authorSeriesQueries += authorName to genreCode
+        return flowOf(authorSeries[authorName] ?: AuthorSeries())
+    }
 }

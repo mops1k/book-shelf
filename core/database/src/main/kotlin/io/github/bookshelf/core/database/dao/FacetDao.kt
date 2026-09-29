@@ -46,17 +46,32 @@ interface FacetDao {
      *
      * Отбор идёт по `books.authorsText` (ключ автора в домене) — нормализованные
      * `authors`/`book_authors` приложение не заполняет.
+     *
+     * @param genreCode код жанра: `null` — все серии автора, иначе только серии с книгами этого
+     *   жанра. Нужно обзору по жанрам: человек выбрал «Космическая фантастика», и на уровне автора
+     *   он должен видеть его серии из этого жанра, а не чужие, где книг этого жанра нет.
      */
     @Query(
         """
         SELECT seriesName AS seriesName, COUNT(*) AS bookCount
         FROM books
         WHERE authorsText = :authorName
+          AND (
+            :genreCode IS NULL
+            OR EXISTS (
+                SELECT 1 FROM book_tags
+                INNER JOIN tags ON tags.id = book_tags.tagId
+                WHERE book_tags.bookId = books.id AND tags.name = :genreCode
+            )
+          )
         GROUP BY seriesName
         ORDER BY seriesName COLLATE NOCASE ASC
         """,
     )
-    fun observeSeriesOfAuthor(authorName: String): Flow<List<AuthorSeriesFacet>>
+    fun observeSeriesOfAuthor(
+        authorName: String,
+        genreCode: String?,
+    ): Flow<List<AuthorSeriesFacet>>
 
     /**
      * Серии одного автора с числом книг; строка с `NULL` в имени — его книги вне серий.

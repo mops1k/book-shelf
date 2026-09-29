@@ -15,8 +15,11 @@ enum class ShelfViewPreset {
     GRID,
     AUTHORS,
     SERIES,
+
+    /** Обзор по жанрам: жанр → авторы жанра → серии автора → книги. */
+    GENRES,
     ;
 
     /** Обзор по категориям (в отличие от показа книг плитками). */
-    val isBrowse: Boolean get() = this == AUTHORS || this == SERIES
+    val isBrowse: Boolean get() = this == AUTHORS || this == SERIES || this == GENRES
 }

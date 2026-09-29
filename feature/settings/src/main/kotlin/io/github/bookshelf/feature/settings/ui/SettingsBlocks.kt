@@ -333,5 +333,6 @@ internal fun presetLabel(preset: ShelfViewPreset): String = when (preset) {
     ShelfViewPreset.GRID -> "Сетка"
     ShelfViewPreset.AUTHORS -> "Авторы"
     ShelfViewPreset.SERIES -> "Серии"
+    ShelfViewPreset.GENRES -> "Жанры"
 }
 

@@ -22,5 +22,11 @@ interface FilterRepository {
      *
      * @param authorName ключ автора — значение `books.authorsText`.
      */
-    fun observeAuthorSeries(authorName: String): Flow<AuthorSeries>
+    /**
+     * Серии автора, при необходимости — только из одного жанра.
+     *
+     * @param genreCode код жанра или `null` для «все серии автора»: обзор по жанрам показывает
+     *   автора внутри выбранного жанра, и его серии должны соответствовать этому жанру.
+     */
+    fun observeAuthorSeries(authorName: String, genreCode: String? = null): Flow<AuthorSeries>
 }

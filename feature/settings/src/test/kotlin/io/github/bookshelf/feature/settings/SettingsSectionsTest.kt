@@ -58,12 +58,13 @@ class SettingsSectionsTest {
 
     @Test
     fun `shelf view presets stay in the documented order`() {
-        // Порядок чипов вида полки виден пользователю: «Сетка → Авторы → Серии». Проверяется здесь,
-        // чтобы вариант не переставили случайно вместе с добавлением нового.
+        // Порядок чипов вида полки виден пользователю: «Сетка → Авторы → Серии → Жанры».
+        // Проверяется здесь, чтобы вариант не переставили случайно вместе с добавлением нового.
         assertThat(ShelfViewPreset.entries.map { preset -> preset.name }).containsExactly(
             "GRID",
             "AUTHORS",
             "SERIES",
+            "GENRES",
         ).inOrder()
     }
 }

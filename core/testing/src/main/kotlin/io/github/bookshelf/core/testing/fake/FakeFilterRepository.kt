@@ -22,19 +22,22 @@ class FakeFilterRepository(
     /** Запросы, с которыми обращались к [observeFacets], в порядке обращений. */
     val facetQueries: MutableList<BookQuery> = mutableListOf()
 
-    /** Имена авторов, для которых просили серии. */
-    val authorSeriesQueries: MutableList<String> = mutableListOf()
+    /** Имена авторов, для которых просили серии, вместе с кодом жанра (`null` — без ограничения). */
+    val authorSeriesQueries: MutableList<Pair<String, String?>> = mutableListOf()
 
     /** Серии автора: по умолчанию «серий нет». */
     var authorSeries: AuthorSeries = AuthorSeries()
+
+    /** Поток серий автора, если тесту нужно менять их во времени. */
+    var authorSeriesFlow: Flow<AuthorSeries>? = null
 
     override fun observeFacets(query: BookQuery): Flow<FacetSet> {
         facetQueries += query
         return facetsFlow
     }
 
-    override fun observeAuthorSeries(authorName: String): Flow<AuthorSeries> {
-        authorSeriesQueries += authorName
-        return flowOf(authorSeries)
+    override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> {
+        authorSeriesQueries += authorName to genreCode
+        return authorSeriesFlow ?: flowOf(authorSeries)
     }
 }

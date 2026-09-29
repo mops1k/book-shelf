@@ -88,8 +88,10 @@ fun LibraryScreen(
     // и то же состояние, иначе листание уходит в никуда (см. rememberPageScroller).
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
-    // Корень обзора — это список категорий, а не сетка книг; от этого зависит, что листать.
-    val rootCategories = state.browse.showsCategories && state.browse.level == BrowseLevel.Root
+    // Корень обзора и уровень жанра — это списки категорий, а не сетка книг; от этого зависит,
+    // что листать. Уровень жанра устроен так же: сверху авторы жанра, книг здесь нет.
+    val rootCategories = state.browse.showsCategories &&
+        (state.browse.level == BrowseLevel.Root || state.browse.level is BrowseLevel.Genre)
     val scrollByPage = rememberPageScroller(gridState, listState) { rootCategories }
     // Флаг lives только на время экрана: выбор сортировки не состояние ViewModel, и хранить
     // его там незачем — как и отменять его нечем.
@@ -239,6 +241,7 @@ private fun LibraryControls(
 private fun viewPresetOf(browseMode: BrowseMode): ShelfViewPreset = when (browseMode) {
     BrowseMode.AUTHORS -> ShelfViewPreset.AUTHORS
     BrowseMode.SERIES -> ShelfViewPreset.SERIES
+    BrowseMode.GENRES -> ShelfViewPreset.GENRES
     BrowseMode.OFF -> ShelfViewPreset.GRID
 }
 
@@ -247,6 +250,7 @@ private fun presetLabel(preset: ShelfViewPreset): String = when (preset) {
     ShelfViewPreset.GRID -> "Сетка"
     ShelfViewPreset.AUTHORS -> "Авторы"
     ShelfViewPreset.SERIES -> "Серии"
+    ShelfViewPreset.GENRES -> "Жанры"
 }
 
 /**

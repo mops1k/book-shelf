@@ -63,7 +63,7 @@ class FacetDaoTest {
     fun series_of_author_are_counted_and_books_without_series_form_a_separate_bucket() = runBlocking {
         givenBooks()
 
-        val rows = facets.observeSeriesOfAuthor("Лев Толстой").first()
+        val rows = facets.observeSeriesOfAuthor("Лев Толстой", genreCode = null).first()
 
         val series = rows.filter { !it.seriesName.isNullOrBlank() }
         assertThat(series.map { it.seriesName }).containsExactly("Классика")
@@ -74,10 +74,25 @@ class FacetDaoTest {
     }
 
     @Test
+    fun `author series can be limited to one genre`() = runBlocking {
+        givenBooks()
+        database.tagDao().upsertAll(listOf(TagEntity(id = "tag:фэнтези", name = "фэнтези")))
+        database.tagDao().insertBookTags(listOf(BookTagCrossRef(bookId = "war", tagId = "tag:фэнтези")))
+
+        val rows = facets.observeSeriesOfAuthor("Лев Толстой", genreCode = "фэнтези").first()
+
+        // В жанре «фэнтези» у Толстого ровно одна книга («Война и мир»), поэтому и серия одна с
+        // числом 1: иначе в обзоре по жанру у автора всплыли бы серии других жанров, и число книг
+        // в категории не совпадало бы с её содержимым.
+        assertThat(rows.map { it.seriesName }).containsExactly("Классика")
+        assertThat(rows.single().bookCount).isEqualTo(1)
+    }
+
+    @Test
     fun series_of_another_author_are_not_mixed_in() = runBlocking {
         givenBooks()
 
-        val rows = facets.observeSeriesOfAuthor("Фёдор Достоевский").first()
+        val rows = facets.observeSeriesOfAuthor("Фёдор Достоевский", genreCode = null).first()
 
         assertThat(rows.map { it.seriesName }).containsExactly("Русская классика")
         assertThat(rows.single().bookCount).isEqualTo(1)

@@ -41,6 +41,9 @@ class FakeBookRepository(
     /** Что вернуть на [getById]. */
     var bookById: AppResult<Book?> = AppResult.success(null)
 
+    /** Запросы, с которыми просили страницу книг: по ним видно, что фильтр дошёл до данных. */
+    val pageQueries: MutableList<LibraryQuery> = mutableListOf()
+
     /** Сколько раз просили «пересканировать всё». */
     var rescanCalls: Int = 0
         private set
@@ -53,7 +56,10 @@ class FakeBookRepository(
     var lastRating: String? = null
         private set
 
-    override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> = pageFlow
+    override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> {
+        pageQueries += query
+        return pageFlow
+    }
 
     override fun observeById(id: String): Flow<Book?> = byIdFlow
 
