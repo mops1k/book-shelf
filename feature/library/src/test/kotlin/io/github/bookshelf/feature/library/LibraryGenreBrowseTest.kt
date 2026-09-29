@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.repository.FilterSelection
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.data.model.FacetItem
@@ -164,10 +165,48 @@ class LibraryGenreBrowseTest {
             assertThat(viewModel.uiState.value.browse.mode).isEqualTo(BrowseMode.OFF)
         }
 
-    private fun viewModel() = LibraryViewModel(
+    @Test
+    fun `leaving a genre drops its filter so the authors chip shows every author`() =
+        runTest(dispatcher) {
+            filters.tagFacets.value = listOf(
+                FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            )
+            val viewModel = viewModel()
+            viewModel.onSetBrowse(BrowseMode.GENRES)
+            advanceUntilIdle()
+            viewModel.onOpenCategory(viewModel.uiState.value.browse.categories.single())
+            advanceUntilIdle()
+
+            // «Назад» на корень жанров, затем кнопка «Авторы»: жанр — часть пути обзора, а не
+            // постоянного запроса. Дефект Александра (29.09.2026): после жанрового обзора «Авторы»
+            // показывали только авторов этого жанра.
+            viewModel.onBrowseBack()
+            advanceUntilIdle()
+            viewModel.onSetBrowse(BrowseMode.AUTHORS)
+            advanceUntilIdle()
+
+            assertThat(filters.observedQueries.last().tags).isEmpty()
+            assertThat(books.pageQueries.last().bookQuery.tags).isEmpty()
+        }
+
+    @Test
+    fun `a genre chosen on the filters screen survives switching the view`() = runTest(dispatcher) {
+        val selection = FilterSelection()
+        val viewModel = viewModel(selection)
+        selection.apply(BookQuery(tags = setOf("sf_space")))
+        advanceUntilIdle()
+
+        viewModel.onSetBrowse(BrowseMode.AUTHORS)
+        advanceUntilIdle()
+
+        // Фильтр с экрана фильтров — выбор человека по всей библиотеке, его обзор не снимает.
+        assertThat(filters.observedQueries.last().tags).containsExactly("sf_space")
+    }
+
+    private fun viewModel(selection: FilterSelection = FilterSelection()) = LibraryViewModel(
         bookRepository = books,
         settingsRepository = StaticSettingsRepository(),
-        filterSelection = FilterSelection(),
+        filterSelection = selection,
         browseRequest = LibraryBrowseRequest(),
         filterRepository = filters,
     )

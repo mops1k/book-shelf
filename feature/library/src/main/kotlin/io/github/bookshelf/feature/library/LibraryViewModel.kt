@@ -65,6 +65,15 @@ class LibraryViewModel @Inject constructor(
         pageSize = SINGLE_PAGE_SIZE,
     )
 
+    /**
+     * Жанр, в который зашли в обзоре; `null` — обзор без ограничения по жанру.
+     *
+     * Живёт здесь, а не в [query]: жанр — часть пути обзора (жанр → авторы жанра → серии), и как
+     * только человек вышел на корень или сменил вид кнопками, ограничение обязано исчезнуть.
+     * Дефект 29.09.2026: жанр оставался в запросе, и «Авторы» показывали только авторов этого жанра.
+     */
+    private var browseGenreCode: String? = null
+
     private var pageJob: Job? = null
 
     /** Подписка на категории обзора: своя на каждый уровень, старую отменяем. */
@@ -117,6 +126,7 @@ class LibraryViewModel @Inject constructor(
                     // Продолжать в нём обзор значило бы спрятать категорийные ограничения:
                     // уровень обзора сбрасывается, дальше пользователь снова выбирает автора.
                     categoryJob?.cancel()
+                    browseGenreCode = null
                     query = query.copy(bookQuery = shared, page = 0)
                     _uiState.update {
                         it.copy(
@@ -209,6 +219,8 @@ class LibraryViewModel @Inject constructor(
         viewChosenOnShelf = true
         if (mode == _uiState.value.browse.mode) return
         categoryJob?.cancel()
+        // Смена вида — выход из категории: ограничения пути обзора снимаются.
+        browseGenreCode = null
         applyCategoryFilter()
         _uiState.update {
             it.copy(
@@ -335,6 +347,10 @@ class LibraryViewModel @Inject constructor(
             }
         }
         categoryJob?.cancel()
+        if (parent == BrowseLevel.Root) {
+            // Вышли на корень — жанр обзора перестаёт ограничивать запрос.
+            browseGenreCode = null
+        }
         // Уровень автора — совмещённый экран: его книги в списке — это книги ВНЕ серий,
         // поэтому и при возврате из серии запрос восстанавливается тем же правилом.
         applyCategoryFilter(
@@ -362,7 +378,8 @@ class LibraryViewModel @Inject constructor(
      * часть книг жанра как весь жанр.
      */
     private fun openGenre(category: CategoryItemUi) {
-        applyCategoryFilter(genreTags = setOf(category.id))
+        browseGenreCode = category.id
+        applyCategoryFilter()
         val level = BrowseLevel.Genre(code = category.id, label = category.label)
         _uiState.update {
             it.copy(
@@ -427,7 +444,7 @@ class LibraryViewModel @Inject constructor(
         authorName: String? = null,
         seriesName: String? = null,
         withoutSeries: Boolean = false,
-        genreTags: Set<String> = query.bookQuery.tags,
+        genreTags: Set<String> = browseTags(),
     ) {
         query = query.copy(
             bookQuery = query.bookQuery.copy(
@@ -443,8 +460,14 @@ class LibraryViewModel @Inject constructor(
         observePage(query)
     }
 
+    /** Жанры, выбранные на экране фильтров: они живут по всей библиотеке и обзором не снимаются. */
+    private fun selectionTags(): Set<String> = filterSelection.query.value.tags
+
+    /** Жанры запроса обзора: выбор с экрана фильтров плюс жанр, в который зашли. */
+    private fun browseTags(): Set<String> = selectionTags() + listOfNotNull(browseGenreCode)
+
     /** Код жанра, по которому сейчас идёт обзор; `null` — жанр не выбран. */
-    private fun currentGenreCode(): String? = query.bookQuery.tags.firstOrNull()
+    private fun currentGenreCode(): String? = browseGenreCode
 
     /**
      * Уровень жанра для возврата из автора.
