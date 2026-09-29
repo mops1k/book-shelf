@@ -21,6 +21,12 @@ import io.github.bookshelf.core.data.repository.impl.CollectionRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.FilterRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.MetadataOverrideRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.OpdsRepositoryImpl
+import io.github.bookshelf.core.data.backup.BackupStore
+import io.github.bookshelf.core.data.backup.DatabaseBackup
+import io.github.bookshelf.core.data.backup.DatabaseSnapshot
+import io.github.bookshelf.core.data.backup.DefaultDatabaseBackup
+import io.github.bookshelf.core.data.backup.RoomDatabaseSnapshot
+import io.github.bookshelf.core.data.backup.SafBackupStore
 import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
@@ -66,6 +72,21 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindSearchRepository(impl: SearchRepositoryImpl): SearchRepository
+
+    @Binds
+    abstract fun bindDatabaseBackup(
+        impl: DefaultDatabaseBackup,
+    ): DatabaseBackup
+
+    @Binds
+    abstract fun bindDatabaseSnapshot(
+        impl: RoomDatabaseSnapshot,
+    ): DatabaseSnapshot
+
+    @Binds
+    abstract fun bindBackupStore(
+        impl: SafBackupStore,
+    ): BackupStore
 
     @Binds
     abstract fun bindReaderExport(

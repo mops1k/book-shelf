@@ -8,6 +8,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.di.ApplicationScope
 import androidx.core.content.FileProvider
+import io.github.bookshelf.core.common.app.AppRestarter
+import io.github.bookshelf.core.data.backup.DatabaseBackupSchedule
+import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
 import io.github.bookshelf.core.readerlink.launch.ExportedUriFactory
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
@@ -43,6 +46,36 @@ object AppModule {
     @Singleton
     fun provideProgressSyncSchedule(scheduler: ReadingProgressSyncScheduler): ProgressSyncSchedule =
         scheduler
+
+    /**
+     * Расписание ежедневной копии базы.
+     *
+     * Как и у синхронизации прогресса: экран настроек не может зависеть от `:app`, поэтому он
+     * говорит «расписание надо пересмотреть», а решение принимает эта реализация.
+     */
+    @Provides
+    @Singleton
+    fun provideDatabaseBackupSchedule(scheduler: DatabaseBackupScheduler): DatabaseBackupSchedule =
+        scheduler
+
+    /**
+     * Перезапуск приложения: нужен после восстановления базы, когда файл подменён под работающим
+     * процессом, а открытые соединения держат прежние данные.
+     */
+    @Provides
+    @Singleton
+    fun provideAppRestarter(@ApplicationContext context: Context): AppRestarter =
+        AppRestarter {
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            if (intent != null) {
+                intent.addFlags(
+                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                        android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                )
+                context.startActivity(intent)
+            }
+            Runtime.getRuntime().exit(0)
+        }
 
     /**
      * Адрес копии книги, видимый другой программе.

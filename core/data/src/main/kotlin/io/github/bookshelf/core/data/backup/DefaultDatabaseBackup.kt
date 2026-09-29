@@ -56,7 +56,7 @@ class DefaultDatabaseBackup @Inject constructor(
                 ),
             )
 
-        val fileName = "$BACKUP_PREFIX${clock.nowMillis()}$BACKUP_SUFFIX"
+        val fileName = BackupNames.fileNameFor(clock.nowMillis())
         val target = File(tempDir, fileName)
         return try {
             // Исключения превращаются в результат общим помощником проекта: сбой снимка — это
@@ -66,7 +66,7 @@ class DefaultDatabaseBackup @Inject constructor(
             val read = appRunCatching { target.readBytes() }
             val bytes = read.getOrNull()
                 ?: return AppResult.failure(read.errorOrNull() ?: AppError.Io(message = "Копия не читается"))
-            store.save(treeUri = treeUri, folder = BACKUP_FOLDER, fileName = fileName, bytes = bytes)
+            store.save(treeUri = treeUri, folder = BackupNames.FOLDER, fileName = fileName, bytes = bytes)
                 .errorOrNull()
                 ?.let { error -> return AppResult.failure(error) }
             AppResult.success(
@@ -131,21 +131,9 @@ class DefaultDatabaseBackup @Inject constructor(
     private suspend fun removeOldCopies(treeUri: String): Int {
         val entries = store.list(treeUri).getOrNull().orEmpty()
             .sortedByDescending { it.createdAt }
-        val extra = entries.drop(KEEP_BACKUPS)
+        val extra = entries.drop(BackupNames.KEEP)
         extra.forEach { entry -> store.remove(entry) }
         return extra.size
     }
 
-    private companion object {
-        /** Префикс имени файла: по нему копии отличаются от книг и от чужих файлов. */
-        const val BACKUP_PREFIX = "bookshelf-backup-"
-
-        const val BACKUP_SUFFIX = ".db"
-
-        /** Папка внутри библиотеки: копии не мешают книгам и не индексируются сканом. */
-        const val BACKUP_FOLDER = ".bookshelf"
-
-        /** Сколько копий хранить. Больше — только место занимать: это страховка, а не архив. */
-        const val KEEP_BACKUPS = 3
-    }
 }

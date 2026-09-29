@@ -75,7 +75,11 @@ fun SettingsCategoryScreen(
                 viewModel = viewModel,
                 onOpenCatalogs = onOpenCatalogs,
             )
-            SettingsSectionKind.STORAGE -> StorageCategory(state = state, viewModel = viewModel)
+            SettingsSectionKind.STORAGE -> StorageCategory(
+                state = state,
+                viewModel = viewModel,
+                backupViewModel = hiltViewModel(),
+            )
             SettingsSectionKind.ABOUT -> AboutCategory(state = state, viewModel = viewModel)
         }
     }

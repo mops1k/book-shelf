@@ -29,6 +29,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.sync.LibrarySync
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
+import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ThemeMode
@@ -88,6 +89,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var readingProgressSchedule: ReadingProgressSyncScheduler
 
+    @Inject
+    lateinit var databaseBackupSchedule: DatabaseBackupScheduler
+
     /**
      * Возврат в приложение — самый частый случай «я добавил книгу на устройство».
      *
@@ -102,6 +106,9 @@ class MainActivity : ComponentActivity() {
         // Человек мог только что закрыть читалку: прогресс читаем сразу, не дожидаясь таймера.
         launchProgressSync()
         lifecycleScope.launch { readingProgressSchedule.startIfEnabled() }
+        // Расписание копий пересматривается при каждом запуске: если настройку выключили, работа
+        // должна быть снята, а не сработать после запрета.
+        lifecycleScope.launch { databaseBackupSchedule.review() }
     }
 
     override fun onDestroy() {
