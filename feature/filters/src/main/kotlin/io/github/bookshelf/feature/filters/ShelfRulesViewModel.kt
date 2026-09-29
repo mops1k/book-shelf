@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.database.SQLException
 
 /**
  * ViewModel редактора правил умной полки.
@@ -139,7 +140,6 @@ class ShelfRulesViewModel @Inject constructor(
      * Подписка одна: переключение чипа перезапускает её, иначе на каждый тап оставался бы
      * лишний collector со старым запросом.
      */
-    @Suppress("TooGenericExceptionCaught")
     private fun observeSelection() {
         observationJob?.cancel()
         val query = _uiState.value.selected.toBookQuery()
@@ -160,7 +160,7 @@ class ShelfRulesViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(isLoading = false, error = error.message ?: "Не удалось загрузить условия")
                 }

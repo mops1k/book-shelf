@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.database.SQLException
 
 /**
  * ViewModel полки (docs/eink-ux.md §6.2).
@@ -451,7 +452,6 @@ class LibraryViewModel @Inject constructor(
         observePage(query)
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun observePage(currentQuery: LibraryQuery) {
         pageJob?.cancel()
         // Порядок внутри серии приходит из запроса: подвал обязан повторять то, как книги реально
@@ -475,7 +475,7 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,

@@ -771,7 +771,16 @@ private fun MutableStateFlow<SettingsUiState>.showError(message: String) {
  * Живёт вне класса: помощник не трогает состояние, а у `SettingsViewModel` порог detekt
  * `TooManyFunctions` уже под рукой — каждый метод в классе приближает его к нарушению.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+/**
+ * Перехват здесь широкий осознанно.
+ *
+ * `controller` — вендорский контроллер: реализации для Onyx и Rockchip пока помечены
+ * `TODO("STUB(Sprint 10)")` и бросают `NotImplementedError` (это `Error`, а не `Exception`),
+ * а вендорские вызовы идут рефлексией и вправе упасть чем угодно. Диагностика — экран справки:
+ * показать устаревшие данные честнее, чем уронить приложение из-за чужого SDK. Отмену корутины
+ * функция пробрасывает.
+ */
+@Suppress("SwallowedException")
 private fun safeDiagnostics(
     controller: EinkController,
     detector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,

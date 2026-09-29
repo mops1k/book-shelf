@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.database.SQLException
 
 /**
  * ViewModel поиска по FTS (docs/eink-ux.md §6.5).
@@ -37,7 +38,6 @@ class SearchViewModel @Inject constructor(
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     /** Ввод запроса: подсказки запрашиваются с задержкой, чтобы не обращаться к БД на каждый символ. */
-    @Suppress("TooGenericExceptionCaught")
     fun onQueryChange(query: String) {
         searchJob?.cancel()
         suggestionsJob?.cancel()
@@ -63,7 +63,7 @@ class SearchViewModel @Inject constructor(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update { state ->
                     if (state.query == query) {
                         state.copy(error = error.message ?: "Не удалось получить подсказки")
@@ -83,7 +83,6 @@ class SearchViewModel @Inject constructor(
     }
 
     /** Запустить поиск по введённому запросу. */
-    @Suppress("TooGenericExceptionCaught")
     fun onSearch() {
         val term = _uiState.value.query.trim()
         suggestionsJob?.cancel()
@@ -125,7 +124,7 @@ class SearchViewModel @Inject constructor(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update { state ->
                     if (state.query.trim() == term) {
                         state.copy(

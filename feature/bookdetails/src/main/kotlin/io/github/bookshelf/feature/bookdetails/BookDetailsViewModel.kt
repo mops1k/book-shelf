@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.database.SQLException
 
 /**
  * ViewModel карточки книги (docs/eink-ux.md §6.4).
@@ -121,7 +122,7 @@ class BookDetailsViewModel @Inject constructor(
      *
      * Имя папки — подпись, а не данные: её отсутствие карточка переживает молча.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("SwallowedException")
     private suspend fun sourceNameOf(sourceId: String): String {
         if (sourceId.isEmpty()) return ""
         return try {
@@ -131,7 +132,7 @@ class BookDetailsViewModel @Inject constructor(
                 .orEmpty()
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (error: Throwable) {
+        } catch (error: SQLException) {
             // Ошибку чтения папок показывать нечем: без имени папки карточка остаётся рабочей.
             ""
         }
@@ -237,7 +238,6 @@ class BookDetailsViewModel @Inject constructor(
      * десятки мегабайт. Поэтому команда возвращается сразу, а результат приезжает в
      * [uiState] через наблюдение за книгой.
      */
-    @Suppress("TooGenericExceptionCaught")
     fun onRefreshMetadata() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -249,7 +249,7 @@ class BookDetailsViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = null) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -265,7 +265,6 @@ class BookDetailsViewModel @Inject constructor(
         showUnavailable("Открытие папки пока недоступно")
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun observeBook() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -291,7 +290,7 @@ class BookDetailsViewModel @Inject constructor(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -302,7 +301,6 @@ class BookDetailsViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun runBookCommand(
         successMessage: String? = null,
         onSuccess: () -> Unit = {},
@@ -321,7 +319,7 @@ class BookDetailsViewModel @Inject constructor(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,

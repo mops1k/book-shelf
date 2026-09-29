@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import android.database.SQLException
 
 /** Книга в списке полки (UI-модель). */
 data class CollectionItemUi(
@@ -110,7 +111,6 @@ class CollectionContentViewModel @Inject constructor(
         observeContent()
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun observeContent() {
         booksJob?.cancel()
         booksJob = viewModelScope.launch {
@@ -137,7 +137,7 @@ class CollectionContentViewModel @Inject constructor(
                 }.collect { state -> _uiState.value = state }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: Throwable) {
+            } catch (error: SQLException) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
