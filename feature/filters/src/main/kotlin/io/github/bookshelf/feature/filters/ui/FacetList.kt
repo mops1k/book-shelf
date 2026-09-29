@@ -41,29 +41,61 @@ import io.github.bookshelf.feature.filters.FilterSelectionUi
 private const val CHIPS_PER_ROW = 2
 
 /**
- * Живая сводка по критериям: сколько значений доступно в каждом фасете прямо сейчас.
+ * Живая сводка по критериям: сколько значений доступно в каждом разделе прямо сейчас.
  *
  * Строка закреплена над списком и видна всегда — в том числе когда раскрыта чужая секция и её
  * строки уехали вниз. Без неё пересчёт фасетов на каждый тап происходил, но оставался за
  * пределами экрана: выбранный автор сужал серии, а увидеть это можно было только вернувшись
  * на полку и открыв фильтры заново. На разборе 28.09.2026 это выглядело как «обновляется
  * только после Применить».
+ *
+ * Формулировка — «Значений на выбор: 20 авторов · 14 серий · …», а не «Авторы 20 · Серии 14 · …»:
+ * число без пояснения читалось как «выбрано 20 авторов» (замечание Александра, 29.09.2026).
+ * Пустой набор разделов даёт пустую строку: там экран показывает «фильтров пока нет», и подпись
+ * «Значений на выбор:» без чисел выглядела бы обрезанной.
  */
-internal fun facetOverview(sections: List<FacetSectionUi>): String =
-    sections.joinToString(separator = " · ") { section ->
-        // «Авторы 16» — сколько значений осталось доступно после остальных фильтров.
-        "${section.kind.shortTitle} ${section.items.size}"
+internal fun facetOverview(sections: List<FacetSectionUi>): String {
+    if (sections.isEmpty()) return ""
+    val parts = sections.joinToString(separator = " · ") { section ->
+        // «20 авторов» — сколько значений осталось доступно после остальных фильтров.
+        "${section.items.size} ${section.kind.availableWord(section.items.size)}"
     }
+    return "Значений на выбор: $parts"
+}
 
-/** Короткие подписи критериев для сводки: в одну строку должно влезть пять чисел. */
-internal val FacetKind.shortTitle: String
-    get() = when (this) {
-        FacetKind.AUTHORS -> "Авторы"
-        FacetKind.SERIES -> "Серии"
-        FacetKind.TAGS -> "Жанры"
-        FacetKind.FORMATS -> "Форматы"
-        FacetKind.STATUSES -> "Статус"
+/** Слово критерия в нужной форме: «1 автор», «2 автора», «5 авторов». */
+internal fun FacetKind.availableWord(count: Int): String = when (this) {
+    FacetKind.AUTHORS -> russianPlural(count, "автор", "автора", "авторов")
+    FacetKind.SERIES -> russianPlural(count, "серия", "серии", "серий")
+    FacetKind.TAGS -> russianPlural(count, "жанр", "жанра", "жанров")
+    FacetKind.FORMATS -> russianPlural(count, "формат", "формата", "форматов")
+    FacetKind.STATUSES -> russianPlural(count, "статус", "статуса", "статусов")
+}
+
+/**
+ * Русская форма слова по числу: 1 автор, 2 автора, 5 авторов, но 11 авторов и снова 21 автор.
+ *
+ * Исключение для 11–14 обязательно: «11 автор» и «12 автора» — именно те ошибки, которые выдают
+ * машинный перевод. Общий помощник, потому что та же арифметика нужна любой подписи с числом.
+ */
+internal fun russianPlural(count: Int, one: String, few: String, many: String): String {
+    val lastTwo = count % CENTURY
+    val last = count % DECADE
+    return when {
+        lastTwo in TEENS_START..TEENS_END -> many
+        last == 1 -> one
+        last in FEW_START..FEW_END -> few
+        else -> many
     }
+}
+
+/** Разряды счёта: единицы, сотни и «подростковый» разряд 11–14, который всегда даёт «много». */
+private const val DECADE = 10
+private const val CENTURY = 100
+private const val TEENS_START = 11
+private const val TEENS_END = 14
+private const val FEW_START = 2
+private const val FEW_END = 4
 
 
 /**
