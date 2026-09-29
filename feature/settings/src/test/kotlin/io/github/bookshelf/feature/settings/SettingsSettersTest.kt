@@ -102,6 +102,26 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `reset returns every setting to its default and does not touch data`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.onSetThemeMode(ThemeMode.DARK)
+        viewModel.onSetFontScale(130)
+        advanceUntilIdle()
+        val writesBeforeReset = settings.writes.size
+
+        viewModel.onResetToDefaults()
+        advanceUntilIdle()
+
+        // Сброс — это один вызов репозитория настроек: он возвращает умолчания целиком. Данные
+        // книги, полок и прогресса чтения живут в других таблицах, и сброс настроек их не трогает
+        // (требование Александра: кнопка «Сбросить по умолчанию» про настройки, а не про библиотеку).
+        assertThat(settings.last()).isEqualTo(AppSettings())
+        assertThat(settings.writes.size).isEqualTo(writesBeforeReset + 1)
+        assertThat(viewModel.uiState.value.isResetting).isFalse()
+        assertThat(viewModel.uiState.value.isConfirmingReset).isFalse()
+    }
+
+    @Test
     fun `unknown density and font scale beyond the list do not break the snapshot`() = runTest(dispatcher) {
         val viewModel = viewModel()
 
