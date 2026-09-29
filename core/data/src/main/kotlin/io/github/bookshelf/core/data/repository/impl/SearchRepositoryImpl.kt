@@ -1,5 +1,7 @@
 package io.github.bookshelf.core.data.repository.impl
 
+import io.github.bookshelf.core.data.author.parseAuthors
+
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.data.mapper.toDomain
 import io.github.bookshelf.core.data.model.Book
@@ -33,7 +35,7 @@ class SearchRepositoryImpl @Inject constructor(
     override fun search(term: String, limit: Int): Flow<List<Book>> {
         val query = ftsQueryOf(term) ?: return flowOf(emptyList())
         return searchDao.search(query, limit)
-            .map { entities -> entities.map { it.toDomain(authors = it.authorsText.toAuthorNames()) } }
+            .map { entities -> entities.map { it.toDomain(authors = parseAuthors(it.authorsText)) } }
             .flowOn(dispatchers.io)
     }
 
@@ -46,6 +48,3 @@ class SearchRepositoryImpl @Inject constructor(
         return searchDao.suggestTitles(withStar, limit).flowOn(dispatchers.io)
     }
 }
-
-private fun String.toAuthorNames(): List<String> =
-    split(',').map { it.trim() }.filter { it.isNotEmpty() }

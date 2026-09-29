@@ -1,8 +1,11 @@
 package io.github.bookshelf.core.data.repository.impl
 
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.data.author.authorSetLabel
+import io.github.bookshelf.core.data.author.authorSetNames
 import io.github.bookshelf.core.data.mapper.FacetSql
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
@@ -12,6 +15,8 @@ import io.github.bookshelf.core.data.repository.FilterRepository
 import io.github.bookshelf.core.data.tag.genreDisplayName
 import io.github.bookshelf.core.database.dao.FacetDao
 import io.github.bookshelf.core.database.relation.AuthorFacet
+import io.github.bookshelf.core.database.relation.AuthorSeriesFacet
+import io.github.bookshelf.core.database.relation.AuthorSetFacet
 import io.github.bookshelf.core.database.relation.FormatFacet
 import io.github.bookshelf.core.database.relation.ReadingStatusFacet
 import io.github.bookshelf.core.database.relation.SeriesFacet
@@ -80,24 +85,46 @@ class FilterRepositoryImpl @Inject constructor(
         )
     }.flowOn(dispatchers.metadata)
 
-    override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> =
-        facetDao.observeSeriesOfAuthor(authorName, genreCode)
-            .map { rows ->
-                AuthorSeries(
-                    // Серии автора — по алфавиту; NULL-имя в запросе означает «вне серий» и в
-                    // список серий не попадает, а превращается в отдельный счётчик.
-                    series = rows.mapNotNull { row ->
-                        val name = row.seriesName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                        FacetItem(id = name, label = name, count = row.bookCount)
-                    },
-                    withoutSeries = rows
-                        .firstOrNull { it.seriesName.isNullOrBlank() }
-                        ?.bookCount
-                        ?: 0,
-                )
+    override fun observeAuthorSetSeries(
+        authorNames: List<String>,
+        genreCode: String?,
+    ): Flow<AuthorSeries> =
+        facetDao.observeSeriesOfAuthorSet(FacetSql.seriesOfAuthorSet(authorNames, genreCode))
+            .map { rows -> rows.toAuthorSeries() }
+            .flowOn(dispatchers.metadata)
+
+    override fun observeAuthorSets(query: BookQuery): Flow<List<AuthorSet>> =
+        facetDao.observeAuthorSets(FacetSql.authorSets(query))
+            .map { rows: List<AuthorSetFacet> ->
+                rows.map { row ->
+                    // Ключ набора приходит из SQL (имена по алфавиту через «|»). Фильтру нужны
+                    // имена, а не ключ: отбор идёт по составу авторов, поэтому порядок сортировки
+                    // в SQL на то, какие книги попадут в категорию, не влияет.
+                    val names = authorSetNames(row.setKey)
+                    AuthorSet(names = names, label = authorSetLabel(names), count = row.bookCount)
+                }
             }
             .flowOn(dispatchers.metadata)
+
+    override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> =
+        facetDao.observeSeriesOfAuthor(authorName, genreCode)
+            .map { rows -> rows.toAuthorSeries() }
+            .flowOn(dispatchers.metadata)
 }
+
+/**
+ * Строки серий из БД в доменную модель.
+ *
+ * `NULL` в имени означает книги автора вне серий: в список серий они не попадают, а считаются
+ * отдельным числом — иначе из обзора по авторам такие книги было бы не найти.
+ */
+private fun List<AuthorSeriesFacet>.toAuthorSeries(): AuthorSeries = AuthorSeries(
+    series = mapNotNull { row ->
+        val name = row.seriesName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        FacetItem(id = name, label = name, count = row.bookCount)
+    },
+    withoutSeries = firstOrNull { row -> row.seriesName.isNullOrBlank() }?.bookCount ?: 0,
+)
 
 /** Подпись статуса чтения по имени из БД; неизвестное имя остаётся как есть. */
 internal fun statusLabel(name: String): String =

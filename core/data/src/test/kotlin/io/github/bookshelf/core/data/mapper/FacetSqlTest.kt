@@ -19,7 +19,8 @@ class FacetSqlTest {
             BookQuery(authorNames = setOf("Лев Толстой"), series = setOf("Хроники")),
         ).sql
 
-        assertThat(sql).contains("books.authorsText IN")
+        // Автор ищется по связи (book_authors/authors): книга находится по нему в любой позиции.
+        assertThat(sql).contains("SELECT book_authors.bookId FROM book_authors")
         assertThat(sql).doesNotContain("books.seriesName IN")
         assertThat(sql).contains("GROUP BY books.seriesName")
     }

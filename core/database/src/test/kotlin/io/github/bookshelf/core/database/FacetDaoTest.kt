@@ -5,6 +5,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.database.dao.FacetDao
+import io.github.bookshelf.core.database.entity.AuthorEntity
+import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
 import io.github.bookshelf.core.database.entity.BookTagCrossRef
 import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.entity.TagEntity
@@ -171,6 +173,23 @@ class FacetDaoTest {
                     author = DOSTOEVSKY,
                     series = "Русская классика",
                 ),
+            ),
+        )
+        // Связи авторов: авторское измерение (серии, фасеты, фильтр) читает их, а не строку
+        // books.authorsText — иначе книга находится по автору только в той позиции, в какой он
+        // записан строкой.
+        database.authorDao().upsertAll(
+            listOf(
+                AuthorEntity(id = "author:tolstoy", name = TOLSTOY, sortName = "Толстой Лев"),
+                AuthorEntity(id = "author:dostoevsky", name = DOSTOEVSKY, sortName = "Достоевский Фёдор"),
+            ),
+        )
+        database.authorDao().insertBookAuthors(
+            listOf(
+                BookAuthorCrossRef(bookId = "war", authorId = "author:tolstoy"),
+                BookAuthorCrossRef(bookId = "anna", authorId = "author:tolstoy"),
+                BookAuthorCrossRef(bookId = "resurrection", authorId = "author:tolstoy"),
+                BookAuthorCrossRef(bookId = "crime", authorId = "author:dostoevsky"),
             ),
         )
     }

@@ -1,5 +1,7 @@
 package io.github.bookshelf.core.data.repository.impl
 
+import io.github.bookshelf.core.data.author.parseAuthors
+
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.mapper.BookPageSql
@@ -121,7 +123,7 @@ class CollectionRepositoryImpl @Inject constructor(
         val rules = smartRulesOf(entity)
         if (rules != null) {
             return bookDao.observePage(BookPageSql.select(smartQuery(rules)))
-                .map { rows -> rows.map { row -> row.toDomain(row.authorsText.toAuthorNames()) } }
+                .map { rows -> rows.map { row -> row.toDomain(parseAuthors(row.authorsText)) } }
         }
         return dao.getBooksFlow(collectionId)
             .map { refs -> refs.map { it.bookId } }
@@ -154,12 +156,9 @@ class CollectionRepositoryImpl @Inject constructor(
         // DAO отдаёт сущности; имя автора лежит строкой, поэтому список разбирается здесь же.
         val flows: List<Flow<BookEntity?>> = ids.map { bookDao.observeById(it) }
         return combine(flows) { snapshot: Array<BookEntity?> ->
-            snapshot.filterNotNull().map { it.toDomain(it.authorsText.toAuthorNames()) }
+            snapshot.filterNotNull().map { it.toDomain(parseAuthors(it.authorsText)) }
         }
     }
-
-    private fun String.toAuthorNames(): List<String> =
-        split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     /** Порядок задаёт пользователь, поэтому позиция растёт, а не перезаписывает список. */
     override suspend fun create(name: String, type: CollectionType): AppResult<Collection> {

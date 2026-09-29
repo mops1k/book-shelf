@@ -2,6 +2,7 @@ package io.github.bookshelf.core.data.mapper
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
+import io.github.bookshelf.core.data.author.AUTHOR_SET_SEPARATOR
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.SortOrder
@@ -78,11 +79,24 @@ internal object BookPageSql {
             conditions += "books.sourceId IN (${placeholders(it.size)})"
             args.addAll(it)
         }
-        // Автор — денормализованное поле books.authorsText: нормализованные authors/book_authors
-        // приложение не заполняет, и отбор подзапросом по ним не находил ни одной книги.
+        // Автор — связи book_authors/authors. Условие намеренно не смотрит на `position`:
+        // «все книги автора» означают любую позицию и любых соавторов, иначе соавтор, записанный
+        // вторым, не находился бы вовсе (дефект 29.09.2026). Строка `books.authorsText` для отбора
+        // не годится: она хранит всех авторов одной строкой.
         bookQuery.authorNames.takeIf { it.isNotEmpty() }?.let {
-            conditions += "books.authorsText IN (${placeholders(it.size)})"
+            conditions += booksWithAuthorNames(it.size)
             args.addAll(it)
+        }
+        // Категория обзора авторов — ТОЧНЫЙ набор: мало «среди авторов есть A и B», нужно ещё,
+        // чтобы лишних авторов у книги не было. Иначе книга «A, B, C» показалась бы в категории
+        // «A, B», и число в категории разошлось бы с содержимым.
+        bookQuery.authorSets.takeIf { it.isNotEmpty() }?.let { sets ->
+            val setConditions = sets.map { names ->
+                args.addAll(names)
+                args.add(names.size)
+                booksWithExactAuthorSet(names.size)
+            }
+            conditions += "(${setConditions.joinToString(" OR ")})"
         }
         bookQuery.series.takeIf { it.isNotEmpty() }?.let {
             conditions += "books.seriesName IN (${placeholders(it.size)})"
@@ -138,7 +152,10 @@ internal object BookPageSql {
         val groupingColumn = when (query.grouping) {
             Grouping.NONE -> null
             Grouping.SERIES -> "books.seriesName"
-            Grouping.AUTHOR -> "books.authorsText"
+            // Группировка по автору — часть авторского измерения: рядом встают книги одного
+            // набора авторов, а не одной строки `books.authorsText`. Иначе «A, B» и «B, A» давали
+            // бы два соседних, но разных заголовка группы (дефект 29.09.2026).
+            Grouping.AUTHOR -> authorSetOrderExpression()
             Grouping.FOLDER -> "books.relativePath"
             Grouping.FORMAT -> "books.extension"
         }
@@ -165,6 +182,46 @@ internal object BookPageSql {
     }
 
     private fun placeholders(count: Int): String = List(count) { "?" }.joinToString(", ")
+
+    /**
+     * Книги, у которых есть хотя бы один из перечисленных авторов — на любой позиции.
+     *
+     * Связь берётся из `book_authors`/`authors`: это авторское измерение. Строка `books.authorsText`
+     * сравнивалась целиком, поэтому книга, где автор записан вторым, не находилась.
+     */
+    private fun booksWithAuthorNames(count: Int): String =
+        "books.id IN (" +
+            "SELECT book_authors.bookId FROM book_authors " +
+            "INNER JOIN authors ON authors.id = book_authors.authorId " +
+            "WHERE authors.name IN (${placeholders(count)}))"
+
+    /**
+     * Книги, у которых состав авторов РОВНО равен переданным именам.
+     *
+     * `HAVING COUNT(*) = ?` — это и есть «нет лишних авторов»: без него книга «A, B, C» попала бы
+     * в категорию «A, B». Порядок имён не важен: сравниваются множества, а не строки. Условие
+     * общее с фасетом серий набора (`FacetSql.seriesOfAuthorSet`), поэтому вынесено наружу:
+     * разойдись оно, число в категории перестало бы совпадать с её содержимым.
+     */
+    internal fun booksWithExactAuthorSet(count: Int): String =
+        "books.id IN (" +
+            "SELECT book_authors.bookId FROM book_authors " +
+            "INNER JOIN authors ON authors.id = book_authors.authorId " +
+            "WHERE authors.name IN (${placeholders(count)}) " +
+            "GROUP BY book_authors.bookId HAVING COUNT(*) = ?)"
+
+    /**
+     * Выражение ключа набора авторов книги — для группировки по автору.
+     *
+     * Имена собираются по алфавиту (`GROUP_CONCAT` по отсортированному подзапросу), поэтому
+     * «A, B» и «B, A» дают одну и ту же строку и книги одного состава идут подряд.
+     */
+    private fun authorSetOrderExpression(): String =
+        "(SELECT GROUP_CONCAT(author_name, '${AUTHOR_SET_SEPARATOR}') FROM (" +
+            "SELECT authors.name AS author_name FROM book_authors " +
+            "INNER JOIN authors ON authors.id = book_authors.authorId " +
+            "WHERE book_authors.bookId = books.id " +
+            "ORDER BY authors.name COLLATE NOCASE ASC))"
 
     private const val PROGRESS_JOIN = "LEFT JOIN reading_progress AS progress ON progress.bookId = books.id"
 }

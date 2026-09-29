@@ -25,11 +25,14 @@ data class LibraryQuery(
  * чтобы UI не показывал пустую полку на старте.
  *
  * @param sourceIds ограничение по источникам (папкам);
- * @param authorNames ключи авторов — это значение `books.authorsText` («Лев Толстой»), а не id:
- *   нормализованные таблицы `authors`/`book_authors` в приложении пока не заполняются (0 строк при
- *   72 книгах на устройстве), поэтому и фасеты, и фильтр, и обзор идут по денормализованному полю.
- *   У книги с несколькими авторами строка хранится целиком — известное упрощение до отдельной
- *   задачи нормализации;
+ * @param authorNames имена авторов. Отбор идёт по связям `book_authors`/`authors`: книга
+ *   подходит, если автор есть в ней на любой позиции и с любыми соавторами. Это измерение
+ *   «все книги автора» — по нему работает клик по автору в карточке книги и правило умной полки.
+ *   Строка `books.authorsText` для отбора не годится: она хранит всех соавторов одной строкой,
+ *   поэтому книга, где автор записан вторым, по нему не находилась (дефект Александра, 29.09.2026);
+ * @param authorSets ТОЧНЫЕ наборы авторов — категории обзора «Авторы». Отбор идёт по связям и
+ *   требует, чтобы число авторов книги совпало с числом имён набора: «A, B» не должна попадать
+ *   в категорию «A, B, C» и наоборот. Порядок имён в наборе не важен;
  * @param series названия серий (в БД это денормализованное поле);
  * @param formats расширения без точки (`fb2`, `epub`, …);
  * @param statuses статусы чтения;
@@ -40,6 +43,7 @@ data class LibraryQuery(
 data class BookQuery(
     val sourceIds: Set<String> = emptySet(),
     val authorNames: Set<String> = emptySet(),
+    val authorSets: Set<List<String>> = emptySet(),
     val series: Set<String> = emptySet(),
     val formats: Set<String> = emptySet(),
     val statuses: Set<ReadingStatus> = emptySet(),
@@ -65,9 +69,9 @@ val BookQuery.isEmpty: Boolean
 /** Фильтры по идентификаторам и строкам не заданы. */
 private fun BookQuery.hasNoFilters(): Boolean = hasNoIdFilters() && hasNoValueFilters()
 
-/** Не выбраны источники, авторы и серии. */
+/** Не выбраны источники, авторы (и их наборы) и серии. */
 private fun BookQuery.hasNoIdFilters(): Boolean =
-    sourceIds.isEmpty() && authorNames.isEmpty() && series.isEmpty()
+    sourceIds.isEmpty() && authorNames.isEmpty() && authorSets.isEmpty() && series.isEmpty()
 
 /** Не выбраны форматы, статусы и теги. */
 private fun BookQuery.hasNoValueFilters(): Boolean =

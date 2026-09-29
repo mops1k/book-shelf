@@ -2,6 +2,7 @@ package io.github.bookshelf.core.data.mapper
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
+import io.github.bookshelf.core.data.author.AUTHOR_SET_SEPARATOR
 import io.github.bookshelf.core.data.model.BookQuery
 
 /**
@@ -14,14 +15,44 @@ import io.github.bookshelf.core.data.model.BookQuery
  * Фасет считается БЕЗ собственного фильтра (авторы — без фильтра по авторам, серии — без фильтра
  * по сериям): иначе, выбрав одного автора, нельзя было бы выбрать второго. Это стандартное
  * поведение фасетного поиска.
+ *
+ * Авторские фасеты идут по связям `book_authors`/`authors`, а не по строке `books.authorsText`:
+ * строка хранит всех соавторов одной строкой, поэтому соавтор, записанный вторым, не получал
+ * своей строки ни в фильтре, ни в обзоре (дефект Александра, 29.09.2026).
  */
 internal object FacetSql {
 
+    /**
+     * Авторы с числом книг — для фильтра: строка на каждого человека.
+     *
+     * Это измерение «все книги автора»: книга с соавторами попадает в строки всех своих авторов.
+     * Категории обзора (наборы) — отдельный фасет [authorSets].
+     */
     fun authors(query: BookQuery): SupportSQLiteQuery = facet(
-        query = query.copy(authorNames = emptySet()),
-        select = "SELECT books.authorsText AS name, COUNT(*) AS bookCount FROM books",
-        extra = "books.authorsText <> ''",
-        groupBy = "GROUP BY books.authorsText ORDER BY books.authorsText COLLATE NOCASE ASC",
+        query = query.copy(authorNames = emptySet(), authorSets = emptySet()),
+        select = "SELECT authors.name AS name, COUNT(*) AS bookCount FROM books " +
+            "INNER JOIN book_authors ON book_authors.bookId = books.id " +
+            "INNER JOIN authors ON authors.id = book_authors.authorId",
+        extra = null,
+        groupBy = "GROUP BY authors.id, authors.name ORDER BY authors.name COLLATE NOCASE ASC",
+    )
+
+    /**
+     * Категории обзора авторов — точные наборы авторов книги с числом книг.
+     *
+     * Ключ набора собирается в SQL: имена авторов книги сортируются по алфавиту и соединяются
+     * разделителем, поэтому «A, B» и «B, A» дают одну строку, а «A, B, C» — другую. Тот же
+     * разделитель использует [io.github.bookshelf.core.data.author.authorSetKey], так что ключ
+     * категории один и тот же в запросе и в UI. Сортировка подзапроса обязательна: без неё
+     * `GROUP_CONCAT` склеивал бы имена в порядке строк, и одна и та же пара распадалась бы на две
+     * категории.
+     */
+    fun authorSets(query: BookQuery): SupportSQLiteQuery = facet(
+        query = query.copy(authorNames = emptySet(), authorSets = emptySet()),
+        select = "SELECT keyed.setKey AS setKey, COUNT(*) AS bookCount FROM books " +
+            "INNER JOIN ($AUTHOR_SET_KEYS) keyed ON keyed.bookId = books.id",
+        extra = null,
+        groupBy = "GROUP BY keyed.setKey ORDER BY keyed.setKey COLLATE NOCASE ASC",
     )
 
     fun series(query: BookQuery): SupportSQLiteQuery = facet(
@@ -30,6 +61,31 @@ internal object FacetSql {
         extra = "books.seriesName IS NOT NULL AND books.seriesName <> ''",
         groupBy = "GROUP BY books.seriesName ORDER BY books.seriesName COLLATE NOCASE ASC",
     )
+
+    /**
+     * Серии одного набора авторов — серии книг категории обзора.
+     *
+     * Условие «ровно этот состав авторов» берётся из [BookPageSql.booksWithExactAuthorSet], то же
+     * самое, что у фильтра списка книг: иначе число в категории и её содержимое разъезжались бы.
+     * Строка с `NULL` в имени — книги набора вне серий.
+     *
+     * @param authorNames имена набора по алфавиту;
+     * @param genreCode код жанра: `null` — все серии набора, иначе только серии с книгами этого
+     *   жанра (обзор по жанрам: на уровне набора видны только его книги выбранного жанра).
+     */
+    fun seriesOfAuthorSet(authorNames: List<String>, genreCode: String?): SupportSQLiteQuery {
+        // Порядок параметров совпадает с порядком placeholder'ов: сначала имена набора и их число
+        // (условие «ровно этот состав»), затем код жанра.
+        val args = mutableListOf<Any?>()
+        args.addAll(authorNames)
+        args.add(authorNames.size)
+        args.add(genreCode)
+        val sql = "SELECT books.seriesName AS seriesName, COUNT(*) AS bookCount FROM books " +
+            "WHERE ${BookPageSql.booksWithExactAuthorSet(authorNames.size)} " +
+            "AND (? IS NULL OR $BOOKS_WITH_GENRE) " +
+            "GROUP BY books.seriesName ORDER BY books.seriesName COLLATE NOCASE ASC"
+        return SimpleSQLiteQuery(sql, args.toTypedArray())
+    }
 
     fun tags(query: BookQuery): SupportSQLiteQuery = facet(
         query = query.copy(tags = emptySet()),
@@ -66,4 +122,24 @@ internal object FacetSql {
         val whereClause = if (conditions.isEmpty()) "" else "WHERE " + conditions.joinToString(" AND ")
         return SimpleSQLiteQuery("$select $whereClause $groupBy", args.toTypedArray())
     }
+
+    /**
+     * Подзапрос «книга → ключ набора её авторов».
+     *
+     * Вложенный `ORDER BY` обязателен: `GROUP_CONCAT` собирает имена в том порядке, в котором их
+     * отдаёт подзапрос, и без сортировки «A, B» и «B, A» дали бы разные ключи.
+     */
+    private const val AUTHOR_SET_KEYS: String =
+        "SELECT ba.bookId AS bookId, (" +
+            "SELECT GROUP_CONCAT(ordered.name, '$AUTHOR_SET_SEPARATOR') FROM (" +
+            "SELECT a.name AS name FROM book_authors ba2 " +
+            "INNER JOIN authors a ON a.id = ba2.authorId " +
+            "WHERE ba2.bookId = ba.bookId ORDER BY a.name COLLATE NOCASE ASC" +
+            ") ordered) AS setKey " +
+            "FROM book_authors ba GROUP BY ba.bookId"
+
+    private const val BOOKS_WITH_GENRE: String =
+        "EXISTS (SELECT 1 FROM book_tags " +
+            "INNER JOIN tags ON tags.id = book_tags.tagId " +
+            "WHERE book_tags.bookId = books.id AND tags.name = ?)"
 }

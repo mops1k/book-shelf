@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.library
 
 import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
@@ -42,6 +43,15 @@ internal class FakeFilterRepository(
             FacetSet(authors = authorsValue, series = seriesFacets.value, tags = tagFacets.value)
         }
     }
+
+    /** Категории-наборы обзора: сюда ходит обзор «Авторы»; в этих проверках наборы не нужны. */
+    override fun observeAuthorSets(query: BookQuery): Flow<List<AuthorSet>> = flowOf(emptyList())
+
+    /** Серии набора авторов: уровень категории обзора; здесь не используется. */
+    override fun observeAuthorSetSeries(
+        authorNames: List<String>,
+        genreCode: String?,
+    ): Flow<AuthorSeries> = flowOf(AuthorSeries())
 
     override fun observeAuthorSeries(authorName: String, genreCode: String?): Flow<AuthorSeries> {
         authorSeriesQueries += authorName to genreCode
