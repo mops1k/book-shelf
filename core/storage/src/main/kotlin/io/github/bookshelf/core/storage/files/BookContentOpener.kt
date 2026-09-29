@@ -39,6 +39,19 @@ interface BookContentOpener {
      * @return путь к копии; ошибка — если файл больше лимита или запись не удалась.
      */
     fun tempCopy(documentUri: String): AppResult<String>
+
+    /**
+     * Копия книги для чужой программы: файл в каталоге экспорта.
+     *
+     * Отличается от [tempCopy] местом: временная копия нужна нам (разбор метаданных, чтение
+     * облачной книги), а эта — читалке, которой нельзя отдать `content://` от SAF. Каталог экспорта
+     * открыт через `FileProvider`, поэтому адрес копии видит другая программа; каталог временных
+     * копий наружу не отдаётся.
+     *
+     * Тот же лимит (`library.tempCopyLimitMb`): это тоже запись на диск, и человек управляет ею
+     * одной настройкой.
+     */
+    fun exportCopy(documentUri: String): AppResult<String>
 }
 
 /**
@@ -57,6 +70,7 @@ interface BookContentOpener {
 class DefaultBookContentOpener(
     private val resolver: ContentResolver,
     private val importDir: File,
+    private val exportDir: File,
     private val tempCopyLimitBytes: () -> Long = { DEFAULT_MAX_TEMP_COPY_BYTES },
 ) : BookContentOpener {
 
@@ -105,14 +119,21 @@ class DefaultBookContentOpener(
      * затирать чужую копию. Лимит читается один раз на копию: иначе проверка до записи и проверка
      * после неё могли бы увидеть разные значения, если пользователь поменял настройку между ними.
      */
-    override fun tempCopy(documentUri: String): AppResult<String> {
+    override fun tempCopy(documentUri: String): AppResult<String> =
+        copyInto(directory = importDir, purpose = "временной копии", documentUri = documentUri)
+
+    override fun exportCopy(documentUri: String): AppResult<String> =
+        copyInto(directory = exportDir, purpose = "экспорта", documentUri = documentUri)
+
+    /** Общая часть обеих копий: отличаются только каталогом и словом в сообщении об ошибке. */
+    private fun copyInto(directory: File, purpose: String, documentUri: String): AppResult<String> {
         val maxTempCopyBytes = tempCopyLimitBytes()
         val declaredSize = sizeOf(documentUri)
         if (declaredSize != null && declaredSize > maxTempCopyBytes) {
             return AppResult.failure(
                 AppError.InvalidArgument(
                     what = "bookSize",
-                    message = "Файл слишком большой для временной копии: $declaredSize байт",
+                    message = "Файл слишком большой для $purpose: $declaredSize байт",
                 ),
             )
         }
@@ -120,10 +141,10 @@ class DefaultBookContentOpener(
         // Запись идёт во временный файл с последующим переименованием: читатель, который
         // увидит полуготовую копию, попытается её распарсить и упадёт на битом формате.
         val name = UUID.randomUUID().toString()
-        val temp = File(importDir, "$name$TEMP_SUFFIX")
-        val target = File(importDir, name)
+        val temp = File(directory, "$name$TEMP_SUFFIX")
+        val target = File(directory, name)
         return runCatching {
-            if (!importDir.exists()) importDir.mkdirs()
+            if (!directory.exists()) directory.mkdirs()
             val source = resolver.openInputStream(Uri.parse(documentUri))
                 ?: error("Провайдер не отдал поток")
             source.use { input -> FileOutputStream(temp).use { output -> input.copyTo(output) } }

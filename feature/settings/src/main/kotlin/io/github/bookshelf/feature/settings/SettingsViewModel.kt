@@ -194,6 +194,12 @@ class SettingsViewModel @Inject constructor(
                 }
             }
 
+            is ReaderProgressAction.SetTempExport -> {
+                updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
+                    settings.copy(reader = settings.reader.copy(tempExportEnabled = action.enabled))
+                }
+            }
+
             ReaderProgressAction.CheckApi -> viewModelScope.launch {
                 _uiState.update { it.copy(isCheckingReaderApi = true) }
                 val available = fbReaderApi.connect()
@@ -589,6 +595,7 @@ private fun appErrorMessage(error: AppError?, fallback: String): String = when {
 private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = copy(
     isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
+    isTempExportEnabled = settings.reader.tempExportEnabled,
     densityLabel = when (settings.appearance.density) {
         EinkDensityLike.LARGE -> "Крупный"
         EinkDensityLike.NORMAL -> "Обычный"
@@ -802,6 +809,14 @@ sealed interface ReaderProgressAction {
     data class SetEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
+
+    /**
+     * Разрешить или запретить временную копию книги для читалки.
+     *
+     * Копия нужна только тем читалкам, которые не открывают `content://`: она занимает место
+     * на диске, поэтому её включение — решение человека, а не наше.
+     */
+    data class SetTempExport(val enabled: Boolean) : ReaderProgressAction
 
     /**
      * Проверить связь с читалкой и показать результат рядом с переключателем.

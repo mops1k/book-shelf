@@ -89,6 +89,17 @@ private fun LazyListScope.progressItems(
             },
         )
     }
+    item(key = "progress-temp-export") {
+        ToggleRow(
+            title = "Временный экспорт книги",
+            subtitle = "Копия файла для читалки, которая не открывает книгу по ссылке. " +
+                "Копии занимают место и удаляются через сутки",
+            enabled = state.settings.isTempExportEnabled,
+            onToggle = { enabled ->
+                viewModel.onReaderProgress(ReaderProgressAction.SetTempExport(enabled))
+            },
+        )
+    }
     item(key = "progress-check") {
         EinkListRow(
             title = "Проверить связь с читалкой",

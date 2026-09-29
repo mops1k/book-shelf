@@ -6,6 +6,9 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.common.error.appRunCatching
+import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.FormatDefaultDao
 import io.github.bookshelf.core.database.dao.ReaderProfileDao
@@ -14,6 +17,7 @@ import io.github.bookshelf.core.database.entity.ReaderProfileEntity
 import io.github.bookshelf.core.readerlink.discovery.ReaderDiscovery
 import io.github.bookshelf.core.readerlink.discovery.InstalledReader
 import io.github.bookshelf.core.readerlink.launch.LaunchRequest
+import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
 import io.github.bookshelf.core.readerlink.mime.MimeTypes
 import io.github.bookshelf.core.readerlink.profile.FbReaderPreset
@@ -41,6 +45,7 @@ import kotlinx.coroutines.flow.flowOf
 class ReaderRepositoryImpl @Inject constructor(
     private val discovery: ReaderDiscovery,
     private val launcher: ReaderLauncher,
+    private val export: ReaderExport,
     private val profileDao: ReaderProfileDao,
     private val bookDao: BookDao,
     private val formatDefaultDao: FormatDefaultDao,
@@ -108,15 +113,40 @@ class ReaderRepositoryImpl @Inject constructor(
                         "Укажите её в настройках → «Читалки».",
                 ),
             )
-        return launcher.launch(
-            LaunchRequest(
-                profile = profile,
-                documentUri = Uri.parse(book.documentUri),
-                mimeType = MimeTypes.mimeOf(book.extension),
-                extension = book.extension,
-                allowTempCopy = !profile.supportsContentUri,
-            ),
+        val request = LaunchRequest(
+            profile = profile,
+            documentUri = Uri.parse(book.documentUri),
+            mimeType = MimeTypes.mimeOf(book.extension),
+            extension = book.extension,
         )
+        // Читалка, которая не умеет открывать по ссылке, получает копию сразу: пробовать
+        // `content://` и ждать отказа незачем.
+        if (!profile.supportsContentUri) return launchExportedCopy(book.documentUri, request)
+        val direct = launcher.launch(request)
+        // Отказ читалки — не тупик: есть один запасной ход, временная копия файла.
+        return if (direct.isSuccess) direct else launchExportedCopy(book.documentUri, request)
+    }
+
+    /**
+     * Запасной запуск: копия книги и повторная попытка.
+     *
+     * Разрешение на копию проверяет сам экспорт (`reader.tempExportEnabled`): это запись на диск,
+     * и отвечать за неё должен тот, кто пишет. Если экспорт выключен, честнее сказать человеку,
+     * что включить, чем молча повторить запуск с адресом, который читалка уже отвергла.
+     *
+     * Ошибка копирования возвращается как есть: «файл больше лимита» — это то, что человек может
+     * исправить (поднять лимит в «Библиотеке и сканировании»), а общее «не удалось открыть» — нет.
+     */
+    private suspend fun launchExportedCopy(
+        documentUri: String,
+        request: LaunchRequest,
+    ): AppResult<Unit> {
+        val exported = export.exportedReaderUri(documentUri)
+        val exportedUri = exported.getOrNull()
+            ?: return AppResult.failure(
+                exported.errorOrNull() ?: AppError.Unknown(message = "Копия книги не подготовлена"),
+            )
+        return launcher.launch(request.copy(documentUri = exportedUri))
     }
 
     /**

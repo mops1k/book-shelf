@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.storage.files
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -68,6 +69,10 @@ class ContentHasherTest {
         override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
 
         override fun tempCopy(documentUri: String): AppResult<String> =
-            AppResult.failure(io.github.bookshelf.core.common.error.AppError.Unknown(message = "файл не нужен"))
+            AppResult.failure(AppError.Unknown(message = "файл не нужен"))
+
+        /** Копия для читалки в этих проверках не нужна. */
+        override fun exportCopy(documentUri: String): AppResult<String> =
+            AppResult.failure(AppError.Unknown(message = "не используется"))
     }
 }

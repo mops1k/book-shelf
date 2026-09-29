@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.storage.files
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -58,7 +59,11 @@ class QuickHashTest {
         override fun sizeOf(documentUri: String): Long? = null
 
         override fun tempCopy(documentUri: String): AppResult<String> =
-            AppResult.failure(io.github.bookshelf.core.common.error.AppError.NotFound("copy"))
+            AppResult.failure(AppError.NotFound("copy"))
+
+        /** Копия для читалки в этих проверках не нужна. */
+        override fun exportCopy(documentUri: String): AppResult<String> =
+            AppResult.failure(AppError.NotFound("export"))
     }
 
     private companion object {

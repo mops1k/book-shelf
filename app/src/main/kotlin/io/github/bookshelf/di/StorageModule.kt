@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.di.ApplicationScope
+import io.github.bookshelf.core.common.di.ExportDir
 import io.github.bookshelf.core.common.di.TempDir
 import io.github.bookshelf.core.data.sync.MetadataScheduler
 import io.github.bookshelf.core.data.sync.DownloadScheduler
@@ -114,6 +115,7 @@ object StorageModule {
         @TempDir tempDir: File,
         settingsRepository: SettingsRepository,
         @ApplicationScope scope: CoroutineScope,
+        @ExportDir exportDir: File,
     ): BookContentOpener {
         // `SharingStarted.Eagerly` обязателен: у StateFlow нет подписчиков (его значение читает
         // только лямбда ниже), и с `WhileSubscribed` поток настроек не собирался бы вообще.
@@ -131,6 +133,9 @@ object StorageModule {
         return DefaultBookContentOpener(
             resolver = context.contentResolver,
             importDir = File(tempDir, IMPORT_DIR),
+            // Каталог экспорта тот же, что открыт через FileProvider (`cacheDir/export`):
+            // именно его читалки видят снаружи, а каталог временных копий наружу не отдаётся.
+            exportDir = exportDir,
             tempCopyLimitBytes = { limitBytes.value },
         )
     }

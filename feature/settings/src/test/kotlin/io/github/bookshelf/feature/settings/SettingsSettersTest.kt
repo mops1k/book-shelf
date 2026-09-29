@@ -186,6 +186,16 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `temp export switch is written`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onReaderProgress(ReaderProgressAction.SetTempExport(false))
+        advanceUntilIdle()
+
+        assertThat(settings.last().reader.tempExportEnabled).isFalse()
+    }
+
+    @Test
     fun `unknown interval falls back to the documented one`() = runTest(dispatcher) {
         val viewModel = viewModel()
 

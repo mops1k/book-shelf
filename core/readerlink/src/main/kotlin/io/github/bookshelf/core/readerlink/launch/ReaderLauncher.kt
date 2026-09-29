@@ -31,14 +31,12 @@ interface ReaderLauncher {
  * @param documentUri URI книги: `content://` (SAF/FileProvider) или `file://`.
  * @param mimeType MIME-тип; для FB2 — [io.github.bookshelf.core.readerlink.mime.MimeTypes.FALLBACK].
  * @param extension расширение файла — используется для выбора activity и для копии.
- * @param allowTempCopy разрешена ли временная копия как фолбэк (выключено, если копировать нельзя).
  */
 data class LaunchRequest(
     val profile: ReaderProfile,
     val documentUri: Uri,
     val mimeType: String,
     val extension: String,
-    val allowTempCopy: Boolean,
 )
 
 /**

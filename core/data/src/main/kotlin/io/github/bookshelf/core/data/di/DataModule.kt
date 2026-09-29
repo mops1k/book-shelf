@@ -21,7 +21,9 @@ import io.github.bookshelf.core.data.repository.impl.CollectionRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.FilterRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.MetadataOverrideRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.OpdsRepositoryImpl
+import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
+import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.data.repository.impl.ReadingProgressRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.ScanRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.SearchRepositoryImpl
@@ -64,6 +66,11 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindSearchRepository(impl: SearchRepositoryImpl): SearchRepository
+
+    @Binds
+    abstract fun bindReaderExport(
+        impl: DefaultReaderExport,
+    ): ReaderExport
 
     @Binds
     abstract fun bindReaderRepository(impl: ReaderRepositoryImpl): ReaderRepository

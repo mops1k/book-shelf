@@ -35,7 +35,11 @@ class BookContentOpenerTest {
         val uri = Uri.parse(URI)
         val payload = byteArrayOf(1, 2, 3)
         every { resolver.openInputStream(uri) } returns ByteArrayInputStream(payload)
-        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"))
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
+        )
 
         val actual = opener.openStream(URI)!!.readBytes()
 
@@ -47,7 +51,11 @@ class BookContentOpenerTest {
         val resolver = mockk<ContentResolver>()
         val cursor = MatrixCursor(arrayOf(OpenableColumns.SIZE)).apply { addRow(arrayOf<Any?>(42L)) }
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor
-        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"))
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
+        )
 
         assertThat(opener.sizeOf(URI)).isEqualTo(42L)
     }
@@ -58,7 +66,11 @@ class BookContentOpenerTest {
         val payload = "содержимое книги".toByteArray()
         every { resolver.openInputStream(Uri.parse(URI)) } returns ByteArrayInputStream(payload)
         val tempDir = temporaryFolder.newFolder("import")
-        val opener = DefaultBookContentOpener(resolver, tempDir)
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = tempDir,
+            exportDir = temporaryFolder.newFolder("export"),
+        )
 
         val path = opener.tempCopy(URI).getOrNull()
 
@@ -68,13 +80,54 @@ class BookContentOpenerTest {
     }
 
     @Test
+    fun export_copy_goes_to_the_export_directory() {
+        val resolver = mockk<ContentResolver>()
+        val payload = "книга для читалки".toByteArray()
+        every { resolver.openInputStream(Uri.parse(URI)) } returns ByteArrayInputStream(payload)
+        val importDir = temporaryFolder.newFolder("import")
+        val exportDir = temporaryFolder.newFolder("export")
+        val opener = DefaultBookContentOpener(resolver, importDir, exportDir)
+
+        val path = opener.exportCopy(URI).getOrNull()
+
+        // Копия для читалки обязана лежать в каталоге, открытом через FileProvider: иначе
+        // другая программа её просто не увидит, и «запасной путь» окажется пустым.
+        assertThat(path).isNotNull()
+        assertThat(java.io.File(path!!).parentFile).isEqualTo(exportDir)
+        assertThat(importDir.listFiles().orEmpty()).isEmpty()
+    }
+
+    @Test
+    fun export_copy_rejects_file_over_limit() {
+        val resolver = mockk<ContentResolver>()
+        val cursor = MatrixCursor(arrayOf(OpenableColumns.SIZE)).apply {
+            addRow(arrayOf<Any?>(DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES + 1L))
+        }
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor
+        val opener = DefaultBookContentOpener(
+            resolver,
+            temporaryFolder.newFolder("import"),
+            temporaryFolder.newFolder("export"),
+        )
+
+        val result = opener.exportCopy(URI)
+
+        assertThat(result.getOrNull()).isNull()
+        assertThat(result.errorOrNull()).isInstanceOf(AppError.InvalidArgument::class.java)
+    }
+
+    @Test
     fun temp_copy_rejects_file_over_limit() {
         val resolver = mockk<ContentResolver>()
         val cursor = MatrixCursor(arrayOf(OpenableColumns.SIZE)).apply {
             addRow(arrayOf<Any?>(DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES + 1L))
         }
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor
-        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"))
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
+        )
 
         val result = opener.tempCopy(URI)
 
@@ -94,6 +147,7 @@ class BookContentOpenerTest {
         val opener = DefaultBookContentOpener(
             resolver = resolver,
             importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
             tempCopyLimitBytes = { limitBytes },
         )
 
@@ -113,6 +167,7 @@ class BookContentOpenerTest {
         val opener = DefaultBookContentOpener(
             resolver = resolver,
             importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
             tempCopyLimitBytes = {
                 reads += 1
                 DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES
@@ -130,7 +185,11 @@ class BookContentOpenerTest {
         val resolver = mockk<ContentResolver>()
         val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         every { resolver.openFileDescriptor(Uri.parse(URI), "r") } returns descriptor
-        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"))
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            exportDir = temporaryFolder.newFolder("export"),
+        )
 
         val channel = opener.openSeekableChannel(URI)!!
         val buffer = ByteBuffer.allocate(3)
