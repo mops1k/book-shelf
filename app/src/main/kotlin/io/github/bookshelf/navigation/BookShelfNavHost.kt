@@ -11,7 +11,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.feature.bookdetails.BookDetailsRoute
+import io.github.bookshelf.feature.bookdetails.BookMetadataEditRoute
 import io.github.bookshelf.feature.bookdetails.bookDetailsScreen
+import io.github.bookshelf.feature.bookdetails.bookMetadataEditScreen
 import io.github.bookshelf.feature.catalogs.EntryRoute
 import io.github.bookshelf.feature.catalogs.catalogsScreen
 import io.github.bookshelf.feature.catalogs.opdsEntryScreen
@@ -89,6 +91,11 @@ fun BookShelfNavHost(
         bookDetailsScreen(
             onBack = { navController.popBackStack() },
             onOpenCollections = { navController.navigate(CollectionsRoute.route) },
+            // Правка метаданных — отдельный экран: полей пять, в карточке им тесно, а на e-ink
+            // крупные поля важнее, чем «всё на одном экране».
+            onEditMetadata = { bookId ->
+                navController.navigate(BookMetadataEditRoute.createRoute(bookId))
+            },
             // Переход по автору или серии заканчивается на полке, откуда бы карточка ни была
             // открыта (полка, поиск, содержимое полки-коллекции): popUpTo снимает верхние экраны,
             // а просьбу забирает ViewModel полки.
@@ -99,6 +106,10 @@ fun BookShelfNavHost(
                 }
             },
         )
+
+        // Правка не закрывает себя сама: итог («сохранено и записано в файл» или причина отказа)
+        // человек читает здесь же, а в карточку возвращается кнопкой «Назад».
+        bookMetadataEditScreen(onBack = { navController.popBackStack() })
 
         collectionsScreen(
             onBack = { navController.popBackStack() },

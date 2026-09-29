@@ -15,7 +15,9 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
     implementation(project(":core:storage"))
-    implementation(project(":core:metadata"))
+    // `api`, а не `implementation`: тип `MetadataEdit` входит в публичный контракт порта
+    // `BookMetadataEditor`, и модули, которые им пользуются, должны его видеть.
+    api(project(":core:metadata"))
     implementation(project(":core:covers"))
     implementation(project(":core:readerlink"))
     implementation(project(":core:opds"))

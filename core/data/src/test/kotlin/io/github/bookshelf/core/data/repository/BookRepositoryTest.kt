@@ -345,14 +345,75 @@ class BookRepositoryTest {
     }
 
     @Test
-    fun update_metadata_writes_to_overrides_and_is_visible_in_reads() = runBlocking {
+    fun update_metadata_writes_into_books_and_keeps_the_override_as_protection() = runBlocking {
         givenLibrary()
 
         repository.updateMetadata("war", MetadataPatch(title = "Война и мир (ред.)")).assertOk()
 
         assertThat(repository.getById("war").getOrNull()?.title).isEqualTo("Война и мир (ред.)")
-        // Строка books не меняется: пересканирование не должно затирать правку.
-        assertThat(database.bookDao().getById("war")?.title).isEqualTo("Война и мир")
+        // Правка пишется и в строку books: её читают полка, обзор серий, фасеты и поиск, а не
+        // только карточка (решение Александра, 29.09.2026 — правка должна переживать перенос файла).
+        assertThat(database.bookDao().getById("war")?.title).isEqualTo("Война и мир (ред.)")
+        // Строка в metadata_overrides остаётся: она возвращает правку, если скан перезапишет books.
+        assertThat(database.metadataOverrideDao().getByBookId("war")?.title)
+            .isEqualTo("Война и мир (ред.)")
+    }
+
+    @Test
+    fun update_metadata_writes_series_and_description_into_books() = runBlocking<Unit> {
+        givenLibrary()
+
+        repository.updateMetadata(
+            "war",
+            MetadataPatch(seriesName = "Хроники", seriesIndex = 2.0, description = "Правка пользователя"),
+        ).assertOk()
+
+        val row = database.bookDao().getById("war")
+        assertThat(row?.seriesName).isEqualTo("Хроники")
+        assertThat(row?.seriesIndex).isEqualTo(2.0)
+        assertThat(row?.description).isEqualTo("Правка пользователя")
+        // Поля, которых пользователь не касался, остаются как в файле.
+        assertThat(row?.title).isEqualTo("Война и мир")
+        assertThat(row?.authorsText).isEqualTo("Лев Толстой")
+        // Обзор серий и фильтр читают books: новая серия обязана быть видна и там.
+        val page = repository.observePage(
+            LibraryQuery(bookQuery = BookQuery(series = setOf("Хроники"))),
+        ).first()
+        assertThat(page.items.map { it.id }).containsExactly("war")
+    }
+
+    @Test
+    fun update_metadata_rewrites_authors_in_books_and_in_the_links() = runBlocking<Unit> {
+        givenLibrary()
+
+        repository.updateMetadata("war", MetadataPatch(authorsText = "Лев Толстой, Переводчиков"))
+            .assertOk()
+
+        assertThat(database.bookDao().getById("war")?.authorsText).isEqualTo("Лев Толстой, Переводчиков")
+        // Авторское измерение читает связи: фильтр по новому автору обязан находить книгу.
+        val page = repository.observePage(
+            LibraryQuery(bookQuery = BookQuery(authorNames = setOf("Переводчиков"))),
+        ).first()
+        assertThat(page.items.map { it.id }).containsExactly("war")
+    }
+
+    @Test
+    fun update_metadata_recomputes_sort_title_and_is_found_by_search() = runBlocking {
+        givenLibrary()
+
+        repository.updateMetadata("war", MetadataPatch(title = "The War and Peace")).assertOk()
+
+        assertThat(database.bookDao().getById("war")?.sortTitle).isEqualTo("War and peace")
+        // FTS синхронизируется триггерами Room: правка названия обязана быть видна поиску.
+        val found = database.searchDao().search("War", 10).first()
+        assertThat(found.map { it.id }).contains("war")
+    }
+
+    @Test
+    fun update_metadata_of_a_missing_book_reports_not_found() = runBlocking {
+        val result = repository.updateMetadata("нет-такой", MetadataPatch(title = "X"))
+
+        assertThat(result.isFailure).isTrue()
     }
 
     @Test

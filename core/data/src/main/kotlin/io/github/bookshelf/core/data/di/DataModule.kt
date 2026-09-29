@@ -28,6 +28,8 @@ import io.github.bookshelf.core.data.backup.DefaultDatabaseBackup
 import io.github.bookshelf.core.data.backup.RoomDatabaseSnapshot
 import io.github.bookshelf.core.data.backup.SafBackupStore
 import io.github.bookshelf.core.data.export.DefaultLibraryExport
+import io.github.bookshelf.core.data.metadata.BookMetadataEditor
+import io.github.bookshelf.core.data.metadata.DefaultBookMetadataEditor
 import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
@@ -94,6 +96,11 @@ abstract class DataModule {
     abstract fun bindReaderExport(
         impl: DefaultReaderExport,
     ): ReaderExport
+
+    @Binds
+    abstract fun bindBookMetadataEditor(
+        impl: DefaultBookMetadataEditor,
+    ): BookMetadataEditor
 
     @Binds
     abstract fun bindLibraryExport(

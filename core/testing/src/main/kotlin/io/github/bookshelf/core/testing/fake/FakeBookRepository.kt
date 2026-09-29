@@ -65,8 +65,16 @@ class FakeBookRepository(
 
     override suspend fun getById(id: String): AppResult<Book?> = bookById
 
-    override suspend fun updateMetadata(bookId: String, patch: MetadataPatch): AppResult<Unit> =
-        AppResult.success(Unit)
+    /** Что вернуть на [updateMetadata]: тест может проверить и отказ сохранения. */
+    var updateMetadataResult: AppResult<Unit> = AppResult.success(Unit)
+
+    /** Патчи правки метаданных, дошедшие до репозитория: по ним видно, что именно сохраняли. */
+    val metadataPatches: MutableList<MetadataPatch> = mutableListOf()
+
+    override suspend fun updateMetadata(bookId: String, patch: MetadataPatch): AppResult<Unit> {
+        metadataPatches += patch
+        return updateMetadataResult
+    }
 
     override suspend fun setFavorite(bookId: String, favorite: Boolean): AppResult<Unit> =
         AppResult.success(Unit)

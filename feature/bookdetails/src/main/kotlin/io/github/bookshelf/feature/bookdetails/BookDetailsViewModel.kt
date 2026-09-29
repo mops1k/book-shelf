@@ -11,6 +11,7 @@ import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.common.app.FolderOpener
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
@@ -49,6 +50,8 @@ class BookDetailsViewModel @Inject constructor(
     private val browseRequest: LibraryBrowseRequest,
     /** Папки-источники: имя папки показывается в строке «Путь». */
     private val sourceRepository: SourceRepository,
+    /** «Показать в папке»: открыть системный файловый менеджер на папке книги. */
+    private val folderOpener: FolderOpener,
 ) : ViewModel() {
 
     /**
@@ -226,11 +229,6 @@ class BookDetailsViewModel @Inject constructor(
         runBookCommand { bookRepository.markRead(bookId, targetStatus) }
     }
 
-    /** Форма редактирования метаданных ещё не подключена к этому ViewModel. */
-    fun onEditMetadata() {
-        showUnavailable("Редактирование метаданных пока недоступно")
-    }
-
     /**
      * Перечитывание файла: работа ставится в очередь, разбор делает `MetadataWorker`.
      *
@@ -260,9 +258,24 @@ class BookDetailsViewModel @Inject constructor(
         }
     }
 
-    /** Открытие папки требует Android-контекста, которого нет среди зависимостей карточки. */
+    /**
+     * Показать книгу в папке.
+     *
+     * Открывает системный файловый менеджер на папке книги: у SAF-документа нет пути на диске,
+     * который можно было бы показать текстом. Отказ (нет обработчика, адрес не SAF) показывается
+     * причиной — кнопка не должна молчать.
+     */
     fun onShowInFolder() {
-        showUnavailable("Открытие папки пока недоступно")
+        viewModelScope.launch {
+            val book = bookRepository.getById(bookId).getOrNull()
+            if (book == null) {
+                _uiState.update { it.copy(error = "Книга не найдена") }
+                return@launch
+            }
+            folderOpener.openFolder(book.documentUri).errorOrNull()?.let { error ->
+                _uiState.update { state -> state.copy(error = error.message ?: "Папку открыть не удалось") }
+            }
+        }
     }
 
     private fun observeBook() {
@@ -330,9 +343,6 @@ class BookDetailsViewModel @Inject constructor(
         }
     }
 
-    private fun showUnavailable(message: String) {
-        _uiState.update { it.copy(isLoading = false, error = message) }
-    }
 }
 
 private fun BookDetailsUiState.withBook(book: Book, sourceName: String): BookDetailsUiState = copy(

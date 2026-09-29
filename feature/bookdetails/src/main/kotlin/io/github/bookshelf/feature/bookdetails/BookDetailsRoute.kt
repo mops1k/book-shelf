@@ -38,6 +38,7 @@ fun NavGraphBuilder.bookDetailsScreen(
     onBack: () -> Unit,
     onOpenCollections: (String) -> Unit,
     onOpenLibrary: () -> Unit,
+    onEditMetadata: (String) -> Unit,
 ) {
     composable(route = BookDetailsRoute.route, arguments = BookDetailsRoute.arguments) { entry ->
         val bookId = entry.arguments?.getString(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
@@ -51,8 +52,8 @@ fun NavGraphBuilder.bookDetailsScreen(
             onRead = { viewModel.onRead() },
             onOpenCollections = onOpenCollections,
             onOpenLibrary = onOpenLibrary,
-            // Как и открытие: это команда ViewModel, а не переход между экранами.
-            onEditMetadata = { viewModel.onEditMetadata() },
+            // Правка метаданных — переход на отдельный экран: полей пять, в карточке им тесно.
+            onEditMetadata = { onEditMetadata(bookId) },
         )
     }
 }

@@ -29,6 +29,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.MetadataOverrideEntity
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.relation.BookWithRelations
+import io.github.bookshelf.core.metadata.model.BookMetadata
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -44,9 +45,12 @@ import kotlinx.coroutines.flow.map
  * **1. Страница и её счётчик считаются одним конструктором** ([BookPageSql]). Условия фильтров
  * обязаны совпадать, иначе подпись «Стр. 1/12 · 47 книг» покажет несуществующее число.
  *
- * **2. Ручные правки накладываются на строку `books` при чтении** ([withOverride]) и никогда в неё
- * не пишутся. Благодаря этому пересканирование изменённого файла не затирает правку пользователя
- * (docs/architecture.md §3.1).
+ * **2. Ручная правка пишется и в строку `books`, и в `metadata_overrides`.** В `books` — потому что
+ * её читают все запросы: полка, обзор серий, фасеты и поиск (FTS синхронизируется триггерами Room),
+ * а не только карточка. В `metadata_overrides` — как страховка: скан изменённого файла перезапишет
+ * строку метаданными файла, и правку нужно вернуть ([withOverride] накладывает её при чтении).
+ * Решение Александра, 29.09.2026: правка должна переживать перенос файла на другое устройство,
+ * поэтому те же значения записываются ещё и в сам файл книги (docs/architecture.md §3.1).
  *
  * **3. `UPDATE … WHERE id = …` не сообщает, затронул ли он строку.** Поэтому «книги нет» проверяется
  * отдельно ([notFoundAsFailure]): иначе команда над удалённой книгой тихо возвращала бы успех, и UI
@@ -92,14 +96,35 @@ class BookRepositoryImpl @Inject constructor(
         val book = bookDao.getById(bookId)
             ?: return AppResult.failure(AppError.NotFound(what = "book", message = "Книга $bookId не найдена"))
         return appRunCatching {
+            val now = nowMillis()
             val existing = overrideDao.getByBookId(bookId)
-            val updated = existing.orEmptyPatch(bookId, patch, nowMillis())
+            val updated = existing.orEmptyPatch(bookId, patch, now)
             overrideDao.upsert(updated)
+            // Правка пишется и в строку books: её читают полка, обзор серий, фасеты и поиск.
+            // Строка в metadata_overrides остаётся страховкой на случай скана изменённого файла.
+            val mergedTitle = updated.title ?: book.title
+            val mergedAuthors = updated.authorsText ?: book.authorsText
+            // Строка записывается целиком через существующий `update`: отдельный запрос с восемью
+            // параметрами нарушал порог detekt, а новый DAO тянул за собой ещё одну зависимость
+            // репозитория (у него их уже девять при пороге десять). Строка прочитана строкой выше,
+            // поэтому терять чужие изменения нечему: скан пишет только изменившиеся файлы.
+            bookDao.update(
+                book.copy(
+                    title = mergedTitle,
+                    // Заголовок для сортировки пересчитывается вместе с названием: иначе «The War
+                    // and Peace» осталось бы на месте «Войны и мира».
+                    sortTitle = BookMetadata(title = mergedTitle).sortTitleOf(),
+                    authorsText = mergedAuthors,
+                    seriesName = updated.seriesName ?: book.seriesName,
+                    seriesIndex = updated.seriesIndex ?: book.seriesIndex,
+                    description = updated.description ?: book.description,
+                ),
+            )
             // Авторское измерение читает связи, а не строку `books.authorsText`, поэтому правка
             // авторов обязана переписать и их. Иначе карточка показывала нового автора, а фильтр
             // по нему не находил ни одной книги (дефект того же класса, что и весь этот переход).
             // Берётся итоговая строка: правка могла авторов не трогать — тогда действует прежняя.
-            authorWriter.replace(bookId, updated.authorsText ?: book.authorsText)
+            authorWriter.replace(bookId, mergedAuthors)
         }
     }
 
