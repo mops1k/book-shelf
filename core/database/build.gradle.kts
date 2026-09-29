@@ -14,4 +14,7 @@ android {
 dependencies {
     api(project(":core:common"))
     api(libs.androidx.room.runtime)
+    // `withTransaction` (корректная по отношению к отмене корутины транзакция) живёт в `room-ktx`;
+    // версия та же, что у `room-runtime`, отдельного поставщика не появляется.
+    api(libs.androidx.room.ktx)
 }

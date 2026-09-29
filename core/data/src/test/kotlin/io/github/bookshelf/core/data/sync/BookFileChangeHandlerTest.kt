@@ -107,9 +107,55 @@ class BookFileChangeHandlerTest {
         assertThat(other.readingStatus).isEqualTo(ReadingStatus.READ)
     }
 
+    @Test
+    fun `a failure in the middle rolls the whole reset back`() = runBlocking {
+        givenBookWithUserData()
+        // Падение на третьем шаге (удаление прогресса): без транзакции оценка и статус уже
+        // изменились бы, и книга осталась бы полустёртой — статус новый, данные прежние.
+        val failing = FailingReadingProgressDao(database.readingProgressDao())
+
+        val result = cleaner(progressDao = failing).clear(BOOK_ID)
+
+        assertThat(result.getOrNull()).isNull()
+        val book = database.bookDao().getById(BOOK_ID)!!
+        assertThat(book.rating).isEqualTo(4)
+        assertThat(book.readingStatus).isEqualTo(ReadingStatus.READING)
+        assertThat(book.favorite).isTrue()
+        assertThat(database.readingProgressDao().getByBook(BOOK_ID)).isNotNull()
+    }
+
+    private fun cleaner(
+        progressDao: io.github.bookshelf.core.database.dao.ReadingProgressDao =
+            database.readingProgressDao(),
+    ) = BookUserDataCleaner(
+        database = database,
+        cleanupDao = database.bookCleanupDao(),
+        overrideDao = database.metadataOverrideDao(),
+        readingProgressDao = progressDao,
+        collectionDao = database.collectionDao(),
+        clock = object : AppClock {
+            override fun nowMillis(): Long = NOW
+        },
+    )
+
+    /** Прогресс читается как обычно, а удаление падает: проверяется откат всей очистки. */
+    private class FailingReadingProgressDao(
+        private val delegate: io.github.bookshelf.core.database.dao.ReadingProgressDao,
+    ) : io.github.bookshelf.core.database.dao.ReadingProgressDao {
+
+        override suspend fun upsert(progress: ReadingProgressEntity) = delegate.upsert(progress)
+
+        override fun observeByBook(bookId: String) = delegate.observeByBook(bookId)
+
+        override suspend fun getByBook(bookId: String) = delegate.getByBook(bookId)
+
+        override suspend fun deleteByBook(bookId: String): Unit = error("База занята")
+    }
+
     private fun handler() = BookFileChangeHandler(
         settings = settings,
         cleaner = BookUserDataCleaner(
+            database = database,
             cleanupDao = database.bookCleanupDao(),
             overrideDao = database.metadataOverrideDao(),
             readingProgressDao = database.readingProgressDao(),

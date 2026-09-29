@@ -3,6 +3,8 @@ package io.github.bookshelf.core.data.sync
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.time.AppClock
+import androidx.room.withTransaction
+import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.database.dao.BookCleanupDao
 import io.github.bookshelf.core.database.dao.CollectionDao
 import io.github.bookshelf.core.database.dao.MetadataOverrideDao
@@ -23,6 +25,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class BookUserDataCleaner @Inject constructor(
+    private val database: BookshelfDatabase,
     private val cleanupDao: BookCleanupDao,
     private val overrideDao: MetadataOverrideDao,
     private val readingProgressDao: ReadingProgressDao,
@@ -33,14 +36,23 @@ class BookUserDataCleaner @Inject constructor(
     /**
      * Стереть пользовательские данные книги.
      *
-     * Порядок не важен, а полнота — да: забытая часть оставит «полустёртую» книгу, где оценка
-     * относится к прежнему файлу, а полки — к новому.
+     * Порядок не важен, а две вещи обязательны. Первая — полнота: забытая часть оставит
+     * «полустёртую» книгу, где оценка относится к прежнему файлу, а полки — к новому. Вторая —
+     * **одна транзакция**: если работа оборвётся между запросами (например, систему выгрузила
+     * воркер или корутину отменили), книга осталась бы ровно в таком полустёртом виде. На
+     * устройстве это и наблюдалось: статус уже сброшен, строка прогресса ещё жива.
      */
     suspend fun clear(bookId: String): AppResult<Unit> = appRunCatching {
         val now = clock.nowMillis()
-        cleanupDao.resetUserData(id = bookId, status = ReadingStatus.UNREAD.name, addedAt = now)
-        readingProgressDao.deleteByBook(bookId)
-        collectionDao.removeBookFromAll(bookId)
-        overrideDao.clear(bookId)
+        database.withTransaction {
+            cleanupDao.resetUserData(
+                id = bookId,
+                status = ReadingStatus.UNREAD.name,
+                addedAt = now,
+            )
+            readingProgressDao.deleteByBook(bookId)
+            collectionDao.removeBookFromAll(bookId)
+            overrideDao.clear(bookId)
+        }
     }
 }
