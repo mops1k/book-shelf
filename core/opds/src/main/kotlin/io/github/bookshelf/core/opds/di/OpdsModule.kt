@@ -1,12 +1,17 @@
 package io.github.bookshelf.core.opds.di
 
+import android.content.Context
+import android.content.SharedPreferences
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.github.bookshelf.core.opds.auth.AndroidKeystoreCipher
 import io.github.bookshelf.core.opds.auth.CredentialStore
 import io.github.bookshelf.core.opds.auth.DefaultCredentialStore
+import io.github.bookshelf.core.opds.auth.SecretCipher
 import io.github.bookshelf.core.opds.cache.DefaultOpdsFeedCache
 import io.github.bookshelf.core.opds.cache.OpdsFeedCache
 import io.github.bookshelf.core.opds.client.DohResolver
@@ -59,6 +64,12 @@ internal abstract class OpdsModule {
         impl: DefaultCredentialStore,
     ): CredentialStore
 
+    @Binds
+    abstract fun bindSecretCipher(
+        impl: AndroidKeystoreCipher,
+    ): SecretCipher
+
+
     /**
      * Резолвер имён для каталогов: системный DNS, а при его отказе — DoH.
      *
@@ -72,5 +83,16 @@ internal abstract class OpdsModule {
         @Provides
         @Singleton
         fun provideHostResolver(): HostResolver = DohResolver(DohResolver.defaultHttpClient())
+
+        /**
+         * Файл настроек с секретами каталогов.
+         *
+         * Отдельный файл, а не общие настройки: так секреты видно при разборе, и их случайно не
+         * выгрузит экспорт настроек.
+         */
+        @Provides
+        @Singleton
+        fun provideOpdsSecrets(@ApplicationContext context: Context): SharedPreferences =
+            context.getSharedPreferences(DefaultCredentialStore.PREFS_NAME, Context.MODE_PRIVATE)
     }
 }

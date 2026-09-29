@@ -164,6 +164,9 @@ class SourceRepositoryTest {
 
         assertThat(result.isSuccess).isTrue()
         assertThat(scheduler.enqueuedSourceIds).isEqualTo(listOf(SOURCE_ID))
+        // Ручной скан заменяет стоящую работу: иначе запрос человека терялся бы, пока сбойный
+        // прогон ждёт повтора (KEEP), и кнопка «Пересканировать» выглядела бы сломанной.
+        assertThat(scheduler.restartedSourceIds).isEqualTo(listOf(SOURCE_ID))
     }
 
     private suspend fun givenSourceWithBook() {
@@ -233,9 +236,11 @@ private class SourceRecordingScanScheduler : ScanScheduler {
 
     val enqueuedSourceIds = mutableListOf<String>()
     val cancelledSourceIds = mutableListOf<String>()
+    val restartedSourceIds = mutableListOf<String>()
 
-    override suspend fun enqueueScan(sourceId: String) {
+    override suspend fun enqueueScan(sourceId: String, restart: Boolean) {
         enqueuedSourceIds += sourceId
+        if (restart) restartedSourceIds += sourceId
     }
 
     override suspend fun cancelScan(sourceId: String) {

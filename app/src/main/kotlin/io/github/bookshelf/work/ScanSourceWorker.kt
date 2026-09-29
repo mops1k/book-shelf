@@ -13,6 +13,7 @@ import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.sync.afterFileChange
 import io.github.bookshelf.core.data.sync.booksToDelete
+import io.github.bookshelf.core.data.sync.shouldRetryScan
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.ScanRunDao
 import io.github.bookshelf.core.database.dao.SourceDao
@@ -92,9 +93,11 @@ class ScanSourceWorker @AssistedInject constructor(
             val result = walkUntilFinished(source, run)
             when (result) {
                 is ScanOutcome.Failed -> {
-                    // Курсор сохранён, прогон не терминален: WorkManager повторит и продолжит.
+                    // Курсор сохранён, прогон не терминален: следующий скан продолжит с него.
                     scanRunDao.finish(run.id, ScanRunStatus.PAUSED, null, result.reason)
-                    Result.retry()
+                    // Повторы ограничены: без предела работа уходит в backoff, а `KEEP` не даёт
+                    // поставить новый скан — кнопка «Пересканировать» перестаёт действовать.
+                    if (shouldRetryScan(runAttemptCount)) Result.retry() else Result.success()
                 }
 
                 is ScanOutcome.Completed -> {

@@ -16,8 +16,13 @@ import kotlinx.coroutines.flow.Flow
  */
 interface ScanRepository {
 
-    /** Запустить (или возобновить) скан источника. */
-    suspend fun startScan(sourceId: String): AppResult<Unit>
+    /**
+     * Запустить (или возобновить) скан источника.
+     *
+     * @param restart заменить уже стоящую работу источника — так делает ручное пересканирование,
+     *   чтобы запрос человека не терялся, пока сбойный прогон ждёт повтора.
+     */
+    suspend fun startScan(sourceId: String, restart: Boolean = false): AppResult<Unit>
 
     /** Наблюдать прогресс скана; эмитит не чаще раза в секунду (docs/eink-ux.md §5). */
     fun observeProgress(sourceId: String): Flow<ScanProgress>

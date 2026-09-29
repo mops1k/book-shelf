@@ -13,7 +13,10 @@ import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.OpdsDownloadDao
 import io.github.bookshelf.core.database.dao.SourceDao
 import io.github.bookshelf.core.database.model.OpdsDownloadState
+import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.opds.auth.CredentialStore
+import io.github.bookshelf.core.opds.auth.OpdsCredentials
 import io.github.bookshelf.core.opds.download.DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE
 import io.github.bookshelf.core.opds.download.DOWNLOAD_FILE_NAME_TEMPLATES
 import io.github.bookshelf.core.opds.download.DefaultOpdsDownloader
@@ -54,6 +57,13 @@ class OpdsDownloadWorker @AssistedInject constructor(
     private val authorWriter: io.github.bookshelf.core.data.author.BookAuthorWriter,
     private val clock: AppClock,
     private val settingsRepository: SettingsRepository,
+    /**
+     * Пароль каталога.
+     *
+     * Закрытый каталог отдаёт книгу только с заголовком авторизации: без него загрузка падала бы
+     * на 401, а очередь показывала бы «ошибка загрузки» без причины.
+     */
+    private val credentialStore: CredentialStore,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -65,7 +75,15 @@ class OpdsDownloadWorker @AssistedInject constructor(
         updateState(downloadId, OpdsDownloadState.RUNNING, bytes = 0L, error = null)
 
         val template = fileNameTemplate()
-        val request = requestFrom(download, template)
+        // Секрет читается до запроса: если он повреждён, честнее сказать это сразу, чем показать 401.
+        val credentials = when (val loaded = credentialStore.load(download.catalogId)) {
+            is AppResult.Failure -> return fail(
+                downloadId,
+                loaded.error.message ?: "Не удалось прочитать пароль каталога",
+            )
+            is AppResult.Success -> loaded.value
+        }
+        val request = requestFrom(download, template, credentials)
 
         val result = downloader.download(
             request = request,
@@ -91,7 +109,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
         val bookId = bookDao.getByDocumentUri(documentUri)?.id
             ?: bookIdOfDocumentUri(documentUri)
             ?: return fail(downloadId, "Провайдер вернул адрес, из которого не собрать идентификатор")
-        bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template)))
+        bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template, credentials)))
         authorWriter.replace(bookId, download.authorsText.orEmpty())
         downloadDao.upsert(download.copy(state = OpdsDownloadState.DONE, bookId = bookId, error = null))
         metadataScheduler.enqueueMetadata(bookId)
@@ -139,6 +157,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
     private fun requestFrom(
         download: io.github.bookshelf.core.database.entity.OpdsDownloadEntity,
         template: String,
+        credentials: OpdsCredentials?,
     ): DownloadRequest = DownloadRequest(
         catalogId = download.catalogId,
         entryId = download.entryId,
@@ -153,7 +172,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
         expectedSizeBytes = download.expectedSize,
         targetSourceId = download.targetSourceId,
         targetRelativeDir = download.targetRelativeDir,
-        credentials = null,
+        credentials = credentials,
         series = download.seriesName,
         fileNameTemplate = template,
     )
@@ -170,9 +189,12 @@ class OpdsDownloadWorker @AssistedInject constructor(
         download: io.github.bookshelf.core.database.entity.OpdsDownloadEntity,
         sourceId: String,
         template: String,
+        credentials: OpdsCredentials?,
     ): io.github.bookshelf.core.database.entity.BookEntity {
         val now = clock.nowMillis()
-        val request = requestFrom(download, template)
+        // Учётные данные здесь не нужны: строка книги собирается из того же запроса, но в сеть
+        // ничего не отправляет. Передаём те же, чтобы путь и имя файла считались одним кодом.
+        val request = requestFrom(download, template, credentials)
         val fileName = fileNameOf(request)
         return io.github.bookshelf.core.database.entity.BookEntity(
             id = bookId,

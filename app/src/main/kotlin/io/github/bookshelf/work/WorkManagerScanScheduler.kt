@@ -27,14 +27,16 @@ class WorkManagerScanScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ScanScheduler, MetadataScheduler {
 
-    override suspend fun enqueueScan(sourceId: String) {
+    override suspend fun enqueueScan(sourceId: String, restart: Boolean) {
         val request = OneTimeWorkRequestBuilder<ScanSourceWorker>()
             .setInputData(workDataOf(ScanSourceWorker.KEY_SOURCE_ID to sourceId))
             .addTag(ScanSourceWorker.WORK_TAG)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             ScanSourceWorker.uniqueWorkName(sourceId),
-            ExistingWorkPolicy.KEEP,
+            // Ручной скан заменяет работу источника: иначе запрос человека проглатывался бы, пока
+            // сбойный прогон ждёт повтора (KEEP), и кнопка казалась бы нерабочей.
+            if (restart) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
             request,
         )
     }

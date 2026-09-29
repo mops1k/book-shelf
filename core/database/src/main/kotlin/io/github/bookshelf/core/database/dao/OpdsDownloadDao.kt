@@ -51,4 +51,14 @@ interface OpdsDownloadDao {
     /** Удалить запись о загрузке. */
     @Query("DELETE FROM opds_downloads WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /**
+     * Убрать историю: завершённые, сбойные и отменённые записи.
+     *
+     * Активные (QUEUED/RUNNING/PAUSED) остаются: их удаление оставило бы работающую загрузку без
+     * записи — прогресс и результат было бы некуда писать. Возвращается число убранных строк, чтобы
+     * экран сказал человеку, сколько записей убрано.
+     */
+    @Query("DELETE FROM opds_downloads WHERE state IN ('DONE', 'FAILED', 'CANCELLED')")
+    suspend fun deleteFinished(): Int
 }

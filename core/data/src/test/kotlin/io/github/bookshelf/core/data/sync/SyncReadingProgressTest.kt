@@ -324,7 +324,7 @@ class SyncReadingProgressTest {
 
     private class FakeScanRepository : ScanRepository {
 
-        override suspend fun startScan(sourceId: String): AppResult<Unit> =
+        override suspend fun startScan(sourceId: String, restart: Boolean): AppResult<Unit> =
             AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
         override fun observeProgress(sourceId: String): Flow<ScanProgress> =

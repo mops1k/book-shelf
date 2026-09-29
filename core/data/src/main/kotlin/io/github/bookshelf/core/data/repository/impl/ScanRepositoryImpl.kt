@@ -52,7 +52,7 @@ class ScanRepositoryImpl @Inject constructor(
      * Проверка до `enqueueScan` обязательна: `KEEP` принял бы запрос для несуществующей папки и тихо
      * ничего бы не сделал, а UI сообщил бы об успешном запуске.
      */
-    override suspend fun startScan(sourceId: String): AppResult<Unit> {
+    override suspend fun startScan(sourceId: String, restart: Boolean): AppResult<Unit> {
         val found = appRunCatching { sourceDao.getById(sourceId) }
         if (found is AppResult.Failure) return found
         val source = found.getOrNull()
@@ -62,7 +62,7 @@ class ScanRepositoryImpl @Inject constructor(
                 AppError.InvalidArgument(what = "source", message = "Источник $sourceId отключён"),
             )
         }
-        return appRunCatching { scanScheduler.enqueueScan(sourceId) }
+        return appRunCatching { scanScheduler.enqueueScan(sourceId, restart) }
     }
 
     /**

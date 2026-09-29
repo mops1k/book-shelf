@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
+import io.github.bookshelf.core.designsystem.component.EinkConfirmRow
 import io.github.bookshelf.core.designsystem.component.EinkCheckbox
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
@@ -255,31 +256,31 @@ private fun AddCatalogScreen(
         ) {
             EinkTextField(
                 value = form.title,
-                onValueChange = viewModel::onFormTitleChange,
+                onValueChange = { viewModel.onFormChange(form.copy(title = it)) },
                 label = "Название",
                 placeholder = "Моя библиотека",
             )
             EinkTextField(
                 value = form.url,
-                onValueChange = viewModel::onFormUrlChange,
+                onValueChange = { viewModel.onFormChange(form.copy(url = it)) },
                 label = "URL каталога",
                 placeholder = "https://example.org/opds",
             )
             EinkTextField(
                 value = form.username,
-                onValueChange = viewModel::onFormUsernameChange,
+                onValueChange = { viewModel.onFormChange(form.copy(username = it)) },
                 label = "Логин (если требуется)",
             )
             // Пароль не логируется и не экспортируется: в БД попадает только alias.
             EinkTextField(
                 value = form.password,
-                onValueChange = viewModel::onFormPasswordChange,
+                onValueChange = { viewModel.onFormChange(form.copy(password = it)) },
                 label = "Пароль (если требуется)",
                 visualTransformation = PasswordVisualTransformation(),
             )
             EinkCheckbox(
                 checked = form.openImmediately,
-                onCheckedChange = viewModel::onFormOpenImmediatelyChange,
+                onCheckedChange = { viewModel.onFormChange(form.copy(openImmediately = it)) },
                 label = "Открывать этот каталог сразу",
             )
         }
@@ -602,11 +603,25 @@ private fun DownloadsScreen(
                 else -> Unit
             }
         },
+        actions = {
+            // Кнопка показывается только когда есть что убирать: пустое действие сбивает с толку.
+            if (state.downloads.isNotEmpty()) {
+                EinkButton(text = "Очистить историю", onClick = viewModel::onToggleClearHistory)
+            }
+        },
         footer = { StatusFooter(label = downloadCountLabel(state.downloads.size)) },
     ) {
-        Box(
-                modifier = Modifier.weight(1f),
-            ) {
+        Column(modifier = Modifier.weight(1f)) {
+            if (state.isConfirmingClearHistory) {
+                EinkConfirmRow(
+                    question = "Убрать историю загрузок? Записи о завершённых, сбойных и " +
+                        "отменённых загрузках исчезнут. Книги в библиотеке останутся, " +
+                        "активные загрузки продолжатся.",
+                    confirmLabel = "Убрать",
+                    onConfirm = viewModel::onConfirmClearHistory,
+                    onCancel = viewModel::onToggleClearHistory,
+                )
+            }
             if (state.downloads.isEmpty()) {
                 EinkEmptyState(
                     title = "Загрузок пока нет",

@@ -20,6 +20,9 @@ class FakeScanRepository : ScanRepository {
     /** Источники, для которых запросили скан, в порядке обращений. */
     val started: MutableList<String> = mutableListOf()
 
+    /** Источники, для которых запросили замену стоящей работы (ручное пересканирование). */
+    val restarted: MutableList<String> = mutableListOf()
+
     /** Источники, для которых запросили паузу. */
     val paused: MutableList<String> = mutableListOf()
 
@@ -39,8 +42,9 @@ class FakeScanRepository : ScanRepository {
     /** Отчёты о прогонах, которые увидит экран. */
     var reports: List<ScanReport> = emptyList()
 
-    override suspend fun startScan(sourceId: String): AppResult<Unit> {
+    override suspend fun startScan(sourceId: String, restart: Boolean): AppResult<Unit> {
         started += sourceId
+        if (restart) restarted += sourceId
         return startResults[sourceId] ?: startResult
     }
 

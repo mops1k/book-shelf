@@ -223,7 +223,7 @@ class BookRepositoryImpl @Inject constructor(
     override suspend fun rescanAll(): AppResult<Unit> = appRunCatching {
         sourceRepository.observeSources().first()
             .filter { source -> source.enabled }
-            .forEach { source -> scanRepository.startScan(source.id) }
+            .forEach { source -> scanRepository.startScan(source.id, restart = true) }
     }
 
     /** Книга для строки полки: авторы берутся из денормализованного `authorsText`. */

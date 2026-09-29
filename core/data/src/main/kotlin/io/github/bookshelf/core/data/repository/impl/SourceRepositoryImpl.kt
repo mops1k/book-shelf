@@ -152,7 +152,8 @@ class SourceRepositoryImpl @Inject constructor(
                 ),
             )
         }
-        return appRunCatching { scanScheduler.enqueueScan(sourceId) }
+        // Ручное пересканирование заменяет работу источника: запрос человека не должен теряться.
+        return appRunCatching { scanScheduler.enqueueScan(sourceId, restart = true) }
     }
 
     /**

@@ -540,6 +540,9 @@ class BookRepositoryTest {
         assertThat(database.bookDao().getAll()).hasSize(before)
         // Фейк помнит, какие источники просили сканировать: выключенный не должен попасть в список.
         assertThat(scans.started).containsExactly("s1")
+        // И просили именно заменить стоящую работу: иначе запрос человека терялся бы, пока
+        // сбойный прогон ждёт повтора (политика KEEP).
+        assertThat(scans.restarted).containsExactly("s1")
     }
 
     private fun source(id: String, enabled: Boolean = true): Source = Source(

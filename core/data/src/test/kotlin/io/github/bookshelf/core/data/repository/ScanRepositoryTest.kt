@@ -307,9 +307,11 @@ private class ScanRecordingScanScheduler : ScanScheduler {
 
     val enqueuedSourceIds = mutableListOf<String>()
     val cancelledSourceIds = mutableListOf<String>()
+    val restartedSourceIds = mutableListOf<String>()
 
-    override suspend fun enqueueScan(sourceId: String) {
+    override suspend fun enqueueScan(sourceId: String, restart: Boolean) {
         enqueuedSourceIds += sourceId
+        if (restart) restartedSourceIds += sourceId
     }
 
     override suspend fun cancelScan(sourceId: String) {

@@ -74,4 +74,12 @@ interface OpdsRepository {
     ): AppResult<Unit>
 
     suspend fun cancelDownload(downloadId: String): AppResult<Unit>
+
+    /**
+     * Очистить историю загрузок.
+     *
+     * Убирает завершённые, сбойные и отменённые записи; активные загрузки не трогает, книги в
+     * библиотеке остаются. Возвращает число убранных записей.
+     */
+    suspend fun clearDownloadHistory(): AppResult<Int>
 }

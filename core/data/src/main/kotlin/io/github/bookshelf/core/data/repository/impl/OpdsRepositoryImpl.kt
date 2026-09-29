@@ -19,6 +19,8 @@ import io.github.bookshelf.core.database.entity.OpdsDownloadEntity
 import io.github.bookshelf.core.database.model.OpdsDownloadState
 import io.github.bookshelf.core.opds.cache.OpdsFeedCache
 import io.github.bookshelf.core.opds.client.ConditionalGet
+import io.github.bookshelf.core.opds.auth.CredentialStore
+import io.github.bookshelf.core.opds.auth.OpdsCredentials
 import io.github.bookshelf.core.opds.client.OpdsHttpClient
 import io.github.bookshelf.core.opds.model.OpdsFeed
 import io.github.bookshelf.core.opds.model.OpdsLink
@@ -66,7 +68,27 @@ class OpdsRepositoryImpl @Inject constructor(
      * (и экспорт настроек) видел одно, а приложение делало другое.
      */
     private val settingsRepository: SettingsRepository,
+    /**
+     * Пароли каталогов.
+     *
+     * В базе лежит только `passwordAlias`: сам пароль — в шифрованном хранилище. Без этого
+     * каталог с авторизацией нельзя было ни добавить, ни открыть, ни скачать из него книгу
+     * (все запросы уходили без заголовка, а введённый пароль просто терялся).
+     */
+    private val credentialStore: CredentialStore,
 ) : OpdsRepository {
+
+    /**
+     * Учётные данные из формы добавления.
+     *
+     * `null`, если логин или пароль пусты: каталог без авторизации — обычный случай (Флибуста),
+     * и пустая пара не должна превращаться в «сохранён пустой пароль».
+     */
+    private fun credentialsOf(username: String?, password: String?): OpdsCredentials? {
+        val user = username?.trim().orEmpty()
+        val secret = password.orEmpty()
+        return if (user.isEmpty() || secret.isEmpty()) null else OpdsCredentials(user, secret)
+    }
 
     /**
      * Уже разобранные дескрипторы OpenSearch: адрес дескриптора → шаблон поиска.
@@ -85,7 +107,10 @@ class OpdsRepositoryImpl @Inject constructor(
         username: String?,
         password: String?,
     ): AppResult<OpdsCatalog> {
-        val response = when (val got = http.get(url, conditional = null, credentials = null)) {
+        // Учётные данные проверяются сразу: если каталог закрыт, человек должен узнать это при
+        // добавлении, а не при каждом открытии.
+        val entered = credentialsOf(username, password)
+        val response = when (val got = http.get(url, conditional = null, credentials = entered)) {
             is AppResult.Failure -> return got
             is AppResult.Success -> got.value
         }
@@ -93,17 +118,29 @@ class OpdsRepositoryImpl @Inject constructor(
             is AppResult.Failure -> return got
             is AppResult.Success -> got.value
         }
+        val entityId = UUID.randomUUID().toString()
         val entity = OpdsCatalogEntity(
-            id = UUID.randomUUID().toString(),
+            id = entityId,
             // Название: что ввёл пользователь → что назвал фид → хост. Последнее нужно, потому
             // что у части каталогов нет заголовка, и пустое имя в списке выглядит как ошибка.
             title = title.ifBlank { feed.title.ifBlank { hostOf(response.finalUrl) } },
             url = response.finalUrl,
             username = username,
+            // Ссылка на секрет: сам пароль в БД не попадает. Пишется только вместе с сохранением
+            // секрета — «есть пароль» и «пароль сохранён» должны совпадать.
+            passwordAlias = entered?.let { entityId },
             requiresAuth = !username.isNullOrBlank(),
             enabled = true,
             sortOrder = 0,
         )
+        // Порядок обязателен: сначала секрет, потом строка каталога. Наоборот оставило бы каталог
+        // со ссылкой на несуществующий пароль — открытие отвечало бы 401 без объяснений.
+        entered?.let { secrets ->
+            when (val saved = credentialStore.save(entityId, secrets)) {
+                is AppResult.Failure -> return saved
+                is AppResult.Success -> Unit
+            }
+        }
         return appRunCatching {
             catalogDao.upsertAll(listOf(entity))
             // Фид кладём в кэш сразу: первый же заход в каталог не должен ждать второй запрос.
@@ -114,8 +151,15 @@ class OpdsRepositoryImpl @Inject constructor(
     override suspend fun updateCatalog(catalog: OpdsCatalog): AppResult<Unit> =
         appRunCatching { catalogDao.upsertAll(listOf(catalog.toEntity())) }
 
-    override suspend fun removeCatalog(catalogId: String): AppResult<Unit> =
-        appRunCatching { catalogDao.deleteById(catalogId) }
+    override suspend fun removeCatalog(catalogId: String): AppResult<Unit> {
+        // Секрет удаляется первым: если это не удалось, каталог лучше оставить — иначе пароль
+        // остался бы в хранилище без владельца, и убрать его было бы уже нечем.
+        when (val removed = credentialStore.delete(catalogId)) {
+            is AppResult.Failure -> return removed
+            is AppResult.Success -> Unit
+        }
+        return appRunCatching { catalogDao.deleteById(catalogId) }
+    }
 
     override suspend fun browse(catalogId: String, url: String?): AppResult<List<OpdsEntry>> =
         browsePage(catalogId, url).mapResult { page -> page.entries }
@@ -125,6 +169,10 @@ class OpdsRepositoryImpl @Inject constructor(
             ?: return AppResult.failure(
                 AppError.NotFound(what = "catalog", message = "Каталог не найден"),
             )
+        val credentials = when (val loaded = credentialStore.load(catalogId)) {
+            is AppResult.Failure -> return loaded
+            is AppResult.Success -> loaded.value
+        }
         val target = url ?: catalog.url
         val key = target.hashCode().toUInt().toString(HEX_RADIX)
         // Настройки недоступны — берём документированное умолчание: каталог должен открываться
@@ -140,7 +188,11 @@ class OpdsRepositoryImpl @Inject constructor(
         if (cached != null && url == null) return AppResult.success(cached.feed.toPage(target))
 
         val response = when (
-            val got = http.get(target, cached?.let { ConditionalGet(it.etag, it.lastModified) })
+            val got = http.get(
+                target,
+                cached?.let { ConditionalGet(it.etag, it.lastModified) },
+                credentials,
+            )
         ) {
             is AppResult.Failure -> return got
             is AppResult.Success -> got.value
@@ -182,7 +234,11 @@ class OpdsRepositoryImpl @Inject constructor(
                 AppError.InvalidArgument(what = "query", message = "Введите запрос для поиска"),
             )
         }
-        val template = resolveTemplate(searchTemplate)
+        val credentials = when (val loaded = credentialStore.load(catalogId)) {
+            is AppResult.Failure -> return loaded
+            is AppResult.Success -> loaded.value
+        }
+        val template = resolveTemplate(searchTemplate, credentials)
             ?: return AppResult.failure(
                 AppError.Unsupported(
                     what = "opds-search",
@@ -211,10 +267,12 @@ class OpdsRepositoryImpl @Inject constructor(
      * каталогу уже не ходит за ним. Ошибка загрузки — это `null`, а не исключение: вызывающий код
      * сообщит «каталог не объявляет шаблон поиска», и экран перейдёт к отбору по загруженному фиду.
      */
-    private suspend fun resolveTemplate(hint: String): String? {
+    private suspend fun resolveTemplate(hint: String, credentials: OpdsCredentials?): String? {
         if (OpdsSearchUrl.TEMPLATE_MARKER in hint) return hint
         resolvedTemplates[hint]?.let { return it }
-        val response = when (val got = http.get(hint, conditional = null, credentials = null)) {
+        // Дескриптор OpenSearch лежит на том же сервере, что и каталог: на закрытом каталоге
+        // запрос без заголовка вернул бы 401, и поиск «не работал бы» без причины.
+        val response = when (val got = http.get(hint, conditional = null, credentials = credentials)) {
             is AppResult.Failure -> return null
             is AppResult.Success -> got.value
         }
@@ -232,6 +290,9 @@ class OpdsRepositoryImpl @Inject constructor(
         searchUrl = searchUrl,
         url = url,
     )
+
+    override suspend fun clearDownloadHistory(): AppResult<Int> =
+        appRunCatching { downloadDao.deleteFinished() }
 
     override fun observeDownloads(): Flow<List<OpdsDownload>> =
         downloadDao.observeAll().map { rows: List<OpdsDownloadEntity> -> rows.map { it.toDomain() } }

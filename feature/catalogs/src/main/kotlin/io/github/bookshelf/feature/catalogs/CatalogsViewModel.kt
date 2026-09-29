@@ -149,31 +149,16 @@ class CatalogsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(mode = CatalogsMode.DOWNLOADS)
     }
 
-    /** Изменить название в форме добавления. */
-    fun onFormTitleChange(title: String) {
-        _uiState.value = _uiState.value.copy(addForm = _uiState.value.addForm.copy(title = title))
-    }
-
-    /** Изменить URL в форме добавления. */
-    fun onFormUrlChange(url: String) {
-        _uiState.value = _uiState.value.copy(addForm = _uiState.value.addForm.copy(url = url))
-    }
-
-    /** Изменить логин в форме добавления. */
-    fun onFormUsernameChange(username: String) {
-        _uiState.value = _uiState.value.copy(addForm = _uiState.value.addForm.copy(username = username))
-    }
-
-    /** Изменить пароль в форме добавления. */
-    fun onFormPasswordChange(password: String) {
-        _uiState.value = _uiState.value.copy(addForm = _uiState.value.addForm.copy(password = password))
-    }
-
-    /** Переключить «открывать каталог сразу». */
-    fun onFormOpenImmediatelyChange(openImmediately: Boolean) {
-        _uiState.value = _uiState.value.copy(
-            addForm = _uiState.value.addForm.copy(openImmediately = openImmediately),
-        )
+    /**
+     * Изменить форму добавления каталога.
+     *
+     * Один обработчик на все поля: экран уже держит текущую форму, поэтому ему проще отдать новое
+     * состояние целиком, чем заводить по методу на каждое поле. Побочно это держит класс в пороге
+     * detekt по числу функций, а порог здесь не формальность: у ViewModel, обрастающей
+     * обработчиками, размывается ответственность.
+     */
+    fun onFormChange(form: AddCatalogFormUi) {
+        _uiState.value = _uiState.value.copy(addForm = form)
     }
 
     /** Изменить поисковый запрос внутри фида. */
@@ -460,6 +445,36 @@ class CatalogsViewModel @Inject constructor(
     }
 
     /** Отменить активную загрузку (уже скачанное сохраняется). */
+    /**
+     * Спросить подтверждение очистки истории загрузок — или убрать его, если оно уже показано.
+     *
+     * История — это записи о загрузках, а не книги: файлы и строки библиотеки не трогаются, и об
+     * этом сказано человеку в подтверждении. Один обработчик на «спросить» и «передумать»: на
+     * экране это одна и та же кнопка, и лишний метод у класса, у которого уже порог по числу
+     * функций, ничего бы не добавил.
+     */
+    fun onToggleClearHistory() {
+        val asking = _uiState.value.isConfirmingClearHistory
+        _uiState.value = _uiState.value.copy(
+            isConfirmingClearHistory = !asking,
+            error = if (asking) _uiState.value.error else null,
+        )
+    }
+
+    /** Подтвердить очистку: убираются завершённые, сбойные и отменённые записи. */
+    fun onConfirmClearHistory() {
+        // Флаг и есть защита: на e-ink палец легко попадает дважды, а второе подтверждение
+        // запустило бы вторую очистку и второй запрос в базу.
+        if (!_uiState.value.isConfirmingClearHistory) return
+        _uiState.value = _uiState.value.copy(isConfirmingClearHistory = false)
+        viewModelScope.launch {
+            opdsRepository.clearDownloadHistory().fold(
+                onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
+                onFailure = { showError("Не удалось очистить историю загрузок", it) },
+            )
+        }
+    }
+
     fun onCancelDownload(downloadId: String) {
         viewModelScope.launch {
             val result = opdsRepository.cancelDownload(downloadId)

@@ -124,6 +124,17 @@ internal class FakeOpdsRepository : OpdsRepository {
 
     override suspend fun cancelDownload(downloadId: String): AppResult<Unit> = AppResult.success(Unit)
 
+    /** Сколько раз просили очистить историю загрузок. */
+    var clearHistoryCalls: Int = 0
+
+    /** Сколько записей «убрала» очистка; по умолчанию одна. */
+    var clearHistoryRemoved: Int = 1
+
+    override suspend fun clearDownloadHistory(): AppResult<Int> {
+        clearHistoryCalls++
+        return AppResult.success(clearHistoryRemoved)
+    }
+
     private fun entriesFor(url: String?): List<OpdsEntry> =
         if (url == null) rootEntries else urlEntries[url] ?: rootEntries
 

@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.data.repository.impl
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.data.model.OpdsCatalog
@@ -60,6 +61,9 @@ class OpdsRepositoryImplTest {
     /** Настройки — поле: возраст кэша фидов берётся из них. */
     private val settingsRepository = FakeSettingsRepository()
 
+    /** Пароли каталогов: подставное хранилище — настоящий Keystore живёт только на устройстве. */
+    private val credentials = FakeCredentialStore()
+
     private fun repository() = OpdsRepositoryImpl(
         catalogDao = catalogDao,
         http = http,
@@ -72,6 +76,7 @@ class OpdsRepositoryImplTest {
             override fun schedule(downloadId: String) = Unit
         },
         settingsRepository = settingsRepository,
+        credentialStore = credentials,
     )
 
     @Test
@@ -85,6 +90,119 @@ class OpdsRepositoryImplTest {
         assertThat(catalogDao.rows).hasSize(1)
         // Фид кладётся в кэш сразу, чтобы первый заход не ждал второй запрос.
         assertThat(cache.saved).isNotNull()
+    }
+
+    @Test
+    fun clear_download_history_reports_how_many_records_were_removed() = runTest {
+        downloadDao.rows["done"] = downloadRow("done", OpdsDownloadState.DONE)
+        downloadDao.rows["running"] = downloadRow("running", OpdsDownloadState.RUNNING)
+
+        val removed = repository().clearDownloadHistory().getOrNull()
+
+        assertThat(removed).isEqualTo(1)
+        // Активная загрузка остаётся: иначе работа писала бы прогресс в никуда.
+        assertThat(downloadDao.rows.keys).containsExactly("running")
+    }
+
+    private fun downloadRow(id: String, state: OpdsDownloadState) = OpdsDownloadEntity(
+        id = id,
+        catalogId = "catalog-1",
+        entryId = "entry-$id",
+        title = "Книга",
+        downloadUrl = "https://host/book.fb2",
+        targetSourceId = "source-1",
+        targetRelativeDir = "",
+        state = state,
+        createdAt = 1L,
+    )
+
+    @Test
+    fun add_catalog_saves_credentials_and_sends_them_right_away() = runTest {
+        val result = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+
+        val catalog = result.getOrNull()
+        assertThat(catalog).isNotNull()
+        // Первый же запрос идёт с заголовком: иначе закрытый каталог не добавился бы вовсе.
+        assertThat(http.lastCredentials)
+            .isEqualTo(io.github.bookshelf.core.opds.auth.OpdsCredentials("reader", "s3cret"))
+        // Секрет сохранён, а в строке каталога — только ссылка на него.
+        assertThat(credentials.saved[catalog?.id])
+            .isEqualTo(io.github.bookshelf.core.opds.auth.OpdsCredentials("reader", "s3cret"))
+        // В строке каталога — только ссылка на секрет, самого пароля там нет.
+        assertThat(catalogDao.rows.values.single().passwordAlias).isEqualTo(catalog?.id)
+    }
+
+    @Test
+    fun add_catalog_without_credentials_stores_no_secret() = runTest {
+        val result = repository().addCatalog("Флибуста", "https://host/opds", null, null)
+
+        // Публичный каталог: пустая пара не должна превращаться в «сохранён пустой пароль».
+        assertThat(http.lastCredentials).isNull()
+        assertThat(credentials.saved).isEmpty()
+        assertThat(catalogDao.rows.values.single().passwordAlias).isNull()
+    }
+
+    @Test
+    fun add_catalog_reports_a_secret_that_could_not_be_saved() = runTest {
+        credentials.failSave = true
+
+        val result = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+
+        // Каталог не должен появиться со ссылкой на несуществующий пароль: открытие отвечало бы 401.
+        assertThat(result.isFailure).isTrue()
+        assertThat(catalogDao.rows).isEmpty()
+    }
+
+    @Test
+    fun browse_sends_the_saved_credentials() = runTest {
+        val catalog = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+            .getOrNull()
+        requireNotNull(catalog)
+        http.lastCredentials = null
+
+        repository().browse(catalog.id, null)
+
+        assertThat(http.lastCredentials)
+            .isEqualTo(io.github.bookshelf.core.opds.auth.OpdsCredentials("reader", "s3cret"))
+    }
+
+    @Test
+    fun browse_reports_a_broken_secret_instead_of_going_unauthenticated() = runTest {
+        val catalog = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+            .getOrNull()
+        requireNotNull(catalog)
+        credentials.failLoad = true
+
+        val result = repository().browse(catalog.id, null)
+
+        // Молчаливый запрос без заголовка дал бы 401 без объяснений.
+        assertThat(result.isFailure).isTrue()
+    }
+
+    @Test
+    fun remove_catalog_deletes_the_secret() = runTest {
+        val catalog = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+            .getOrNull()
+        requireNotNull(catalog)
+
+        repository().removeCatalog(catalog.id)
+
+        assertThat(credentials.saved).isEmpty()
+        assertThat(catalogDao.rows).isEmpty()
+    }
+
+    @Test
+    fun remove_catalog_keeps_the_catalog_when_the_secret_cannot_be_deleted() = runTest {
+        val catalog = repository().addCatalog("Закрытый", "https://host/opds", "reader", "s3cret")
+            .getOrNull()
+        requireNotNull(catalog)
+        credentials.failDelete = true
+
+        val result = repository().removeCatalog(catalog.id)
+
+        // Иначе пароль остался бы в хранилище без владельца, и убрать его было бы нечем.
+        assertThat(result.isFailure).isTrue()
+        assertThat(catalogDao.rows).hasSize(1)
     }
 
     @Test
@@ -355,6 +473,9 @@ class OpdsRepositoryImplTest {
         /** Последний запрошенный адрес: по нему проверяется подстановка поискового запроса. */
         var lastUrl: String? = null
 
+        /** Учётные данные последнего запроса: по ним проверяется авторизация каталога. */
+        var lastCredentials: io.github.bookshelf.core.opds.auth.OpdsCredentials? = null
+
         /**
          * Тело дескриптора OpenSearch.
          *
@@ -370,6 +491,7 @@ class OpdsRepositoryImplTest {
         ): AppResult<HttpResponse> {
             calls++
             lastUrl = url
+            lastCredentials = credentials
             this.conditional = conditional
             failWith?.let { return AppResult.failure(it) }
             descriptorBody?.let { body ->
@@ -472,6 +594,35 @@ class OpdsRepositoryImplTest {
         }
     }
 
+    /** Подставное хранилище паролей: проверяется проводка, а не шифрование (оно в `:core:opds`). */
+    private class FakeCredentialStore : io.github.bookshelf.core.opds.auth.CredentialStore {
+
+        val saved = linkedMapOf<String, io.github.bookshelf.core.opds.auth.OpdsCredentials>()
+        var failSave = false
+        var failLoad = false
+        var failDelete = false
+
+        override suspend fun save(
+            catalogId: String,
+            credentials: io.github.bookshelf.core.opds.auth.OpdsCredentials,
+        ): AppResult<Unit> {
+            if (failSave) return AppResult.failure(AppError.Unknown(message = "ключ недоступен"))
+            saved[catalogId] = credentials
+            return AppResult.success(Unit)
+        }
+
+        override suspend fun load(catalogId: String): AppResult<io.github.bookshelf.core.opds.auth.OpdsCredentials?> {
+            if (failLoad) return AppResult.failure(AppError.Unknown(message = "пароль повреждён"))
+            return AppResult.success(saved[catalogId])
+        }
+
+        override suspend fun delete(catalogId: String): AppResult<Unit> {
+            if (failDelete) return AppResult.failure(AppError.Unknown(message = "не удалось удалить"))
+            saved.remove(catalogId)
+            return AppResult.success(Unit)
+        }
+    }
+
     private class FakeCatalogDao : OpdsCatalogDao {
         val rows = linkedMapOf<String, OpdsCatalogEntity>()
 
@@ -514,6 +665,17 @@ class OpdsRepositoryImplTest {
 
         override suspend fun deleteById(id: String) {
             rows.remove(id)
+        }
+
+        /** Очистка истории: терминальные записи убираются, активные остаются. */
+        override suspend fun deleteFinished(): Int {
+            val finished = rows.values.filter {
+                it.state == OpdsDownloadState.DONE ||
+                    it.state == OpdsDownloadState.FAILED ||
+                    it.state == OpdsDownloadState.CANCELLED
+            }
+            finished.forEach { rows.remove(it.id) }
+            return finished.size
         }
     }
 
