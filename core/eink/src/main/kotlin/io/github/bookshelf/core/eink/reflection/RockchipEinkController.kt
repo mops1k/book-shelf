@@ -47,6 +47,9 @@ class RockchipEinkController(
 
     override val isEinkDevice: Boolean = device.isEink
 
+    /** Вендорский SDK на месте: контроллер собирается только тогда, когда он доступен. */
+    override val hasVendorCommands: Boolean = true
+
     override val vendor: EinkVendor = EinkVendor.ROCKCHIP_BOYUE
 
     /** Rockchip-клоны умеют `EPD_A2`/`EPD_FAST` — быстрый режим доступен при наличии методов. */

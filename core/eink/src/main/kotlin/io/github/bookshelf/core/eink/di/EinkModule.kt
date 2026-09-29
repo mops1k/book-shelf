@@ -42,14 +42,14 @@ object EinkModule {
                     OnyxEinkController(device)
                 } else {
                     // SDK нет в рантайме — работаем как на обычном устройстве.
-                    NoopEinkController()
+                    NoopEinkController(device)
                 }
 
             EinkVendor.ROCKCHIP_BOYUE ->
                 if (RockchipEinkController.isReflectionAvailable()) {
                     RockchipEinkController(device)
                 } else {
-                    NoopEinkController()
+                    NoopEinkController(device)
                 }
 
             EinkVendor.HISENSE,
@@ -60,7 +60,7 @@ object EinkModule {
             EinkVendor.IREADER,
             EinkVendor.INKPALM,
             EinkVendor.UNKNOWN,
-            -> NoopEinkController()
+            -> NoopEinkController(device)
         }
     }
 }

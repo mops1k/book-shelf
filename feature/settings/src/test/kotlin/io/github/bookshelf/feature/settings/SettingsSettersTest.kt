@@ -68,6 +68,7 @@ class SettingsSettersTest {
     private val sources = FakeSourceRepository()
     private val books = FakeBookRepository()
     private val eink = FakeEinkController()
+    private val detector = FakeEinkDeviceDetector()
     private val covers = FakeCoverCache()
     private val schedule = FakeProgressSyncSchedule()
     private val fbReader = FakeFbReaderApi()
@@ -109,6 +110,18 @@ class SettingsSettersTest {
         advanceUntilIdle()
 
         assertThat(settings.last().appearance.density).isEqualTo(AppSettings().appearance.density)
+    }
+
+    @Test
+    fun `paper without vendor commands still reports its vendor and screen`() = runTest(dispatcher) {
+        // Ровно случай Bigme: вендорского контроллера нет, но экран — цветная бумага.
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val diagnostics = viewModel.uiState.value.diagnostics
+        assertThat(diagnostics.vendorLabel).isEqualTo("Bigme")
+        assertThat(diagnostics.screenLabel).contains("цветная")
+        assertThat(diagnostics.hasVendorCommands).isFalse()
     }
 
     @Test
@@ -251,6 +264,7 @@ class SettingsSettersTest {
         sourceRepository = sources,
         bookRepository = books,
         einkController = eink,
+        einkDeviceDetector = detector,
         coverCache = covers,
         progressSchedule = schedule,
         fbReaderApi = fbReader,
@@ -383,9 +397,27 @@ class SettingsSettersTest {
         }
     }
 
-    private class FakeEinkController : EinkController {
+    /** Детектор подменяется: настоящий читает `Build.*` и свойства системы. */
+    private class FakeEinkDeviceDetector(
+        var device: io.github.bookshelf.core.eink.device.EinkDeviceInfo =
+            io.github.bookshelf.core.eink.device.EinkDeviceInfo(
+                isEink = true,
+                vendor = EinkVendor.BIGME,
+                screen = io.github.bookshelf.core.eink.device.EinkScreen.EINK_COLOR,
+                model = "HiBreak",
+                androidSdk = 34,
+            ),
+    ) : io.github.bookshelf.core.eink.device.EinkDeviceDetector {
+        override fun detect() = device
+    }
+
+    private class FakeEinkController(
+        private val hasCommands: Boolean = false,
+    ) : EinkController {
 
         override val isEinkDevice: Boolean = true
+
+        override val hasVendorCommands: Boolean = hasCommands
 
         override val vendor: EinkVendor = EinkVendor.UNKNOWN
 

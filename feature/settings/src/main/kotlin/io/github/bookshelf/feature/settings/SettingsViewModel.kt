@@ -50,6 +50,7 @@ class SettingsViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
     private val bookRepository: BookRepository,
     private val einkController: EinkController,
+    private val einkDeviceDetector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
     private val coverCache: CoverCache,
     private val progressSchedule: ProgressSyncSchedule,
     private val fbReaderApi: FbReaderApi,
@@ -136,7 +137,7 @@ class SettingsViewModel @Inject constructor(
     init {
         _uiState.value = _uiState.value.copy(
             isLoading = true,
-            diagnostics = safeDiagnostics(einkController, _uiState.value.diagnostics),
+            diagnostics = safeDiagnostics(einkController, einkDeviceDetector, _uiState.value.diagnostics),
         )
         observeSettings(_uiState, settingsRepository, viewModelScope) { ids -> defaultReaderIds = ids }
         observeReaders(_uiState, readerRepository, viewModelScope) { defaultReaderIds }
@@ -423,7 +424,7 @@ class SettingsViewModel @Inject constructor(
     /** Перечитать диагностику вендора e-ink. */
     fun onRefreshDiagnostics() {
         _uiState.value = _uiState.value.copy(
-            diagnostics = safeDiagnostics(einkController, _uiState.value.diagnostics),
+            diagnostics = safeDiagnostics(einkController, einkDeviceDetector, _uiState.value.diagnostics),
             isLoading = false,
             error = null,
         )
@@ -771,7 +772,15 @@ private fun MutableStateFlow<SettingsUiState>.showError(message: String) {
  * `TooManyFunctions` уже под рукой — каждый метод в классе приближает его к нарушению.
  */
 @Suppress("TooGenericExceptionCaught", "SwallowedException")
-private fun safeDiagnostics(controller: EinkController, current: EinkDiagnosticsUi): EinkDiagnosticsUi = try {
+private fun safeDiagnostics(
+    controller: EinkController,
+    detector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
+    current: EinkDiagnosticsUi,
+): EinkDiagnosticsUi = try {
+    // Железо описывает детектор, а контроллер — только то, что мы умеем с ним делать. Пока это
+    // были одни и те же данные, устройство с бумагой без вендорского контроллера выглядело
+    // обычным экраном и с неизвестным вендором.
+    val device = detector.detect()
     val hasFrontLight = try {
         controller.frontLight() != null
     } catch (cancelled: CancellationException) {
@@ -780,8 +789,9 @@ private fun safeDiagnostics(controller: EinkController, current: EinkDiagnostics
         current.supportsFrontLight
     }
     current.copy(
-        isEinkDevice = controller.isEinkDevice,
-        vendorLabel = controller.vendor.displayName,
+        hasVendorCommands = controller.hasVendorCommands,
+        vendorLabel = device.vendor.displayName,
+        screenLabel = device.screen.displayName,
         supportsFastMode = controller.supportsFastMode,
         supportsFrontLight = hasFrontLight,
     )

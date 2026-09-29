@@ -55,11 +55,19 @@ internal fun AboutCategory(
                 trailing = diagnostics.vendorLabel,
             )
         }
-        item(key = "about-eink-device") {
+        item(key = "about-eink-screen") {
             EinkListRow(
-                title = "Устройство",
-                subtitle = "Определяет вендорский контроллер, а не модель телефона",
-                trailing = if (diagnostics.isEinkDevice) "электронная бумага" else "обычный экран",
+                title = "Экран",
+                subtitle = "Что за экран у устройства: бумага бывает чёрно-белой и цветной",
+                trailing = diagnostics.screenLabel,
+            )
+        }
+        item(key = "about-eink-commands") {
+            EinkListRow(
+                title = "Команды вендора",
+                subtitle = "Режим обновления, интервал полного кадра и подсветка: их даёт только " +
+                    "вендорский контроллер",
+                trailing = if (diagnostics.hasVendorCommands) "доступны" else "недоступны",
             )
         }
         item(key = "about-eink-fast") {

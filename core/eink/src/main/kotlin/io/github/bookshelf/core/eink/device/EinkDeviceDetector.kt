@@ -8,12 +8,14 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
  *
  * @param isEink распознано ли устройство как e-ink;
  * @param vendor вендор либо [EinkVendor.UNKNOWN];
+ * @param screen тип экрана: обычный, бумага чёрно-белая или цветная;
  * @param model модель из `Build.MODEL` (для диагностики в «О приложении»);
  * @param androidSdk `Build.VERSION.SDK_INT` — от него зависит, доступны ли скрытые API вендора.
  */
 data class EinkDeviceInfo(
     val isEink: Boolean,
     val vendor: EinkVendor,
+    val screen: EinkScreen,
     val model: String?,
     val androidSdk: Int,
 )
@@ -67,6 +69,68 @@ fun detectVendor(
 }
 
 /**
+ * Определить тип экрана по тем же строковым признакам.
+ *
+ * Порядок решений важен и отражает то, что мы действительно знаем:
+ * 1. нашли признак **цвета** — это цветная бумага (единственный признак, который в прошивках есть);
+ * 2. вендор опознан, признака цвета нет — чёрно-белая бумага (самый частый случай, см. [EinkScreen]);
+ * 3. вендор не опознан, но есть вендорские признаки бумаги — честное «похоже на бумагу»;
+ * 4. ничего — обычный экран.
+ *
+ * Функция чистая: только строки, поэтому проверяется тестом без Robolectric.
+ */
+fun detectScreen(
+    vendor: EinkVendor,
+    manufacturer: String?,
+    brand: String?,
+    model: String?,
+    systemProperties: Map<String, String> = emptyMap(),
+): EinkScreen {
+    val haystack = buildString {
+        append(manufacturer.orEmpty())
+        append(' ')
+        append(brand.orEmpty())
+        append(' ')
+        append(model.orEmpty())
+        systemProperties.forEach { (key, value) ->
+            append(' ')
+            append(key)
+            append('=')
+            append(value)
+        }
+    }.lowercase()
+
+    return when {
+        COLOUR_MARKERS.any { marker -> marker in haystack } -> EinkScreen.EINK_COLOR
+        vendor != EinkVendor.UNKNOWN -> EinkScreen.EINK_MONOCHROME
+        PAPER_MARKERS.any { marker -> marker in haystack } -> EinkScreen.EINK_UNKNOWN
+        else -> EinkScreen.NORMAL
+    }
+}
+
+/**
+ * Признаки цветной бумаги.
+ *
+ * Только проверяемые, а не «слово color в любом месте»: на этом же устройстве есть свойство
+ * `persist.vendor.sys.pq.mdp.color.dbg` про обработку цвета в дисплее, и поиск подстроки «color»
+ * без границы слова объявил бы цветным любой аппарат с такой прошивкой.
+ *
+ * * `productcode=color` — Bigme B6 Color (`ro.build.ProductCode=COLOR`, проверено на устройстве);
+ * * ` color` — цвет прямо назван в имени модели или устройства («B6 Color»);
+ * * `colour` — то же в британском написании;
+ * * `kaleido` — название самой технологии цветной бумаги, встречается у Onyx и других.
+ */
+private val COLOUR_MARKERS: List<String> = listOf("productcode=color", " color", "colour", "kaleido")
+
+/**
+ * Признаки бумаги без имени вендора.
+ *
+ * Нужны, чтобы не назвать обычным экраном незнакомую читалку: у Bigme (и родственных прошивок)
+ * вендорский стек помечен `vendor.xrz.*`, а `eink`/`epd` прямо говорят о технологии.
+ */
+private val PAPER_MARKERS: List<String> = listOf("vendor.xrz", "eink", "epd")
+
+/**
  * Таблица «маркер → вендор» (docs/eink-ux.md §8.1–8.3).
  *
  * Порядок важен: первое совпадение выигрывает. `A2` и `rockchip` здесь сознательно отсутствуют —
@@ -103,21 +167,57 @@ class AndroidEinkDeviceDetector(
             model = Build.MODEL,
             systemProperties = systemProperties,
         )
-        return EinkDeviceInfo(
-            isEink = vendor != EinkVendor.UNKNOWN,
+        val screen = detectScreen(
             vendor = vendor,
+            manufacturer = Build.MANUFACTURER,
+            brand = Build.BRAND,
+            model = Build.MODEL,
+            systemProperties = systemProperties,
+        )
+        return EinkDeviceInfo(
+            isEink = screen != EinkScreen.NORMAL,
+            vendor = vendor,
+            screen = screen,
             model = Build.MODEL,
             androidSdk = Build.VERSION.SDK_INT,
         )
     }
 }
 
-/** Ключи, которые реально помогают определить вендора на прошивках e-ink. */
+/**
+ * Ключи, которые реально помогают определить вендора и экран.
+ *
+ * Список собран по фактам с живого устройства (Bigme B6 Color) и по известным прошивкам:
+ * `ro.product.manufacturer`/`brand` дают вендора, `ro.build.fingerprint` — вендора там, где
+ * производитель заполнен как попало, `ro.build.ProductCode` и имя Bluetooth-устройства — цвет,
+ * `persist.sys.hctmodel` — вендорский стек Bigme. Партиционные варианты (`ro.product.system.*`
+ * и другие) добавлены потому, что на части прошивок заполнены только они, а `ro.product.model`
+ * пуст.
+ */
 private val SYSTEM_PROPERTY_KEYS: List<String> = listOf(
     "ro.product.model",
     "ro.product.brand",
     "ro.product.manufacturer",
+    "ro.product.system.model",
+    "ro.product.system.brand",
+    "ro.product.system.manufacturer",
+    "ro.product.vendor.model",
+    "ro.product.vendor.brand",
+    "ro.product.vendor.manufacturer",
+    "ro.product.odm.model",
+    "ro.product.odm.brand",
+    "ro.product.odm.manufacturer",
+    "ro.product.bootimage.model",
+    "ro.product.bootimage.brand",
+    "ro.product.bootimage.manufacturer",
     "ro.build.product",
+    "ro.build.fingerprint",
+    "ro.build.display.id",
+    "ro.build.description",
+    "ro.build.ProductCode",
+    "persist.sys.hctmodel",
+    "bluetooth.device.default_name",
+    "vendor.xrz.disable_eink_vsync",
 )
 
 /**

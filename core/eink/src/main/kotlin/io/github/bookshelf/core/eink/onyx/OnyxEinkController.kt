@@ -49,6 +49,9 @@ class OnyxEinkController(
 
     override val isEinkDevice: Boolean = device.isEink
 
+    /** Вендорский SDK на месте: контроллер собирается только тогда, когда он доступен. */
+    override val hasVendorCommands: Boolean = true
+
     override val vendor: EinkVendor = EinkVendor.ONYX
 
     /** Onyx даёт уровни приложения `FAST`/`FAST_X` — «быстрый» режим доступен. */
