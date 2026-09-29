@@ -15,9 +15,6 @@ import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
-import io.mockk.coEvery
-import io.mockk.every
-import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +27,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import io.github.bookshelf.core.testing.fake.FakeBookRepository
+import io.github.bookshelf.core.testing.fake.FakeCollectionRepository
+import io.github.bookshelf.core.testing.fake.FakeFilterRepository
 
 /**
  * Редактор правил умной полки.
@@ -145,43 +145,45 @@ class ShelfRulesViewModelTest {
     /** Полка, репозитории и записанные вызовы — в одном месте, чтобы тесты читались как сценарий. */
     private class Fixture(rulesJson: String?, private val updateResult: AppResult<Unit> = AppResult.success(Unit)) {
 
-        val shelves = MutableStateFlow(
-            listOf(
+        /** Состав полок — тот же поток, что видит фейк: тест меняет его и после создания фикстуры. */
+        val shelves: MutableStateFlow<List<Collection>>
+            get() = collections.shelvesFlow
+
+        /**
+         * Репозитории — фейками, а не моками (ADR-012, правило 2). Проверки читаются как
+         * утверждения о данных: «по такому запросу считали фасеты», «вот эти правила записаны».
+         */
+        private val collections = FakeCollectionRepository()
+        private val filters = FakeFilterRepository()
+        private val books = FakeBookRepository(
+            pageFlow = flowOf(
+                PageResult(items = emptyList<Book>(), totalCount = 2, offset = 0, limit = 1),
+            ),
+        )
+
+        /** Запросы, по которым редактор считал фасеты: по ним видно, что черновик дошёл до данных. */
+        val facetQueries: List<BookQuery> get() = filters.facetQueries
+
+        /** Правила, записанные в полку; `null` — сохранения не было. */
+        val savedRulesJson: String? get() = collections.savedRules?.second
+
+        /** Сколько раз правила пытались сохранить. */
+        val updateCalls: Int get() = collections.updateSmartRulesCalls
+
+        init {
+            shelves.value = listOf(
                 Collection(
                     id = SHELF_ID,
                     name = "Космос",
                     type = CollectionType.SMART,
                     rulesJson = rulesJson,
                 ),
-            ),
-        )
-
-        /** Запросы, по которым редактор считал фасеты: по ним видно, что черновик дошёл до данных. */
-        val facetQueries = mutableListOf<BookQuery>()
-
-        /** Правила, записанные в полку; `null` — сохранения не было. */
-        var savedRulesJson: String? = null
-
-        var updateCalls = 0
-
-        private val collections = mockk<CollectionRepository>(relaxed = true)
-        private val filters = mockk<FilterRepository>(relaxed = true)
-        private val books = mockk<BookRepository>(relaxed = true)
-
-        init {
-            every { collections.observeCollections() } returns shelves
-            coEvery { collections.updateSmartRules(any(), any()) } answers {
-                updateCalls += 1
-                savedRulesJson = secondArg()
-                updateResult
-            }
-            every { filters.observeFacets(any()) } answers {
-                facetQueries += firstArg<BookQuery>()
-                flowOf(FacetSet(authors = listOf(FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2))))
-            }
-            every { filters.observeAuthorSeries(any()) } returns flowOf(AuthorSeries())
-            every { books.observePage(any()) } returns flowOf(
-                PageResult(items = emptyList<Book>(), totalCount = 2, offset = 0, limit = 1),
+            )
+            collections.updateResult = updateResult
+            filters.facetsFlow = flowOf(
+                FacetSet(
+                    authors = listOf(FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2)),
+                ),
             )
         }
 

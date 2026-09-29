@@ -46,6 +46,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import io.github.bookshelf.core.testing.fake.FakeBookRepository
 
 /**
  * Запись настроек через `SettingsViewModel` (`SettingsSettersTest`).
@@ -324,47 +325,6 @@ class SettingsSettersTest {
         override suspend fun hasWriteAccess(sourceId: String): Boolean = true
     }
 
-    private class FakeBookRepository : BookRepository {
-
-        override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
-            flowOf(PageResult(items = emptyList(), totalCount = 0, offset = 0, limit = 0))
-
-        override fun observeById(id: String): Flow<Book?> = flowOf(null)
-
-        override suspend fun getById(id: String): AppResult<Book?> = AppResult.success(null)
-
-        override suspend fun updateMetadata(bookId: String, patch: MetadataPatch): AppResult<Unit> =
-            AppResult.success(Unit)
-
-        override suspend fun setFavorite(bookId: String, favorite: Boolean): AppResult<Unit> =
-            AppResult.success(Unit)
-
-        override suspend fun setRating(bookId: String, rating: Int?): AppResult<Unit> =
-            AppResult.success(Unit)
-
-        override suspend fun markRead(bookId: String, status: ReadingStatus): AppResult<Unit> =
-            AppResult.success(Unit)
-
-        override suspend fun delete(bookId: String): AppResult<Unit> = AppResult.success(Unit)
-
-        override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
-            AppResult.success(DeletionResult(deleted = bookIds.size, failed = 0))
-
-        /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */
-        override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> =
-            AppResult.success(null)
-
-        override suspend fun saveReadingProgress(
-            bookId: String,
-            percent: Float,
-            locatorJson: String?,
-            source: String,
-        ): AppResult<Unit> = AppResult.success(Unit)
-
-        override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
-
-        override suspend fun rescanAll(): AppResult<Unit> = AppResult.success(Unit)
-    }
 
     /** API читалки: проверяется, что диагностика связи закрывает сессию и сообщает результат. */
     private class FakeFbReaderApi : FbReaderApi {
