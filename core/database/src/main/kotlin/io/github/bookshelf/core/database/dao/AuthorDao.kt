@@ -25,6 +25,15 @@ interface AuthorDao {
     @Query("SELECT * FROM authors WHERE id = :id")
     suspend fun getById(id: String): AuthorEntity?
 
+    /**
+     * Прочитать авторов пачкой id — проверка существования перед записью связей.
+     *
+     * Нужна, чтобы не спрашивать базу по одному автору на книгу: разовый проход по существующей
+     * библиотеке пишет авторов тысячами, и запрос на каждого превратился бы в тысячи обращений.
+     */
+    @Query("SELECT * FROM authors WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<AuthorEntity>
+
     /** Найти автора по точному имени — дедупликация при импорте метаданных. */
     @Query("SELECT * FROM authors WHERE name = :name LIMIT 1")
     suspend fun findByName(name: String): AuthorEntity?
@@ -33,17 +42,22 @@ interface AuthorDao {
     @Query("DELETE FROM authors WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    /** Пересчитать денормализованный счётчик книг автора. */
-    // STUB(Sprint 4): вызывать после массового импорта/удаления авторов из репозитория.
+    /**
+     * Пересчитать денормализованный счётчик книг у указанных авторов.
+     *
+     * Точечно, а не по всей таблице: правка авторов одной книги не должна переписывать строки
+     * десятков тысяч чужих авторов (на каждую запись книги это был бы полный проход по `authors`).
+     */
     @Query(
         """
         UPDATE authors
         SET bookCount = (
             SELECT COUNT(*) FROM book_authors WHERE book_authors.authorId = authors.id
         )
+        WHERE id IN (:ids)
         """,
     )
-    suspend fun refreshBookCounts()
+    suspend fun refreshBookCounts(ids: List<String>)
 
     /** Привязать авторов к книге (порядок — через `position`). */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -56,4 +70,22 @@ interface AuthorDao {
     /** Связи книги с авторами в порядке из файла. */
     @Query("SELECT * FROM book_authors WHERE bookId = :bookId ORDER BY position ASC")
     suspend fun getBookAuthors(bookId: String): List<BookAuthorCrossRef>
+
+    /**
+     * Книги, у которых авторы записаны строкой, но связей с авторами нет.
+     *
+     * Это условие разового прохода по существующей библиотеке: до перехода на связи авторское
+     * измерение жило строкой `books.authorsText`, и `authors`/`book_authors` у собранных книг пусты.
+     * Выборка по данным, а не флаг в настройках, делает проход идемпотентным: после него она пуста,
+     * и повторный запуск (в том числе на каждом следующем старте) не пишет ничего. Книги без
+     * авторов вовсе сюда не попадают — им связи не нужны.
+     */
+    @Query(
+        """
+        SELECT books.id FROM books
+        LEFT JOIN book_authors ON book_authors.bookId = books.id
+        WHERE book_authors.bookId IS NULL AND books.authorsText <> ''
+        """,
+    )
+    suspend fun idsWithoutAuthors(): List<String>
 }

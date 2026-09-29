@@ -30,11 +30,31 @@ fun parseAuthors(text: String?): List<String> =
  * Ключ набора авторов: порядок не важен, поэтому имена сортируются.
  *
  * Служит для группировки книг по составу соавторов и для сравнения наборов между собой.
+ * Тот же разделитель собирает ключ набора в SQL (`FacetSql.authorSets`): категория обзора —
+ * это набор, и её ключ обязан быть одним и тем же и в запросе, и в UI.
  */
-fun authorSetKey(authors: List<String>): String = sortedForDisplay(authors).joinToString("|")
+fun authorSetKey(authors: List<String>): String =
+    sortedForDisplay(authors).joinToString(AUTHOR_SET_SEPARATOR)
+
+/**
+ * Имена набора по его ключу.
+ *
+ * Ключ категории ходит по UI строкой (`CategoryItemUi.id`, уровень обзора), а фильтру нужны имена:
+ * без обратного разбора клик по категории не нашёл бы её книг.
+ */
+fun authorSetNames(key: String): List<String> =
+    key.split(AUTHOR_SET_SEPARATOR).map { it.trim() }.filter { it.isNotEmpty() }
 
 /** Подпись набора авторов для человека: имена по алфавиту через запятую. */
 fun authorSetLabel(authors: List<String>): String = sortedForDisplay(authors).joinToString(", ")
+
+/**
+ * Разделитель имён в ключе набора.
+ *
+ * Не запятая: запятая разделяет авторов в подписи и в строке метаданных, и ключ «A, B» было бы
+ * не отличить от одного автора с запятой в имени. Вертикальная черта не встречается в именах.
+ */
+const val AUTHOR_SET_SEPARATOR: String = "|"
 
 /** Имена по алфавиту без учёта регистра: одна и та же группа должна выглядеть одинаково. */
 private fun sortedForDisplay(authors: List<String>): List<String> =

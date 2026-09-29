@@ -23,6 +23,7 @@ complexity:
     # колбэк. Разбирать их на «параметр-объекты» ради порога — хуже для читаемости.
     excludes:
       - '**/work/ScanSourceWorker.kt'
+      - '**/work/OpdsDownloadWorker.kt'
       - '**/storage/scan/TreeWalker.kt'
       - '**/feature/library/ui/LibraryScreen.kt'
       - '**/feature/library/LibraryRoute.kt'

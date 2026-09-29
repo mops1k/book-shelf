@@ -3,6 +3,7 @@ package io.github.bookshelf.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.data.author.AuthorBackfill
 import io.github.bookshelf.core.data.sync.MetadataBackfill
 import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.SettingsRepository
@@ -63,6 +64,11 @@ class MainViewModel @Inject constructor(
      * и умная полка «по жанру» останется пустой (см. `MetadataBackfill`).
      */
     private val metadataBackfill: MetadataBackfill,
+    /**
+     * Разовый проход по авторам: в собранной ранее библиотеке связи `authors`/`book_authors` пусты,
+     * и без него авторский фасет, фильтр и серии автора показали бы ноль книг (см. `AuthorBackfill`).
+     */
+    private val authorBackfill: AuthorBackfill,
 ) : ViewModel() {
 
     private val _themeState = MutableStateFlow(ThemeState())
@@ -72,6 +78,7 @@ class MainViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { metadataBackfill.runOnce() }
+        viewModelScope.launch { authorBackfill.runOnce() }
         viewModelScope.launch {
             // Ошибки чтения хранилища разбирает сам репозиторий (`DataStoreSettingsRepository`):
             // недоступный файл настроек не должен ронять приложение, работаем на умолчаниях.

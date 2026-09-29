@@ -12,7 +12,7 @@ import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.covers.CoverCache
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.entity.BookEntity
-import io.github.bookshelf.core.data.tag.BookTagWriter
+import io.github.bookshelf.core.data.book.ParsedBookWriter
 import io.github.bookshelf.core.database.model.MetadataSource
 import io.github.bookshelf.core.database.model.ParseState
 import io.github.bookshelf.core.metadata.model.BookMetadata
@@ -50,8 +50,14 @@ class MetadataWorker @AssistedInject constructor(
     private val coverCache: CoverCache,
     private val contentOpener: BookContentOpener,
     private val clock: AppClock,
-    /** Жанры из метаданных: раньше они терялись, и полка «по жанру» не могла наполниться. */
-    private val tagWriter: BookTagWriter,
+    /**
+     * Запись результата разбора: строка книги, жанры и связи авторов.
+     *
+     * Связи авторов пишутся здесь же: разбор — основной путь появления авторов после скана,
+     * а авторское измерение (фасет, фильтр, серии) читает связи. Раньше строку книги и жанры
+     * писали врозь, и авторы не попадали в `authors`/`book_authors` вовсе.
+     */
+    private val parsedBookWriter: ParsedBookWriter,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -78,14 +84,18 @@ class MetadataWorker @AssistedInject constructor(
                     refreshCover = refreshCover,
                     store = { parsed.cover?.let { cover -> storeCover(book.id, cover) } },
                 )
-                bookDao.update(book.applyParsed(parsed.metadata, coverPath, clock.nowMillis()))
-                tagWriter.replace(bookId, parsed.metadata.tags)
+                parsedBookWriter.store(
+                    updated = book.applyParsed(parsed.metadata, coverPath, clock.nowMillis()),
+                    tags = parsed.metadata.tags,
+                )
                 Result.success(workDataOf(KEY_BOOK_ID to bookId))
             }
 
             is ParseResult.Partial -> {
-                bookDao.update(book.applyParsed(parsed.metadata, null, clock.nowMillis()))
-                tagWriter.replace(bookId, parsed.metadata.tags)
+                parsedBookWriter.store(
+                    updated = book.applyParsed(parsed.metadata, null, clock.nowMillis()),
+                    tags = parsed.metadata.tags,
+                )
                 Result.success(workDataOf(KEY_BOOK_ID to bookId))
             }
 

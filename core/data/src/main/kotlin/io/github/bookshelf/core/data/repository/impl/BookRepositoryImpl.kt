@@ -4,6 +4,8 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.time.AppClock
+import io.github.bookshelf.core.data.author.BookAuthorWriter
+import io.github.bookshelf.core.data.author.parseAuthors
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
@@ -60,6 +62,8 @@ class BookRepositoryImpl @Inject constructor(
     private val duplicateFinder: DuplicateFinder,
     private val fileRemover: SafTreeWriter,
     private val clock: AppClock,
+    /** Правка авторов должна попадать в связи: по ним работает всё авторское измерение. */
+    private val authorWriter: BookAuthorWriter,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -85,12 +89,17 @@ class BookRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateMetadata(bookId: String, patch: MetadataPatch): AppResult<Unit> {
-        if (bookDao.getById(bookId) == null) {
-            return AppResult.failure(AppError.NotFound(what = "book", message = "Книга $bookId не найдена"))
-        }
+        val book = bookDao.getById(bookId)
+            ?: return AppResult.failure(AppError.NotFound(what = "book", message = "Книга $bookId не найдена"))
         return appRunCatching {
             val existing = overrideDao.getByBookId(bookId)
-            overrideDao.upsert(existing.orEmptyPatch(bookId, patch, nowMillis()))
+            val updated = existing.orEmptyPatch(bookId, patch, nowMillis())
+            overrideDao.upsert(updated)
+            // Авторское измерение читает связи, а не строку `books.authorsText`, поэтому правка
+            // авторов обязана переписать и их. Иначе карточка показывала нового автора, а фильтр
+            // по нему не находил ни одной книги (дефект того же класса, что и весь этот переход).
+            // Берётся итоговая строка: правка могла авторов не трогать — тогда действует прежняя.
+            authorWriter.replace(bookId, updated.authorsText ?: book.authorsText)
         }
     }
 
@@ -173,7 +182,7 @@ class BookRepositoryImpl @Inject constructor(
 
     /** Книга для строки полки: авторы берутся из денормализованного `authorsText`. */
     private suspend fun BookEntity.toShelfBook(): Book =
-        toDomain(authors = authorsText.toAuthorList())
+        toDomain(authors = parseAuthors(authorsText))
             .withProgress(readingProgressDao.getByBook(bookId = id)?.percent)
             .withOverride(overrideDao.getByBookId(id))
 
@@ -255,11 +264,6 @@ class BookRepositoryImpl @Inject constructor(
     }
 }
 
-/** `authorsText` — денормализованная строка «Автор, Автор»; пустые хвосты отбрасываются. */
-private fun String.toAuthorList(): List<String> =
-    split(AUTHORS_SEPARATOR_LOCAL).map { it.trim() }.filter { it.isNotEmpty() }
-
-private const val AUTHORS_SEPARATOR_LOCAL = ","
 
 /** Наложение патча на существующую строку переопределения: заданные поля обновляются, остальные сохраняются. */
 private fun MetadataOverrideEntity?.orEmptyPatch(

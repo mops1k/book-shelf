@@ -17,6 +17,7 @@ import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.repository.ReadingProgressOrigins
+import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.database.entity.BookEntity
@@ -76,6 +77,7 @@ class SyncReadingProgressTest {
             duplicateFinder = DuplicateFinder(FakeContentHasher()),
             fileRemover = FakeFileRemover(),
             clock = FakeAppClock().apply { setTo(1_000L) },
+            authorWriter = BookAuthorWriter(database.authorDao()),
         )
     }
 

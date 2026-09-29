@@ -19,6 +19,7 @@ import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.model.Source
 import io.github.bookshelf.core.data.model.SortOrder
+import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.database.entity.AuthorEntity
@@ -85,6 +86,7 @@ class BookRepositoryTest {
             duplicateFinder = DuplicateFinder(hashes),
             fileRemover = files,
             clock = FakeAppClock(),
+            authorWriter = BookAuthorWriter(database.authorDao()),
         )
     }
 
@@ -122,6 +124,9 @@ class BookRepositoryTest {
         assertThat(page.totalCount).isEqualTo(1)
         assertThat(page.items.single().title).isEqualTo("Преступление и наказание")
     }
+
+
+
 
     @Test
     fun filters_by_series() = runBlocking {
@@ -593,6 +598,7 @@ class BookRepositoryTest {
         lastSeenAt = 1000L,
     )
 
+
     private companion object {
         const val SOURCE_ID = "source-1"
 
@@ -601,5 +607,13 @@ class BookRepositoryTest {
         const val TOLSTOY = "Лев Толстой"
         const val DOSTOEVSKY = "Фёдор Достоевский"
         const val GORKY = "Максим Горький"
+
+        const val ALEXANDER = "Александр Тарарев"
+        const val YURY = "Юрий Тарарев"
+
+        /** Идентификатор автора — тот же, что пишет приложение: `author:` + имя в нижнем регистре. */
+        fun authorIdOf(name: String): String = AUTHOR_ID_PREFIX + name.lowercase()
+
+        const val AUTHOR_ID_PREFIX = "author:"
     }
 }

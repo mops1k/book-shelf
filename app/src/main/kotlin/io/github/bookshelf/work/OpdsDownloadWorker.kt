@@ -46,6 +46,11 @@ class OpdsDownloadWorker @AssistedInject constructor(
     private val sourceDao: SourceDao,
     private val downloader: DefaultOpdsDownloader,
     private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
+    /**
+     * Связи авторов пишутся сразу при импорте, не дожидаясь разбора файла: у записи из фида
+     * авторы известны, и до разбора книга уже должна находиться фильтром по ним.
+     */
+    private val authorWriter: io.github.bookshelf.core.data.author.BookAuthorWriter,
     private val clock: AppClock,
     private val settingsRepository: SettingsRepository,
 ) : CoroutineWorker(appContext, params) {
@@ -81,6 +86,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
             ?: return fail(downloadId, downloadErrorMessage(result.errorOrNull()?.message))
         val bookId = "doc:${sha256(documentUri)}"
         bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template)))
+        authorWriter.replace(bookId, download.authorsText.orEmpty())
         downloadDao.upsert(download.copy(state = OpdsDownloadState.DONE, bookId = bookId, error = null))
         metadataScheduler.enqueueMetadata(bookId)
         return Result.success()

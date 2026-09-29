@@ -69,4 +69,14 @@ class AuthorNamesTest {
             .isNotEqualTo(authorSetKey(parseAuthors("A, B, C")))
         assertThat(authorSetKey(parseAuthors("A"))).isNotEqualTo(authorSetKey(parseAuthors("A, B")))
     }
+
+    @Test
+    fun `a set key gives back the names it was built from`() {
+        val names = parseAuthors("Юрий Тарарев, Александр Тарарев")
+
+        // Категория обзора приходит в UI ключом набора, а фильтру нужны имена: разбор ключа
+        // обязан вернуть тот же набор, иначе клик по категории не нашёл бы её книг.
+        assertThat(authorSetNames(authorSetKey(names)))
+            .containsExactly("Александр Тарарев", "Юрий Тарарев")
+    }
 }
