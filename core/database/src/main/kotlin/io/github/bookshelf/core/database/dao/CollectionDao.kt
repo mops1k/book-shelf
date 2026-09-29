@@ -60,6 +60,20 @@ interface CollectionDao {
      */
     @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId ORDER BY position ASC")
     fun getBooksFlow(collectionId: String): Flow<List<CollectionBookCrossRef>>
+
+    /**
+     * Обложки первых книг полки — для строки списка полок.
+     *
+     * Книги без обложки пропускаются, а не занимают место в списке: строка показывает то,
+     * что можно нарисовать. Порядок — пользовательский, как и у состава полки.
+     */
+    @Query(
+        "SELECT books.coverPath FROM collection_books " +
+            "JOIN books ON books.id = collection_books.bookId " +
+            "WHERE collection_books.collectionId = :collectionId AND books.coverPath IS NOT NULL " +
+            "ORDER BY collection_books.position ASC LIMIT :limit",
+    )
+    fun observePreviewCovers(collectionId: String, limit: Int): Flow<List<String>>
 }
 
 /** Строка результата [CollectionDao.observeBookCounts]: полка и число книг на ней. */

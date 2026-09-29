@@ -23,6 +23,6 @@ interface ScanCoordinator {
 
     suspend fun resume(sourceId: String): AppResult<Unit>
 
-    /** Мягкая отмена: остановиться и сохранить курсор для последующего [resume]. */
-    suspend fun cancel(sourceId: String)
+    /** Пауза: остановиться и сохранить курсор для последующего [resume]. */
+    suspend fun pause(sourceId: String)
 }

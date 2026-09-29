@@ -129,7 +129,12 @@ fun EinkChip(
             )
             .padding(horizontal = dimens.gutterSmall, vertical = dimens.gutterSmall),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+        // Зазор между подписью и числом: без него «Космическая фантастика43» читалось как одно
+        // слово (подтверждено на устройстве 28.09.2026).
+        horizontalArrangement = Arrangement.spacedBy(
+            space = dimens.gutterSmall / 2,
+            alignment = Alignment.CenterHorizontally,
+        ),
     ) {
         val textColor = if (selected) colors.invertedForeground else colors.foreground
         Text(

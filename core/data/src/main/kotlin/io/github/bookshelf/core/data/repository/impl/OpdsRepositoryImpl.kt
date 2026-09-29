@@ -12,6 +12,7 @@ import io.github.bookshelf.core.data.model.OpdsPage
 import io.github.bookshelf.core.data.repository.OpdsRepository
 import io.github.bookshelf.core.data.sync.DownloadScheduler
 import io.github.bookshelf.core.database.dao.OpdsCatalogDao
+import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.database.dao.OpdsDownloadDao
 import io.github.bookshelf.core.database.entity.OpdsCatalogEntity
 import io.github.bookshelf.core.database.entity.OpdsDownloadEntity
@@ -24,7 +25,10 @@ import io.github.bookshelf.core.opds.model.OpdsLink
 import io.github.bookshelf.core.opds.model.isAcquisition
 import io.github.bookshelf.core.opds.model.isNavigation
 import io.github.bookshelf.core.opds.parser.OpdsFeedParser
+import io.github.bookshelf.core.opds.search.OpdsSearchDescription
+import io.github.bookshelf.core.opds.search.OpdsSearchUrl
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -55,7 +59,22 @@ class OpdsRepositoryImpl @Inject constructor(
     private val downloadDao: OpdsDownloadDao,
     private val clock: AppClock,
     private val downloadScheduler: DownloadScheduler,
+    /**
+     * Возраст кэша фидов — настройка `opds.feedCacheMaxAgeMinutes`.
+     *
+     * До этого здесь стояла константа пять минут, а настройка обещала шестьдесят: пользователь
+     * (и экспорт настроек) видел одно, а приложение делало другое.
+     */
+    private val settingsRepository: SettingsRepository,
 ) : OpdsRepository {
+
+    /**
+     * Уже разобранные дескрипторы OpenSearch: адрес дескриптора → шаблон поиска.
+     *
+     * Память, а не база: это производная от фида, и держать её дольше сессии незачем. Нужна,
+     * чтобы каждый поиск не начинался с лишнего сетевого захода за дескриптором.
+     */
+    private val resolvedTemplates = ConcurrentHashMap<String, String>()
 
     override fun observeCatalogs(): Flow<List<OpdsCatalog>> =
         catalogDao.observeAll().map { rows: List<OpdsCatalogEntity> -> rows.map { it.toDomain() } }
@@ -108,13 +127,17 @@ class OpdsRepositoryImpl @Inject constructor(
             )
         val target = url ?: catalog.url
         val key = target.hashCode().toUInt().toString(HEX_RADIX)
-        val cached = when (val got = cache.get(key, CACHE_MAX_AGE_MILLIS)) {
+        // Настройки недоступны — берём документированное умолчание: каталог должен открываться
+        // даже тогда, когда файл настроек не читается.
+        val maxAgeMinutes = runCatching { settingsRepository.current().opds.feedCacheMaxAgeMinutes }
+            .getOrDefault(DEFAULT_CACHE_MAX_AGE_MINUTES)
+        val cached = when (val got = cache.get(key, maxAgeMinutes * MILLIS_PER_MINUTE)) {
             is AppResult.Failure -> null
             is AppResult.Success -> got.value
         }
 
         // Корневой заход отдаётся из кэша: список должен открываться мгновенно, а не после сети.
-        if (cached != null && url == null) return AppResult.success(cached.feed.toPage())
+        if (cached != null && url == null) return AppResult.success(cached.feed.toPage(target))
 
         val response = when (
             val got = http.get(target, cached?.let { ConditionalGet(it.etag, it.lastModified) })
@@ -123,7 +146,7 @@ class OpdsRepositoryImpl @Inject constructor(
             is AppResult.Success -> got.value
         }
         if (response.status == HTTP_NOT_MODIFIED) {
-            return cached?.let { AppResult.success(it.feed.toPage()) }
+            return cached?.let { AppResult.success(it.feed.toPage(target)) }
                 ?: AppResult.failure(
                     AppError.Parse(format = "opds", message = "Сервер не прислал фид, а кэша нет"),
                 )
@@ -133,7 +156,9 @@ class OpdsRepositoryImpl @Inject constructor(
             is AppResult.Failure -> return got
             is AppResult.Success -> got.value
         }
-        val page = feed.toPage()
+        // Адрес берётся из ответа, а не из запроса: каталог мог увести редиректом на зеркало, и
+        // тогда следующая страница и карточка записи должны ходить по фактическому адресу.
+        val page = feed.toPage(response.finalUrl)
         val touched = catalog.touched(clock.nowMillis())
         return appRunCatching {
             cache.put(feed, response.etag, response.lastModified)
@@ -141,10 +166,71 @@ class OpdsRepositoryImpl @Inject constructor(
         }.mapResult { page }
     }
 
-    /** Фид парсера → страница домена: записи и ссылка «дальше» (`rel="next"`). */
-    private fun OpdsFeed.toPage(): OpdsPage = OpdsPage(
+    /**
+     * Поиск по OpenSearch: запрос подставляется в шаблон, дальше это обычное открытие страницы.
+     *
+     * Отдельного пути по сети нет намеренно: результат поиска — такой же фид (со своей ссылкой
+     * `rel="next"` и своим шаблоном поиска), и вся логика страниц остаётся в одном месте.
+     */
+    override suspend fun search(
+        catalogId: String,
+        query: String,
+        searchTemplate: String,
+    ): AppResult<OpdsPage> {
+        if (query.isBlank()) {
+            return AppResult.failure(
+                AppError.InvalidArgument(what = "query", message = "Введите запрос для поиска"),
+            )
+        }
+        val template = resolveTemplate(searchTemplate)
+            ?: return AppResult.failure(
+                AppError.Unsupported(
+                    what = "opds-search",
+                    message = "Каталог не объявляет шаблон поиска OpenSearch",
+                ),
+            )
+        val url = OpdsSearchUrl.build(template, query)
+            ?: return AppResult.failure(
+                AppError.Unsupported(
+                    what = "opds-search",
+                    message = "Шаблон поиска каталога не содержит {searchTerms}",
+                ),
+            )
+        return browsePage(catalogId, url)
+    }
+
+    /**
+     * Шаблон поиска из того, что объявил каталог.
+     *
+     * Каталог объявляет поиск двумя способами: готовым шаблоном с `{searchTerms}` (Флибуста) или
+     * дескриптором OpenSearch, внутри которого шаблон и лежит (Project Gutenberg). Разница видна
+     * пользователю: без второго случая на Gutenberg поиск «не работает» на каталоге, который его
+     * поддерживает.
+     *
+     * Дескриптор запрашивается один раз: результат кладётся в память, и повторный поиск по тому же
+     * каталогу уже не ходит за ним. Ошибка загрузки — это `null`, а не исключение: вызывающий код
+     * сообщит «каталог не объявляет шаблон поиска», и экран перейдёт к отбору по загруженному фиду.
+     */
+    private suspend fun resolveTemplate(hint: String): String? {
+        if (OpdsSearchUrl.TEMPLATE_MARKER in hint) return hint
+        resolvedTemplates[hint]?.let { return it }
+        val response = when (val got = http.get(hint, conditional = null, credentials = null)) {
+            is AppResult.Failure -> return null
+            is AppResult.Success -> got.value
+        }
+        val template = OpdsSearchDescription.templateOf(response.body) ?: return null
+        resolvedTemplates[hint] = template
+        return template
+    }
+
+    /**
+     * Фид парсера → страница домена: записи, ссылка «дальше» (`rel="next"`), шаблон поиска и адрес.
+     */
+    private fun OpdsFeed.toPage(url: String): OpdsPage = OpdsPage(
         entries = entries.map { entry -> entry.toDomain() },
         nextUrl = nextPageUrl,
+        searchUrl = searchUrl,
+        url = url,
     )
 
     override fun observeDownloads(): Flow<List<OpdsDownload>> =
@@ -183,6 +269,7 @@ class OpdsRepositoryImpl @Inject constructor(
                     entryId = entry.id,
                     title = entry.title,
                     authorsText = entry.authorsText,
+                    seriesName = entry.seriesName,
                     downloadUrl = url,
                     mimeType = entry.mimeType,
                     expectedSize = entry.expectedSize,
@@ -227,8 +314,48 @@ class OpdsRepositoryImpl @Inject constructor(
             isSection = links.none { link -> link.isAcquisition() },
             sectionHref = links.firstOrNull { link -> link.isNavigation() }?.href,
             mimeType = chosen?.type ?: (acquisition as? OpdsLink)?.type,
-            expectedSize = null,
+            // Размер берётся у выбранной ссылки: у Флибусты его нет, у Project Gutenberg он есть
+            // атрибутом length — и тогда в карточке видно, сколько книга весит.
+            expectedSize = chosen?.length,
+            // Метаданные карточки книги. Раньше всё это терялось при маппинге, и карточка
+            // показывала только автора и формат — «посмотреть, что за книга» было негде.
+            summary = summary?.takeIf { it.isNotBlank() },
+            language = language,
+            issued = issued,
+            updated = updated,
+            seriesName = seriesName,
+            seriesUrl = seriesUrl,
+            authorUrl = authorUrl,
+            // Форматы — все ссылки приобретения, а не только выбранная: у Флибусты их шесть
+            // (fb2, epub, mobi, txt, rtf, html), и пользователь вправе видеть выбор.
+            formats = links.filter { it.isAcquisition() }
+                .mapNotNull { link -> link.type?.let(::formatLabel) }
+                .distinct(),
+            genres = genres,
+            identifier = dcIdentifier,
         )
+    }
+
+    /**
+     * Подпись формата по MIME.
+     *
+     * `substringAfter('/').uppercase()` даёт «X-MOBIPOCKET-EBOOK» и «FB2+ZIP» — в карточке это
+     * читается как мусор, поэтому известные типы сводятся к привычным именам.
+     */
+    private fun formatLabel(mime: String): String {
+        val subtype = mime.substringAfter('/', mime).lowercase()
+        return when {
+            subtype.startsWith("fb2") -> "FB2"
+            subtype.startsWith("epub") -> "EPUB"
+            subtype.startsWith("mobi") || subtype.contains("mobipocket") -> "MOBI"
+            subtype.startsWith("pdf") -> "PDF"
+            subtype.startsWith("rtf") -> "RTF"
+            subtype.startsWith("html") -> "HTML"
+            subtype.startsWith("txt") || subtype.startsWith("plain") -> "TXT"
+            subtype.contains("comicbook+zip") -> "CBZ"
+            subtype.contains("comicbook-rar") -> "CBR"
+            else -> subtype.uppercase()
+        }
     }
 
     private fun OpdsCatalogEntity.toDomain() = OpdsCatalog(
@@ -264,6 +391,7 @@ class OpdsRepositoryImpl @Inject constructor(
         entryId = entryId,
         title = title,
         downloadUrl = downloadUrl,
+        seriesName = seriesName,
         state = state.toDomain(),
         bytesDownloaded = bytesDownloaded,
         error = error,
@@ -293,7 +421,10 @@ class OpdsRepositoryImpl @Inject constructor(
         /** Основание системы счисления ключа URL: шестнадцатеричная строка компактнее. */
         const val HEX_RADIX = 16
 
-        /** Пять минут: открытый с полки каталог не должен устаревать мгновенно. */
-        const val CACHE_MAX_AGE_MILLIS = 5 * 60 * 1000L
+        /** Сколько миллисекунд в минуте: возраст кэша хранится настройкой в минутах. */
+        const val MILLIS_PER_MINUTE = 60 * 1000L
+
+        /** Возраст кэша по умолчанию, если настройки недоступны: как в `SettingsKeys.Defaults`. */
+        const val DEFAULT_CACHE_MAX_AGE_MINUTES = 60
     }
 }

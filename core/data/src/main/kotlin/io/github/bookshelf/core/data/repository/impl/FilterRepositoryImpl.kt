@@ -1,11 +1,15 @@
 package io.github.bookshelf.core.data.repository.impl
 
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.data.mapper.FacetSql
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
+import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.model.label
 import io.github.bookshelf.core.data.repository.FilterRepository
+import io.github.bookshelf.core.data.tag.genreDisplayName
 import io.github.bookshelf.core.database.dao.FacetDao
 import io.github.bookshelf.core.database.relation.AuthorFacet
 import io.github.bookshelf.core.database.relation.FormatFacet
@@ -40,34 +44,39 @@ class FilterRepositoryImpl @Inject constructor(
 ) : FilterRepository {
 
     override fun observeFacets(query: BookQuery): Flow<FacetSet> = combine(
-        facetDao.observeAuthors(),
-        facetDao.observeSeries(),
-        facetDao.observeFormats(),
-        facetDao.observeReadingStatuses(),
-        facetDao.observeTags(),
+        // Фасеты считаются тем же предикатом, что и список книг, и без собственного фильтра:
+        // выбранный автор сужает серии и жанры, но список авторов остаётся полным, чтобы можно
+        // было выбрать второго (docs/architecture.md §3.5, ADR-008).
+        facetDao.observeAuthors(FacetSql.authors(query)),
+        facetDao.observeSeries(FacetSql.series(query)),
+        facetDao.observeFormats(FacetSql.formats(query)),
+        facetDao.observeReadingStatuses(FacetSql.statuses(query)),
+        facetDao.observeTags(FacetSql.tags(query)),
     ) { authors: List<AuthorFacet>, series: List<SeriesFacet>, formats: List<FormatFacet>,
         statuses: List<ReadingStatusFacet>, tags: List<TagFacet> ->
-        val statusNames = query.statuses.map { it.name }.toSet()
         FacetSet(
             authors = authors
-                .filter { query.authorNames.isEmpty() || it.name in query.authorNames }
                 .map { FacetItem(id = it.name, label = it.name, count = it.bookCount) },
             series = series
-                .filter { query.series.isEmpty() || it.seriesName in query.series }
                 .map { FacetItem(id = it.seriesName, label = it.seriesName, count = it.bookCount) },
             formats = formats
-                .filter { query.formats.isEmpty() || it.extension in query.formats }
                 .map { FacetItem(id = it.extension, label = it.extension, count = it.bookCount) },
-            // Статус приходит enum'ом слоя БД, а фильтр хранит доменный: сопоставляем по имени,
-            // иначе «статусы фильтра не совпали» будет выглядеть как пустой экран.
             statuses = statuses
-                .filter { query.statuses.isEmpty() || it.readingStatus.name in statusNames }
-                .map { FacetItem(id = it.readingStatus.name, label = it.readingStatus.name, count = it.bookCount) },
+                // id остаётся именем статуса (по нему строится запрос), подпись — словами:
+                // чип «UNREAD» читался бы как код, а не как состояние чтения.
+                .map { facet ->
+                    FacetItem(
+                        id = facet.readingStatus.name,
+                        label = statusLabel(facet.readingStatus.name),
+                        count = facet.bookCount,
+                    )
+                },
             // Жанры/теги: раньше здесь стояла заглушка, и жанры были не видны ни в фильтрах,
             // ни в умных полках, хотя парсеры их читали.
             tags = tags
-                .filter { query.tags.isEmpty() || it.name in query.tags }
-                .map { FacetItem(id = it.name, label = it.name, count = it.bookCount) },
+                // id остаётся кодом из метаданных (по нему фильтрует SQL), подпись — название:
+                // пользователю нельзя показывать `sf_space` вместо «Космической фантастики».
+                .map { FacetItem(id = it.name, label = genreDisplayName(it.name), count = it.bookCount) },
         )
     }.flowOn(dispatchers.metadata)
 
@@ -89,3 +98,7 @@ class FilterRepositoryImpl @Inject constructor(
             }
             .flowOn(dispatchers.metadata)
 }
+
+/** Подпись статуса чтения по имени из БД; неизвестное имя остаётся как есть. */
+internal fun statusLabel(name: String): String =
+    ReadingStatus.entries.firstOrNull { status -> status.name == name }?.label ?: name

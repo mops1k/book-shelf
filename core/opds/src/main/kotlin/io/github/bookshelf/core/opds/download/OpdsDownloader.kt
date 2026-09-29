@@ -47,6 +47,10 @@ interface OpdsDownloader {
  * @param targetSourceId `source` библиотеки, в который качаем; null — папка по умолчанию.
  * @param targetRelativeDir относительная папка внутри источника; null — корень источника.
  * @param credentials учётные данные каталога; null — каталог без авторизации.
+ * @param series серия книги; нужна заполнителю `{series}` в шаблоне пути (скачать в папку серии).
+ * @param fileNameTemplate шаблон относительного пути из настроек (`opds.downloadFileNameTemplate`);
+ *   по умолчанию — документированное «автор — название», чтобы запрос можно было собрать
+ *   в тестах и в местах, где настроек нет.
  */
 data class DownloadRequest(
     val catalogId: String,
@@ -59,6 +63,8 @@ data class DownloadRequest(
     val targetSourceId: String?,
     val targetRelativeDir: String?,
     val credentials: OpdsCredentials?,
+    val series: String? = null,
+    val fileNameTemplate: String = DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE,
 )
 
 /**
@@ -156,7 +162,14 @@ class DefaultOpdsDownloader @Inject constructor(
         checkCancelled: () -> Boolean = { false },
         onProgress: suspend (downloaded: Long, total: Long) -> Unit = { _, _ -> },
     ): AppResult<String> {
-        val fileName = fileNameOf(request)
+        val relativePath = relativePathOf(request)
+        val fileName = relativePath.substringAfterLast('/')
+        // Папки из шаблона добавляются к папке назначения: «{author}/{title}» раскладывает книги
+        // по авторам внутри выбранной папки-источника. Временные папки `SafTreeWriter` создаёт сам.
+        val relativeDir = listOfNotNull(
+            request.targetRelativeDir?.trim()?.takeIf { it.isNotEmpty() },
+            relativeDirsOf(request).takeIf { it.isNotEmpty() },
+        ).joinToString("/")
         // Схема «сначала `.part` в папке, потом переименование» на SAF не работает: системный
         // провайдер внешнего хранилища не поддерживает переименование через `update`
         // (ошибка «Update not supported»), и загрузка падала уже после успешной передачи байтов.
@@ -198,7 +211,7 @@ class DefaultOpdsDownloader @Inject constructor(
             // Перенос в дерево: файл появляется у пользователя целиком и сразу под своим именем.
             writer.writeStream(
                 treeUri = treeUri,
-                relativeDir = request.targetRelativeDir.orEmpty(),
+                relativeDir = relativeDir,
                 fileName = fileName,
                 // Настоящий MIME, а не `application/octet-stream`: провайдер внешнего хранилища
                 // отказывает в создании документа с безымянным типом («Update not supported»).
@@ -255,15 +268,27 @@ class DefaultOpdsDownloader @Inject constructor(
 }
 
 /**
- * Имя файла из названия книги.
+ * Относительный путь скачанного файла внутри папки-источника.
  *
  * Раньше файл получал имя загрузки (идентификатор), и в папке лежали нечитаемые файлы вроде
- * `3f2a9c1e-....fb2`. Имя строится из названия и расширения, которое угадывается по ссылке.
+ * `3f2a9c1e-....fb2`; затем имя стало строиться только из названия, а автор терялся. Теперь
+ * заполнители шаблона подставляет [renderDownloadRelativePath], а слэш в шаблоне раскладывает
+ * книги по подпапкам (например, по авторам и сериям).
  */
-fun fileNameOf(request: DownloadRequest): String {
-    val base = sanitizeFileName(request.title).ifBlank { "book" }
-    return "$base.${bookExtensionOf(request)}"
-}
+fun relativePathOf(request: DownloadRequest): String = renderDownloadRelativePath(
+    template = request.fileNameTemplate,
+    title = request.title,
+    authors = request.authors,
+    series = request.series,
+    extension = bookExtensionOf(request),
+)
+
+/** Имя файла — последний сегмент относительного пути ([relativePathOf]). */
+fun fileNameOf(request: DownloadRequest): String = relativePathOf(request).substringAfterLast('/')
+
+/** Папки внутри источника — всё, что в пути до имени файла; пусто, если шаблон плоский. */
+fun relativeDirsOf(request: DownloadRequest): String =
+    relativePathOf(request).substringBeforeLast('/', missingDelimiterValue = "")
 
 /**
  * Расширение книги для таблицы `books`.
@@ -297,22 +322,7 @@ private fun extensionOf(mimeType: String?, url: String): String {
     return if (subtype == "octet-stream") DEFAULT_EXTENSION else subtype.lowercase()
 }
 
-/**
- * Очистка названия для имени файла.
- *
- * Запрещены только разделители пути и управляющие символы — они ломают путь. Всё остальное
- * сохраняется: кириллица, «№», кавычки и тире у названий книг встречаются постоянно, а
- * прежняя жёсткая фильтрация превращала «Полдень XXI век 2002 №3» в «Полдень XXI век 2002 _3».
- */
-private fun sanitizeFileName(value: String): String = value
-    .filterNot { char -> char.isISOControl() || char in FORBIDDEN_IN_NAME }
-    .trim()
-    .take(MAX_NAME_LENGTH)
-
-private val FORBIDDEN_IN_NAME = charArrayOf('/', '\\', ':', '*', '?', '"', '<', '>', '|', '\u0000')
-
 /** Расширение в имени файла, в том числе составное: `fb2.zip`, `cbr`. */
 private val EXTENSION_IN_NAME = Regex("\\.[A-Za-z0-9]+(\\.[A-Za-z0-9]+)?$")
 
 private const val DEFAULT_EXTENSION = "fb2"
-private const val MAX_NAME_LENGTH = 120

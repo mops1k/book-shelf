@@ -47,6 +47,14 @@ data class OpdsDownloadEntity(
     val entryId: String,
     val title: String,
     val authorsText: String? = null,
+    /**
+     * Серия книги, если каталог её сообщил.
+     *
+     * Хранится в строке загрузки, а не берётся из фида при скачивании: к моменту работы воркера
+     * фида под рукой нет, а заполнитель `{series}` в шаблоне пути (`opds.downloadFileNameTemplate`)
+     * раскладывает книги по папкам серий.
+     */
+    val seriesName: String? = null,
     val downloadUrl: String,
     val mimeType: String? = null,
     val expectedSize: Long? = null,

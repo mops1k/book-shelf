@@ -119,7 +119,12 @@ class SafTreeWriterImpl @Inject constructor(
     }
 
     override suspend fun delete(documentUri: String): AppResult<Unit> = appRunCatching {
-        resolver.delete(Uri.parse(documentUri), null, null)
+        // Именно `DocumentsContract.deleteDocument`, а не `ContentResolver.delete`: у базового
+        // `DocumentsProvider.delete()` реализация бросает `UnsupportedOperationException`
+        // («Delete not supported»), а провайдеры реализуют `deleteDocument` — его и вызывает этот
+        // метод. Проверено на Bigme 29.09.2026: через `resolver.delete` удаление файла падало,
+        // и книга оставалась в библиотеке.
+        DocumentsContract.deleteDocument(resolver, Uri.parse(documentUri))
         Unit
     }
 

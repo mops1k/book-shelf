@@ -13,7 +13,16 @@ interface MetadataScheduler {
     /**
      * Поставить разбор книги.
      *
-     * @param force разобрать заново даже при `parseState = OK` — для разового бэкфилла жанров.
+     * @param force разобрать заново даже при `parseState = OK` — для разового бэкфилла жанров;
+     * @param refreshCover заново извлечь обложку. По умолчанию обложка **не перечитывается**:
+     *   файл книги лежит на устройстве и не меняется, поэтому уже сохранённая картинка
+     *   переиспользуется, а разбор нужен ради названия, авторов и жанров. Заново обложка берётся
+     *   только по явной команде «Обновить из файла» или когда файл изменился — тогда скан
+     *   сбрасывает кэш обложки.
      */
-    suspend fun enqueueMetadata(bookId: String, force: Boolean = false)
+    suspend fun enqueueMetadata(
+        bookId: String,
+        force: Boolean = false,
+        refreshCover: Boolean = false,
+    )
 }

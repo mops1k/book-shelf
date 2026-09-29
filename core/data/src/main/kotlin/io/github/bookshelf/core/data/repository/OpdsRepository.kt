@@ -39,13 +39,29 @@ interface OpdsRepository {
     suspend fun browse(catalogId: String, url: String? = null): AppResult<List<OpdsEntry>>
 
     /**
-     * Открыть страницу фида вместе со ссылкой на следующую (`rel="next"`).
+     * Открыть страницу фида вместе со ссылкой на следующую (`rel="next"`) и шаблоном поиска.
      *
      * Отдельно от [browse], потому что текучей догрузке нужен адрес следующей страницы: без него
      * фид длиннее одной страницы обрывался, и дальше первой страницы пользователь не уходил.
      * [browse] остаётся удобной обёрткой для тех, кому нужны только записи.
      */
     suspend fun browsePage(catalogId: String, url: String? = null): AppResult<OpdsPage>
+
+    /**
+     * Поиск по каталогу через OpenSearch (docs/opds.md §3.2).
+     *
+     * [searchTemplate] — то, что каталог объявил ссылкой `rel="search"`: готовый шаблон с
+     * `{searchTerms}` либо дескриптор OpenSearch, внутри которого шаблон лежит. Второй случай
+     * разбирает репозиторий — экран не должен знать ни про маркер, ни про дескрипторы.
+     *
+     * Результат — обычная страница фида: у неё есть `rel="next"` для догрузки, а [OpdsPage.url]
+     * хранит адрес запроса, по которому карточка записи найдёт её снова.
+     */
+    suspend fun search(
+        catalogId: String,
+        query: String,
+        searchTemplate: String,
+    ): AppResult<OpdsPage>
 
     fun observeDownloads(): Flow<List<OpdsDownload>>
 

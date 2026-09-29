@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.data.repository
 
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
@@ -45,6 +46,20 @@ interface BookRepository {
     suspend fun delete(bookId: String): AppResult<Unit>
 
     /**
+     * Удалить книги вместе с их файлами на устройстве.
+     *
+     * Файл удаляется первым: если провайдер откажет, запись остаётся в библиотеке. Иначе строка
+     * исчезла бы, а следующий скан вернул бы книгу на полку — и удаление выглядело бы так, будто
+     * оно отменилось само.
+     *
+     * @return сколько записей удалено и на скольких файлах провайдер отказал.
+     */
+    suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult>
+
+    /** Найти книги с одинаковым содержимым и файлы, которые не читаются (нулевой размер). */
+    suspend fun findDuplicates(): AppResult<DuplicateReport>
+
+    /**
      * Очистить библиотеку и заново просканировать все настроенные папки.
      *
      * Файлы на устройстве не трогаются: удаляются только записи в базе, после чего сканы
@@ -53,3 +68,14 @@ interface BookRepository {
      */
     suspend fun rescanAll(): AppResult<Unit>
 }
+
+/**
+ * Итог удаления книг с устройства.
+ *
+ * @param deleted сколько записей удалено вместе с файлами.
+ * @param failed на скольких книгах провайдер отказал в удалении файла: записи таких книг остались.
+ */
+data class DeletionResult(
+    val deleted: Int,
+    val failed: Int,
+)

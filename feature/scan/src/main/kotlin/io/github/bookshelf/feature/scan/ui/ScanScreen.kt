@@ -34,7 +34,9 @@ import io.github.bookshelf.feature.scan.ProblemFileUi
 import io.github.bookshelf.feature.scan.ScanMode
 import io.github.bookshelf.feature.scan.ScanUiState
 import io.github.bookshelf.feature.scan.ScanViewModel
+import io.github.bookshelf.feature.scan.scanProgressCaption
 import io.github.bookshelf.feature.scan.scanProgressFraction
+import io.github.bookshelf.feature.scan.scanStatusLabel
 
 /** Сколько групп дубликатов помещается на «страницу». */
 private const val DUPLICATES_PAGE_SIZE = 2
@@ -54,7 +56,7 @@ fun ScanScreen(
     viewModel: ScanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // «Отменить» должна работать как «Назад», когда отменять нечего.
+    // «К полке» ведёт на предыдущий экран — сюда же, куда и стрелка назад.
     LaunchedEffect(Unit) { viewModel.setOnExit(onBack) }
 
     when (state.mode) {
@@ -83,7 +85,7 @@ fun ScanScreen(
     }
 }
 
-/** Прогресс сканирования с мягкой отменой и продолжением. */
+/** Прогресс сканирования: пауза во время прогона, продолжение с сохранённого места. */
 @Composable
 private fun ProgressScreen(
     state: ScanUiState,
@@ -101,7 +103,9 @@ private fun ProgressScreen(
         onBack = onBack,
         onKeyAction = { action ->
             when (action) {
-                EinkAction.OPEN -> viewModel.onResume()
+                // Центральная кнопка продолжает скан, когда он стоит на паузе, и уходит на полку,
+                // когда продолжать нечего.
+                EinkAction.OPEN -> if (state.canResume) viewModel.onResume() else viewModel.onOpenLibrary()
                 EinkAction.MENU -> viewModel.onShowReport()
                 EinkAction.BACK -> onBack()
                 else -> Unit
@@ -124,9 +128,10 @@ private fun ProgressScreen(
             )
         } else {
             EinkProgress(
-                caption = "Сканирование… ${progress.filesSeen} из ${progress.filesTotal ?: 0}",
+                caption = scanProgressCaption(progress),
                 progress = scanProgressFraction(progress.filesSeen, progress.filesTotal),
-                detail = "Добавлено ${progress.added}, ошибок ${progress.failed}",
+                detail = "${scanStatusLabel(state.status)} · добавлено ${progress.added}, " +
+                    "ошибок ${progress.failed}",
             )
             Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
                 EinkListRow(title = "Просмотрено файлов", trailing = progress.filesSeen.toString())
@@ -135,20 +140,38 @@ private fun ProgressScreen(
                 EinkListRow(title = "Пропало", trailing = progress.removed.toString())
                 EinkListRow(title = "Не разобрано", trailing = progress.failed.toString())
             }
+            // Кнопки по состоянию прогона: во время скана — «Пауза», на паузе — «Продолжить».
+            // «К полке» есть всегда: скан идёт в фоне, и держать пользователя на этом экране
+            // незачем. Кнопки «Отменить» нет намеренно — скан прерываемый и возобновляемый.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
-                EinkButton(text = "Отменить", onClick = viewModel::onCancel, modifier = Modifier.weight(1f))
-                EinkButton(
-                    text = "Продолжить",
-                    onClick = viewModel::onResume,
-                    enabled = state.canResume,
-                    primary = true,
-                    modifier = Modifier.weight(1f),
-                )
+                if (state.actions.canPause) {
+                    EinkButton(
+                        text = "Пауза",
+                        onClick = viewModel::onPause,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (state.actions.canResume) {
+                    EinkButton(
+                        text = "Продолжить",
+                        onClick = viewModel::onResume,
+                        primary = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (state.actions.canOpenLibrary) {
+                    EinkButton(
+                        text = "К полке",
+                        onClick = viewModel::onOpenLibrary,
+                        primary = !state.actions.canPause && !state.actions.canResume,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }

@@ -45,8 +45,9 @@ data class EinkRefreshSettings(
 /**
  * Реализация [EinkRefreshHost] поверх корневого view экрана.
  *
- * STUB(Sprint 10): значения [EinkRefreshSettings] должны приходить из `SettingsRepository`
- * и применяться без перезапуска; сейчас используются значения по умолчанию.
+ * Значения [EinkRefreshSettings] приходят из `SettingsRepository` через `ThemeState` (`MainActivity`):
+ * `remember(controller, view, settings)` в [EinkRefreshBridge] пересоздаёт host при изменении
+ * настроек, поэтому переключатель в разделе «Экран (e-ink)» действует без перезапуска.
  */
 class ViewEinkRefreshHost(
     private val controller: EinkController,

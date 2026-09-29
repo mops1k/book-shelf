@@ -221,13 +221,26 @@ class TreeWalkerTest {
             return AppResult.success(entries[parentDocumentId].orEmpty())
         }
 
-        override suspend fun takePersistablePermission(treeUri: String): AppResult<Unit> =
-            AppResult.success(Unit)
+        override suspend fun takePersistablePermission(
+            treeUri: String,
+            modeFlags: Int,
+        ): AppResult<Unit> = AppResult.success(Unit)
 
         override fun hasPersistedPermission(treeUri: String): Boolean = true
 
+        /** В тесте обхода дерева запись не проверяется: право считается выданным. */
+        override fun hasWritePermission(treeUri: String): Boolean = true
+
         override fun documentUri(treeUri: String, documentId: String): String =
             Uri.parse("$treeUri/document/$documentId").toString()
+
+        /**
+         * В этом тесте проверяется обход дерева, а не путь: идентификаторы документов здесь
+         * условные, поэтому возвращается последний сегмент. Сборка пути проверяется
+         * в `SafRelativePathTest`.
+         */
+        override fun relativePath(treeUri: String, documentId: String): String =
+            documentId.substringAfterLast('/')
     }
 
     private companion object {

@@ -68,7 +68,7 @@ internal object BookPageSql {
      * разъедутся со значениями. Параметры добавляются строка за строкой, в момент присоединения
      * каждого условия.
      */
-    private fun buildWhere(
+    internal fun buildWhere(
         bookQuery: io.github.bookshelf.core.data.model.BookQuery,
         args: MutableList<Any?>,
     ): String {
@@ -101,9 +101,16 @@ internal object BookPageSql {
             conditions += "books.readingStatus IN (${placeholders(statuses.size)})"
             args.addAll(statuses.map { it.name })
         }
-        bookQuery.tags.takeIf { it.isNotEmpty() }?.let {
-            conditions += "books.id IN (SELECT bookId FROM book_tags WHERE tagId IN (${placeholders(it.size)}))"
-            args.addAll(it)
+        bookQuery.tags.takeIf { it.isNotEmpty() }?.let { tags ->
+            // Значения фильтра — коды жанров из метаданных (`sf_space`), а `book_tags.tagId`
+            // хранит `tags.id` (`tag:sf_space`). Сравнивать код с колонкой tagId напрямую нельзя:
+            // не совпадала ни одна строка, и «полка по жанру» показывала 0 книг, хотя чип фасета
+            // честно писал 43. Поэтому связь идёт через `tags.name`, а код остаётся значением
+            // фильтра и записью в правилах умной полки.
+            conditions += "books.id IN (SELECT book_tags.bookId FROM book_tags " +
+                "INNER JOIN tags ON tags.id = book_tags.tagId " +
+                "WHERE tags.name IN (${placeholders(tags.size)}))"
+            args.addAll(tags)
         }
         if (bookQuery.favoritesOnly) {
             conditions += "books.favorite = 1"

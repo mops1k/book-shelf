@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.database.migration.MIGRATION_1_2
+import io.github.bookshelf.core.database.migration.MIGRATION_2_3
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -113,6 +114,31 @@ class BookshelfDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate_2_to_3_adds_an_empty_series_to_existing_downloads() {
+        givenVersion2WithDownload()
+
+        helper.runMigrationsAndValidate(TEST_DB, 3, true, MIGRATION_2_3).use { db ->
+            // Строка загрузки, созданная до миграции, обязана остаться: у пользователя в очереди
+            // может лежать начатая загрузка.
+            assertThat(db.stringOf("SELECT title FROM opds_downloads WHERE id = ?", DOWNLOAD_ID))
+                .isEqualTo("Солярис")
+            // Серии у старой загрузки нет — NULL, а не пустая строка: заполнитель `{series}`
+            // отбрасывает пустую часть, а пустая строка создала бы папку без имени.
+            assertThat(db.nullableStringOf("SELECT seriesName FROM opds_downloads WHERE id = ?", DOWNLOAD_ID))
+                .isNull()
+
+            // Столбец не только существует, но и записывается — иначе шаблон с серией молча
+            // раскладывал бы всё в корень.
+            db.execSQL(
+                "UPDATE opds_downloads SET seriesName = ? WHERE id = ?",
+                arrayOf<Any>("Пространство Откровения", DOWNLOAD_ID),
+            )
+            assertThat(db.stringOf("SELECT seriesName FROM opds_downloads WHERE id = ?", DOWNLOAD_ID))
+                .isEqualTo("Пространство Откровения")
+        }
+    }
+
     private fun givenVersion1WithBook() {
         helper.createDatabase(TEST_DB, 1).apply {
             execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
@@ -142,9 +168,46 @@ class BookshelfDatabaseMigrationTest {
     private fun bookArgs(id: String, title: String): Array<Any> =
         arrayOf<Any>(id, title, title, "Лев Толстой")
 
+    /**
+     * Строка очереди загрузок версии 2.
+     *
+     * Вставляются только обязательные поля: у `seriesName` в схеме 2 столбца ещё нет, а у
+     * `authorsText`, `mimeType`, `expectedSize`, `error` и `bookId` столбцы допускают NULL.
+     */
+    private fun givenVersion2WithDownload() {
+        helper.createDatabase(TEST_DB, 2).apply {
+            execSQL(
+                "INSERT INTO opds_downloads (id, catalogId, entryId, title, downloadUrl, " +
+                    "targetSourceId, targetRelativeDir, state, bytesDownloaded, createdAt) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf<Any>(
+                    DOWNLOAD_ID,
+                    "catalog-1",
+                    "entry-1",
+                    "Солярис",
+                    "https://host/1.fb2",
+                    "source-1",
+                    "",
+                    "QUEUED",
+                    0L,
+                    1000L,
+                ),
+            )
+            close()
+        }
+    }
+
+    /** Значение столбца, допускающего NULL: [stringOf] на NULL бросил бы исключение. */
+    private fun SupportSQLiteDatabase.nullableStringOf(sql: String, id: String): String? =
+        query(sql, arrayOf<Any>(id)).use { cursor ->
+            check(cursor.moveToFirst()) { "запрос не вернул строк: $sql" }
+            cursor.getString(0)
+        }
+
     private companion object {
         const val TEST_DB = "migration-test.db"
         const val BOOK_ID = "book-1"
+        const val DOWNLOAD_ID = "download-1"
 
         /**
          * Вставка только обязательных полей: схема требует `metadataSource`, `parseState`,

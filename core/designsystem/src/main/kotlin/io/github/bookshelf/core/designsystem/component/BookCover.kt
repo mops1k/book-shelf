@@ -5,20 +5,25 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
 
 /** Пропорция книжной обложки — общая константа, чтобы сетка не «плясала» между экранами. */
 const val COVER_ASPECT_RATIO = 0.66f
@@ -28,9 +33,16 @@ const val COVER_ASPECT_RATIO = 0.66f
  *
  * Особенности под e-ink:
  * * нет crossfade и анимаций placeholder;
- * * без файла рисуется рамка с названием — читаемо и не «шумит»;
- * * [inverted] инвертирует изображение при отрисовке, не создавая второй файл в кэше
- *   (docs/architecture.md §5).
+ * * без файла рисуется рамка с названием — читаемо и не «шумит» (если не задан [formatBadge]);
+ * * [inverted] и настройка `LocalInvertCovers` инвертируют изображение при отрисовке, не создавая
+ *   второй файл в кэше (docs/architecture.md §5).
+ *
+ * @param formatBadge формат книги («FB2», «PDF») в правом верхнем углу обложки. Для плиток полки
+ *   он заменяет название внутри заглушки: название и так стоит строкой ниже, а на самой обложке
+ *   полезнее формат.
+ * @param statusBadge статус чтения («не прочитано», «читаю 42%») полосой внизу обложки. Полоса
+ *   живёт **внутри** обложки, а не отдельной строкой под плиткой: на e-ink каждая строка стоит
+ *   высоты экрана, и внутри обложки статус не отнимает места у следующего ряда книг.
  */
 @Composable
 fun BookCover(
@@ -46,9 +58,38 @@ fun BookCover(
      * приходит ссылкой, а не файлом в кэше, и подставить её было некуда.
      */
     coverUrl: String? = null,
+    formatBadge: String? = null,
+    statusBadge: String? = null,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
+    val context = LocalContext.current
+
+    // Инверсия включается любым из двух путей: настройкой приложения (локал) и точечным
+    // параметром [inverted]. Фильтр строится только при включённой инверсии: он завязан
+    // на `android.graphics` и без надобности не нужен.
+    val invert = inverted || LocalInvertCovers.current
+    val invertFilter = remember(invert) {
+        if (invert) ColorFilter.colorMatrix(ColorMatrix(invertedColorMatrix())) else null
+    }
+    // Ключ кэша Coil по умолчанию — путь к файлу. Обложка может быть перерисована под ТЕМ ЖЕ
+    // путём (карточка книги → «Обновить из файла»), и тогда кэш отдал бы старую картинку:
+    // на устройстве 28.09.2026 обложка PDF так и оставалась чёрной на экране, хотя в файле уже
+    // лежала страница. Поэтому в ключ входит время изменения файла — оно меняется при записи.
+    val revision = coverPath?.let { path -> java.io.File(path).lastModified() } ?: 0L
+    val imageModel: Any? = if (coverUrl != null) {
+        coverUrl
+    } else if (coverPath != null) {
+        remember(coverPath, revision) {
+            ImageRequest.Builder(context)
+                .data(java.io.File(coverPath))
+                .memoryCacheKey("$coverPath#$revision")
+                .diskCacheKey("$coverPath#$revision")
+                .build()
+        }
+    } else {
+        null
+    }
 
     Box(
         modifier = modifier
@@ -57,15 +98,19 @@ fun BookCover(
             .background(colors.background),
         contentAlignment = Alignment.Center,
     ) {
-        if (coverPath != null || coverUrl != null) {
+        if (imageModel != null) {
             AsyncImage(
-                model = coverUrl ?: java.io.File(coverPath!!),
+                model = imageModel,
                 contentDescription = contentDescription ?: title,
                 contentScale = ContentScale.Fit,
-                colorFilter = if (inverted) INVERT_FILTER else null,
+                colorFilter = invertFilter,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
+            // Название по центру пустой обложки. Оно дублирует подпись под плиткой намеренно:
+            // подпись в две строки обрезается многоточием, а здесь название видно целиком —
+            // это и есть способ прочитать его у книги без обложки (просьба Александра 28.09.2026).
+            // Отступы сверху и снизу разводят название с плашкой формата и полосой статуса.
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelMedium,
@@ -73,10 +118,60 @@ fun BookCover(
                 textAlign = TextAlign.Center,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(dimens.gutterSmall),
+                modifier = Modifier.padding(
+                    start = dimens.gutterSmall,
+                    end = dimens.gutterSmall,
+                    top = dimens.gutterSmall * 2,
+                    bottom = dimens.gutterSmall * 3,
+                ),
+            )
+        }
+
+        if (formatBadge != null) {
+            CoverBadge(text = formatBadge, modifier = Modifier.align(Alignment.TopEnd))
+        }
+
+        if (statusBadge != null) {
+            Text(
+                text = statusBadge,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.foreground,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    // Плашка непрозрачная: на e-ink полупрозрачность и тени запрещены, а по светлой
+                    // обложке светлый текст было бы не прочитать (docs/eink-ux.md §5).
+                    .background(colors.background)
+                    .border(dimens.border, colors.divider)
+                    .padding(vertical = dimens.gutterSmall / 4),
             )
         }
     }
+}
+
+/** Компактная плашка на обложке: формат книги. Размер по подписи, а не во всю ширину. */
+@Composable
+private fun CoverBadge(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = colors.foreground,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .background(colors.background)
+            .border(dimens.border, colors.divider)
+            .padding(horizontal = dimens.gutterSmall / 3, vertical = dimens.gutterSmall / 6),
+    )
 }
 
 /** Заглушка обложки: нужна, пока размер ячейки ещё не вычислен (первый кадр экрана). */
@@ -91,14 +186,27 @@ fun BookCoverPlaceholder(modifier: Modifier = Modifier) {
     )
 }
 
-/** Инверсия через цветовую матрицу: один и тот же файл годится и для тёмной темы. */
-private val INVERT_FILTER: ColorFilter = ColorFilter.colorMatrix(
-    ColorMatrix(
-        floatArrayOf(
-            -1f, 0f, 0f, 0f, 255f,
-            0f, -1f, 0f, 0f, 255f,
-            0f, 0f, -1f, 0f, 255f,
-            0f, 0f, 0f, 1f, 0f,
-        ),
-    ),
+/**
+ * Матрица инверсии: цвета обложки становятся негативом.
+ *
+ * Функция чистая и живёт отдельно от Composable намеренно: правило «настройка включена —
+ * значит матрица именно такая» проверяется обычным JUnit без устройства (docs/tdd.md §7),
+ * а [ColorFilter] собирается из неё уже при отрисовке.
+ *
+ * Диагональ `-1` инвертирует канал, а свободный член `255` возвращает диапазон 0..255 вместо
+ * получающегося после умножения -255..0. Альфа (`1` в последней строке) не трогается: иначе
+ * полупрозрачные PNG-обложки стали бы полностью прозрачными.
+ */
+internal fun invertedColorMatrix(): FloatArray = floatArrayOf(
+    -1f, 0f, 0f, 0f, INVERT_CHANNEL_MAX,
+    0f, -1f, 0f, 0f, INVERT_CHANNEL_MAX,
+    0f, 0f, -1f, 0f, INVERT_CHANNEL_MAX,
+    0f, 0f, 0f, 1f, 0f,
 )
+
+/**
+ * Верхняя граница канала: после умножения на -1 цвет уходит в -255..0, и эту же границу надо
+ * прибавить, чтобы вернуть его в привычный диапазон 0..255.
+ */
+private const val INVERT_CHANNEL_MAX = 255f
+

@@ -22,6 +22,12 @@ dependencies {
     implementation(project(":core:opds"))
     implementation(project(":core:eink"))
 
+    // Обложки записей OPDS приходят ссылкой, и Coil нужен сетевой загрузчик: без него
+    // `AsyncImage(coverUrl)` молча не рисует ничего. OkHttp тот же, что у каталога, — чтобы
+    // обложки грузились там, где DNS каталога заблокирован (DoH-резолвер из :core:opds).
+    implementation(libs.coil.network.okhttp)
+    implementation(libs.okhttp)
+
     // features
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:library"))

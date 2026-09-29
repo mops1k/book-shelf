@@ -1,6 +1,8 @@
 package io.github.bookshelf.core.storage.saf
 
 import android.content.ContentResolver
+import android.content.Intent
+import android.content.UriPermission
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
@@ -143,6 +145,82 @@ class SafTreeReaderTest {
         Uri.parse(TREE_URI),
         ROOT_DOCUMENT_ID,
     )
+
+    @Test
+    fun take_persistable_permission_saves_read_and_write() = runTest {
+        // Дефект 29.09.2026: сохранялось только чтение, и скачивание книги в папку отклонялось
+        // провайдером, как только у приложения не было системного «доступа ко всем файлам».
+        val resolver = mockk<ContentResolver>(relaxed = true)
+        val reader = AndroidSafTreeReader(resolver)
+
+        reader.takePersistablePermission(TREE_URI)
+
+        verify(exactly = 1) {
+            resolver.takePersistableUriPermission(Uri.parse(TREE_URI), PERSISTABLE_TREE_MODES)
+        }
+    }
+
+    @Test
+    fun take_persistable_permission_falls_back_to_read_only() = runTest {
+        val resolver = mockk<ContentResolver>(relaxed = true)
+        every {
+            resolver.takePersistableUriPermission(any(), PERSISTABLE_TREE_MODES)
+        } throws SecurityException("провайдер дал только чтение")
+        val reader = AndroidSafTreeReader(resolver)
+
+        val result = reader.takePersistablePermission(TREE_URI)
+
+        // Папка обязана пережить перезапуск даже без записи: потерять источник целиком хуже,
+        // чем не суметь в него скачать.
+        assertThat(result.getOrNull()).isEqualTo(Unit)
+        verify(exactly = 1) {
+            resolver.takePersistableUriPermission(Uri.parse(TREE_URI), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    @Test
+    fun write_permission_is_read_from_persisted_grants() {
+        // UriPermission — системный класс с package-private конструктором, поэтому его свойства
+        // подменяются: проверяется ровно то, что читает реализация.
+        val writeGrant = mockk<UriPermission> {
+            every { uri } returns Uri.parse(TREE_URI)
+            every { isWritePermission } returns true
+        }
+        val readGrant = mockk<UriPermission> {
+            every { uri } returns Uri.parse(TREE_URI)
+            every { isWritePermission } returns false
+        }
+        val withWrite = mockk<ContentResolver>()
+        every { withWrite.persistedUriPermissions } returns listOf(writeGrant)
+        val readOnly = mockk<ContentResolver>()
+        every { readOnly.persistedUriPermissions } returns listOf(readGrant)
+
+        assertThat(AndroidSafTreeReader(withWrite).hasWritePermission(TREE_URI)).isTrue()
+        assertThat(AndroidSafTreeReader(readOnly).hasWritePermission(TREE_URI)).isFalse()
+    }
+
+    @Test
+    fun relative_path_keeps_the_folders_inside_the_tree() {
+        // Дефект 29.09.2026: сканер писал в `relativePath` только имя файла, и книга из подпапки
+        // выглядела лежащей в корне. Здесь проверяется, что корень дерева отбрасывается, а папки
+        // внутри него — нет.
+        val reader = AndroidSafTreeReader(mockk(relaxed = true))
+
+        val path = reader.relativePath(TREE_URI, "$ROOT_DOCUMENT_ID/Автор/Книга.fb2")
+
+        assertThat(path).isEqualTo("Автор/Книга.fb2")
+    }
+
+    @Test
+    fun relative_path_falls_back_to_the_file_name_for_a_foreign_document() {
+        // Идентификатор без общего с корнем префикса: полный идентификатор в поле «Путь» выглядел
+        // бы мусором, поэтому берётся имя файла.
+        val reader = AndroidSafTreeReader(mockk(relaxed = true))
+
+        val path = reader.relativePath(TREE_URI, "другое-дерево/Книга.fb2")
+
+        assertThat(path).isEqualTo("Книга.fb2")
+    }
 
     private companion object {
 

@@ -21,21 +21,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
-
-/** Килобайт и мегабайт — для подписи размера файла в записи фида. */
-private const val BYTES_IN_KILOBYTE = 1024L
-private const val BYTES_IN_MEGABYTE = 1024.0 * 1024.0
-
-/** Полная шкала прогресса загрузки: [DownloadUi.progressPercent] хранит проценты, 0..100. */
-private const val PERCENT_MAX = 100
 
 /** Формат даты последнего открытия каталога в списке. */
 private const val DATE_PATTERN = "dd.MM"
 
-/** Русская локаль: в подписях дробная часть отделяется запятой, а не точкой. */
-private val russianLocale: Locale = Locale.forLanguageTag("ru")
+/** Подпись уровня результатов серверного поиска в хлебных крошках. */
+private const val SEARCH_PREFIX = "Поиск: "
+
+/**
+ * Подпись локального отбора.
+ *
+ * Отличается от [SEARCH_PREFIX] намеренно: здесь сервер о запросе не знает, и одинаковые подписи
+ * обещали бы поиск по всему каталогу там, где просмотрены только загруженные страницы.
+ */
+private const val LOCAL_SEARCH_PREFIX = "Поиск по загруженному фиду: "
 
 /**
  * ViewModel модуля OPDS (docs/opds.md §3, Sprint 8).
@@ -50,6 +50,8 @@ private val russianLocale: Locale = Locale.forLanguageTag("ru")
 class CatalogsViewModel @Inject constructor(
     private val opdsRepository: OpdsRepository,
     private val sourceRepository: SourceRepository,
+    /** Просьбы из карточки книги: «открой фид автора/серии». */
+    private val catalogFeedRequest: CatalogFeedRequest,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogsUiState())
@@ -70,6 +72,15 @@ class CatalogsViewModel @Inject constructor(
     private var currentNextUrl: String? = null
 
     /**
+     * Шаблон OpenSearch текущего каталога (`rel="search"` с `{searchTerms}`).
+     *
+     * Хранится от последнего загруженного фида, а не только от текущего: поиск объявлен обычно в
+     * корне, а искать пользователь хочет и внутри раздела, где своей ссылки `rel="search"` нет.
+     * `null` означает «каталог поиск не объявляет» — тогда ищем по уже загруженным записям.
+     */
+    private var currentSearchUrl: String? = null
+
+    /**
      * История открытых разделов: «Назад» возвращает на уровень выше, а не в список каталогов.
      *
      * Уровни хранятся целиком, поэтому возврат мгновенный — без сети и без ожидания.
@@ -78,6 +89,7 @@ class CatalogsViewModel @Inject constructor(
 
     init {
         observeState()
+        observeFeedRequests()
     }
 
     /**
@@ -89,6 +101,9 @@ class CatalogsViewModel @Inject constructor(
     fun onOpenCatalog(catalogId: String) {
         currentCatalogId = catalogId
         currentEntries = emptyMap()
+        // Шаблон поиска принадлежит каталогу: у другого каталога он свой, и тащить старый значит
+        // искать книги одного каталога в другом.
+        currentSearchUrl = null
         feedStack.clear()
         _uiState.value = _uiState.value.copy(
             mode = CatalogsMode.FEED,
@@ -221,7 +236,12 @@ class CatalogsViewModel @Inject constructor(
                     // Корневой фид — начало истории: разделы прошлого каталога в ней недопустимы.
                     feedStack.clear()
                     currentFeedUrl = null
-                    showFeed(catalogId, page.entries, nextUrl = page.nextUrl)
+                    showFeed(
+                        catalogId = catalogId,
+                        entries = page.entries,
+                        nextUrl = page.nextUrl,
+                        searchUrl = page.searchUrl,
+                    )
                 },
                 onFailure = { showError("Не удалось загрузить фид", it) },
             )
@@ -266,8 +286,16 @@ class CatalogsViewModel @Inject constructor(
                     // Уровень запоминается только при успехе: если раздел не открылся, мы остались
                     // на текущем, и «Назад» должна вести выше именно от него.
                     pushCurrentLevel()
-                    currentFeedUrl = sectionHref
-                    showFeed(catalogId, page.entries, parentTitle = entry.title, nextUrl = page.nextUrl)
+                    // Адрес берём из ответа: после редиректа на зеркало карточка записи обязана
+                    // перечитывать тот же фид, а не исходный адрес раздела.
+                    currentFeedUrl = page.url ?: sectionHref
+                    showFeed(
+                        catalogId = catalogId,
+                        entries = page.entries,
+                        parentTitle = entry.title,
+                        nextUrl = page.nextUrl,
+                        searchUrl = page.searchUrl,
+                    )
                 },
                 onFailure = { showError("Не удалось открыть раздел", it) },
             )
@@ -326,17 +354,109 @@ class CatalogsViewModel @Inject constructor(
     }
 
     /**
-     * Поиск по каталогу через OpenSearch.
+     * Поиск по каталогу.
      *
-     * В контракте [OpdsRepository] нет ни метода поиска, ни шаблона `{searchTerms}`, а каталог
-     * хранит только корневой URL, поэтому подставить запрос нечем. Вместо падения в баннер уходит
-     * сообщение «пока не поддерживается».
+     * Два пути, и оба нужны (docs/opds.md §3.2):
+     * 1. каталог объявил OpenSearch (`rel="search"` с `{searchTerms}`) — запрос уходит на сервер
+     *    через [OpdsRepository.search], результат становится обычным уровнем фида;
+     * 2. шаблона нет — ищем по уже загруженным записям и говорим об этом в хлебных крошках, а не
+     *    показываем пустоту: «ничего не найдено» и «поиск тут невозможен» — разные вещи.
+     *
+     * Результаты кладутся поверх истории ([pushCurrentLevel]), поэтому «Назад» возвращает туда,
+     * где пользователь искал, а не в корень каталога.
      */
     fun onSearchInFeed() {
-        _uiState.value = _uiState.value.copy(
-            error = "Поиск по фиду пока не поддерживается: в OpdsRepository нет метода поиска " +
-                "и шаблона OpenSearch",
+        val catalogId = currentCatalogId ?: return
+        // Пока идёт запрос, второй тап отправил бы второй поиск: на e-ink палец успевает дважды.
+        if (_uiState.value.isLoading) return
+        val query = _uiState.value.feedQuery.trim()
+        if (query.isEmpty()) {
+            showError("Поиск по каталогу", AppError.InvalidArgument("query", "введите запрос"))
+            return
+        }
+        val template = currentSearchUrl
+        if (template == null) {
+            searchLoadedFeed(catalogId, query)
+            return
+        }
+        viewModelScope.launch {
+            setLoading(true)
+            val result = opdsRepository.search(catalogId, query, template)
+            setLoading(false)
+            result.fold(
+                onSuccess = { page ->
+                    pushCurrentLevel()
+                    currentFeedUrl = page.url
+                    showFeed(
+                        catalogId = catalogId,
+                        entries = page.entries,
+                        parentTitle = "$SEARCH_PREFIX$query",
+                        nextUrl = page.nextUrl,
+                        searchUrl = page.searchUrl,
+                    )
+                },
+                onFailure = { error ->
+                    // Каталог объявил поиск, но пригодного шаблона в объявлении нет (например,
+                    // дескриптор OpenSearch не разобрался): отбираем по загруженному фиду вместо
+                    // пустого экрана с ошибкой — искать всё равно есть по чему.
+                    if (error is AppError.Unsupported) {
+                        searchLoadedFeed(catalogId, query)
+                    } else {
+                        showError("Не удалось выполнить поиск", error)
+                    }
+                },
+            )
+        }
+    }
+
+    /**
+     * Поиск по уже загруженному фиду: каталог не объявил OpenSearch.
+     *
+     * Фильтруются те же записи, что показаны: сервер о запросе не знает, и обещать «поиск по
+     * каталогу» здесь нельзя — подпись уровня говорит «по загруженному фиду».
+     */
+    private fun searchLoadedFeed(catalogId: String, query: String) {
+        val matches = currentEntries.values.filter { entry ->
+            entry.title.contains(query, ignoreCase = true) ||
+                entry.authorsText?.contains(query, ignoreCase = true) == true
+        }
+        pushCurrentLevel()
+        // Догрузки у локального отбора нет: следующая страница фида осталась на уровне выше.
+        showFeed(
+            catalogId = catalogId,
+            entries = matches,
+            parentTitle = LOCAL_SEARCH_PREFIX + query,
         )
+    }
+
+    /**
+     * Перечитать текущий фид.
+     *
+     * Нужно кнопке «Повторить» на баннере ошибки: без неё единственным выходом из сбоя сети был
+     * уход на уровень выше и повторный заход. Уровень при этом не меняется — крошки остаются те же.
+     */
+    fun onReloadFeed() {
+        val catalogId = currentCatalogId ?: return
+        val url = currentFeedUrl
+        viewModelScope.launch {
+            setLoading(true)
+            val result = opdsRepository.browsePage(catalogId, url)
+            setLoading(false)
+            result.fold(
+                onSuccess = { page ->
+                    showFeed(
+                        catalogId = catalogId,
+                        entries = page.entries,
+                        // Крошки не пересобираем: перечитывается тот же уровень, и «… / Новинки»
+                        // не должно превратиться в «… / Новинки / Новинки».
+                        breadcrumbs = _uiState.value.currentFeed?.breadcrumbs,
+                        nextUrl = page.nextUrl,
+                        searchUrl = page.searchUrl,
+                    )
+                },
+                onFailure = { showError("Не удалось загрузить фид", it) },
+            )
+        }
     }
 
     /** Отменить активную загрузку (уже скачанное сохраняется). */
@@ -368,7 +488,18 @@ class CatalogsViewModel @Inject constructor(
             opdsRepository.observeDownloads()
                 .catch { throwable -> showError("Не удалось загрузить загрузки", throwable.toAppError()) }
                 .collect { downloads ->
-                    _uiState.value = _uiState.value.copy(downloads = downloads.map { it.toDownloadUi() })
+                    val mapped = downloads.map { it.toDownloadUi() }
+                    // Состояние загрузок проставляется и записям текущего фида: пользователь
+                    // ставит книгу в очередь и остаётся в списке — признак должен быть там же,
+                    // где он нажал, а не только на экране «Загрузки».
+                    _uiState.value = _uiState.value.copy(
+                        downloads = mapped,
+                        // Записи фида лежат внутри currentFeed: состояние загрузки проставляется
+                        // им же, иначе признак был бы только на экране «Загрузки».
+                        currentFeed = _uiState.value.currentFeed?.let { feed ->
+                            feed.copy(entries = withDownloads(feed.entries, mapped))
+                        },
+                    )
                 }
         }
     }
@@ -380,7 +511,11 @@ class CatalogsViewModel @Inject constructor(
         parentTitle: String? = null,
         nextUrl: String? = null,
         breadcrumbs: List<String>? = null,
+        searchUrl: String? = null,
     ) {
+        // Шаблон поиска обновляется, если фид его объявил; иначе остаётся прежний: в разделах
+        // Флибусты своей ссылки rel="search" нет, а поиск там нужен.
+        currentSearchUrl = searchUrl ?: currentSearchUrl
         // В фидах жанров Флибуста одна и та же книга встречается несколько раз: у неё сразу
         // несколько жанров. Повторные записи и сбивали ключ сетки («Key … was already used»),
         // из-за чего приложение падало на третьем вложенном уровне. Показываем книгу один раз.
@@ -400,7 +535,10 @@ class CatalogsViewModel @Inject constructor(
                 } else {
                     _uiState.value.currentFeed?.breadcrumbs.orEmpty() + parentTitle
                 },
-                entries = unique.map { it.toFeedEntryUi() },
+                entries = withDownloads(
+                    entries = unique.map { it.toFeedEntryUi() },
+                    downloads = _uiState.value.downloads,
+                ),
                 // Фид целиком из разделов — навигационный; книги в нём означают листинг.
                 isNavigation = unique.isNotEmpty() && unique.all { entry -> entry.isSection },
                 // Есть ли следующая страница: по этому признаку UI решает, догружать ли дальше.
@@ -444,12 +582,64 @@ class CatalogsViewModel @Inject constructor(
             // Крошки уже собраны на предыдущих шагах — переносим их как есть.
             breadcrumbs = feed.breadcrumbs,
             nextUrl = page.nextUrl,
+            searchUrl = page.searchUrl,
         )
     }
 
     /** Флаг «идёт сетевой запрос»: UI не должен давать вторую команду поверх первой. */
     private fun setLoading(isLoading: Boolean) {
         _uiState.value = _uiState.value.copy(isLoading = isLoading)
+    }
+
+    /**
+     * Просьбы из карточки книги: открыть фид автора или фид серии.
+     *
+     * Браузер каталога остаётся в стеке навигации, поэтому просьба приходит сюда, а не создаёт
+     * второй экран браузера: так сохраняется история уровней, и «Назад» из фида автора возвращает
+     * на прежний фид, а не в список каталогов.
+     */
+    private fun observeFeedRequests() {
+        viewModelScope.launch {
+            catalogFeedRequest.request.collect { request ->
+                if (request == null) return@collect
+                catalogFeedRequest.consume()
+                openRequestedFeed(request)
+            }
+        }
+    }
+
+    /** Открыть фид, запрошенный карточкой книги, и показать его как обычный уровень. */
+    private fun openRequestedFeed(request: CatalogFeedRequest.Request) {
+        if (currentCatalogId != request.catalogId) {
+            // Карточка могла быть открыта из другого каталога: тогда начинаем с чистого листа,
+            // иначе «Назад» вернула бы в разделы чужого каталога. Фид сбрасывается тоже — иначе
+            // pushCurrentLevel запомнил бы уровень предыдущего каталога как «предыдущий».
+            currentCatalogId = request.catalogId
+            currentEntries = emptyMap()
+            currentSearchUrl = null
+            feedStack.clear()
+            _uiState.value = _uiState.value.copy(currentFeed = null)
+        }
+        _uiState.value = _uiState.value.copy(mode = CatalogsMode.FEED, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            val result = opdsRepository.browsePage(request.catalogId, request.feedUrl)
+            setLoading(false)
+            result.fold(
+                onSuccess = { page ->
+                    pushCurrentLevel()
+                    currentFeedUrl = page.url ?: request.feedUrl
+                    showFeed(
+                        catalogId = request.catalogId,
+                        entries = page.entries,
+                        parentTitle = request.title,
+                        nextUrl = page.nextUrl,
+                        searchUrl = page.searchUrl,
+                    )
+                },
+                onFailure = { showError("Не удалось открыть фид каталога", it) },
+            )
+        }
     }
 
     /**
@@ -506,46 +696,6 @@ private fun OpdsEntry.toFeedEntryUi(): FeedEntryUi = FeedEntryUi(
     authors = authorsText.orEmpty(),
     coverUrl = coverUrl,
     formats = mimeType?.let { listOf(it.substringAfter('/').uppercase()) }.orEmpty(),
-    sizeLabel = expectedSize?.let { size ->
-        val megabytes = size / BYTES_IN_MEGABYTE
-        if (megabytes >= 1.0) {
-            String.format(russianLocale, "%.1f МБ", megabytes)
-        } else {
-            "${size / BYTES_IN_KILOBYTE} КБ"
-        }
-    },
+    sizeLabel = expectedSize?.let(::fileSizeLabel),
 )
 
-/**
- * Загрузка для строки очереди.
- *
- * Прогресс считается из скачанных байт: размер известен не всегда, поэтому при `null` показывается
- * 0, а готовая загрузка — как 100%. На паузе загрузка остаётся активной: её ещё можно отменить.
- */
-private fun OpdsDownload.toDownloadUi(): DownloadUi {
-    val total = expectedSize
-    val percent = when {
-        state == DownloadState.DONE -> PERCENT_MAX
-        total == null || total <= 0L -> 0
-        else -> ((bytesDownloaded.toDouble() / total) * PERCENT_MAX).toInt().coerceIn(0, PERCENT_MAX)
-    }
-    val isActive = state == DownloadState.QUEUED ||
-        state == DownloadState.RUNNING ||
-        state == DownloadState.PAUSED
-    return DownloadUi(
-        id = id,
-        title = title,
-        stateLabel = when (state) {
-            DownloadState.QUEUED -> "В очереди"
-            DownloadState.RUNNING -> "Скачивается"
-            DownloadState.PAUSED -> "На паузе"
-            DownloadState.DONE -> "Готово"
-            DownloadState.FAILED -> "Ошибка"
-            DownloadState.CANCELLED -> "Отменено"
-        },
-        progressPercent = percent,
-        isActive = isActive,
-        bookId = bookId,
-        error = error,
-    )
-}

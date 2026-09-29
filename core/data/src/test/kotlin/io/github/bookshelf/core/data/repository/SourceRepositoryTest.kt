@@ -89,6 +89,25 @@ class SourceRepositoryTest {
     }
 
     @Test
+    fun hasWriteAccess_reflects_the_persisted_grant() = runBlocking {
+        val source = repository.addSafSource(TREE_URI, DISPLAY_NAME).getOrNull()
+        requireNotNull(source)
+
+        // Провайдер сохранил только чтение: скачивание в эту папку провалится, и экран настроек
+        // обязан показать это пользователю.
+        permissionTaker.writePermission = false
+        assertThat(repository.hasWriteAccess(source.id)).isFalse()
+
+        permissionTaker.writePermission = true
+        assertThat(repository.hasWriteAccess(source.id)).isTrue()
+    }
+
+    @Test
+    fun hasWriteAccess_is_false_for_unknown_source() = runBlocking {
+        assertThat(repository.hasWriteAccess("нет такого источника")).isFalse()
+    }
+
+    @Test
     fun addSafSource_permission_denied_does_not_write_source_or_schedule_scan() = runBlocking {
         permissionTaker.permissionResult = AppResult.failure(
             AppError.PermissionDenied(uri = TREE_URI, message = "Разрешение не выдано"),
@@ -230,16 +249,28 @@ private class RecordingSafTreeReader : SafTreeReader {
     val requestedUris = mutableListOf<String>()
     var permissionResult: AppResult<Unit> = AppResult.success(Unit)
 
+    /** Право записи в папку: тест задаёт его сам, по умолчанию записи нет. */
+    var writePermission: Boolean = false
+
     override suspend fun children(treeUri: String, parentDocumentId: String): AppResult<List<DocumentEntry>> =
         AppResult.failure(AppError.Unsupported("children не вызывается в тестах репозитория"))
 
-    override suspend fun takePersistablePermission(treeUri: String): AppResult<Unit> {
+    override suspend fun takePersistablePermission(
+        treeUri: String,
+        modeFlags: Int,
+    ): AppResult<Unit> {
         requestedUris += treeUri
         return permissionResult
     }
 
     override fun hasPersistedPermission(treeUri: String): Boolean = true
 
+    override fun hasWritePermission(treeUri: String): Boolean = writePermission
+
     override fun documentUri(treeUri: String, documentId: String): String =
         "$treeUri/document/$documentId"
+
+    /** В тестах репозитория путь не проверяется: возвращается последний сегмент идентификатора. */
+    override fun relativePath(treeUri: String, documentId: String): String =
+        documentId.substringAfterLast('/')
 }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 
@@ -108,6 +109,7 @@ fun EinkListRow(
                     style = MaterialTheme.typography.bodyLarge,
                     color = textColor,
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (subtitle != null) {
                     Text(
@@ -115,6 +117,10 @@ fun EinkListRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = textColor,
                         maxLines = 1,
+                        // Многоточие обязательно: подпись умной полки («Умная полка · жанр: …,
+                        // статус: …») длиннее строки, и без него текст обрывался на середине слова —
+                        // выглядело как потерянные данные, а не как сокращение.
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

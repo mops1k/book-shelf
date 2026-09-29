@@ -9,6 +9,9 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:designsystem"))
+    // Кэш обложек: раздел «Хранилище и кэш» показывает занятое место и очищает его
+    // (`CoverCache.sizeBytes()` / `clear()`).
+    implementation(project(":core:covers"))
     implementation(project(":core:data"))
     implementation(project(":core:datastore"))
     implementation(project(":core:storage"))

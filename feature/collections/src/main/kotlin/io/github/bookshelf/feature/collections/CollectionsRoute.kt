@@ -14,13 +14,19 @@ object CollectionsRoute {
  * Регистрирует экран коллекций в навигационном графе.
  *
  * @param onBack возврат на полку.
- * @param onOpenCollection открытие содержимого выбранной полки (Sprint 7).
+ * @param onOpenCollection открытие содержимого выбранной полки.
+ * @param onEditRules открытие редактора правил умной полки.
  */
 fun NavGraphBuilder.collectionsScreen(
     onBack: () -> Unit,
     onOpenCollection: (String) -> Unit,
+    onEditRules: (String) -> Unit,
 ) {
     composable(CollectionsRoute.route) {
-        CollectionsScreen(onBack = onBack, onOpenCollection = onOpenCollection)
+        CollectionsScreen(
+            onBack = onBack,
+            onOpenCollection = onOpenCollection,
+            onEditRules = onEditRules,
+        )
     }
 }

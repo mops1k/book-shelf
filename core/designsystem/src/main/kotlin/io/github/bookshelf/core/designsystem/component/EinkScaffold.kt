@@ -1,6 +1,8 @@
 package io.github.bookshelf.core.designsystem.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.input.onEinkKeys
@@ -27,6 +32,7 @@ import io.github.bookshelf.core.designsystem.refresh.RefreshReason
 import io.github.bookshelf.core.designsystem.refresh.RequestRefreshOnEnter
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
 
 /**
  * Каркас экрана: тулбар в одну строку, содержимое, нижняя строка, обработка аппаратных кнопок
@@ -41,6 +47,10 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
  * Меню — непрозрачная панель **поверх** содержимого, а не всплывающий слой с тенью: на e-ink
  * полупрозрачность, тени и анимации запрещены (docs/eink-ux.md §5). Содержимое при этом остаётся
  * в дереве композиции, поэтому позиция прокрутки списка не сбрасывается при открытии меню.
+ *
+ * @param volumeKeysAsPageTurn значение по умолчанию берётся из `LocalVolumeKeysAsPageTurn` —
+ *   настройки приложения (docs/eink-ux.md §3.2). Параметр оставлен: им переопределяют поведение
+ *   точечно (тесты, экран, где громкость нужна как громкость), не поднимая локал.
  */
 @Composable
 fun EinkScaffold(
@@ -52,20 +62,35 @@ fun EinkScaffold(
     menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
     menuTitle: String = "Действия",
     footer: @Composable (() -> Unit)? = null,
-    volumeKeysAsPageTurn: Boolean = true,
+    volumeKeysAsPageTurn: Boolean = LocalVolumeKeysAsPageTurn.current,
     onKeyAction: (EinkAction) -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
     var isMenuOpen by remember { mutableStateOf(false) }
+    val keyFocus = remember { FocusRequester() }
 
     RequestRefreshOnEnter(RefreshReason.SCREEN_CHANGED)
+
+    // Аппаратные клавиши приходят только узлу в фокусе. Без явного запроса фокуса `onEinkKeys`
+    // не получал ни одного события: на устройстве 28.09.2026 не работали ни Page Up/Down
+    // (полка не листалась), ни MENU (меню «Ещё» не открывалось). Индикатор фокуса не нужен —
+    // на e-ink подсветка и анимации запрещены, поэтому indication выключен.
+    LaunchedEffect(Unit) {
+        runCatching { keyFocus.requestFocus() }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background)
+            .focusRequester(keyFocus)
+            // Индикатор фокуса не рисуется: `indication` к узлу не подключён, а анимации и
+            // подсветка на e-ink запрещены (docs/eink-ux.md §5).
+            .focusable(
+                interactionSource = remember { MutableInteractionSource() },
+            )
             .onEinkKeys(
                 volumeKeysAsPageTurn = volumeKeysAsPageTurn,
                 onAction = { action ->

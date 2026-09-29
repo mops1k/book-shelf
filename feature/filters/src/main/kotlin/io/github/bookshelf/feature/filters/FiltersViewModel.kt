@@ -3,9 +3,7 @@ package io.github.bookshelf.feature.filters
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.LibraryQuery
-import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
@@ -126,17 +124,6 @@ class FiltersViewModel @Inject constructor(
             }
         }
     }
-
-    private fun FilterSelectionUi.toBookQuery(): BookQuery = BookQuery(
-        authorNames = authors,
-        series = series,
-        formats = formats,
-        statuses = statuses.mapNotNull { value -> value.toReadingStatus() }.toSet(),
-        tags = tags,
-    )
-
-    private fun String.toReadingStatus(): ReadingStatus? =
-        ReadingStatus.entries.firstOrNull { status -> status.name.equals(this, ignoreCase = true) }
 
     private companion object {
         const val COUNT_PAGE_SIZE = 1

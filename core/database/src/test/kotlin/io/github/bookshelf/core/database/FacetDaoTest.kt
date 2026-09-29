@@ -52,7 +52,7 @@ class FacetDaoTest {
     fun author_facets_come_from_denormalized_authors_text() = runBlocking {
         givenBooks()
 
-        val authors = facets.observeAuthors().first()
+        val authors = facets.observeAuthors(authorsQuery()).first()
 
         assertThat(authors.map { it.name }).containsExactly("Лев Толстой", "Фёдор Достоевский")
         assertThat(authors.first { it.name == "Лев Толстой" }.bookCount).isEqualTo(3)
@@ -101,7 +101,7 @@ class FacetDaoTest {
             ),
         )
 
-        val tags = facets.observeTags().first()
+        val tags = facets.observeTags(tagsQuery()).first()
 
         // Жанры считаются по связям book_tags: до появления фасета теги не были видны вообще,
         // и умная полка «по жанру» не могла наполниться.
@@ -109,6 +109,21 @@ class FacetDaoTest {
         assertThat(tags.first { it.name == "фэнтези" }.bookCount).isEqualTo(2)
         assertThat(tags.first { it.name == "детектив" }.bookCount).isEqualTo(1)
     }
+
+
+    /** Фасет авторов без фильтров: тест проверяет счётчики, а не предикат. */
+    private fun authorsQuery() = androidx.sqlite.db.SimpleSQLiteQuery(
+        "SELECT books.authorsText AS name, COUNT(*) AS bookCount FROM books " +
+            "WHERE books.authorsText <> '' " +
+            "GROUP BY books.authorsText ORDER BY books.authorsText COLLATE NOCASE ASC",
+    )
+
+    /** Фасет жанров без фильтров: считает книги по связям book_tags. */
+    private fun tagsQuery() = androidx.sqlite.db.SimpleSQLiteQuery(
+        "SELECT tags.name AS name, COUNT(book_tags.bookId) AS bookCount FROM tags " +
+            "INNER JOIN book_tags ON book_tags.tagId = tags.id " +
+            "GROUP BY tags.id, tags.name ORDER BY bookCount DESC, tags.name COLLATE NOCASE ASC",
+    )
 
     private suspend fun givenBooks() {
         database.sourceDao().insert(SOURCE)

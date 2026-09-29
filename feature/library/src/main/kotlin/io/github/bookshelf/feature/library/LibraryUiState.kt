@@ -1,5 +1,6 @@
 package io.github.bookshelf.feature.library
 
+import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.model.SortOrder
@@ -19,6 +20,8 @@ data class BookCardUi(
     val authors: String,
     /** Путь к файлу обложки в кэше; `null` — рисуется заглушка с названием. */
     val coverPath: String? = null,
+    /** Формат файла без точки: показывается бейджем в правом верхнем углу обложки. */
+    val extension: String = "",
     /** Статус чтения — из `books.readingStatus`. */
     val readingStatus: ReadingStatus = ReadingStatus.UNREAD,
     /** Прогресс чтения в процентах; `null` — читалка его не отдаёт (Sprint 7). */
@@ -52,6 +55,23 @@ data class FilterChipsUi(
 }
 
 /**
+ * Подписи активных фильтров из доменного запроса — для кнопки «Фильтры (N)» и подвала полки.
+ *
+ * Считаются **значения**, а не критерии: три автора и одна серия дают «Фильтры (4)». Так решил
+ * Александр 28.09.2026, разбирая, что цифра на кнопке всегда оставалась нулём.
+ *
+ * Без этой функции `LibraryUiState.activeFilters` не заполнялось нигде, кроме сброса: полка
+ * фильтровала книги правильно, а подпись кнопки врала.
+ */
+fun BookQuery.toFilterChipsUi(): FilterChipsUi = FilterChipsUi(
+    authors = authorNames.toList(),
+    series = series.toList(),
+    formats = formats.toList(),
+    statuses = statuses.toList(),
+    tags = tags.toList(),
+)
+
+/**
  * Состояние экрана полки.
  *
  * На этапе каркаса заполнено только значение по умолчанию: запросов к БД нет.
@@ -73,12 +93,17 @@ data class LibraryUiState(
     val grouping: Grouping = Grouping.NONE,
     /** Чипы активных фильтров над полкой. */
     val activeFilters: FilterChipsUi = FilterChipsUi(),
+    /**
+     * Порядок задан одной серией: внутри неё сортировка не выбирается, книги идут по выпуску.
+     *
+     * Хранится отдельно от [activeFilters]: ограничение по серии приходит и с экрана фильтров,
+     * и из обзора «по сериям», а подвал обязан показывать настоящий порядок книг в обоих случаях.
+     */
+    val seriesOrderByRelease: Boolean = false,
     /** Обзор по категориям (авторы/серии) вместо плоского списка книг. */
     val browse: BrowseUi = BrowseUi(),
     /** Идёт загрузка страницы. */
     val isLoading: Boolean = false,
-    /** Идёт пересканирование: база очищена, сканы запущены. */
-    val isRescanning: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 ) {
@@ -90,6 +115,28 @@ data class LibraryUiState(
 
     /** Доступна ли следующая страница. */
     val hasNext: Boolean get() = hasNextPage(page, total, pageSize)
+}
+
+/**
+ * Какое пустое состояние показать на полке.
+ *
+ * Их два, и они не взаимозаменяемы: «книг нет вовсе — отсканируйте папку» и «книги есть, но
+ * ни одна не подходит под фильтр — снимите фильтр». До 28.09.2026 во втором случае предлагалось
+ * сканирование, и при активном фильтре это сбивало с толку.
+ */
+internal enum class ShelfEmptyState {
+    /** В библиотеке нет книг вообще. */
+    NO_BOOKS,
+
+    /** Книги есть, но отбор их отсекает. */
+    FILTERED_OUT,
+}
+
+/** Пустое состояние полки или `null`, если книги есть. */
+internal fun shelfEmptyState(state: LibraryUiState): ShelfEmptyState? = when {
+    state.books.isNotEmpty() -> null
+    !state.activeFilters.isEmpty -> ShelfEmptyState.FILTERED_OUT
+    else -> ShelfEmptyState.NO_BOOKS
 }
 
 /** Режим обзора полки: плоский список книг или категории (docs/eink-ux.md §6.2). */

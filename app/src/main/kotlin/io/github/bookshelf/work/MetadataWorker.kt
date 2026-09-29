@@ -21,6 +21,7 @@ import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import java.io.File
 import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -58,7 +59,9 @@ class MetadataWorker @AssistedInject constructor(
         // Принудительный разбор нужен бэкфиллу: у старых книг parseState уже OK, но жанров
         // в базе нет — обычный путь их пропускает, и жанры не появились бы никогда.
         val force = inputData.getBoolean(KEY_FORCE, false)
-        if (book.parseState == ParseState.OK && !force) return Result.success()
+        // Перерисовка обложки — единственный случай, когда разбор запускается ради картинки.
+        val refreshCover = inputData.getBoolean(KEY_REFRESH_COVER, false)
+        if (book.parseState == ParseState.OK && !force && !refreshCover) return Result.success()
 
         currentCoroutineContext().ensureActive()
         val parser = registry.select(book.extension, book.mimeType.ifEmpty { null }, EMPTY_PREFIX)
@@ -68,7 +71,12 @@ class MetadataWorker @AssistedInject constructor(
             is ParseResult.Success -> {
                 // Обложка приходит из того же прохода, что и метаданные: отдельный
                 // CoverExtractor был бы вторым чтением файла и лишней точкой отказа.
-                val coverPath = parsed.cover?.let { storeCover(book.id, it) }
+                val coverPath = chooseCoverPath(
+                    cachedCover = cachedCoverOf(book),
+                    hasExtractedCover = parsed.cover != null,
+                    refreshCover = refreshCover,
+                    store = { parsed.cover?.let { cover -> storeCover(book.id, cover) } },
+                )
                 bookDao.update(book.applyParsed(parsed.metadata, coverPath, clock.nowMillis()))
                 tagWriter.replace(bookId, parsed.metadata.tags)
                 Result.success(workDataOf(KEY_BOOK_ID to bookId))
@@ -106,6 +114,10 @@ class MetadataWorker @AssistedInject constructor(
      */
     private suspend fun storeCover(bookId: String, cover: CoverBytes): String? =
         coverCache.store(bookId, CoverCache.CoverKind.FULL, cover.bytes).getOrNull()?.absolutePath
+
+    /** Уже сохранённая обложка книги: путь из базы, если файл на месте. */
+    private fun cachedCoverOf(book: BookEntity): String? =
+        book.coverPath?.takeIf { path -> File(path).isFile }
 
     /** Собирает [BookInput] поверх `content://`-URI книги. */
     private fun BookEntity.inputOf(): BookInput = BookInput(
@@ -172,6 +184,9 @@ class MetadataWorker @AssistedInject constructor(
         /** Входной флаг: разобрать книгу заново, даже если она уже разобрана. */
         const val KEY_FORCE: String = "force"
 
+        /** Входной флаг: заново извлечь обложку, даже если она уже в кэше. */
+        const val KEY_REFRESH_COVER: String = "refreshCover"
+
         private const val AUTHORS_SEPARATOR = ", "
         private const val NO_PARSER = "Формат не поддерживается"
         private const val ERROR_MAX = 300
@@ -182,4 +197,28 @@ class MetadataWorker @AssistedInject constructor(
          */
         private val EMPTY_PREFIX: ByteArray = ByteArray(0)
     }
+}
+
+/**
+ * Каким путём записать книге обложку после разбора.
+ *
+ * Обложка кэшируется: файл книги лежит на устройстве и не меняется, поэтому перечитывать его
+ * ради картинки при каждом разборе метаданных бессмысленно — разбор нужен ради названия,
+ * авторов и жанров. Заново картинка берётся в двух случаях: явная команда «Обновить из файла»
+ * ([refreshCover]) и изменение самого файла (тогда скан сбрасывает кэш и [cachedCover] уже пуст).
+ *
+ * Если разбор обложку не дал, а сохранённая есть — возвращается сохранённая: `null` означал бы
+ * «стереть обложку», и частичный разбор терял бы картинку.
+ *
+ * @param store запись новой обложки в кэш; вызывается только когда это действительно нужно.
+ */
+internal suspend fun chooseCoverPath(
+    cachedCover: String?,
+    hasExtractedCover: Boolean,
+    refreshCover: Boolean,
+    store: suspend () -> String?,
+): String? = when {
+    !refreshCover && cachedCover != null -> cachedCover
+    hasExtractedCover -> store() ?: cachedCover
+    else -> cachedCover
 }

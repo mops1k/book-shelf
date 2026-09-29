@@ -1,26 +1,41 @@
 package io.github.bookshelf
 
 import android.os.Bundle
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.data.sync.LibrarySync
+import io.github.bookshelf.core.datastore.model.RefreshModeLike
+import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.EinkTheme
+import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
+import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
 import io.github.bookshelf.core.eink.EinkController
+import io.github.bookshelf.core.eink.RefreshMode
 import io.github.bookshelf.navigation.BookShelfNavHost
 import io.github.bookshelf.ui.EinkRefreshBridge
 import io.github.bookshelf.ui.MainViewModel
+import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 /**
  * Единственная Activity.
@@ -43,6 +58,23 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var sourceRepository: SourceRepository
 
+    /** Синхронизация библиотеки с файловой системой при возврате в приложение. */
+    @Inject
+    lateinit var librarySync: LibrarySync
+
+    /**
+     * Возврат в приложение — самый частый случай «я добавил книгу на устройство».
+     *
+     * Синхронизация инкрементальная: обход отмечает неизменённые файлы «виденными», добавляет
+     * новые и убирает исчезнувшие, поэтому вызов на каждый `onStart` дешёв. Повторы чаще
+     * 30 секунд отсекает сам `LibrarySync.syncIfStale` — переключение между окнами не должно
+     * запускать обход дерева заново.
+     */
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch { librarySync.syncIfStale() }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // На e-ink splash — статичный белый кадр без иконки и анимации.
         installSplashScreen()
@@ -51,15 +83,28 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeState by viewModel.themeState.collectAsStateWithLifecycle()
+            // Тот же корневой view, что и у `EinkRefreshBridge`: вендорские команды действуют
+            // на экран целиком, а не на отдельный экран навигации.
+            val rootView = LocalView.current
+
+            ApplyEinkSettings(controller = einkController, view = rootView, state = themeState)
 
             EinkTheme(
-                darkTheme = themeState.darkTheme,
+                darkTheme = themeState.themeMode.isDarkTheme(),
                 density = themeState.density,
                 fontScale = themeState.fontScale,
             ) {
-                EinkRefreshBridge(controller = einkController) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        BookShelfNavHost(sourceRepository = sourceRepository)
+                // Настройки, которые читают компоненты дизайн-системы сами: инверсия обложек
+                // (`BookCover`) и клавиши громкости (`EinkScaffold`). Прокидывать их параметрами
+                // пришлось бы через каждый экран, включая чужие feature-модули.
+                CompositionLocalProvider(
+                    LocalInvertCovers provides themeState.invertCovers,
+                    LocalVolumeKeysAsPageTurn provides themeState.volumeKeysAsPageTurn,
+                ) {
+                    EinkRefreshBridge(controller = einkController, settings = themeState.refresh) {
+                        Surface(modifier = Modifier.fillMaxSize()) {
+                            BookShelfNavHost(sourceRepository = sourceRepository)
+                        }
                     }
                 }
             }
@@ -87,4 +132,59 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) enterImmersiveMode()
     }
+}
+
+/**
+ * Тёмная тема с учётом системной настройки.
+ *
+ * `SYSTEM` нельзя разрешить в `MainViewModel`: для этого нужен `isSystemInDarkTheme()`, то есть
+ * композиция. Поэтому `ThemeState` хранит выбор пользователя, а не готовый флаг, и один и тот же
+ * выбор даёт разный результат при смене системной темы — без перезапуска приложения.
+ */
+@Composable
+private fun ThemeMode.isDarkTheme(): Boolean = when (this) {
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+}
+
+/**
+ * Применяет настройки экрана к [EinkController] — единственному месту, которое знает про вендора.
+ *
+ * `LaunchedEffect` на каждое значение, а не один общий: смена подсветки не должна трогать режим
+ * обновления, а GC-интервал не нужно переустанавливать при изменении любого другого поля.
+ *
+ * Все вызовы в `runCatching` осознанно: вендорские реализации пока бросают `NotImplementedError`
+ * из заглушек (`OnyxEinkController`), а подсветки на конкретном устройстве может не быть вовсе.
+ * Настройка не должна ронять приложение — правила вызова прямо разрешают деградацию до no-op
+ * (docs/eink-ux.md §8.4).
+ */
+@Composable
+private fun ApplyEinkSettings(
+    controller: EinkController,
+    view: View,
+    state: ThemeState,
+) {
+    LaunchedEffect(controller, state.gcInterval) {
+        runCatching { controller.setGcInterval(state.gcInterval) }
+    }
+    LaunchedEffect(controller, view, state.refreshMode) {
+        runCatching { controller.setRefreshMode(view, state.refreshMode.toCoreRefreshMode()) }
+    }
+    LaunchedEffect(controller, state.frontLightLevel) {
+        state.frontLightLevel?.let { level -> runCatching { controller.setFrontLight(level) } }
+    }
+}
+
+/**
+ * Режим обновления из настроек → режим контроллера.
+ *
+ * `AUTO` — «как решит платформа»: у дизайн-системы для этого есть `NORMAL`, а вендорский слой сам
+ * деградирует до `invalidate()`, если быстрый режим недоступен (`supportsFastMode`). Поэтому
+ * проверять поддержку здесь не нужно — контракт `EinkController` это уже гарантирует.
+ */
+private fun RefreshModeLike.toCoreRefreshMode(): RefreshMode = when (this) {
+    RefreshModeLike.AUTO -> RefreshMode.NORMAL
+    RefreshModeLike.FULL -> RefreshMode.FULL
+    RefreshModeLike.FAST -> RefreshMode.FAST
 }

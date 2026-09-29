@@ -30,10 +30,14 @@ object BookDetailsRoute {
  *
  * @param onBack возврат на полку.
  * @param onOpenCollections добавление книги в коллекцию (Sprint 7).
+ * @param onOpenLibrary возврат на полку — им заканчиваются переходы по автору и серии: карточка
+ *   кладёт просьбу в [io.github.bookshelf.core.data.repository.LibraryBrowseRequest], полка её
+ *   забирает и показывает нужные книги.
  */
 fun NavGraphBuilder.bookDetailsScreen(
     onBack: () -> Unit,
     onOpenCollections: (String) -> Unit,
+    onOpenLibrary: () -> Unit,
 ) {
     composable(route = BookDetailsRoute.route, arguments = BookDetailsRoute.arguments) { entry ->
         val bookId = entry.arguments?.getString(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
@@ -46,6 +50,7 @@ fun NavGraphBuilder.bookDetailsScreen(
             // Переход-заглушка от навигации: открытие — команда ViewModel, а не переход.
             onRead = { viewModel.onRead() },
             onOpenCollections = onOpenCollections,
+            onOpenLibrary = onOpenLibrary,
             // Как и открытие: это команда ViewModel, а не переход между экранами.
             onEditMetadata = { viewModel.onEditMetadata() },
         )

@@ -13,10 +13,14 @@ import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.OpdsDownloadDao
 import io.github.bookshelf.core.database.dao.SourceDao
 import io.github.bookshelf.core.database.model.OpdsDownloadState
+import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.opds.download.DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE
+import io.github.bookshelf.core.opds.download.DOWNLOAD_FILE_NAME_TEMPLATES
 import io.github.bookshelf.core.opds.download.DefaultOpdsDownloader
 import io.github.bookshelf.core.opds.download.DownloadRequest
 import io.github.bookshelf.core.opds.download.bookExtensionOf
 import io.github.bookshelf.core.opds.download.fileNameOf
+import io.github.bookshelf.core.opds.download.relativePathOf
 import java.util.UUID
 import javax.inject.Inject
 
@@ -43,6 +47,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
     private val downloader: DefaultOpdsDownloader,
     private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
     private val clock: AppClock,
+    private val settingsRepository: SettingsRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -53,18 +58,8 @@ class OpdsDownloadWorker @AssistedInject constructor(
 
         updateState(downloadId, OpdsDownloadState.RUNNING, bytes = 0L, error = null)
 
-        val request = DownloadRequest(
-            catalogId = download.catalogId,
-            entryId = download.entryId,
-            title = download.title,
-            authors = download.authorsText?.split(',').orEmpty().map { it.trim() },
-            url = download.downloadUrl,
-            mimeType = download.mimeType,
-            expectedSizeBytes = download.expectedSize,
-            targetSourceId = download.targetSourceId,
-            targetRelativeDir = download.targetRelativeDir,
-            credentials = null,
-        )
+        val template = fileNameTemplate()
+        val request = requestFrom(download, template)
 
         val result = downloader.download(
             request = request,
@@ -83,9 +78,9 @@ class OpdsDownloadWorker @AssistedInject constructor(
 
         // Без `fold`: его лямбды не suspend, а запись в базу внутри них suspend-функция.
         val documentUri = result.getOrNull()
-            ?: return fail(downloadId, result.errorOrNull()?.message ?: "Не удалось скачать")
+            ?: return fail(downloadId, downloadErrorMessage(result.errorOrNull()?.message))
         val bookId = "doc:${sha256(documentUri)}"
-        bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id)))
+        bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template)))
         downloadDao.upsert(download.copy(state = OpdsDownloadState.DONE, bookId = bookId, error = null))
         metadataScheduler.enqueueMetadata(bookId)
         return Result.success()
@@ -109,6 +104,49 @@ class OpdsDownloadWorker @AssistedInject constructor(
     private var lastProgressAt: Long = 0L
 
     /**
+     * Шаблон имени файла из настроек (`opds.downloadFileNameTemplate`).
+     *
+     * Незнакомое значение отбрасывается в пользу документированного умолчания: настройку могла
+     * оставить прежняя версия приложения, и имя файла из «чужого» шаблона лучше не собирать —
+     * иначе книга получит имя, которого никто не ожидает, а разбор пойдёт по расширению.
+     */
+    private suspend fun fileNameTemplate(): String {
+        val stored = runCatching { settingsRepository.current().opds.downloadFileNameTemplate }
+            .getOrNull()
+        return stored?.takeIf { it in DOWNLOAD_FILE_NAME_TEMPLATES }
+            ?: DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE
+    }
+
+    /**
+     * Запрос загрузки по строке очереди.
+     *
+     * Один сборщик на два места — саму загрузку и строку библиотеки: раньше во втором авторы были
+     * пустым списком, и с шаблоном имени файла на диске оказалось бы имя с автором, а в базе —
+     * без него, то есть открытие книги шло бы по чужому пути.
+     */
+    private fun requestFrom(
+        download: io.github.bookshelf.core.database.entity.OpdsDownloadEntity,
+        template: String,
+    ): DownloadRequest = DownloadRequest(
+        catalogId = download.catalogId,
+        entryId = download.entryId,
+        title = download.title,
+        authors = download.authorsText
+            ?.split(',')
+            .orEmpty()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() },
+        url = download.downloadUrl,
+        mimeType = download.mimeType,
+        expectedSizeBytes = download.expectedSize,
+        targetSourceId = download.targetSourceId,
+        targetRelativeDir = download.targetRelativeDir,
+        credentials = null,
+        series = download.seriesName,
+        fileNameTemplate = template,
+    )
+
+    /**
      * Строка библиотеки для скачанного файла.
      *
      * Метаданные оставляем пустыми: их разберёт `MetadataWorker` по той же схеме, что и
@@ -119,26 +157,18 @@ class OpdsDownloadWorker @AssistedInject constructor(
         documentUri: String,
         download: io.github.bookshelf.core.database.entity.OpdsDownloadEntity,
         sourceId: String,
+        template: String,
     ): io.github.bookshelf.core.database.entity.BookEntity {
         val now = clock.nowMillis()
-        val request = DownloadRequest(
-            catalogId = download.catalogId,
-            entryId = download.entryId,
-            title = download.title,
-            authors = emptyList(),
-            url = download.downloadUrl,
-            mimeType = download.mimeType,
-            expectedSizeBytes = download.expectedSize,
-            targetSourceId = download.targetSourceId,
-            targetRelativeDir = download.targetRelativeDir,
-            credentials = null,
-        )
+        val request = requestFrom(download, template)
         val fileName = fileNameOf(request)
         return io.github.bookshelf.core.database.entity.BookEntity(
             id = bookId,
             sourceId = sourceId,
             documentUri = documentUri,
-            relativePath = fileName,
+            // Путь с папками из шаблона: файл лежит в подпапках, и карточка книги обязана
+            // показать тот же путь, иначе «Путь» в ней разойдётся с диском.
+            relativePath = relativePathOf(request),
             fileName = fileName,
             // Составное расширение (`fb2.zip`), а не хвост после последней точки:
             // по `zip` разбор уводил книгу не в тот парсер.

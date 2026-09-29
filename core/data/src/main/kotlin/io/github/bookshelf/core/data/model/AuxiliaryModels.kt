@@ -113,6 +113,13 @@ data class Collection(
     val bookCount: Int = 0,
     val createdAt: Long = 0L,
     val rulesJson: String? = null,
+    /**
+     * Пути обложек первых книг полки — для строки списка полок.
+     *
+     * У умной полки порядок тот же, что у её состава: берётся предикат правил, а не связи
+     * `collection_books`, которых у умной полки нет вовсе.
+     */
+    val previewCovers: List<String> = emptyList(),
 )
 
 /** Каталог OPDS (docs/architecture.md §3.3, ADR-006). Пароль здесь не хранится — только алиас. */
@@ -128,18 +135,25 @@ data class OpdsCatalog(
 )
 
 /**
- * Страница фида OPDS: записи и ссылка на следующую страницу.
+ * Страница фида OPDS: записи, ссылка на следующую страницу и шаблон поиска.
  *
  * `rel="next"` парсился всегда, но до этого не доходил до UI: без него текучая догрузка
  * («листаешь до конца — подгружается дальше») невозможна, и вторая страница фида была
  * недостижима вовсе.
  *
  * @param entries записи страницы: книги или разделы;
- * @param nextUrl абсолютный адрес следующей страницы; `null` — страниц больше нет.
+ * @param nextUrl абсолютный адрес следующей страницы; `null` — страниц больше нет;
+ * @param searchUrl то, что каталог объявил ссылкой `rel="search"`: шаблон OpenSearch с
+ *   `{searchTerms}` либо дескриптор, внутри которого шаблон лежит; `null` — каталог поиск не
+ *   объявляет, и тогда искать можно только по уже загруженным записям;
+ * @param url адрес, с которого пришла страница. Нужен карточке записи: она перечитывает фид по
+ *   этому адресу и ищет в нём запись — для результатов поиска это адрес запроса, а не раздела.
  */
 data class OpdsPage(
     val entries: List<OpdsEntry> = emptyList(),
     val nextUrl: String? = null,
+    val searchUrl: String? = null,
+    val url: String? = null,
 )
 
 /** Запись фида OPDS, пригодная для списка и для загрузки. */
@@ -162,6 +176,36 @@ data class OpdsEntry(
     val isSection: Boolean = false,
     /** Адрес вложенного фида; задан только у разделов. */
     val sectionHref: String? = null,
+    /**
+     * Аннотация книги из фида (`summary`/`content`) без разметки.
+     *
+     * Парсер её читал с самого начала, но при маппинге в домен она терялась — и карточка книги
+     * честно показывала «В каталоге нет описания» даже там, где описание было.
+     */
+    val summary: String? = null,
+    /** `dc:language` — «ru», «en». */
+    val language: String? = null,
+    /** `dc:issued` — год издания. */
+    val issued: String? = null,
+    /** Дата обновления записи в ISO-8601 (`atom:updated`). */
+    val updated: String? = null,
+    /** Серия из фида; `null` — каталог её не сообщает. */
+    val seriesName: String? = null,
+    /**
+     * Фид серии: по нему карточка открывает список книг этой серии.
+     *
+     * OPDS 1.2 не даёт отдельного `rel` для серии — каталоги кладут ссылку в `related`, поэтому
+     * признак берётся из адреса (см. `OPDS_SERIES_FEED_MARKER`).
+     */
+    val seriesUrl: String? = null,
+    /** Фид автора: открывает его книги и серии вместо поиска автора вручную. */
+    val authorUrl: String? = null,
+    /** Форматы, доступные к скачиванию: `FB2`, `EPUB`, `MOBI`. */
+    val formats: List<String> = emptyList(),
+    /** Жанры из `category/@term`: у Флибусты это «Космическая фантастика», а не код. */
+    val genres: List<String> = emptyList(),
+    /** `dc:identifier` (ISBN и т. п.). */
+    val identifier: String? = null,
 )
 
 /** Состояние загрузки из OPDS. `.part` + атомарное переименование — деталь реализации воркера. */
@@ -174,6 +218,8 @@ data class OpdsDownload(
     val entryId: String,
     val title: String,
     val downloadUrl: String,
+    /** Серия книги из фида: нужна шаблону пути, чтобы разложить загрузки по папкам серий. */
+    val seriesName: String? = null,
     val state: DownloadState = DownloadState.QUEUED,
     val targetSourceId: String? = null,
     val targetRelativeDir: String? = null,

@@ -7,11 +7,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
+import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
+import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.sync.MetadataScheduler
 import java.text.DateFormat
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -40,7 +44,64 @@ class BookDetailsViewModel @Inject constructor(
     private val readerRepository: ReaderRepository,
     private val metadataScheduler: MetadataScheduler,
     private val collectionRepository: CollectionRepository,
+    /** Просьба к полке: показать книги автора или серии (тот же приём, что у фильтров). */
+    private val browseRequest: LibraryBrowseRequest,
+    /** Папки-источники: имя папки показывается в строке «Путь». */
+    private val sourceRepository: SourceRepository,
 ) : ViewModel() {
+
+    /**
+     * Спросить подтверждение удаления.
+     *
+     * Удаление необратимо: файл исчезает с устройства, вернуть книгу можно только повторным
+     * скачиванием или копированием. Поэтому одно касание к нему не приводит.
+     */
+    fun onAskDelete() {
+        _uiState.update { it.copy(isConfirmingDelete = true, error = null) }
+    }
+
+    /** Отказаться от удаления. */
+    fun onCancelDelete() {
+        _uiState.update { it.copy(isConfirmingDelete = false) }
+    }
+
+    /**
+     * Удалить книгу вместе с файлом.
+     *
+     * Файл удаляется первым — это делает слой данных: если провайдер откажет, запись останется,
+     * и книга не «воскреснет» следующим сканом. Успешное удаление закрывает карточку: показывать
+     * её после исчезновения книги нечего.
+     */
+    fun onDeletePermanently() {
+        if (_uiState.value.isDeleting) return
+        _uiState.update { it.copy(isDeleting = true, error = null) }
+        viewModelScope.launch {
+            val outcome = bookRepository.deletePermanently(listOf(bookId))
+            val failure = outcome.errorOrNull()
+            val result = outcome.getOrNull()
+            when {
+                failure != null -> _uiState.update {
+                    it.copy(
+                        isDeleting = false,
+                        isConfirmingDelete = false,
+                        error = failure.message ?: "Не удалось удалить книгу",
+                    )
+                }
+
+                result != null && result.failed > 0 -> _uiState.update {
+                    it.copy(
+                        isDeleting = false,
+                        isConfirmingDelete = false,
+                        error = "Файл удалить не удалось: нет доступа к папке. Книга осталась",
+                    )
+                }
+
+                else -> _uiState.update {
+                    it.copy(isDeleting = false, isConfirmingDelete = false, isDeleted = true)
+                }
+            }
+        }
+    }
 
     private val bookId: String = savedStateHandle.get<String>(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
 
@@ -49,6 +110,31 @@ class BookDetailsViewModel @Inject constructor(
     init {
         observeBook()
         observeCollections()
+    }
+
+    /**
+     * Имя папки-источника для книги.
+     *
+     * Берётся точечно при маппинге, а не отдельной подпиской: подписка на папки могла прийти
+     * раньше книги (тогда имя терялось) и не переиздаться после неё. Здесь ответ всегда есть
+     * в момент, когда книга уже прочитана.
+     *
+     * Имя папки — подпись, а не данные: её отсутствие карточка переживает молча.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun sourceNameOf(sourceId: String): String {
+        if (sourceId.isEmpty()) return ""
+        return try {
+            sourceRepository.observeSources().first()
+                .firstOrNull { source -> source.id == sourceId }
+                ?.displayName
+                .orEmpty()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Throwable) {
+            // Ошибку чтения папок показывать нечем: без имени папки карточка остаётся рабочей.
+            ""
+        }
     }
 
     /**
@@ -99,6 +185,26 @@ class BookDetailsViewModel @Inject constructor(
     val uiState: StateFlow<BookDetailsUiState> = _uiState.asStateFlow()
 
     /** Открыть книгу в читалке по профилю, выбранному репозиторием. */
+    /**
+     * Открыть книги автора этой книги: на полке включится вид «Авторы» на нём, с его сериями.
+     *
+     * Просьба уходит на полку, а экран закрывается вызывающим кодом: карточка не открывает второй
+     * экран полки, иначе стек навигации вырос бы вдвое на каждый такой переход.
+     */
+    fun onOpenAuthor() {
+        browseRequest.openAuthor(_uiState.value.authors)
+    }
+
+    /**
+     * Открыть книги серии этой книги.
+     *
+     * В просьбу уходит имя серии без номера: подпись в карточке («Приключения Флинкса #3») — это
+     * формат для чтения, а фильтр серий сравнивает имя, и по подписи не нашлось бы ни одной книги.
+     */
+    fun onOpenSeries() {
+        _uiState.value.seriesName?.let { name -> browseRequest.openSeries(name) }
+    }
+
     fun onRead() {
         runBookCommand { readerRepository.openBook(bookId) }
     }
@@ -136,7 +242,10 @@ class BookDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                metadataScheduler.enqueueMetadata(bookId)
+                // «Обновить из файла» — единственная команда, которая по явной просьбе берёт
+                // обложку заново: обычный разбор кэш переиспользует. Поэтому здесь и `force`
+                // (без него для уже разобранной книги работа ничего не сделала бы), и `refreshCover`.
+                metadataScheduler.enqueueMetadata(bookId, force = true, refreshCover = true)
                 _uiState.update { it.copy(isLoading = false, error = null) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -171,7 +280,10 @@ class BookDetailsViewModel @Inject constructor(
                             error = "Книга не найдена",
                         )
                     } else {
-                        _uiState.update { state -> state.withBook(book) }
+                        val sourceName = sourceNameOf(book.sourceId)
+                        _uiState.update { state ->
+                            state.withBook(book = book, sourceName = sourceName)
+                        }
                     }
                 }
                 if (!receivedBook) {
@@ -225,10 +337,15 @@ class BookDetailsViewModel @Inject constructor(
     }
 }
 
-private fun BookDetailsUiState.withBook(book: Book): BookDetailsUiState = copy(
+private fun BookDetailsUiState.withBook(book: Book, sourceName: String): BookDetailsUiState = copy(
     title = book.title,
     authors = book.authorsText.ifBlank { book.authors.joinToString(", ") },
     series = book.seriesLabel(),
+    seriesName = book.seriesName,
+    // Путь и папка: строки «Путь» и «Документ» в карточке были пустыми всегда, потому что
+    // состояние объявляло поля, а маппинг их не заполнял.
+    relativePath = book.relativePath,
+    sourceName = sourceName,
     publishedYear = book.publishedYear,
     language = book.language,
     publisher = book.publisher,

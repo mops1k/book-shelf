@@ -28,6 +28,13 @@ data class BookDetailsUiState(
     val authors: String = "",
     /** Серия и номер: «Плоский мир #5». */
     val series: String? = null,
+    /**
+     * Имя серии без номера — ключ фасета серий.
+     *
+     * Отдельно от [series]: в карточке показывается подпись с номером («Приключения Флинкса #3»),
+     * а в фильтр серии уходит её имя — иначе переход по серии не нашёл бы ни одной книги.
+     */
+    val seriesName: String? = null,
     /** Год издания. */
     val publishedYear: Int? = null,
     /** Язык книги. */
@@ -44,14 +51,14 @@ data class BookDetailsUiState(
     val addedAtLabel: String? = null,
     /** Аннотация; на e-ink сворачиваемая. */
     val description: String? = null,
-    /** `content://`-URI документа — по нему книга открывается в читалке. */
-    val documentUri: String = "",
     /** Показывается список полок для выбора — по кнопке «В полку». */
     val isPickingCollection: Boolean = false,
     /** Полки, в которые книгу можно положить. */
     val collections: List<CollectionItemUi> = emptyList(),
-    /** Путь внутри источника: «Books/Лем/Солярис.fb2». */
+    /** Путь внутри источника: «Лем/Солярис.fb2» (без имени папки). */
     val relativePath: String = "",
+    /** Имя папки-источника: «Books». Пусто — источник ещё не прочитан. */
+    val sourceName: String = "",
     /** Путь к обложке в кэше; `null` — заглушка с названием. */
     val coverPath: String? = null,
     /** Статус чтения из `books.readingStatus`. */
@@ -62,6 +69,17 @@ data class BookDetailsUiState(
     val parseError: String? = null,
     /** Идёт загрузка карточки. */
     val isLoading: Boolean = false,
+    /** Показывается подтверждение удаления книги с устройства. */
+    val isConfirmingDelete: Boolean = false,
+    /** Идёт удаление файла и записи. */
+    val isDeleting: Boolean = false,
+    /**
+     * Книга удалена: экран закрывается, возвращаться на карточку некуда.
+     *
+     * Отдельный признак, а не `bookId == ""`: по нему экран делает переход, и он же отличает
+     * «удалили» от «книгу не нашли при открытии».
+     */
+    val isDeleted: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 )

@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +27,7 @@ import androidx.compose.runtime.setValue
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,8 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.data.model.Grouping
-import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.model.SortOrder
+import io.github.bookshelf.core.data.model.badge
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkMenuButton
@@ -44,6 +48,8 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.designsystem.input.EinkAction
+import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
+import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.library.BookCardUi
@@ -53,6 +59,8 @@ import io.github.bookshelf.feature.library.BrowseUi
 import io.github.bookshelf.feature.library.CategoryItemUi
 import io.github.bookshelf.feature.library.LibraryUiState
 import io.github.bookshelf.feature.library.LibraryViewModel
+import io.github.bookshelf.feature.library.ShelfEmptyState
+import io.github.bookshelf.feature.library.shelfEmptyState
 import kotlinx.coroutines.launch
 
 /**
@@ -76,7 +84,13 @@ fun LibraryScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
-    val scrollByPage = rememberPageScroller()
+    // Состояния прокрутки живут на экране: аппаратные клавиши и сетка обязаны смотреть на одно
+    // и то же состояние, иначе листание уходит в никуда (см. rememberPageScroller).
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+    // Корень обзора — это список категорий, а не сетка книг; от этого зависит, что листать.
+    val rootCategories = state.browse.showsCategories && state.browse.level == BrowseLevel.Root
+    val scrollByPage = rememberPageScroller(gridState, listState) { rootCategories }
     // Флаг lives только на время экрана: выбор сортировки не состояние ViewModel, и хранить
     // его там незачем — как и отменять его нечем.
     var isPickingSort by remember { mutableStateOf(false) }
@@ -107,14 +121,11 @@ fun LibraryScreen(
             }
             // Виды полки (сетка/список/компактно и обзор по авторам/сериям) живут в строке видов
             // на самой полке: пять кнопок рядом с книгами ближе, чем те же пункты в меню.
-            EinkMenuButton(
-                text = if (state.isRescanning) "Пересканируем…" else "Пересканировать",
-                onClick = {
-                    viewModel.onRescanAll()
-                    close()
-                },
-                enabled = !state.isRescanning,
-            )
+            //
+            // Кнопки «Пересканировать» здесь больше нет: библиотека обновляется сама (при возврате
+            // в приложение и раз в 15 минут), а кнопка означала «забудь всё и собери заново» —
+            // такой команде место в настройках рядом с папками, а не рядом с книгами (решение
+            // Александра, 28.09.2026).
         },
         onKeyAction = { action ->
             when (action) {
@@ -142,7 +153,6 @@ fun LibraryScreen(
         if (state.browse.isActive) {
             BrowseHeader(browse = state.browse, onBack = viewModel::onBrowseBack)
         }
-        val rootCategories = state.browse.showsCategories && state.browse.level == BrowseLevel.Root
         // Строка видов видна всегда — она же выход из обзора: без неё в корне «Авторов» не было
         // бы ни кнопки «Серии», ни способа вернуться к книгам (docs/eink-ux.md §6.2).
         if (isPickingSort) {
@@ -165,6 +175,7 @@ fun LibraryScreen(
             // Корень обзора — категории: авторы или серии с числом книг.
             rootCategories -> CategoryList(
                 categories = state.browse.categories,
+                listState = listState,
                 onOpen = viewModel::onOpenCategory,
             )
 
@@ -172,6 +183,7 @@ fun LibraryScreen(
             state.browse.level is BrowseLevel.Author -> AuthorBrowseContent(
                 categories = state.browse.categories,
                 books = state.books,
+                gridState = gridState,
                 onOpenCategory = viewModel::onOpenCategory,
                 onOpenBook = onOpenBook,
             )
@@ -179,8 +191,11 @@ fun LibraryScreen(
             else -> LibraryContent(
                 state = state,
                 columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
+                gridState = gridState,
+                listState = listState,
                 onOpenBook = onOpenBook,
                 onOpenScan = onOpenScan,
+                onClearFilters = viewModel::onClearFilters,
             )
         }
     }
@@ -245,6 +260,7 @@ private fun presetLabel(preset: ShelfViewPreset): String = when (preset) {
 private fun AuthorBrowseContent(
     categories: List<CategoryItemUi>,
     books: List<BookCardUi>,
+    gridState: LazyGridState,
     onOpenCategory: (CategoryItemUi) -> Unit,
     onOpenBook: (String) -> Unit,
 ) {
@@ -252,7 +268,7 @@ private fun AuthorBrowseContent(
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
-        state = rememberLazyGridState(),
+        state = gridState,
         modifier = Modifier.fillMaxSize(),
     ) {
         if (categories.isNotEmpty()) {
@@ -327,9 +343,10 @@ private fun BrowseHeader(
 @Composable
 private fun CategoryList(
     categories: List<CategoryItemUi>,
+    listState: LazyListState,
     onOpen: (CategoryItemUi) -> Unit,
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         listItems(items = categories, key = { category -> category.id }) { category ->
             EinkListRow(
                 title = category.label,
@@ -345,17 +362,25 @@ private fun CategoryList(
  *
  * Пальцем список листается сам — `LazyVerticalGrid` прокручивается по умолчанию, и отключать
  * это нельзя: без прокрутки всё, что не влезло на экран, становится недостижимым.
+ *
+ * Состояния прокрутки принадлежат **экрану** и передаются сюда, а не создаются внутри: раньше
+ * функция держала своё `LazyGridState`, сетка создавала своё, и клавиши Page Up/Down крутили
+ * состояние, которого нет на экране — на устройстве 28.09.2026 листание не работало вовсе.
+ * Какой контейнер сейчас показан, знает экран (обзор по категориям — список, книги — сетка).
  */
 @Composable
-private fun rememberPageScroller(): (Int) -> Unit {
-    val gridState = rememberLazyGridState()
-    val scope = rememberCoroutineScope()
+private fun rememberPageScroller(
+    gridState: LazyGridState,
+    listState: LazyListState,
+    showsCategories: () -> Boolean,
+): (Int) -> Unit {
+    // Прокрутка каждой разновидности контейнера — из дизайн-системы, здесь только выбор:
+    // какой контейнер сейчас на экране, знает сам экран (обзор — список, книги — сетка).
+    val scrollList = rememberEinkListPageScroller(listState)
+    val scrollGrid = rememberEinkGridPageScroller(gridState)
+    val currentShowsCategories by rememberUpdatedState(showsCategories)
     return { direction ->
-        val amount = gridState.layoutInfo.viewportSize.height
-        if (amount > 0) {
-            val delta = (direction * amount).toFloat()
-            scope.launch { gridState.scrollBy(delta) }
-        }
+        if (currentShowsCategories()) scrollList(direction) else scrollGrid(direction)
     }
 }
 
@@ -364,16 +389,33 @@ private fun rememberPageScroller(): (Int) -> Unit {
 private fun ColumnScope.LibraryContent(
     state: LibraryUiState,
     columns: GridCells,
+    gridState: LazyGridState,
+    listState: LazyListState,
     onOpenBook: (String) -> Unit,
     onOpenScan: () -> Unit,
+    onClearFilters: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth(),
     ) {
-        if (state.books.isEmpty()) {
-            EinkEmptyState(
+        when (shelfEmptyState(state)) {
+            // Пустая полка бывает по двум разным причинам, и подсказки у них разные: «книг нет
+            // вовсе — отсканируйте папку» и «фильтр ничего не нашёл — снимите фильтр». Раньше
+            // в обоих случаях предлагалось сканирование, и при активном фильтре это сбивало
+            // с толку: книги в библиотеке есть, их отсекает отбор.
+            ShelfEmptyState.FILTERED_OUT -> EinkEmptyState(
+                title = "Ничего не найдено",
+                message = "Книги в библиотеке есть, но ни одна не подходит под выбранные фильтры " +
+                    "(активно фильтров: ${state.activeFilters.activeCount}). " +
+                    "Сбросьте фильтры или вернитесь на экран «Фильтры» и снимите часть условий.",
+                actionLabel = "Сбросить фильтры",
+                onAction = onClearFilters,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            ShelfEmptyState.NO_BOOKS -> EinkEmptyState(
                 title = "Пока нет книг",
                 message = "Нажмите «Сканировать», чтобы найти книги в выбранной папке. " +
                     "Если папка ещё не добавлена — вернитесь в онбординг и выберите её.",
@@ -381,10 +423,11 @@ private fun ColumnScope.LibraryContent(
                 onAction = onOpenScan,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            BookPage(
+
+            null -> BookPage(
                 state = state,
                 columns = columns,
+                gridState = gridState,
                 onOpenBook = onOpenBook,
             )
         }
@@ -443,11 +486,12 @@ private fun SortPicker(
 private fun BookPage(
     state: LibraryUiState,
     columns: GridCells,
+    gridState: LazyGridState,
     onOpenBook: (String) -> Unit,
 ) {
     LazyVerticalGrid(
         columns = columns,
-        state = rememberLazyGridState(),
+        state = gridState,
         modifier = Modifier.fillMaxSize(),
     ) {
         gridItems(items = state.books, key = { book -> book.id }) { book ->
@@ -456,7 +500,12 @@ private fun BookPage(
     }
 }
 
-/** Элемент сетки: обложка, название, автор, статус чтения. */
+/**
+ * Элемент сетки: обложка с бейджами формата и статуса, название, автор.
+ *
+ * Статус чтения переехал на саму обложку (полосой внизу), формат — в её правый верхний угол:
+ * отдельная строка под плиткой стоила высоты экрана, а на e-ink это цена следующего ряда книг.
+ */
 @Composable
 private fun BookGridItem(
     book: BookCardUi,
@@ -477,25 +526,24 @@ private fun BookGridItem(
             title = book.title,
             modifier = Modifier.fillMaxWidth(),
             contentDescription = "Обложка: ${book.title}, ${book.authors}",
+            formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
+            statusBadge = book.readingStatus.badge(book.progressPercent),
         )
         Text(
             text = book.title,
-            style = MaterialTheme.typography.bodyMedium,
+            // Подписи под плиткой на шаг меньше текста интерфейса: на e-ink они не должны
+            // спорить с обложкой, а на экран должно влезать больше книг (Александр, 28.09.2026).
+            style = MaterialTheme.typography.bodySmall,
             color = colors.foreground,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = book.authors,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
             color = colors.foreground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = readingStatusLabel(book.readingStatus),
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.foreground,
         )
     }
 }
@@ -525,7 +573,7 @@ private fun LibraryFooter(
         Text(
             // Внутри одной серии порядок не выбирается: книги идут по выпуску (номер в серии,
             // затем год издания), поэтому подпись «Сортировка: Автор» здесь была бы неправдой.
-            text = if (state.activeFilters.series.size == 1) {
+            text = if (state.seriesOrderByRelease) {
                 "Порядок серии: по выпуску"
             } else {
                 "Сортировка: ${sortLabel(state.sort)} · ${groupingLabel(state.grouping)}"
@@ -552,13 +600,6 @@ private const val TEN = 10
 private const val ONE = 1
 private const val FEW_FROM = 2
 private const val FEW_TO = 4
-
-/** Подпись статуса чтения. */
-private fun readingStatusLabel(status: ReadingStatus): String = when (status) {
-    ReadingStatus.UNREAD -> "не прочитано"
-    ReadingStatus.READING -> "читаю"
-    ReadingStatus.READ -> "прочитано"
-}
 
 /** Подпись сортировки для нижней строки. */
 private fun sortLabel(sort: SortOrder): String = when (sort) {
@@ -588,7 +629,7 @@ private fun sortHint(sort: SortOrder): String = when (sort) {
     SortOrder.SERIES -> "По серии и номеру в ней"
     SortOrder.ADDED_AT -> "Сначала добавленные последними"
     SortOrder.LAST_OPENED -> "Сначала те, что открывали недавно"
-    SortOrder.SIZE -> "От больших файлов к маленьким"
+    SortOrder.SIZE -> "По размеру файла"
     SortOrder.PROGRESS -> "Сначала недопрочитанные"
     SortOrder.YEAR -> "По году издания"
 }

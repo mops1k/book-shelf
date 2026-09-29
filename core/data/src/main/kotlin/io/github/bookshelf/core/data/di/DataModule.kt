@@ -14,6 +14,8 @@ import io.github.bookshelf.core.data.repository.ReadingProgressRepository
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.SearchRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.data.sync.LibrarySync
+import io.github.bookshelf.core.data.sync.LibrarySyncImpl
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.CollectionRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.FilterRepositoryImpl
@@ -49,6 +51,10 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindScanRepository(impl: ScanRepositoryImpl): ScanRepository
+
+    /** Синхронизация библиотеки с файловой системой: скан по возврату в приложение и по расписанию. */
+    @Binds
+    abstract fun bindLibrarySync(impl: LibrarySyncImpl): LibrarySync
 
     @Binds
     abstract fun bindFilterRepository(impl: FilterRepositoryImpl): FilterRepository

@@ -5,6 +5,12 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.storage.files.ContentHasher
+import io.github.bookshelf.core.storage.saf.SafTreeWriter
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
@@ -14,6 +20,7 @@ import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.model.Source
 import io.github.bookshelf.core.data.model.SortOrder
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
@@ -24,6 +31,7 @@ import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.model.SourceKind
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -55,6 +63,14 @@ class BookRepositoryTest {
     private lateinit var database: BookshelfDatabase
     private lateinit var repository: BookRepository
 
+    /** Источники и запуск сканов: только их и трогает пересканирование. */
+    private val sources = mockk<SourceRepository>(relaxed = true)
+    private val scans = mockk<ScanRepository>(relaxed = true)
+
+    /** Удаление файлов и хеши содержимого: обе операции подменяются, файловой системы в тесте нет. */
+    private val files = mockk<SafTreeWriter>(relaxed = true)
+    private val hashes = mockk<ContentHasher>(relaxed = true)
+
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -65,9 +81,10 @@ class BookRepositoryTest {
             bookDao = database.bookDao(),
             overrideDao = database.metadataOverrideDao(),
             readingProgressDao = database.readingProgressDao(),
-            // Зависимости пересканирования нужны конструктору, но тест их не трогает.
-            sourceRepository = mockk(relaxed = true),
-            scanRepository = mockk(relaxed = true),
+            sourceRepository = sources,
+            scanRepository = scans,
+            duplicateFinder = DuplicateFinder(hashes),
+            fileRemover = files,
         )
     }
 
@@ -371,6 +388,44 @@ class BookRepositoryTest {
             .inOrder()
     }
 
+
+    @Test
+    fun `rescanAll forgets every book and scans enabled sources`() = runBlocking {
+        givenLibrary()
+        every { sources.observeSources() } returns flowOf(
+            listOf(source(id = "s1"), source(id = "s2", enabled = false)),
+        )
+
+        repository.rescanAll()
+
+        // «Пересканировать» означает «забудь всё и собери заново» (решение Александра 28.09.2026):
+        // таблица книг очищается, а записи возвращает следующий скан. Именно поэтому команда
+        // живёт в настройках рядом с папками, а не рядом с книгами.
+        assertThat(database.bookDao().countBySource(SOURCE_ID)).isEqualTo(0)
+        coVerify(exactly = 1) { scans.startScan("s1") }
+        coVerify(exactly = 0) { scans.startScan("s2") }
+    }
+
+    private fun source(id: String, enabled: Boolean = true): Source = Source(
+        id = id,
+        uri = "content://com.android.externalstorage.documents/tree/$id",
+        displayName = "Папка $id",
+        kind = io.github.bookshelf.core.data.model.SourceKind.SAF_TREE,
+        enabled = enabled,
+    )
+
+    @Test
+    fun `book by id carries the folder and path for the card`() = runBlocking {
+        givenLibrary()
+
+        val book = repository.observeById("war").first()
+
+        // Карточка показывает «Books / Война и мир.fb2»: путь и папка должны доходить до домена,
+        // иначе строки «Путь» и «Документ» остаются пустыми (найдено 28.09.2026).
+        assertThat(book?.relativePath).isEqualTo("Война и мир.fb2")
+        assertThat(book?.sourceId).isEqualTo(SOURCE_ID)
+    }
+
     private fun AppResult<Unit>.assertOk() {
         assertThat(isSuccess).isTrue()
     }
@@ -409,6 +464,47 @@ class BookRepositoryTest {
                 BookAuthorCrossRef(bookId = "mothers", authorId = GORKY),
             ),
         )
+    }
+
+    @Test
+    fun deletePermanently_removes_the_file_and_the_row() = runBlocking {
+        database.bookDao().insert(book(id = "gone", title = "Книга", author = "", ext = "fb2"))
+        coEvery { files.delete("content://tree/books/document/gone") } returns AppResult.success(Unit)
+
+        val result = repository.deletePermanently(listOf("gone")).getOrNull()
+
+        assertThat(result?.deleted).isEqualTo(1)
+        assertThat(result?.failed).isEqualTo(0)
+        assertThat(database.bookDao().getById("gone")).isNull()
+    }
+
+    @Test
+    fun deletePermanently_keeps_the_row_when_the_provider_refuses() = runBlocking {
+        database.bookDao().insert(book(id = "kept", title = "Книга", author = "", ext = "fb2"))
+        coEvery { files.delete("content://tree/books/document/kept") } returns AppResult.failure(
+            io.github.bookshelf.core.common.error.AppError.Unknown(message = "нет доступа к папке"),
+        )
+
+        val result = repository.deletePermanently(listOf("kept")).getOrNull()
+
+        // Строку оставляем: исчезни она, следующий скан вернул бы книгу на полку, и удаление
+        // выглядело бы отменившимся само.
+        assertThat(result?.deleted).isEqualTo(0)
+        assertThat(result?.failed).isEqualTo(1)
+        assertThat(database.bookDao().getById("kept")).isNotNull()
+    }
+
+    @Test
+    fun findDuplicates_reads_the_whole_library() = runBlocking {
+        database.bookDao().insert(book(id = "one", title = "Книга", author = "", ext = "fb2"))
+        database.bookDao().insert(book(id = "two", title = "Книга", author = "", ext = "fb2"))
+        every { hashes.contentHash(any()) } returns "одинаковый"
+
+        val report = repository.findDuplicates().getOrNull()
+
+        // Обе книги одного размера и с одинаковым содержимым: одна группа, одна копия к удалению.
+        assertThat(report?.groups).hasSize(1)
+        assertThat(report?.duplicatesToRemove).isEqualTo(1)
     }
 
     @Suppress("LongParameterList")

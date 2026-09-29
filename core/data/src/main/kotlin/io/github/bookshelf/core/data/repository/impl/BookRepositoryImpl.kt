@@ -3,7 +3,11 @@ package io.github.bookshelf.core.data.repository.impl
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
+import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.data.duplicates.DuplicateReport
+import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.data.repository.ScanRepository
+import io.github.bookshelf.core.data.repository.DeletionResult
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.data.mapper.BookPageSql
@@ -50,6 +54,8 @@ class BookRepositoryImpl @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
     private val sourceRepository: SourceRepository,
     private val scanRepository: ScanRepository,
+    private val duplicateFinder: DuplicateFinder,
+    private val fileRemover: SafTreeWriter,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -104,6 +110,27 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun delete(bookId: String): AppResult<Unit> =
         forExistingBook(bookId) { bookDao.deleteById(bookId) }
+
+    override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
+        appRunCatching {
+            var deleted = 0
+            var failed = 0
+            for (bookId in bookIds) {
+                val book = bookDao.getById(bookId) ?: continue
+                when (fileRemover.delete(book.documentUri)) {
+                    is AppResult.Failure -> failed++
+                    is AppResult.Success -> {
+                        bookDao.deleteById(bookId)
+                        deleted++
+                    }
+                }
+            }
+            DeletionResult(deleted = deleted, failed = failed)
+        }
+
+    override suspend fun findDuplicates(): AppResult<DuplicateReport> = appRunCatching {
+        duplicateFinder.find(bookDao.getAll().map { entity -> entity.toDomain(authors = emptyList()) })
+    }
 
     /**
      * Пересканировать библиотеку: очистить таблицу и запустить скан каждой включённой папки.

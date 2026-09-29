@@ -104,6 +104,11 @@ class SourceRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun hasWriteAccess(sourceId: String): Boolean {
+        val source = sourceDao.getById(sourceId) ?: return false
+        return safTreeReader.hasWritePermission(source.uri)
+    }
+
     /**
      * Мягкое удаление источника.
      *

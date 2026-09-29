@@ -14,7 +14,9 @@ import kotlinx.serialization.Serializable
  * @param links все ссылки фида (пагинация, поиск, `start`/`up`).
  * @param entries записи фида; для навигационного фида это разделы.
  * @param nextPageUrl готовая абсолютная ссылка `rel="next"`; null — следующей страницы нет.
- * @param searchUrl шаблон OpenSearch с `{searchTerms}`; null — поиск не поддерживается.
+ * @param searchUrl ссылка `rel="search"`, пригодная для поиска: готовый шаблон с `{searchTerms}`
+ *   либо дескриптор OpenSearch, внутри которого шаблон достаётся отдельным запросом; `null` —
+ *   каталог поиск не поддерживает.
  * @param isNavigation true для `kind=navigation` (разделы), false для `kind=acquisition` (книги).
  */
 @Serializable

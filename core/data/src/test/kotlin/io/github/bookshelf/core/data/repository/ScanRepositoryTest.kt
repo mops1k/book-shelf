@@ -102,13 +102,13 @@ class ScanRepositoryTest {
     }
 
     @Test
-    fun cancel_pauses_resumable_run_and_reaches_scheduler() = runBlocking {
+    fun pause_stops_resumable_run_and_reaches_scheduler() = runBlocking {
         givenSource()
         database.scanRunDao().insert(
             run(id = "running-run", startedAt = 100L, status = ScanRunStatus.RUNNING),
         )
 
-        repository.cancel(SOURCE_ID)
+        repository.pause(SOURCE_ID)
 
         assertThat(database.scanRunDao().getById("running-run")?.status).isEqualTo(ScanRunStatus.PAUSED)
         assertThat(scheduler.cancelledSourceIds).isEqualTo(listOf(SOURCE_ID))
@@ -243,12 +243,12 @@ class ScanRepositoryTest {
     }
 
     @Test
-    fun coordinator_cancel_pauses_resumable_run_and_cancels_work() = runBlocking {
+    fun coordinator_pause_stops_resumable_run_and_cancels_work() = runBlocking {
         givenSource()
         coordinator.start(SOURCE_ID)
         val runId = requireNotNull(database.scanRunDao().findResumable(SOURCE_ID)).id
 
-        coordinator.cancel(SOURCE_ID)
+        coordinator.pause(SOURCE_ID)
 
         val storedRun = database.scanRunDao().getById(runId)
         assertThat(storedRun?.status).isEqualTo(ScanRunStatus.PAUSED)

@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.metadata.parser.impl
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
@@ -137,6 +138,12 @@ class PdfParser : BookMetadataParser {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
             try {
+                // Битмап по умолчанию ПРОЗРАЧНЫЙ, а `PdfRenderer` рисует страницу без фона: у PDF
+                // без белого прямоугольника на всю страницу результат остаётся прозрачным, а JPEG
+                // прозрачность превращает в чёрный. На устройстве 28.09.2026 обложка такой книги
+                // была сплошным чёрным прямоугольником. Белая подложка — не косметика, а условие
+                // корректного рендера.
+                bitmap.eraseColor(Color.WHITE)
                 val matrix = Matrix().apply { postScale(scale, scale) }
                 page.render(
                     bitmap,

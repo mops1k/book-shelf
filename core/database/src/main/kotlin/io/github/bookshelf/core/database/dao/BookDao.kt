@@ -33,6 +33,15 @@ interface BookDao {
     @Update
     suspend fun update(book: BookEntity)
 
+    /**
+     * Все книги одним списком.
+     *
+     * Нужен поиску дублей: он сравнивает содержимое файлов и не может опираться на страницу полки
+     * или на поток с фильтрами.
+     */
+    @Query("SELECT * FROM books")
+    suspend fun getAll(): List<BookEntity>
+
     /** Удалить запись; вызывается только явно, а не при исчезновении файла (`isMissing`). */
     @Query("DELETE FROM books WHERE id = :id")
     suspend fun deleteById(id: String)

@@ -42,11 +42,12 @@ object EntryRoute {
  * Регистрирует карточку записи каталога.
  *
  * @param onBack возврат к фиду.
- * @param onDownloaded возврат к фиду после постановки книги в очередь.
+ * @param onOpenFeed возврат в браузер каталога, когда карточка попросила открыть фид автора
+ *   или серии: навигация — дело вызывающего кода, а не экрана карточки.
  */
 fun NavGraphBuilder.opdsEntryScreen(
     onBack: () -> Unit,
-    onDownloaded: () -> Unit,
+    onOpenFeed: () -> Unit,
 ) {
     composable(
         route = EntryRoute.route,
@@ -59,6 +60,9 @@ fun NavGraphBuilder.opdsEntryScreen(
         // Аргументы не передаём в экран: ViewModel читает их из `SavedStateHandle` сам. Раньше
         // карточка перечитывала корневой фид, а запись лежала во вложенном — отсюда
         // «Запись не найдена» на каждой книге.
-        EntryDetailsScreen(onBack = onBack, onDownloaded = onDownloaded)
+        EntryDetailsScreen(
+            onBack = onBack,
+            onOpenFeed = onOpenFeed,
+        )
     }
 }

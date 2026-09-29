@@ -20,18 +20,30 @@ import io.github.bookshelf.core.opds.model.OpdsFeed
 import io.github.bookshelf.core.opds.model.OpdsLink
 import io.github.bookshelf.core.opds.parser.OpdsFeedParser
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.datastore.model.AppSettings
+import io.github.bookshelf.core.datastore.model.OpdsSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Репозиторий каталогов OPDS.
  *
  * Проверяется то, что пользователь увидит на экране: каталог добавляется только если адрес
- * действительно отдаёт фид, корневой заход идёт из кэша без сети, а скачивание выбирает
- * именно ссылку «скачать», а не «купить».
+ * действительно отдаёт фид, корневой заход идёт из кэша без сети, поиск подставляет запрос в
+ * шаблон OpenSearch (и достаёт его из дескриптора, если каталог объявил только дескриптор),
+ * а скачивание выбирает именно ссылку «скачать», а не «купить».
+ *
+ * Robolectric нужен из-за разбора дескриптора OpenSearch: он идёт через `android.util.Xml`, и без
+ * Robolectric тест падал бы с `NoClassDefFoundError`, что выглядит как «поиск сломан».
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [24])
 class OpdsRepositoryImplTest {
 
     private val http = FakeHttp()
@@ -42,10 +54,16 @@ class OpdsRepositoryImplTest {
     /** Флаг — поле экземпляра, а не companion: у каждого теста JUnit свой экземпляр. */
     private var parserShouldFail = false
 
+    /** Парсер-фейк держим полем: тесты поиска задают ему шаблон OpenSearch. */
+    private val parser = FakeParser { parserShouldFail }
+
+    /** Настройки — поле: возраст кэша фидов берётся из них. */
+    private val settingsRepository = FakeSettingsRepository()
+
     private fun repository() = OpdsRepositoryImpl(
         catalogDao = catalogDao,
         http = http,
-        parser = FakeParser { parserShouldFail },
+        parser = parser,
         cache = cache,
         downloadDao = downloadDao,
         clock = FixedClock,
@@ -53,6 +71,7 @@ class OpdsRepositoryImplTest {
         downloadScheduler = object : DownloadScheduler {
             override fun schedule(downloadId: String) = Unit
         },
+        settingsRepository = settingsRepository,
     )
 
     @Test
@@ -168,6 +187,106 @@ class OpdsRepositoryImplTest {
         assertThat(repository().enqueueDownload(entry, "c1", null, null).isFailure).isTrue()
     }
 
+    @Test
+    fun browse_page_carries_search_template_and_effective_url() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        parser.searchTemplate = SEARCH_TEMPLATE
+
+        val page = repository().browsePage("c1", url = "https://host/opds/new").getOrNull()
+
+        // Шаблон нужен экрану, чтобы знать, умеет ли каталог искать; адрес — карточке записи,
+        // чтобы перечитать именно эту страницу фида.
+        assertThat(page?.searchUrl).isEqualTo(SEARCH_TEMPLATE)
+        assertThat(page?.url).isEqualTo("https://host/opds/new")
+    }
+
+    @Test
+    fun search_substitutes_the_query_into_the_template() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+
+        val page = repository().search("c1", "Лукьяненко", SEARCH_TEMPLATE).getOrNull()
+
+        assertThat(page?.entries).hasSize(1)
+        // Запрос обязан уехать в адрес закодированным: с литералом {searchTerms} сервер вернул бы
+        // пустой список, и поиск выглядел бы «не работает» на каталоге, который его поддерживает.
+        assertThat(http.lastUrl).isEqualTo(
+            "https://host/opds/search?searchTerm=%D0%9B%D1%83%D0%BA%D1%8C%D1%8F%D0%BD%D0%B5%D0%BD%D0%BA%D0%BE",
+        )
+        assertThat(http.lastUrl).doesNotContain("{searchTerms}")
+    }
+
+    @Test
+    fun search_without_template_is_reported_as_unsupported() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        // Объявление поиска без пригодного шаблона: подставлять запрос некуда, и врать «ничего не
+        // найдено» нельзя — экран по этой ошибке перейдёт к поиску по загруженному фиду.
+        http.descriptorBody = "<OpenSearchDescription><ShortName>Без поиска</ShortName></OpenSearchDescription>"
+
+        val result = repository().search("c1", "Лем", DESCRIPTOR_URL)
+
+        assertThat(result.isFailure).isTrue()
+        // За объявлением сходили один раз, но самого поискового запроса не было.
+        assertThat(http.calls).isEqualTo(1)
+        assertThat(http.lastUrl).isEqualTo(DESCRIPTOR_URL)
+    }
+
+    @Test
+    fun search_with_blank_query_does_not_go_to_network() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+
+        assertThat(repository().search("c1", "   ", SEARCH_TEMPLATE).isFailure).isTrue()
+        assertThat(http.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun search_resolves_the_template_from_the_opensearch_description() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        http.descriptorBody = DESCRIPTOR_BODY
+
+        val page = repository().search("c1", "Dickens", DESCRIPTOR_URL).getOrNull()
+
+        // У Gutenberg в фиде только ссылка на дескриптор: без его разбора поиск не заработал бы,
+        // хотя каталог его поддерживает. Взят шаблон Atom, а не первый text/html.
+        assertThat(page).isNotNull()
+        assertThat(http.lastUrl).isEqualTo("http://m.host/ebooks/search.opds/?query=Dickens")
+    }
+
+    @Test
+    fun search_fetches_the_description_only_once() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        http.descriptorBody = DESCRIPTOR_BODY
+        val repository = repository()
+
+        repository.search("c1", "Dickens", DESCRIPTOR_URL)
+        repository.search("c1", "Verne", DESCRIPTOR_URL)
+
+        // Дескриптор запрошен один раз, дальше шаблон берётся из памяти: иначе каждый поиск
+        // начинался бы с лишнего сетевого захода.
+        assertThat(http.calls).isEqualTo(3)
+        assertThat(http.lastUrl).isEqualTo("http://m.host/ebooks/search.opds/?query=Verne")
+    }
+
+    @Test
+    fun entry_metadata_reaches_the_book_card() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        cache.stored = CachedFeed(feed = feedFixture(), fetchedAt = FIXED_NOW, etag = null, lastModified = null)
+
+        val entry = repository().browse("c1", url = null).getOrNull().orEmpty().first()
+
+        // Всё, что нужно карточке книги: описание, серия с адресом её фида, фид автора, язык,
+        // год, жанры, все форматы и размер выбранного файла.
+        assertThat(entry.summary).isEqualTo("Корабль поколений уходит в полёт.")
+        assertThat(entry.language).isEqualTo("ru")
+        assertThat(entry.issued).isEqualTo("2026")
+        assertThat(entry.seriesName).isEqualTo("Ксили")
+        assertThat(entry.seriesUrl).isEqualTo("https://host/opds/sequencebooks/24147")
+        assertThat(entry.authorUrl).isEqualTo("https://host/opds/author/750")
+        assertThat(entry.genres).containsExactly("Космическая фантастика")
+        // Форматы читаются человеком: «MOBI», а не «X-MOBIPOCKET-EBOOK».
+        assertThat(entry.formats).containsExactly("FB2", "EPUB", "MOBI")
+        assertThat(entry.expectedSize).isEqualTo(1_500_000L)
+    }
+
     private fun entity(id: String) = OpdsCatalogEntity(
         id = id,
         title = "Flibusta catalog",
@@ -183,12 +302,33 @@ class OpdsRepositoryImplTest {
                 id = "tag:book:1",
                 title = "Кольцо",
                 authors = listOf("Бакстер"),
+                // Метаданные карточки книги: всё это фид присылает, и всё это обязано доехать
+                // до домена — иначе карточка показывает только автора и формат.
+                summary = "Корабль поколений уходит в полёт.",
+                language = "ru",
+                issued = "2026",
+                seriesName = "Ксили",
+                seriesUrl = "https://host/opds/sequencebooks/24147",
+                authorUrl = "https://host/opds/author/750",
+                genres = listOf("Космическая фантастика"),
+                coverUrl = "https://host/covers/1.jpg",
                 links = listOf(
                     OpdsLink(rel = "http://opds-spec.org/acquisition/buy", href = "https://host/buy/1"),
                     OpdsLink(
                         rel = "http://opds-spec.org/acquisition/open-access",
                         href = "https://host/dl/1-open.fb2.zip",
                         type = "application/fb2+zip",
+                        length = 1_500_000L,
+                    ),
+                    OpdsLink(
+                        rel = "http://opds-spec.org/acquisition/open-access",
+                        href = "https://host/dl/1-open.epub",
+                        type = "application/epub+zip",
+                    ),
+                    OpdsLink(
+                        rel = "http://opds-spec.org/acquisition/open-access",
+                        href = "https://host/dl/1-open.mobi",
+                        type = "application/x-mobipocket-ebook",
                     ),
                 ),
             ),
@@ -212,14 +352,29 @@ class OpdsRepositoryImplTest {
         var calls = 0
         var conditional: ConditionalGet? = null
 
+        /** Последний запрошенный адрес: по нему проверяется подстановка поискового запроса. */
+        var lastUrl: String? = null
+
+        /**
+         * Тело дескриптора OpenSearch.
+         *
+         * Отдаётся по любому адресу: разбор фида в тестах заменён фейком, поэтому важно только то,
+         * что репозиторий получает настоящий дескриптор и достаёт из него шаблон.
+         */
+        var descriptorBody: String? = null
+
         override suspend fun get(
             url: String,
             conditional: ConditionalGet?,
             credentials: io.github.bookshelf.core.opds.auth.OpdsCredentials?,
         ): AppResult<HttpResponse> {
             calls++
+            lastUrl = url
             this.conditional = conditional
             failWith?.let { return AppResult.failure(it) }
+            descriptorBody?.let { body ->
+                return AppResult.success(HttpResponse(200, body, null, null, url))
+            }
             if (respondNotModified) {
                 return AppResult.success(HttpResponse(304, "", "v1", null, url))
             }
@@ -234,6 +389,10 @@ class OpdsRepositoryImplTest {
     }
 
     private class FakeParser(private val shouldFail: () -> Boolean) : OpdsFeedParser {
+
+        /** Шаблон OpenSearch, который «объявил» фид; null — каталог поиск не поддерживает. */
+        var searchTemplate: String? = null
+
         override suspend fun parse(body: String, baseUrl: String): AppResult<OpdsFeed> {
             if (shouldFail()) {
                 return AppResult.failure(
@@ -247,16 +406,66 @@ class OpdsRepositoryImplTest {
                     updated = "",
                     links = listOf(OpdsLink(rel = "self", href = baseUrl)),
                     entries = listOf(FeedEntry(id = "tag:book:1", title = "Кольцо")),
+                    searchUrl = searchTemplate,
                 ),
             )
         }
+    }
+
+    @Test
+    fun browse_takes_the_cache_age_from_settings() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        settingsRepository.value = AppSettings(opds = OpdsSettings(feedCacheMaxAgeMinutes = 5))
+
+        repository().browse("c1", url = "https://host/opds/new")
+
+        // Пять минут из настройки, а не прежняя константа: приложение обязано делать то, что
+        // показывает экран настроек.
+        assertThat(cache.lastMaxAgeMillis).isEqualTo(5 * 60 * 1000L)
+    }
+
+    @Test
+    fun browse_falls_back_to_the_documented_default_when_settings_are_unreadable() = runTest {
+        catalogDao.rows["c1"] = entity("c1")
+        settingsRepository.failure = IllegalStateException("настройки недоступны")
+
+        repository().browse("c1", url = "https://host/opds/new")
+
+        // Каталог обязан открываться и при недоступном хранилище настроек: тогда действует
+        // документированное умолчание (60 минут), а не мгновенно устаревший кэш или отказ.
+        assertThat(cache.lastMaxAgeMillis).isEqualTo(60 * 60 * 1000L)
+    }
+
+    /** Настройки для теста: только OPDS-группа, значение задаётся полем. */
+    private class FakeSettingsRepository : SettingsRepository {
+        var value: AppSettings = AppSettings()
+        var failure: Throwable? = null
+
+        override val settings: Flow<AppSettings> = flowOf(value)
+
+        override suspend fun current(): AppSettings {
+            failure?.let { throw it }
+            return value
+        }
+
+        override suspend fun update(transform: (AppSettings) -> AppSettings) {
+            value = transform(value)
+        }
+
+        override suspend fun resetToDefaults() = Unit
     }
 
     private class FakeCache : OpdsFeedCache {
         var stored: CachedFeed? = null
         var saved: CachedFeed? = null
 
-        override suspend fun get(urlHash: String, maxAgeMillis: Long) = AppResult.success(stored)
+        /** Возраст кэша, который запросил репозиторий: проверяется связь с настройкой. */
+        var lastMaxAgeMillis: Long? = null
+
+        override suspend fun get(urlHash: String, maxAgeMillis: Long): AppResult<CachedFeed?> {
+            lastMaxAgeMillis = maxAgeMillis
+            return AppResult.success(stored)
+        }
 
         override suspend fun put(feed: OpdsFeed, etag: String?, lastModified: String?) {
             saved = CachedFeed(feed, FIXED_NOW, etag, lastModified)
@@ -310,5 +519,28 @@ class OpdsRepositoryImplTest {
 
     private companion object {
         const val FIXED_NOW = 1_000_000L
+
+        /** Реальный вид ссылки Флибусты: маркер заменяется запросом пользователя. */
+        const val SEARCH_TEMPLATE = "https://host/opds/search?searchTerm={searchTerms}"
+
+        /** Адрес дескриптора OpenSearch: так его объявляет Project Gutenberg. */
+        const val DESCRIPTOR_URL = "https://host/catalog/osd-books.xml"
+
+        /**
+         * Дескриптор OpenSearch в том виде, в каком его объявляет Project Gutenberg.
+         *
+         * Первым `<Url>` идёт `text/html`: если взять первый попавшийся шаблон, откроется
+         * HTML-страница поиска вместо фида. Настоящий дескриптор Gutenberg разбирается отдельным
+         * тестом в `:core:opds` — здесь проверяется поведение репозитория, а не парсер.
+         */
+        val DESCRIPTOR_BODY: String = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+              <ShortName>Project Gutenberg</ShortName>
+              <Url type="text/html" template="https://host/ebooks/search/?query={searchTerms}"/>
+              <Url type="application/atom+xml"
+                   template="http://m.host/ebooks/search.opds/?query={searchTerms}"/>
+            </OpenSearchDescription>
+        """.trimIndent()
     }
 }

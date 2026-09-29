@@ -21,6 +21,11 @@ import kotlinx.serialization.Serializable
  * @param seriesName серия; null, если каталог её не сообщает.
  * @param seriesIndex номер в серии; Double, так как встречаются дробные значения.
  * @param dcIdentifier `dc:identifier` (ISBN и т. п.) — используется для дедупликации.
+ * @param issued `dc:issued` — год издания.
+ * @param genres жанры из `category/@term` в порядке объявления.
+ * @param authorUrl фид автора (`rel="related"`), если каталог его объявил: по нему открывается
+ *   список его книг и серий, вместо того чтобы искать автора поиском.
+ * @param seriesUrl фид серии (`rel="related"`), если каталог его объявил.
  */
 @Serializable
 data class OpdsEntry(
@@ -35,6 +40,10 @@ data class OpdsEntry(
     val seriesName: String? = null,
     val seriesIndex: Double? = null,
     val dcIdentifier: String? = null,
+    val issued: String? = null,
+    val genres: List<String> = emptyList(),
+    val authorUrl: String? = null,
+    val seriesUrl: String? = null,
 )
 
 /**

@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.CollectionType
+import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /** Книга в списке полки (UI-модель). */
 data class CollectionItemUi(
@@ -27,7 +30,37 @@ data class CollectionItemUi(
     val authors: String,
     /** Формат файла. */
     val extension: String,
+    /** Путь к обложке в локальном кэше; `null` — плитка рисует заглушку. */
+    val coverPath: String? = null,
+    /** Статус чтения — бейджем внизу обложки, как на главной полке. */
+    val readingStatus: ReadingStatus = ReadingStatus.UNREAD,
+    /** Прогресс чтения 0..100; `null` — читалка его не отдаёт. */
+    val progressPercent: Int? = null,
 )
+
+/**
+ * Книга домена в элемент полки.
+ *
+ * Отдельной функцией, а не кодом внутри `combine`: это единственное преобразование данных
+ * в экране содержимого полки, и его поведение (пустые авторы, отсутствующая обложка)
+ * проверяется тестом, а не глазами на устройстве.
+ */
+internal fun Book.toCollectionItemUi(): CollectionItemUi = CollectionItemUi(
+    id = id,
+    title = title,
+    authors = authorsText,
+    extension = extension,
+    coverPath = coverPath,
+    readingStatus = readingStatus,
+    // Проценты приводит к целому тот же, кто собирает карточку полки: читалка отдаёт дробь.
+    progressPercent = progressPercent?.let { percent ->
+        percent.roundToInt().coerceIn(MIN_PROGRESS_PERCENT, MAX_PROGRESS_PERCENT)
+    },
+)
+
+/** Границы прогресса чтения: читалка может отдать и −1, и 150. */
+private const val MIN_PROGRESS_PERCENT = 0
+private const val MAX_PROGRESS_PERCENT = 100
 
 /** Состояние экрана содержимого полки. */
 data class CollectionContentUiState(
@@ -96,14 +129,7 @@ class CollectionContentViewModel @Inject constructor(
                             isSmart -> "Умная полка"
                             else -> "Ручная полка"
                         },
-                        books = books.map { book ->
-                            CollectionItemUi(
-                                id = book.id,
-                                title = book.title,
-                                authors = book.authorsText,
-                                extension = book.extension,
-                            )
-                        },
+                        books = books.map { book -> book.toCollectionItemUi() },
                         isLoading = false,
                         isSmart = isSmart,
                         error = null,

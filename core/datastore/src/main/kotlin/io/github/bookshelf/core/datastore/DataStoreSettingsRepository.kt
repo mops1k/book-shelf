@@ -49,6 +49,29 @@ class DataStoreSettingsRepository @Inject constructor(
         }
         .map(SettingsCodec::decode)
 
+    /**
+     * Сброс к умолчаниям: служебные поля и зеркало читалки переживают сброс.
+     *
+     * Почему не `update { AppSettings() }`: это обнулило бы флаг разового бэкфилла жанров (он
+     * запускался бы заново при каждом старте) и «последнюю читалку» (приложение забыло бы, чем
+     * открывало книгу). Данные (папки, каталоги, книги, загрузки) сброс не затрагивает: они лежат
+     * в таблицах, а не в настройках.
+     */
+    override suspend fun resetToDefaults() {
+        update { current ->
+            val defaults = AppSettings()
+            defaults.copy(
+                library = defaults.library.copy(
+                    metadataBackfillDone = current.library.metadataBackfillDone,
+                ),
+                reader = defaults.reader.copy(
+                    defaultReaderByFormat = current.reader.defaultReaderByFormat,
+                    lastUsedReaderByFormat = current.reader.lastUsedReaderByFormat,
+                ),
+            )
+        }
+    }
+
     override suspend fun update(transform: (AppSettings) -> AppSettings) {
         dataStore.edit { preferences ->
             SettingsCodec.encode(preferences, transform(SettingsCodec.decode(preferences)))

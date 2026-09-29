@@ -115,14 +115,14 @@ class ScanCoordinatorImpl @Inject constructor(
     }
 
     /**
-     * Мягкая отмена.
+     * Пауза.
      *
      * Статус становится `PAUSED`, а не `CANCELLED`: только `RUNNING`/`PAUSED` находит
      * `findResumable`, поэтому после отмены следующий запуск обязан продолжить с курсора, а не
      * начать обход заново. Команда очереди отправляется даже без найденного прогона — воркер мог
      * не успеть записать состояние до остановки.
      */
-    override suspend fun cancel(sourceId: String) {
+    override suspend fun pause(sourceId: String) {
         appRunCatching {
             val run = scanRunDao.findResumable(sourceId)
             if (run != null) {

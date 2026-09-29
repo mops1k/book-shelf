@@ -82,6 +82,49 @@ class BookContentOpenerTest {
     }
 
     @Test
+    fun temp_copy_uses_the_limit_from_settings_provider() {
+        // Лимит приходит из настроек (`library.tempCopyLimitMb`), а не из константы: проверяем,
+        // что уменьшенный лимит действительно отказывает файлу, который прошёл бы по умолчанию.
+        val limitBytes = 1024L
+        val resolver = mockk<ContentResolver>()
+        val cursor = MatrixCursor(arrayOf(OpenableColumns.SIZE)).apply {
+            addRow(arrayOf<Any?>(limitBytes + 1L))
+        }
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            tempCopyLimitBytes = { limitBytes },
+        )
+
+        val result = opener.tempCopy(URI)
+
+        assertThat(result.errorOrNull()).isInstanceOf(AppError.InvalidArgument::class.java)
+    }
+
+    @Test
+    fun temp_copy_reads_the_limit_once_per_copy() {
+        // Значение берётся до первой проверки и переиспользуется после записи: если пользователь
+        // поменяет настройку между проверками, копия всё равно оценивается одним лимитом.
+        var reads = 0
+        val resolver = mockk<ContentResolver>()
+        every { resolver.query(any(), any(), any(), any(), any()) } returns null
+        every { resolver.openInputStream(Uri.parse(URI)) } returns ByteArrayInputStream(byteArrayOf(1))
+        val opener = DefaultBookContentOpener(
+            resolver = resolver,
+            importDir = temporaryFolder.newFolder("import"),
+            tempCopyLimitBytes = {
+                reads += 1
+                DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES
+            },
+        )
+
+        opener.tempCopy(URI)
+
+        assertThat(reads).isEqualTo(1)
+    }
+
+    @Test
     fun open_seekable_channel_reads_local_descriptor() {
         val file = temporaryFolder.newFile("book.bin").apply { writeBytes(byteArrayOf(7, 8, 9)) }
         val resolver = mockk<ContentResolver>()

@@ -12,14 +12,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.model.label
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
+import io.github.bookshelf.core.designsystem.component.EinkConfirmRow
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.component.EinkListRow
@@ -30,6 +33,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.bookdetails.BookDetailsUiState
 import io.github.bookshelf.feature.bookdetails.BookDetailsViewModel
+import io.github.bookshelf.feature.bookdetails.filePathLabel
 
 /** Ширина обложки в карточке. */
 private val COVER_WIDTH = 160.dp
@@ -50,11 +54,18 @@ fun BookDetailsScreen(
     onRead: (String) -> Unit,
     onOpenCollections: (String) -> Unit,
     onEditMetadata: (String) -> Unit,
+    /** Вернуться на полку: карточка кладёт просьбу «покажи автора/серию», а полка её забирает. */
+    onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BookDetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
+
+    // После удаления карточка закрывается: книги и файла больше нет, показывать нечего.
+    LaunchedEffect(state.isDeleted) {
+        if (state.isDeleted) onBack()
+    }
 
     EinkScaffold(
         title = state.title.ifEmpty { "Карточка книги" },
@@ -116,7 +127,17 @@ fun BookDetailsScreen(
                 )
             }
 
-            MetadataRows(state = state)
+            MetadataRows(
+                state = state,
+                onOpenAuthor = {
+                    viewModel.onOpenAuthor()
+                    onOpenLibrary()
+                },
+                onOpenSeries = {
+                    viewModel.onOpenSeries()
+                    onOpenLibrary()
+                },
+            )
 
             DescriptionBlock(description = state.description)
 
@@ -202,7 +223,7 @@ private fun BookHeader(state: BookDetailsUiState) {
                 color = colors.foreground,
             )
             Text(
-                text = readingStatusLabel(state.readingStatus),
+                text = state.readingStatus.label,
                 style = MaterialTheme.typography.labelMedium,
                 color = colors.foreground,
             )
@@ -219,9 +240,31 @@ private fun BookHeader(state: BookDetailsUiState) {
 
 /** Все метаданные, которые есть у книги: пустые поля просто не показываются. */
 @Composable
-private fun MetadataRows(state: BookDetailsUiState) {
+private fun MetadataRows(
+    state: BookDetailsUiState,
+    onOpenAuthor: () -> Unit,
+    onOpenSeries: () -> Unit,
+) {
     Column {
-        state.series?.let { MetadataRow(label = "Серия", value = it) }
+        // Автор и серия — переходы, а не просто текст (требование Александра, 28.09.2026):
+        // по автору открывается вид «Авторы» на нём с его сериями, по серии — книги серии.
+        // Так же сделано в карточке записи каталога OPDS.
+        if (state.authors.isNotBlank()) {
+            MetadataRow(
+                label = "Автор: ${state.authors}",
+                value = null,
+                subtitle = "Нажмите, чтобы открыть его книги и серии",
+                onClick = onOpenAuthor,
+            )
+        }
+        state.series?.let {
+            MetadataRow(
+                label = "Серия: $it",
+                value = null,
+                subtitle = "Нажмите, чтобы открыть книги серии",
+                onClick = onOpenSeries,
+            )
+        }
         state.publishedYear?.let { MetadataRow(label = "Год", value = it.toString()) }
         state.language?.let { MetadataRow(label = "Язык", value = it) }
         state.publisher?.let { MetadataRow(label = "Издательство", value = it) }
@@ -232,10 +275,20 @@ private fun MetadataRows(state: BookDetailsUiState) {
     }
 }
 
-/** Одна строка метаданных: подпись слева, значение справа. */
+/** Одна строка метаданных: подпись слева, значение справа; `onClick` делает строку переходом. */
 @Composable
-private fun MetadataRow(label: String, value: String) {
-    EinkListRow(title = label, trailing = value)
+private fun MetadataRow(
+    label: String,
+    value: String?,
+    subtitle: String? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    EinkListRow(
+        title = label,
+        subtitle = subtitle,
+        trailing = if (onClick != null) "→" else value,
+        onClick = onClick,
+    )
 }
 
 /** Аннотация. Сворачивание появится вместе с реальными данными (Sprint 4). */
@@ -257,10 +310,12 @@ private fun DescriptionBlock(description: String?) {
 /** Путь к файлу — по нему пользователь понимает, откуда пришла книга. */
 @Composable
 private fun FileBlock(state: BookDetailsUiState) {
+    val path = filePathLabel(sourceName = state.sourceName, relativePath = state.relativePath)
     Column {
         EinkSectionHeader(title = "Файл")
-        EinkListRow(title = "Путь", subtitle = state.relativePath)
-        EinkListRow(title = "Документ", subtitle = state.documentUri)
+        // Строки «Документ» больше нет: там показывался внутренний SAF-адрес файла
+        // (`content://…%2F…`) — приложению он нужен, пользователю ничего не говорит.
+        EinkListRow(title = "Путь", subtitle = path.ifEmpty { null })
     }
 }
 
@@ -312,13 +367,26 @@ private fun ActionsBlock(
                 modifier = Modifier.weight(1f),
             )
         }
+
+        // Удаление стоит последним и отдельной строкой: это единственное необратимое действие
+        // карточки, и рядом с повседневными кнопками ему не место.
+        if (state.isConfirmingDelete) {
+            EinkConfirmRow(
+                question = "Удалить книгу и файл с устройства? Вернуть её можно будет только " +
+                    "копированием файла заново.",
+                confirmLabel = if (state.isDeleting) "Удаляем…" else "Удалить",
+                onConfirm = viewModel::onDeletePermanently,
+                onCancel = viewModel::onCancelDelete,
+                enabled = !state.isDeleting,
+            )
+        } else {
+            EinkButton(
+                text = "Удалить навсегда",
+                onClick = viewModel::onAskDelete,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
-/** Подпись статуса чтения. */
-private fun readingStatusLabel(status: ReadingStatus): String = when (status) {
-    ReadingStatus.UNREAD -> "не прочитано"
-    ReadingStatus.READING -> "читаю"
-    ReadingStatus.READ -> "прочитано"
-}
 

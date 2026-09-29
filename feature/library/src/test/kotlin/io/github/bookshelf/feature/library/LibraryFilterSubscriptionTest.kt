@@ -7,8 +7,11 @@ import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.paging.PageResult
+import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.data.repository.DeletionResult
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.SettingsRepository
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +35,7 @@ import org.junit.Test
  * доходил до экрана фильтров, а полка показывала все книги.
  *
  * Здесь же проверяется кнопка «Пересканировать»: команда должна доходить до
- * [BookRepository.rescanAll], а не теряться между экраном и ViewModel.
+ * отбор фильтров, а не теряться между экраном и ViewModel.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryFilterSubscriptionTest {
@@ -57,6 +60,7 @@ class LibraryFilterSubscriptionTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository,
             filterSelection = selection,
+            browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
         )
         advanceUntilIdle()
@@ -78,6 +82,7 @@ class LibraryFilterSubscriptionTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository,
             filterSelection = selection,
+            browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
         )
         advanceUntilIdle()
@@ -98,6 +103,7 @@ class LibraryFilterSubscriptionTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository,
             filterSelection = selection,
+            browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
         )
         advanceUntilIdle()
@@ -112,49 +118,34 @@ class LibraryFilterSubscriptionTest {
     }
 
     @Test
-    fun `rescan button reaches the repository`() = runTest(dispatcher) {
+    fun `button counter shows how many filter values are applied`() = runTest(dispatcher) {
         val viewModel = LibraryViewModel(
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository,
             filterSelection = selection,
+            browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
         )
         advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeFilters.activeCount).isEqualTo(0)
 
-        viewModel.onRescanAll()
+        selection.apply(BookQuery(authorNames = setOf("a", "b", "c"), series = setOf("s")))
         advanceUntilIdle()
 
-        assertThat(repository.rescanCalls).isEqualTo(1)
-        assertThat(viewModel.uiState.value.isRescanning).isFalse()
-        assertThat(viewModel.uiState.value.error).isNull()
-    }
-
-    @Test
-    fun `failed rescan is shown as an error banner`() = runTest(dispatcher) {
-        repository.rescanResult = AppResult.failure(AppError.Io(message = "нет доступа к папке"))
-        val viewModel = LibraryViewModel(
-            bookRepository = repository,
-            settingsRepository = FakeSettingsRepository,
-            filterSelection = selection,
-            filterRepository = FakeFilterRepository(),
-        )
-        advanceUntilIdle()
-
-        viewModel.onRescanAll()
-        advanceUntilIdle()
-
-        assertThat(repository.rescanCalls).isEqualTo(1)
-        assertThat(viewModel.uiState.value.error).isEqualTo("нет доступа к папке")
+        // Александр 28.09.2026 (интерактивный вопрос): на кнопке считаются значения, а не критерии.
+        // До починки `activeFilters` не заполнялось вовсе, и кнопка всегда читалась «Фильтры (0)».
+        assertThat(viewModel.uiState.value.activeFilters.activeCount).isEqualTo(4)
+        // Одна серия — это ещё и подпись подвала «Порядок серии: по выпуску»: она читает признак
+        // из запроса, поэтому работает и когда серия выбрана в обзоре, а не на экране фильтров.
+        assertThat(viewModel.uiState.value.activeFilters.series).containsExactly("s")
+        assertThat(viewModel.uiState.value.seriesOrderByRelease).isTrue()
+        viewModel.onClearFilters()
     }
 
     private class RecordingBookRepository : BookRepository {
         val queries = mutableListOf<LibraryQuery>()
 
-        /** Сколько раз полка попросила пересканировать библиотеку. */
-        var rescanCalls = 0
-
         /** Чем ответит репозиторий: успех по умолчанию, сбой — в проверке ошибки. */
-        var rescanResult: AppResult<Unit> = AppResult.success(Unit)
 
         override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> {
             queries += query
@@ -171,6 +162,12 @@ class LibraryFilterSubscriptionTest {
             AppResult.success(Unit)
         override suspend fun delete(bookId: String) = AppResult.success(Unit)
 
+        /** Удаление с файлом и поиск дублей в тестах полки не проверяются. */
+        override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
+            AppResult.success(DeletionResult(deleted = bookIds.size, failed = 0))
+
+        override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+
         /**
          * Пересканирование библиотеки.
          *
@@ -179,8 +176,9 @@ class LibraryFilterSubscriptionTest {
          * нужен, чтобы проверять не «кнопка нарисована», а «команда дошла до репозитория».
          */
         override suspend fun rescanAll(): AppResult<Unit> {
-            rescanCalls += 1
-            return rescanResult
+            // Кнопка «Пересканировать» ушла в настройки: здесь проверяется, что заглушка
+            // репозитория ведёт себя как рабочая реализация.
+            return AppResult.success(Unit)
         }
     }
 
@@ -189,6 +187,8 @@ class LibraryFilterSubscriptionTest {
      * Значения по умолчанию — чтобы тест не зависел от содержимого файла настроек.
      */
     private object FakeSettingsRepository : SettingsRepository {
+
+        override suspend fun resetToDefaults() = Unit
         override val settings: Flow<AppSettings> = flowOf(AppSettings())
         override suspend fun current(): AppSettings = AppSettings()
         override suspend fun update(transform: (AppSettings) -> AppSettings) = Unit

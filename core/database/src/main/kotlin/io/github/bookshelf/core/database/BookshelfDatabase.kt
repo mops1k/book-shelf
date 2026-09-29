@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import io.github.bookshelf.core.database.convert.Converters
 import io.github.bookshelf.core.database.dao.AuthorDao
+import io.github.bookshelf.core.database.dao.BookCleanupDao
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.BookReaderOverrideDao
 import io.github.bookshelf.core.database.dao.BookmarkDao
@@ -77,13 +78,16 @@ import io.github.bookshelf.core.database.entity.TagEntity
         OpdsFeedCacheEntity::class,
         MetadataOverrideEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class BookshelfDatabase : RoomDatabase() {
 
     abstract fun bookDao(): BookDao
+
+    /** Удаление книг вместе со связями: отдельный DAO, чтобы не раздувать [BookDao]. */
+    abstract fun bookCleanupDao(): BookCleanupDao
 
     abstract fun sourceDao(): SourceDao
 

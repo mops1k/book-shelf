@@ -17,6 +17,18 @@ data class CollectionUi(
     val isSmart: Boolean = false,
     /** Человекочитаемая подпись правил: «статус: читаю, формат: FB2». */
     val rulesSummary: String? = null,
+    /** Пути обложек первых книг — строка полки показывает их вместо иконки. */
+    val previewCovers: List<String> = emptyList(),
+)
+
+/** Готовая умная полка, которую пользователю остаётся добавить («Доступные автополки»). */
+data class SmartPresetUi(
+    /** Ключ пресета для `CollectionsViewModel.onAddPreset`. */
+    val id: String,
+    /** Название полки, которая появится после добавления. */
+    val title: String,
+    /** Подпись правила: «Статус чтения: не прочитано». */
+    val hint: String,
 )
 
 /**
@@ -35,6 +47,10 @@ data class CollectionsUiState(
     val renamingId: String? = null,
     /** Текст в поле переименования. */
     val renameDraft: String = "",
+    /** Готовые умные полки, которых в списке ещё нет. */
+    val presets: List<SmartPresetUi> = emptyList(),
+    /** Активна ли кнопка «Сохранить текущий фильтр как полку». */
+    val canSaveCurrentFilter: Boolean = false,
     /** Идёт загрузка списка. */
     val isLoading: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */

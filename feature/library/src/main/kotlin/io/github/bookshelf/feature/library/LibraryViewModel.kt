@@ -3,9 +3,6 @@ package io.github.bookshelf.feature.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.bookshelf.core.common.error.AppError
-import io.github.bookshelf.core.common.error.errorOrNull
-import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.BookQuery
@@ -13,9 +10,12 @@ import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.SortOrder
+import io.github.bookshelf.core.data.mapper.LibraryQueryDefaults
+import io.github.bookshelf.core.data.mapper.toLibraryQueryDefaults
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import javax.inject.Inject
@@ -50,6 +50,7 @@ class LibraryViewModel @Inject constructor(
     /** Настройки нужны для вида полки по умолчанию (docs/eink-ux.md §6.8). */
     private val settingsRepository: SettingsRepository,
     private val filterSelection: FilterSelection,
+    private val browseRequest: LibraryBrowseRequest,
     private val filterRepository: FilterRepository,
 ) : ViewModel() {
 
@@ -71,6 +72,7 @@ class LibraryViewModel @Inject constructor(
     private var viewChosenOnShelf = false
 
     init {
+        observeBrowseRequest()
         observePage(query)
         // Вид полки по умолчанию задаётся на экране настроек. Подписка, а не разовое чтение:
         // пользователь меняет настройку и возвращается на полку без перезапуска приложения.
@@ -88,10 +90,26 @@ class LibraryViewModel @Inject constructor(
                     applyViewPreset(preset)
                 }
         }
+        // Сортировка, направление и группировка по умолчанию — тоже настройки (docs/eink-ux.md
+        // §6.2). Это подписка, а не разовое чтение: изменение настройки перестраивает уже
+        // открытую полку, без перезапуска приложения («применяется сразу»). `distinctUntilChanged`
+        // по самой тройке значений нужен, чтобы смена посторонней настройки (например, лимита
+        // кэша обложек) не пересортировала полку под пользователем: выбор, сделанный на полке,
+        // живёт, пока не изменится именно порядок по умолчанию.
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { settings -> settings.library.toLibraryQueryDefaults() }
+                .distinctUntilChanged()
+                .collect { defaults -> applyDefaultOrder(defaults) }
+        }
         // Полка читает тот же выбор, что и экран фильтров: раньше каждый ViewModel держал своё
         // состояние, поэтому «Применить» закрывал экран, а полка показывала все книги.
         viewModelScope.launch {
             filterSelection.query.collect { shared ->
+                // Кнопка «Фильтры (N)» и подпись «Порядок серии: по выпуску» в подвале читают тот же
+                // общий выбор. Раньше `activeFilters` заполнялось только при сбросе, поэтому на
+                // кнопке всегда стоял ноль, хотя полка фильтровала книги (дефект от 28.09.2026).
+                _uiState.update { it.copy(activeFilters = shared.toFilterChipsUi()) }
                 if (query.bookQuery != shared) {
                     // Общий фильтр — это выбор с экрана фильтров, а он живёт по всему списку книг.
                     // Продолжать в нём обзор значило бы спрятать категорийные ограничения:
@@ -124,6 +142,31 @@ class LibraryViewModel @Inject constructor(
     fun onSetGrouping(grouping: Grouping) {
         query = query.copy(grouping = grouping, page = 0)
         _uiState.update { it.copy(grouping = grouping, page = 0) }
+        observePage(query)
+    }
+
+    /**
+     * Порядок полки, заданный настройками.
+     *
+     * Применяется целиком (сортировка, направление, группировка) одним запросом: по отдельности
+     * это были бы три обращения к БД. Вызывается как на первой эмиссии настроек (чем открывается
+     * полка), так и при каждом изменении этой тройки — поэтому смена умолчания видна сразу.
+     */
+    private fun applyDefaultOrder(defaults: LibraryQueryDefaults) {
+        if (
+            defaults.sort == query.sort &&
+            defaults.descending == query.descending &&
+            defaults.grouping == query.grouping
+        ) {
+            return
+        }
+        query = query.copy(
+            sort = defaults.sort,
+            descending = defaults.descending,
+            grouping = defaults.grouping,
+            page = 0,
+        )
+        _uiState.update { it.copy(sort = defaults.sort, grouping = defaults.grouping, page = 0) }
         observePage(query)
     }
 
@@ -192,6 +235,62 @@ class LibraryViewModel @Inject constructor(
             browse.mode == BrowseMode.SERIES && browse.level == BrowseLevel.Root -> openSeries(category)
 
             else -> Unit
+        }
+    }
+
+    /**
+     * Просьбы карточки книги: показать книги автора или серии.
+     *
+     * Приём тот же, что у фильтров: карточка кладёт просьбу в общее состояние, полка её забирает.
+     * Просьба снимается сразу после обработки — иначе она срабатывала бы при каждом возвращении
+     * на полку и затирала выбранное пользователем.
+     */
+    private fun observeBrowseRequest() {
+        viewModelScope.launch {
+            browseRequest.request.collect { request ->
+                if (request == null) return@collect
+                browseRequest.consume()
+                when (request) {
+                    is LibraryBrowseRequest.Request.Author -> onOpenAuthorByName(request.name)
+                    is LibraryBrowseRequest.Request.Series -> onOpenSeriesByName(request.name)
+                }
+            }
+        }
+    }
+
+    /**
+     * Показать книги автора в виде «Авторы».
+     *
+     * Именно вид авторов, а не плоский список с фильтром: на уровне автора сверху его серии,
+     * снизу книги вне серий — так книга находится без поиска (требование Александра, 28.09.2026).
+     */
+    fun onOpenAuthorByName(name: String) {
+        if (name.isBlank()) return
+        onSetBrowse(BrowseMode.AUTHORS)
+        openAuthor(CategoryItemUi(id = name, label = name, count = 0))
+    }
+
+    /**
+     * Показать книги серии.
+     *
+     * Авторский фильтр снимается: серия открывается целиком, а не только у автора, чей фильтр
+     * остался от прошлого захода (иначе с полки автора серия показала бы часть книг).
+     */
+    fun onOpenSeriesByName(name: String) {
+        if (name.isBlank()) return
+        onSetBrowse(BrowseMode.SERIES)
+        applyCategoryFilter(authorName = null, seriesName = name)
+        val level = BrowseLevel.Series(name)
+        _uiState.update {
+            it.copy(
+                page = 0,
+                browse = it.browse.copy(
+                    level = level,
+                    categories = emptyList(),
+                    title = browseTitle(BrowseMode.SERIES, level),
+                    canGoBack = true,
+                ),
+            )
         }
     }
 
@@ -352,34 +451,13 @@ class LibraryViewModel @Inject constructor(
         observePage(query)
     }
 
-    /**
-     * Пересканировать библиотеку: очистить базу и прогнать сканы заново.
-     *
-     * Подпись кнопки обещает «пересканировать», а не «стереть книги», поэтому подтверждения
-     * не спрашиваем: файлы на устройстве команда не трогает, а записи базы восстановятся
-     * следующим сканом. Ошибка показывается баннером, а не молчанием.
-     */
-    fun onRescanAll() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRescanning = true, error = null) }
-            val result = bookRepository.rescanAll()
-            _uiState.update {
-                it.copy(
-                    isRescanning = false,
-                    error = if (result.isFailure) {
-                        (result.errorOrNull() ?: AppError.Unknown()).message
-                            ?: "Не удалось пересканировать библиотеку"
-                    } else {
-                        null
-                    },
-                )
-            }
-        }
-    }
-
     @Suppress("TooGenericExceptionCaught")
     private fun observePage(currentQuery: LibraryQuery) {
         pageJob?.cancel()
+        // Порядок внутри серии приходит из запроса: подвал обязан повторять то, как книги реально
+        // упорядочены, а не то, что выбрано на экране фильтров (`BookPageSql` включает порядок
+        // по выпуску, когда серия ровно одна — и при выборе серии в обзоре тоже).
+        _uiState.update { it.copy(seriesOrderByRelease = currentQuery.bookQuery.series.size == 1) }
         pageJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -413,6 +491,7 @@ class LibraryViewModel @Inject constructor(
         title = title,
         authors = authorsText.ifBlank { authors.joinToString(", ") },
         coverPath = coverPath,
+        extension = extension,
         readingStatus = readingStatus,
         progressPercent = progressPercent?.let { value ->
             value.roundToInt().coerceIn(MIN_PROGRESS_PERCENT, MAX_PROGRESS_PERCENT)

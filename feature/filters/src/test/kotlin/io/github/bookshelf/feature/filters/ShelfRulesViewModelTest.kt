@@ -1,0 +1,199 @@
+package io.github.bookshelf.feature.filters
+
+import androidx.lifecycle.SavedStateHandle
+import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.data.model.AuthorSeries
+import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.data.model.BookQuery
+import io.github.bookshelf.core.data.model.Collection
+import io.github.bookshelf.core.data.model.CollectionType
+import io.github.bookshelf.core.data.model.FacetItem
+import io.github.bookshelf.core.data.model.FacetSet
+import io.github.bookshelf.core.data.model.SmartRules
+import io.github.bookshelf.core.data.paging.PageResult
+import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.data.repository.CollectionRepository
+import io.github.bookshelf.core.data.repository.FilterRepository
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * Редактор правил умной полки.
+ *
+ * Проверяется то, из-за чего редактор вообще имеет смысл: правила полки становятся начальным
+ * выбором, правки живут локально (не трогая фильтр библиотеки) и сохраняются в полку JSON-ом.
+ * Отдельно — что пустой черновик не сохраняется: полка без условий показывает пустоту, а не
+ * всю библиотеку (см. `SmartRules.isEmpty`).
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class ShelfRulesViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `shelf rules become the initial draft`() = runTest(dispatcher) {
+        val fixture = Fixture(SmartRules(tags = setOf("sf_space")).toJson())
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.shelfName).isEqualTo("Космос")
+        assertThat(viewModel.uiState.value.selected.tags).containsExactly("sf_space")
+    }
+
+    @Test
+    fun `toggling a facet updates the draft and recounts the shelf`() = runTest(dispatcher) {
+        val fixture = Fixture(null)
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+        viewModel.onToggleFacet(FacetKind.AUTHORS, "Лем Станислав")
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selected.authors).containsExactly("Лем Станислав")
+        // Фасеты и число книг считаются по черновику: пользователь видит, что даст правило.
+        assertThat(fixture.facetQueries.last().authorNames).containsExactly("Лем Станислав")
+        assertThat(viewModel.uiState.value.resultCount).isEqualTo(2)
+    }
+
+    @Test
+    fun `saving writes the draft as shelf rules`() = runTest(dispatcher) {
+        val fixture = Fixture(null)
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+        viewModel.onToggleFacet(FacetKind.TAGS, "sf_space")
+        advanceUntilIdle()
+        viewModel.onSave()
+        advanceUntilIdle()
+
+        assertThat(fixture.updateCalls).isEqualTo(1)
+        assertThat(SmartRules.fromJson(fixture.savedRulesJson)?.tags).containsExactly("sf_space")
+        assertThat(viewModel.uiState.value.saved).isTrue()
+        assertThat(viewModel.uiState.value.error).isNull()
+    }
+
+    @Test
+    fun `empty draft is not saved as rules`() = runTest(dispatcher) {
+        val fixture = Fixture(SmartRules(tags = setOf("sf_space")).toJson())
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+        viewModel.onReset()
+        advanceUntilIdle()
+        viewModel.onSave()
+        advanceUntilIdle()
+
+        // Пустые правила означают пустую полку: сохранить их значило бы «стереть» полку молча.
+        assertThat(fixture.updateCalls).isEqualTo(0)
+        assertThat(viewModel.uiState.value.saved).isFalse()
+        assertThat(viewModel.uiState.value.error).contains("хотя бы одно условие")
+    }
+
+    @Test
+    fun `shelf updates do not overwrite the draft`() = runTest(dispatcher) {
+        val fixture = Fixture(null)
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+        viewModel.onToggleFacet(FacetKind.AUTHORS, "Лем Станислав")
+        advanceUntilIdle()
+
+        // Список полок обновляется и по другим причинам (например, изменилось число книг):
+        // повторное применение правил стёрло бы уже сделанный выбор.
+        fixture.shelves.value = fixture.shelves.value.map { shelf -> shelf.copy(bookCount = 5) }
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selected.authors).containsExactly("Лем Станислав")
+    }
+
+    @Test
+    fun `missing shelf is reported instead of showing empty rules`() = runTest(dispatcher) {
+        val fixture = Fixture(null)
+        fixture.shelves.value = emptyList()
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.error).isEqualTo("Полка не найдена")
+    }
+
+    /** Полка, репозитории и записанные вызовы — в одном месте, чтобы тесты читались как сценарий. */
+    private class Fixture(rulesJson: String?, private val updateResult: AppResult<Unit> = AppResult.success(Unit)) {
+
+        val shelves = MutableStateFlow(
+            listOf(
+                Collection(
+                    id = SHELF_ID,
+                    name = "Космос",
+                    type = CollectionType.SMART,
+                    rulesJson = rulesJson,
+                ),
+            ),
+        )
+
+        /** Запросы, по которым редактор считал фасеты: по ним видно, что черновик дошёл до данных. */
+        val facetQueries = mutableListOf<BookQuery>()
+
+        /** Правила, записанные в полку; `null` — сохранения не было. */
+        var savedRulesJson: String? = null
+
+        var updateCalls = 0
+
+        private val collections = mockk<CollectionRepository>(relaxed = true)
+        private val filters = mockk<FilterRepository>(relaxed = true)
+        private val books = mockk<BookRepository>(relaxed = true)
+
+        init {
+            every { collections.observeCollections() } returns shelves
+            coEvery { collections.updateSmartRules(any(), any()) } answers {
+                updateCalls += 1
+                savedRulesJson = secondArg()
+                updateResult
+            }
+            every { filters.observeFacets(any()) } answers {
+                facetQueries += firstArg<BookQuery>()
+                flowOf(FacetSet(authors = listOf(FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2))))
+            }
+            every { filters.observeAuthorSeries(any()) } returns flowOf(AuthorSeries())
+            every { books.observePage(any()) } returns flowOf(
+                PageResult(items = emptyList<Book>(), totalCount = 2, offset = 0, limit = 1),
+            )
+        }
+
+        fun viewModel(): ShelfRulesViewModel = ShelfRulesViewModel(
+            savedStateHandle = SavedStateHandle(mapOf(ShelfRulesRoute.ARG_COLLECTION_ID to SHELF_ID)),
+            collectionRepository = collections,
+            filterRepository = filters,
+            bookRepository = books,
+        )
+    }
+
+    private companion object {
+        const val SHELF_ID = "shelf-1"
+    }
+}

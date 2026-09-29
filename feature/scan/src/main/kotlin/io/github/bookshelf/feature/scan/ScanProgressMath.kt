@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.scan
 
+import io.github.bookshelf.core.data.model.ScanStatus
+
 /**
  * Чистая арифметика прогресса сканирования (docs/eink-ux.md §6.6).
  *
@@ -23,10 +25,12 @@ fun scanProgressFraction(filesSeen: Int, filesTotal: Int?): Float =
     scanPercent(filesSeen, filesTotal) / PERCENT_MAX.toFloat()
 
 /**
- * Скан можно продолжить с сохранённого места: он не идёт и пройдены не все файлы.
+ * Скан можно продолжить с сохранённого места: прогон стоит на паузе.
  *
- * Возобновляемость — архитектурное требование (ADR-010): foreground-скан может быть
- * прерван системой в любой момент, и пользователь должен увидеть «продолжить».
+ * Признак берётся из состояния прогона, а не из «пройдены не все файлы»: общее число файлов
+ * заранее неизвестно (`totalKnown` в базе остаётся пустым), поэтому прежнее правило с `filesTotal`
+ * не давало нажать «Продолжить» никогда — кнопка была отключена всегда (найдено на устройстве
+ * 28.09.2026).
  */
-fun canResumeScan(isRunning: Boolean, filesSeen: Int, filesTotal: Int?): Boolean =
-    !isRunning && filesTotal != null && filesSeen < filesTotal
+fun canResumeScan(status: ScanStatus, filesSeen: Int): Boolean =
+    status == ScanStatus.PAUSED && filesSeen >= 0

@@ -19,8 +19,8 @@ import java.util.UUID
  * даёт seek для локальных файлов (внешнее и внутреннее хранилище). Для облачных
  * DocumentsProvider (Google Drive и подобные) это pipe: [openSeekableChannel] вернёт `null`,
  * и форматы с произвольным доступом (MOBI/AZW3, PDF, CBZ/CBR) работают через временную копию —
- * [tempCopy] кладёт файл в `cacheDir/import` с лимитом 100 МБ по умолчанию
- * (docs/architecture.md §4.4).
+ * [tempCopy] кладёт файл в `cacheDir/import` с лимитом из настроек группы «Полка»
+ * (`library.tempCopyLimitMb`, умолчание 100 МБ, docs/architecture.md §4.4).
  */
 interface BookContentOpener {
 
@@ -46,13 +46,18 @@ interface BookContentOpener {
  *
  * @param resolver резолвер приложения; время жизни — процесс.
  * @param importDir каталог временных копий `cacheDir/import`.
- * @param maxTempCopyBytes потолок копии: файл в сотни мегабайт из облака не должен съесть память
- *   устройства, поэтому размер проверяется до начала копирования.
+ * @param tempCopyLimitBytes потолок копии в байтах: файл в сотни мегабайт из облака не должен
+ *   съесть память устройства, поэтому размер проверяется до начала копирования. Именно функция, а
+ *   не число: лимит — это настройка `library.tempCopyLimitMb`, а объект существует один на процесс
+ *   (`@Singleton`), поэтому значение читается в момент копирования и изменение настройки
+ *   применяется без перезапуска приложения (docs/roadmap.md, DoD Sprint 5). По умолчанию —
+ *   прежняя константа [DEFAULT_MAX_TEMP_COPY_BYTES]: без неё объект нельзя собрать в тестах, и
+ *   поведение по умолчанию осталось бы без лимита вовсе.
  */
 class DefaultBookContentOpener(
     private val resolver: ContentResolver,
     private val importDir: File,
-    private val maxTempCopyBytes: Long = DEFAULT_MAX_TEMP_COPY_BYTES,
+    private val tempCopyLimitBytes: () -> Long = { DEFAULT_MAX_TEMP_COPY_BYTES },
 ) : BookContentOpener {
 
     override fun openStream(documentUri: String): InputStream? =
@@ -97,9 +102,11 @@ class DefaultBookContentOpener(
      *
      * Сначала проверяется размер: копировать 500 МБ, чтобы упереться в лимит на середине, хуже,
      * чем отказать сразу. Имя уникальное — два скана одного каталога идут параллельно и не должны
-     * затирать чужую копию.
+     * затирать чужую копию. Лимит читается один раз на копию: иначе проверка до записи и проверка
+     * после неё могли бы увидеть разные значения, если пользователь поменял настройку между ними.
      */
     override fun tempCopy(documentUri: String): AppResult<String> {
+        val maxTempCopyBytes = tempCopyLimitBytes()
         val declaredSize = sizeOf(documentUri)
         if (declaredSize != null && declaredSize > maxTempCopyBytes) {
             return AppResult.failure(
@@ -137,7 +144,7 @@ class DefaultBookContentOpener(
     }
 
     companion object {
-        /** Лимит временной копии — 100 МБ (docs/architecture.md §4.4). */
+        /** Резервный лимит временной копии — 100 МБ (docs/architecture.md §4.4): совпадает с умолчанием настройки. */
         const val DEFAULT_MAX_TEMP_COPY_BYTES: Long = 100L * 1024L * 1024L
 
         private const val TEMP_SUFFIX = ".tmp"

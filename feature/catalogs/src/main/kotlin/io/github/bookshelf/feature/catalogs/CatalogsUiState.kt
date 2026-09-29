@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.catalogs
 
+import io.github.bookshelf.core.data.model.DownloadState
+
 /** Какой из четырёх экранов модуля OPDS показан сейчас. */
 enum class CatalogsMode {
     /** Список добавленных каталогов. */
@@ -43,6 +45,8 @@ data class FeedEntryUi(
     val coverPath: String? = null,
     /** URL обложки из фида — нужен загрузчику (Sprint 8). */
     val coverUrl: String? = null,
+    /** Состояние загрузки этой записи; `null` — книгу ещё не качали. */
+    val download: EntryDownloadUi? = null,
     /** Форматы, доступные к скачиванию: `FB2`, `EPUB`. */
     val formats: List<String> = emptyList(),
     /** Подпись размера файла: «1,2 МБ». */
@@ -79,6 +83,10 @@ data class FeedUi(
 data class DownloadUi(
     /** `opds_downloads.id`. */
     val id: String,
+    /** `atom:id` записи фида: по нему состояние загрузки находится в карточке записи. */
+    val entryId: String,
+    /** Состояние прогона загрузки — из него считаются подписи. */
+    val state: DownloadState,
     /** Название книги. */
     val title: String,
     /** Подпись состояния: «В очереди», «Скачивается», «Готово», «Ошибка». */
@@ -91,6 +99,23 @@ data class DownloadUi(
     val bookId: String? = null,
     /** Причина ошибки, если загрузка не удалась. */
     val error: String? = null,
+)
+
+/**
+ * Состояние загрузки записи для карточки фида.
+ *
+ * Раньше после «Скачать» карточка записи молча закрывалась, и на месте — в списке книг — не было
+ * ни признака, что загрузка началась, ни дороги к очереди (жалоба Александра, 28.09.2026).
+ */
+data class EntryDownloadUi(
+    /** Подпись состояния: «Загрузка началась: в очереди», «Загрузка идёт: 45%», «Скачано». */
+    val label: String,
+    /** Прогресс в процентах, 0..100. */
+    val progressPercent: Int = 0,
+    /** Загрузка ещё идёт: повторно качать не нужно. */
+    val isActive: Boolean = false,
+    /** Загрузка завершена: файл уже на устройстве. */
+    val isDone: Boolean = false,
 )
 
 /**

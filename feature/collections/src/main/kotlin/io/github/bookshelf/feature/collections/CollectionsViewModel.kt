@@ -4,12 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.fold
 import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.Collection
 import io.github.bookshelf.core.data.model.CollectionType
-import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.model.SmartRules
 import io.github.bookshelf.core.data.repository.CollectionRepository
+import io.github.bookshelf.core.data.repository.FilterSelection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +25,15 @@ import javax.inject.Inject
 
 /** Имя новой полки, пока в экране нет отдельного поля ввода названия. */
 private const val DEFAULT_COLLECTION_NAME = "Новая полка"
+
+/**
+ * Сколько условий правила показывать в строке полки.
+ *
+ * Одно: при двух подпись «Умная полка · жанр: Космическая фантастика, статус: не прочитано»
+ * не влезает в строку списка и обрывается многоточием на середине названия жанра. Остальные
+ * условия видны в редакторе правил — там места достаточно.
+ */
+private const val ROW_RULES_PARTS = 1
 
 /**
  * ViewModel коллекций (docs/eink-ux.md §6.3, Sprint 7).
@@ -36,9 +49,13 @@ private const val DEFAULT_COLLECTION_NAME = "Новая полка"
 @HiltViewModel
 class CollectionsViewModel @Inject constructor(
     private val collectionRepository: CollectionRepository,
-    // Понадобится для правил умных полок (v1, критерий 10 roadmap).
-    @Suppress("UnusedPrivateProperty")
-    private val bookRepository: BookRepository,
+    /**
+     * Общий выбор фильтров полки.
+     *
+     * Нужен кнопке «Сохранить текущий фильтр как полку»: правила умной полки — это тот же набор
+     * условий, что у фильтра, и второй способ их собирать разошёлся бы с первым.
+     */
+    private val filterSelection: FilterSelection,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CollectionsUiState())
@@ -51,6 +68,7 @@ class CollectionsViewModel @Inject constructor(
 
     init {
         observeCollections()
+        observeFilterSelection()
     }
 
     /** Выделить полку — цель действия «Открыть» с D-pad и аппаратных кнопок. */
@@ -143,6 +161,68 @@ class CollectionsViewModel @Inject constructor(
     }
 
     /**
+     * Добавить готовую умную полку («Доступные автополки»).
+     *
+     * Два действия подряд — создать полку и записать её правила: `create` не принимает правила,
+     * потому что ручной полке они не нужны, а умная без правил пуста.
+     */
+    fun onAddPreset(presetId: String) {
+        val preset = SmartPreset.entries.firstOrNull { it.id == presetId } ?: return
+        viewModelScope.launch { createSmartShelf(preset.title, preset.rules) }
+    }
+
+    /**
+     * Сохранить текущий фильтр полки как умную полку.
+     *
+     * Мост между фильтрами и полками: набор условий у них один и тот же, поэтому пользователю не
+     * нужно выставлять те же галочки второй раз.
+     */
+    fun onSaveCurrentFilter() {
+        val query = filterSelection.query.value
+        val rules = SmartRules.fromQuery(query)
+        if (rules.isEmpty) {
+            showError(
+                "Не удалось сохранить подборку",
+                AppError.InvalidArgument("filter", "сначала выберите фильтры на полке"),
+            )
+            return
+        }
+        viewModelScope.launch { createSmartShelf(rules.defaultName(), rules) }
+    }
+
+    /**
+     * Создать умную полку и сразу записать её правила.
+     *
+     * Два шага, а не один: `create` правил не принимает — ручной полке они не нужны, а умная без
+     * правил пуста. Ошибка первого шага отменяет второй: полка без правил показывала бы «0 книг».
+     */
+    private suspend fun createSmartShelf(name: String, rules: SmartRules) {
+        val created = collectionRepository.create(name, CollectionType.SMART)
+        val collection = created.getOrNull()
+        if (collection == null) {
+            showError("Не удалось создать полку", created.errorOrNull() ?: AppError.Unknown())
+            return
+        }
+        collectionRepository.updateSmartRules(collection.id, rules.toJson()).fold(
+            onSuccess = { clearError() },
+            onFailure = { showError("Не удалось сохранить правила полки", it) },
+        )
+    }
+
+    /**
+     * Кнопка «Сохранить текущий фильтр как полку» активна, только когда фильтр что-то отсекает.
+     */
+    private fun observeFilterSelection() {
+        viewModelScope.launch {
+            filterSelection.query.collect { query ->
+                _uiState.value = _uiState.value.copy(
+                    canSaveCurrentFilter = !SmartRules.fromQuery(query).isEmpty,
+                )
+            }
+        }
+    }
+
+    /**
      * Перечитать список полок по кнопке «Повторить» в баннере ошибки.
      *
      * Обычные действия дублировать не нужно: Flow обновляет состояние сам, поэтому здесь только
@@ -167,8 +247,15 @@ class CollectionsViewModel @Inject constructor(
                     showError("Не удалось загрузить список полок", throwable.toAppError())
                 }
                 .collect { collections ->
+                    val rows = collections.map { it.toUi() }
                     _uiState.value = _uiState.value.copy(
-                        collections = collections.map { it.toUi() },
+                        collections = rows,
+                        // «Доступные автополки» — готовые правила, которых в списке ещё нет.
+                        // Совпадение по названию: отдельного признака «пресет уже добавлен» в
+                        // модели полки нет, а плодить его ради подсказки не стоит.
+                        presets = SmartPreset.entries
+                            .filter { preset -> rows.none { row -> row.name == preset.title } }
+                            .map { preset -> preset.toUi() },
                         isLoading = false,
                     )
                 }
@@ -228,6 +315,49 @@ class CollectionsViewModel @Inject constructor(
         name = name,
         bookCount = bookCount,
         isSmart = type == CollectionType.SMART,
-        rulesSummary = rulesJson?.takeIf { it.isNotBlank() }?.let { "правила заданы" },
+        // Подпись правила читается человеком: «жанр: Космическая фантастика», а не «правила заданы».
+        // В строке списка показывается одно условие: с двумя подпись обрывалась многоточием.
+        rulesSummary = SmartRules.fromJson(rulesJson)
+            ?.takeIf { !it.isEmpty }
+            ?.describe(maxParts = ROW_RULES_PARTS),
+        previewCovers = previewCovers,
     )
+
+    /** Имя подборки, собранной из текущего фильтра: по нему видно, что внутри. */
+    private fun SmartRules.defaultName(): String = "Подборка: ${describe()}"
+
+    /**
+     * Готовые умные полки.
+     *
+     * Пользователю не нужно собирать очевидное вручную: «Избранное» и статусы чтения — это одно
+     * правило, а не набор галочек.
+     */
+    private enum class SmartPreset(
+        val id: String,
+        val title: String,
+        val hint: String,
+        val rules: SmartRules,
+    ) {
+        FAVORITES("favorites", "Избранное", "Книги, отмеченные избранными", SmartRules(favoritesOnly = true)),
+        UNREAD(
+            "unread",
+            "Непрочитанные",
+            "Статус чтения: не прочитано",
+            SmartRules(statuses = setOf(ReadingStatus.UNREAD.name)),
+        ),
+        READING(
+            "reading",
+            "Читаю сейчас",
+            "Статус чтения: читаю",
+            SmartRules(statuses = setOf(ReadingStatus.READING.name)),
+        ),
+        READ(
+            "read",
+            "Прочитанные",
+            "Статус чтения: прочитано",
+            SmartRules(statuses = setOf(ReadingStatus.READ.name)),
+        );
+
+        fun toUi(): SmartPresetUi = SmartPresetUi(id = id, title = title, hint = hint)
+    }
 }

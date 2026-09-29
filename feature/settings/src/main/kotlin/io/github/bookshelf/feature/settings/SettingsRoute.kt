@@ -14,13 +14,13 @@ object SettingsRoute {
  * Регистрирует экран настроек в навигационном графе.
  *
  * @param onBack возврат на предыдущий экран.
- * @param onOpenSection открытие конкретного раздела настроек (Sprint 5).
+ * @param onOpenCategory открытие экрана конкретной категории настроек.
  */
 fun NavGraphBuilder.settingsScreen(
     onBack: () -> Unit,
-    onOpenSection: (SettingsSectionKind) -> Unit,
+    onOpenCategory: (SettingsSectionKind) -> Unit,
 ) {
     composable(SettingsRoute.route) {
-        SettingsScreen(onBack = onBack, onOpenSection = onOpenSection)
+        SettingsScreen(onBack = onBack, onOpenCategory = onOpenCategory)
     }
 }

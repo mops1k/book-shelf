@@ -1,8 +1,10 @@
 package io.github.bookshelf.feature.scan
 
+import io.github.bookshelf.core.data.model.ScanStatus
+
 /** Какой из трёх экранов модуля показан. */
 enum class ScanMode {
-    /** Прогресс сканирования с возможностью мягкой отмены и продолжения. */
+    /** Прогресс сканирования: пауза во время прогона и продолжение с сохранённого места. */
     PROGRESS,
 
     /** Отчёт по завершённому сканированию и список проблемных файлов. */
@@ -99,21 +101,29 @@ data class ScanUiState(
     val report: ScanReportUi? = null,
     /** Группы дубликатов. */
     val duplicates: List<DuplicateGroupUi> = emptyList(),
-    /** Скан выполняется прямо сейчас. */
-    val isRunning: Boolean = false,
+    /** Состояние прогона: идёт, пауза, завершён. Экран различает их по нему, а не по флагу. */
+    val status: ScanStatus = ScanStatus.IDLE,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 ) {
+    /** Скан выполняется прямо сейчас. */
+    val isRunning: Boolean
+        get() = status == ScanStatus.RUNNING
+
+    /**
+     * Кнопки, которые показывает экран: пауза во время прогона, продолжение на паузе.
+     *
+     * Считается чистой функцией [scanActionsOf]: иначе кнопка и состояние разошлись бы.
+     */
+    val actions: ScanActionsUi
+        get() = scanActionsOf(status)
+
     /**
      * Скан можно продолжить с сохранённого курсора `scan_runs`.
      *
-     * Считается чистой функцией [canResumeScan], а не хранится отдельным полем: иначе
-     * состояние и подпись кнопки могли бы разойтись.
+     * Считается чистой функцией [canResumeScan]: общее число файлов заранее неизвестно, и прежнее
+     * правило по `filesTotal` держало кнопку отключённой всегда (проверено на устройстве 28.09.2026).
      */
     val canResume: Boolean
-        get() = canResumeScan(
-            isRunning = isRunning,
-            filesSeen = progress?.filesSeen ?: 0,
-            filesTotal = progress?.filesTotal,
-        )
+        get() = canResumeScan(status = status, filesSeen = progress?.filesSeen ?: 0)
 }

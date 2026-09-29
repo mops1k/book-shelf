@@ -19,7 +19,9 @@ import io.github.bookshelf.feature.catalogs.CatalogsRoute
 import io.github.bookshelf.feature.collections.CollectionsRoute
 import io.github.bookshelf.feature.collections.collectionsScreen
 import io.github.bookshelf.feature.filters.FiltersRoute
+import io.github.bookshelf.feature.filters.ShelfRulesRoute
 import io.github.bookshelf.feature.filters.filtersScreen
+import io.github.bookshelf.feature.filters.shelfRulesScreen
 import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.library.libraryScreen
 import io.github.bookshelf.feature.onboarding.OnboardingRoute
@@ -30,8 +32,9 @@ import io.github.bookshelf.feature.search.SearchRoute
 import io.github.bookshelf.feature.search.searchScreen
 import io.github.bookshelf.feature.collections.CollectionContentRoute
 import io.github.bookshelf.feature.collections.collectionContentScreen
+import io.github.bookshelf.feature.settings.SettingsCategoryRoute
 import io.github.bookshelf.feature.settings.SettingsRoute
-import io.github.bookshelf.feature.settings.SettingsSectionKind
+import io.github.bookshelf.feature.settings.settingsCategoryScreen
 import io.github.bookshelf.feature.settings.settingsScreen
 
 /**
@@ -83,6 +86,15 @@ fun BookShelfNavHost(
         bookDetailsScreen(
             onBack = { navController.popBackStack() },
             onOpenCollections = { navController.navigate(CollectionsRoute.route) },
+            // Переход по автору или серии заканчивается на полке, откуда бы карточка ни была
+            // открыта (полка, поиск, содержимое полки-коллекции): popUpTo снимает верхние экраны,
+            // а просьбу забирает ViewModel полки.
+            onOpenLibrary = {
+                navController.navigate(LibraryRoute.route) {
+                    popUpTo(LibraryRoute.route) { inclusive = false }
+                    launchSingleTop = true
+                }
+            },
         )
 
         collectionsScreen(
@@ -90,6 +102,13 @@ fun BookShelfNavHost(
             // Раньше переход вёл на тот же список полок: открыть полку и посмотреть, что
             // в ней, было негде. Теперь это отдельный маршрут.
             onOpenCollection = { id -> navController.navigate(CollectionContentRoute.createRoute(id)) },
+            onEditRules = { id -> navController.navigate(ShelfRulesRoute.createRoute(id)) },
+        )
+
+        shelfRulesScreen(
+            onBack = { navController.popBackStack() },
+            // Сохранение правил возвращает к списку полок: там видно, что полка изменилась.
+            onSaved = { navController.popBackStack() },
         )
 
         collectionContentScreen(
@@ -134,18 +153,25 @@ fun BookShelfNavHost(
 
         opdsEntryScreen(
             onBack = { navController.popBackStack() },
-            onDownloaded = { navController.popBackStack() },
+            // Автор и серия в карточке — это фиды каталога: карточка уже положила просьбу,
+            // возвращаемся в браузер, который её подхватит и сохранит свои уровни.
+            onOpenFeed = { navController.popBackStack() },
         )
 
         settingsScreen(
             onBack = { navController.popBackStack() },
-            // Разделы настроек без своих экранов молча игнорируются: ниже открывается только OPDS.
-            onOpenSection = { section ->
-                // Из настроек достижим только каталоги: остальные разделы ещё без экранов.
-                if (section == SettingsSectionKind.OPDS) {
-                    navController.navigate(CatalogsRoute.createRoute())
-                }
+            // Каждая категория открывается своим экраном: раньше переход работал только для OPDS,
+            // а остальные строки списка молча ничего не делали.
+            onOpenCategory = { kind ->
+                navController.navigate(SettingsCategoryRoute.createRoute(kind))
             },
+        )
+
+        settingsCategoryScreen(
+            onBack = { navController.popBackStack() },
+            // Категория OPDS ведёт в тот же браузер каталогов, что и полка: второй список
+            // каталогов внутри настроек разошёлся бы с первым.
+            onOpenCatalogs = { navController.navigate(CatalogsRoute.createRoute()) },
         )
 
     }

@@ -222,4 +222,53 @@ class DataStoreSettingsRepositoryTest {
 
         assertThat(repository.current().reader.defaultReaderByFormat).isEmpty()
     }
+    @Test
+    fun reset_returns_documented_defaults() = runBlocking {
+        val repository = repository()
+        repository.update { settings ->
+            settings.copy(
+                appearance = settings.appearance.copy(
+                    themeMode = ThemeMode.DARK,
+                    density = EinkDensityLike.COMPACT,
+                    fontScale = 130,
+                ),
+                library = settings.library.copy(viewPreset = ShelfViewPreset.SERIES, gridColumns = 3),
+            )
+        }
+
+        repository.resetToDefaults()
+
+        // Сброс возвращает ровно умолчания: иначе «Сбросить» обещало бы одно, а делало другое.
+        assertThat(repository.current()).isEqualTo(AppSettings())
+    }
+
+    @Test
+    fun reset_keeps_service_fields_and_the_reader_mirror() = runBlocking {
+        val repository = repository()
+        repository.update { settings ->
+            settings.copy(
+                library = settings.library.copy(
+                    metadataBackfillDone = true,
+                    viewPreset = ShelfViewPreset.AUTHORS,
+                ),
+                reader = settings.reader.copy(
+                    defaultReaderByFormat = mapOf("fb2" to "fbreader"),
+                    lastUsedReaderByFormat = mapOf("fb2" to "ko reader"),
+                ),
+            )
+        }
+
+        repository.resetToDefaults()
+
+        val settings = repository.current()
+        // Флаг разового бэкфилла жанров и «последняя читалка» — память приложения, а не настройка:
+        // их сброс запускал бы бэкфилл заново и заставлял спрашивать читалку на каждой книге.
+        assertThat(settings.library.metadataBackfillDone).isTrue()
+        assertThat(settings.reader.lastUsedReaderByFormat).containsExactly("fb2", "ko reader")
+        // Выбор читалки по умолчанию живёт в таблице format_defaults, а здесь только зеркало.
+        assertThat(settings.reader.defaultReaderByFormat).containsExactly("fb2", "fbreader")
+        // А обычная настройка сбрасывается.
+        assertThat(settings.library.viewPreset).isEqualTo(ShelfViewPreset.GRID)
+    }
+
 }

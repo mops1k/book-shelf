@@ -37,6 +37,7 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
+import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
 import io.github.bookshelf.core.designsystem.paging.statusLabel
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
@@ -45,13 +46,13 @@ import io.github.bookshelf.feature.catalogs.CatalogUi
 import io.github.bookshelf.feature.catalogs.CatalogsMode
 import io.github.bookshelf.feature.catalogs.CatalogsUiState
 import io.github.bookshelf.feature.catalogs.CatalogsViewModel
+import io.github.bookshelf.feature.catalogs.downloadsButtonLabel
+import io.github.bookshelf.feature.catalogs.entryCoverOf
 import io.github.bookshelf.feature.catalogs.DownloadUi
 import io.github.bookshelf.feature.catalogs.FeedEntryUi
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 
 /** Сколько каталогов, записей и загрузок помещается на «страницу». */
 private const val CATALOGS_PAGE_SIZE = 12
@@ -307,11 +308,25 @@ private fun FeedBrowserScreen(
         subtitle = feed?.breadcrumbs?.joinToString(separator = " / ") ?: "Фид ещё не загружен",
         modifier = modifier,
         onBack = onBack,
+        // Кнопка правого края: из любого уровня каталога возвращает к списку каталогов одним
+        // касанием. Левая «← Назад» идёт на уровень выше, и из глубокого раздела до списка
+        // приходилось щёлкать её несколько раз.
+        actions = {
+            // Дорога к очереди прямо из фида: раньше после «Скачать» карточка молча закрывалась,
+            // а «Загрузки» были доступны только из списка каталогов — в разделах фида их не было
+            // видно вовсе (жалоба Александра, 28.09.2026).
+            EinkButton(
+                text = downloadsButtonLabel(state.downloads),
+                onClick = viewModel::onOpenDownloads,
+            )
+            EinkButton(text = "Каталоги", onClick = viewModel::onBackToList)
+        },
         onKeyAction = { action ->
             when (action) {
                 EinkAction.PREVIOUS_PAGE -> pager.previous()
                 EinkAction.NEXT_PAGE -> pager.next()
                 EinkAction.SEARCH -> viewModel.onSearchInFeed()
+                EinkAction.MENU -> viewModel.onOpenDownloads()
                 EinkAction.BACK -> onBack()
                 else -> Unit
             }
@@ -343,6 +358,17 @@ private fun FeedBrowserScreen(
             EinkButton(text = "Искать", onClick = viewModel::onSearchInFeed)
         }
 
+        // Ошибка загрузки фида раньше не показывалась вовсе: нажатие на раздел, который не
+        // открылся, выглядело как «ничего не произошло». Баннер стоит над списком, а не в подвале,
+        // потому что в подвале уже подпись о записях.
+        state.error?.let { message ->
+            EinkErrorBanner(
+                message = message,
+                actionLabel = "Повторить",
+                onAction = viewModel::onReloadFeed,
+            )
+        }
+
         // Индикация загрузки: переход по разделам ждёт сеть, и без подписи экран выглядел
         // зависшим — пользователь не понимал, идёт работа или приложение задумалось.
         if (state.isLoading) {
@@ -353,14 +379,24 @@ private fun FeedBrowserScreen(
                 modifier = Modifier.weight(1f),
             ) {
             if (entries.isEmpty()) {
-                if (state.isLoading) {
+                when {
                     // Первый фид: пустая подсказка «фид не загружен» противоречила бы индикатору.
-                    LoadingRow(label = "Загружаем фид каталога…")
-                } else {
-                    EinkEmptyState(
+                    state.isLoading -> LoadingRow(label = "Загружаем фид каталога…")
+
+                    feed == null -> EinkEmptyState(
                         title = "Фид не загружен",
                         message = "Здесь появятся записи фида: хлебные крошки, обложки, форматы и размер. " +
                             "Нажмите на книгу — откроется карточка с описанием и кнопкой «Скачать».",
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    // Фид загружен, но записей в нём нет: так отвечает поиск, которому нечего
+                    // показать. «Фид не загружен» здесь было бы неправдой, а «Назад» — выходом.
+                    else -> EinkEmptyState(
+                        title = "Ничего не найдено",
+                        message = "Каталог ответил пустым списком: по этому запросу записей нет. " +
+                            "Измените запрос и нажмите «Искать» или вернитесь назад — «Назад» " +
+                            "возвращает к прежнему списку.",
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -389,6 +425,7 @@ private fun FeedBrowserScreen(
  * из двухсот книг читалось как реальное число, хотя это была всего одна страница.
  */
 private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean): String = when {
+    loaded == 0 && !hasNext -> "ничего не найдено"
     hasNext -> "загружено $loaded, есть ещё"
     isNavigation -> "разделов: $loaded"
     else -> "книг: $loaded"
@@ -487,8 +524,13 @@ private fun EntryCard(
             .padding(dimens.gutterSmall),
         verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall / 2),
     ) {
+        // Обложка записи: локальный кэш, если книга уже скачана, иначе ссылка из фида. Раньше
+        // карточка отдавала только `coverPath` (у записей OPDS он всегда null) — в списке книг
+        // вместо обложек рисовалась заглушка.
+        val cover = entryCoverOf(entry)
         BookCover(
-            coverPath = entry.coverPath,
+            coverPath = cover.path,
+            coverUrl = cover.url,
             title = entry.title,
             modifier = Modifier.fillMaxWidth(),
             contentDescription = "Обложка: ${entry.title}, ${entry.authors}",
@@ -514,6 +556,18 @@ private fun EntryCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        // Состояние загрузки книги — в самой карточке, там же, где пользователь нажал «Скачать».
+        // Раньше после постановки в очередь не было ни подписи, ни прогресса: казалось, что
+        // ничего не произошло.
+        entry.download?.let { download ->
+            Text(
+                text = download.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         // Отдельной кнопки нет намеренно: карточка целиком и есть элемент управления.
         // Кнопка внутри кликабельной карточки была мёртвой — нажатие на подпись не
         // срабатывало, хотя рядом работало нажатие на саму карточку, и это выглядело как
@@ -533,7 +587,7 @@ private fun DownloadsScreen(
     // Постраничной нарезки больше нет: список один и длинный, и до второй страницы пальцем
     // было не добраться (прокрутка была выключена, листали только аппаратные клавиши).
     val listState = rememberLazyListState()
-    val scrollByPage = rememberListPageScroller(listState)
+    val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
         title = "Загрузки",
@@ -582,17 +636,6 @@ private fun downloadCountLabel(count: Int): String = when (count) {
     else -> "загрузок: $count"
 }
 
-/** Листание списка загрузок аппаратными клавишами: прокрутка на высоту экрана. */
-@Composable
-private fun rememberListPageScroller(listState: LazyListState): (Int) -> Unit {
-    val scope = rememberCoroutineScope()
-    return { direction ->
-        val amount = listState.layoutInfo.viewportSize.height
-        if (amount > 0) {
-            scope.launch { listState.scrollBy((direction * amount).toFloat()) }
-        }
-    }
-}
 
 /** Строка загрузки: полоса прогресса только у активных, ошибка — инвертированной плашкой. */
 @Composable

@@ -105,7 +105,7 @@ class SearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             try {
                 searchRepository.search(term, SEARCH_LIMIT).collect { books ->
-                    val results = books.map { book -> book.toResult() }
+                    val results = books.map { book -> book.toResult(term) }
                     _uiState.update { state ->
                         if (state.query.trim() == term) {
                             state.copy(
@@ -161,11 +161,14 @@ class SearchViewModel @Inject constructor(
         _uiState.update { it.copy(recentQueries = emptyList()) }
     }
 
-    private fun Book.toResult(): SearchResultUi = SearchResultUi(
+    private fun Book.toResult(term: String): SearchResultUi = SearchResultUi(
         id = id,
         title = title,
         authors = authorsText.ifBlank { authors.joinToString(", ") },
         snippet = description?.take(SNIPPET_LENGTH),
+        // Где нашлось совпадение: FTS этого не сообщает, а в строке результата видно, почему
+        // книга попала в выдачу (подпись не выдумывается, если поля её не подтверждают).
+        matchedField = matchedFieldLabel(term),
     )
 
     private fun List<String>.withRecent(term: String): List<String> =

@@ -9,11 +9,16 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.di.ApplicationScope
 import io.github.bookshelf.core.common.di.TempDir
 import io.github.bookshelf.core.data.sync.MetadataScheduler
 import io.github.bookshelf.core.data.sync.DownloadScheduler
 import io.github.bookshelf.core.data.sync.ScanScheduler
+import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.datastore.model.megabytesToBytes
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import io.github.bookshelf.core.storage.files.ContentHasher
+import io.github.bookshelf.core.storage.files.DefaultContentHasher
 import io.github.bookshelf.core.storage.files.DefaultBookContentOpener
 import io.github.bookshelf.core.storage.saf.AndroidSafTreeReader
 import io.github.bookshelf.core.storage.saf.SafTreeReader
@@ -25,6 +30,11 @@ import io.github.bookshelf.work.WorkManagerDownloadScheduler
 import io.github.bookshelf.work.WorkManagerScanScheduler
 import java.io.File
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * Привязки слоя хранения и сканирования (docs/architecture.md §4).
@@ -76,15 +86,54 @@ object StorageModule {
     fun provideTreeWalker(reader: SafTreeReader, dispatchers: AppDispatchers): TreeWalker =
         DefaultTreeWalker(reader, dispatchers)
 
+    /**
+     * Полный хеш содержимого файла книги.
+     *
+     * Нужен поиску дублей: он читает файлы целиком, поэтому вызывается только по команде
+     * пользователя, а не при каждом скане.
+     */
+    @Provides
+    @Singleton
+    fun provideContentHasher(opener: BookContentOpener): ContentHasher = DefaultContentHasher(opener)
+
+    /**
+     * Доступ к содержимому книги.
+     *
+     * Лимит временной копии приходит из настроек (`library.tempCopyLimitMb`): `:core:storage` —
+     * низкоуровневый модуль о файлах и SAF, и читать в нём настройки значило бы тянуть в него
+     * `:core:datastore`. Связывает их `:app` — единственное место, которое знает оба модуля.
+     *
+     * Снимок намеренно «живой»: опенер один на процесс, а его API синхронный (без suspend),
+     * поэтому значение обновляется подпиской, а читается прямо в момент копирования — смена
+     * настройки применяется без перезапуска (docs/roadmap.md, DoD Sprint 5).
+     */
     @Provides
     @Singleton
     fun provideBookContentOpener(
         @ApplicationContext context: Context,
         @TempDir tempDir: File,
-    ): BookContentOpener = DefaultBookContentOpener(
-        resolver = context.contentResolver,
-        importDir = File(tempDir, IMPORT_DIR),
-    )
+        settingsRepository: SettingsRepository,
+        @ApplicationScope scope: CoroutineScope,
+    ): BookContentOpener {
+        // `SharingStarted.Eagerly` обязателен: у StateFlow нет подписчиков (его значение читает
+        // только лямбда ниже), и с `WhileSubscribed` поток настроек не собирался бы вообще.
+        val limitBytes = settingsRepository.settings
+            .map { megabytesToBytes(it.library.tempCopyLimitMb) }
+            // Недоступные настройки роняли бы поток в `@ApplicationScope` — там нет обработчика,
+            // и падение корутины унесло бы приложение. Остаёмся на прежней константе, как и до
+            // появления настройки: это же значение равно умолчанию `tempCopyLimitMb` (100 МБ).
+            .catch { emit(DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES) }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                initialValue = DefaultBookContentOpener.DEFAULT_MAX_TEMP_COPY_BYTES,
+            )
+        return DefaultBookContentOpener(
+            resolver = context.contentResolver,
+            importDir = File(tempDir, IMPORT_DIR),
+            tempCopyLimitBytes = { limitBytes.value },
+        )
+    }
 
     /**
      * Ставка в очередь единственной работы на источник.

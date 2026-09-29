@@ -52,6 +52,9 @@ class ScanViewModel @Inject constructor(
     private val activeSourceId = MutableStateFlow<String?>(null)
     private val sourceNames = MutableStateFlow<Map<String, String>>(emptyMap())
 
+    /** Оценка числа файлов по прошлому прогону источника — для строки прогресса. */
+    private val sourceDocumentCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+
     init {
         observeSources()
         observeProgress()
@@ -63,34 +66,28 @@ class ScanViewModel @Inject constructor(
         startOrResumeScan()
     }
 
-    /** Мягко отменить скан: найденное сохраняется. */
     /**
-     * Отмена сканирования; когда сканирования нет — выход с экрана.
+     * Поставить скан на паузу: найденное сохраняется, прогон остаётся возобновляемым.
      *
-     * Кнопка обязана работать всегда: иначе пользователь с экрана сканирования не может
-     * уйти, а отменять ему нечего, когда прогон и не начинался.
+     * Кнопки «Отменить» в интерфейсе нет (решение Александра, 28.09.2026): скан прерываемый, и
+     * отдельная жёсткая отмена только запутывала бы — уйти с экрана можно стрелкой назад.
      */
-    fun onCancel() {
-        if (!_uiState.value.isRunning) {
-            onExit()
-            return
-        }
+    fun onPause() {
         viewModelScope.launch {
             val sourceId = activeSourceId.value ?: firstAvailableSourceId()
             if (sourceId == null) {
-                onExit()
+                showError("Нет источника для сканирования")
                 return@launch
             }
             activeSourceId.value = sourceId
             try {
-                scanRepository.cancel(sourceId)
-                _uiState.value = _uiState.value.copy(isRunning = false, error = null)
+                scanRepository.pause(sourceId)
+                _uiState.value = _uiState.value.copy(status = ScanStatus.PAUSED, error = null)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
                 _uiState.value = _uiState.value.copy(
-                    isRunning = false,
-                    error = error.userMessage("Не удалось отменить сканирование."),
+                    error = error.userMessage("Не удалось поставить скан на паузу."),
                 )
             }
         }
@@ -99,6 +96,11 @@ class ScanViewModel @Inject constructor(
     /** Продолжить прерванный скан с сохранённого курсора. */
     fun onResume() {
         startOrResumeScan()
+    }
+
+    /** Уйти на полку: скан идёт в фоне, экран его не держит. */
+    fun onOpenLibrary() {
+        onExit()
     }
 
     /** Показать прогресс сканирования. */
@@ -156,7 +158,7 @@ class ScanViewModel @Inject constructor(
                     return@launch
                 }
                 activeSourceId.value = sourceId
-                _uiState.value = _uiState.value.copy(isRunning = true, error = null)
+                _uiState.value = _uiState.value.copy(status = ScanStatus.RUNNING, error = null)
                 val result = scanRepository.startScan(sourceId)
                 if (result is io.github.bookshelf.core.common.error.AppResult.Success) {
                     // Старт прошёл, но прогресса нет — значит, работа не встала в очередь.
@@ -171,7 +173,7 @@ class ScanViewModel @Inject constructor(
                 }
                 if (result.isFailure) {
                     _uiState.value = _uiState.value.copy(
-                        isRunning = false,
+                        status = ScanStatus.IDLE,
                         error = appErrorMessage(
                             result.errorOrNull(),
                             "Не удалось запустить сканирование.",
@@ -182,7 +184,7 @@ class ScanViewModel @Inject constructor(
                 throw cancelled
             } catch (error: Throwable) {
                 _uiState.value = _uiState.value.copy(
-                    isRunning = false,
+                    status = ScanStatus.IDLE,
                     error = error.userMessage("Не удалось запустить сканирование."),
                 )
             }
@@ -195,11 +197,15 @@ class ScanViewModel @Inject constructor(
                 sourceRepository.observeSources().collect { sources ->
                     val names = sources.associate { it.id to it.displayName }
                     sourceNames.value = names
+                    sourceDocumentCounts.value = sources.associate { it.id to it.documentCount }
                     val selected = activeSourceId.value?.takeIf { it in names }
                         ?: sources.firstOrNull { it.enabled && !it.accessLost }?.id
                     activeSourceId.value = selected
                     if (selected == null) {
-                        _uiState.value = _uiState.value.copy(progress = null, isRunning = false)
+                        _uiState.value = _uiState.value.copy(
+                            progress = null,
+                            status = ScanStatus.IDLE,
+                        )
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -264,7 +270,10 @@ class ScanViewModel @Inject constructor(
         val uiProgress = ScanProgressUi(
             sourceName = sourceNames.value[progress.sourceId] ?: progress.sourceId,
             filesSeen = progress.filesSeen,
-            filesTotal = progress.totalKnown,
+            // Своё число файлов воркер не считает (`totalKnown` никто не заполняет), поэтому
+            // берётся оценка по прошлому прогону источника. Она показывается с тильдой — это
+            // ориентир, а не точное число файлов в дереве.
+            filesTotal = progress.totalKnown ?: sourceDocumentCounts.value[progress.sourceId],
             added = progress.added,
             updated = progress.updated,
             removed = progress.removed,
@@ -272,7 +281,7 @@ class ScanViewModel @Inject constructor(
         )
         _uiState.value = _uiState.value.copy(
             progress = uiProgress,
-            isRunning = progress.status == ScanStatus.RUNNING,
+            status = progress.status,
         )
     }
 

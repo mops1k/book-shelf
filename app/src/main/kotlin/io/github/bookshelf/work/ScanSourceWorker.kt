@@ -57,9 +57,13 @@ class ScanSourceWorker @AssistedInject constructor(
     private val sourceDao: SourceDao,
     private val scanRunDao: ScanRunDao,
     private val bookDao: BookDao,
+    /** Удаление книг вместе со связями: с автосинхронизацией оно происходит при каждом проходе. */
+    private val bookCleanupDao: io.github.bookshelf.core.database.dao.BookCleanupDao,
     private val treeReader: SafTreeReader,
     private val treeWalker: TreeWalker,
     private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
+    /** Кэш обложек: обложка изменившегося файла не должна остаться старой. */
+    private val coverCache: io.github.bookshelf.core.covers.CoverCache,
     private val clock: AppClock,
 ) : CoroutineWorker(appContext, params) {
 
@@ -84,7 +88,7 @@ class ScanSourceWorker @AssistedInject constructor(
                 }
 
                 is ScanOutcome.Completed -> {
-                    markMissing(sourceId)
+                    deleteMissing(sourceId)
                     val finishedAt = clock.nowMillis()
                     scanRunDao.finish(
                         id = run.id,
@@ -192,13 +196,22 @@ class ScanSourceWorker @AssistedInject constructor(
                 bookDao.touchLastSeen(listOf(id), clock.nowMillis())
             } else {
                 metadataScheduler.enqueueMetadata(id)
+                // Файл изменился — обложка могла стать другой. Кэш сбрасывается здесь, а не в
+                // воркере разбора: там уже не отличить «обложка ещё актуальна» от «её надо взять
+                // заново», а решает это именно скан, который видит смену размера и времени файла.
+                coverCache.invalidate(id)
                 bookDao.update(
                     existing.copy(
                         documentUri = treeReader.documentUri(source.uri, entry.documentId),
-                        relativePath = entry.displayName,
+                        // Путь с папками, а не имя файла: по `relativePath` карточка показывает
+                        // «Путь», а полка группирует книги «По папкам».
+                        relativePath = treeReader.relativePath(source.uri, entry.documentId),
                         fileName = entry.displayName,
                         extension = BookFileFilter.detectExtension(entry.displayName),
                         mimeType = entry.mimeType ?: existing.mimeType,
+                        // Путь обложки обнуляется вместе с файлом кэша: иначе в базе остался бы
+                        // адрес удалённого файла, и плитка молча рисовала бы пустоту.
+                        coverPath = null,
                         sizeBytes = entry.sizeBytes ?: existing.sizeBytes,
                         lastModified = entry.lastModified ?: existing.lastModified,
                         updatedAt = clock.nowMillis(),
@@ -220,7 +233,7 @@ class ScanSourceWorker @AssistedInject constructor(
             id = id,
             sourceId = source.id,
             documentUri = treeReader.documentUri(source.uri, entry.documentId),
-            relativePath = entry.displayName,
+            relativePath = treeReader.relativePath(source.uri, entry.documentId),
             fileName = entry.displayName,
             extension = BookFileFilter.detectExtension(entry.displayName),
             mimeType = entry.mimeType ?: "",
@@ -237,14 +250,23 @@ class ScanSourceWorker @AssistedInject constructor(
     }
 
     /**
-     * Помечает отсутствующими книги, которых не было в проходе.
+     * Удаляет записи книг, которых не было в полном проходе.
      *
-     * Порциями по [MARK_BATCH]: на API 24 SQLite ограничивает число параметров в `IN`, и
-     * попытка пометить сразу две тысячи книт упала бы с ошибкой на середине.
+     * Решение Александра (28.09.2026): книга, удалённая с устройства, должна исчезнуть с полки,
+     * а не остаться «пропавшей» навсегда. Записи удаляются только после **успешного** завершения
+     * обхода (`ScanOutcome.Completed`), поэтому недоступный источник, у которого провалился обход,
+     * библиотеку не вычистит: там срабатывает отдельная ветка с пометкой `accessLost`.
+     * Вместе с записью убирается её обложка — иначе кэш копил бы картинки удалённых книг.
+     *
+     * Порциями по [MARK_BATCH]: на API 24 SQLite ограничивает число параметров в `IN`, и попытка
+     * удалить сразу две тысячи книг упала бы с ошибкой на середине.
      */
-    private suspend fun markMissing(sourceId: String) {
-        bookDao.idsBySource(sourceId).filterNot { it in seenIds }.chunked(MARK_BATCH).forEach { batch ->
-            bookDao.markMissing(batch, clock.nowMillis())
+    private suspend fun deleteMissing(sourceId: String) {
+        val gone = bookDao.idsBySource(sourceId).filterNot { id -> id in seenIds }
+        gone.chunked(MARK_BATCH).forEach { batch ->
+            if (batch.isEmpty()) return@forEach
+            bookCleanupDao.deleteWithLinks(batch)
+            batch.forEach { id -> coverCache.invalidate(id) }
         }
     }
 

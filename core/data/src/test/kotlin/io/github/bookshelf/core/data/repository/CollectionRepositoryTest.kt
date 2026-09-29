@@ -6,14 +6,19 @@ import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.CollectionBookCount
+import io.github.bookshelf.core.data.model.CollectionType
+import io.github.bookshelf.core.data.model.SmartRules
 import io.github.bookshelf.core.database.dao.CollectionDao
+import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.CollectionBookCrossRef
 import io.github.bookshelf.core.database.entity.CollectionEntity
 import io.github.bookshelf.core.data.repository.impl.CollectionRepositoryImpl
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -58,6 +63,44 @@ class CollectionRepositoryTest {
     }
 
     @Test
+    fun smart_shelf_books_come_from_the_rules() = runTest {
+        val repository = repository()
+        val shelf = repository.create("Космос", CollectionType.SMART).getOrNull()!!
+        repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
+        every { bookDao.observePage(any()) } returns flowOf(emptyList())
+        every { bookDao.observeCount(any()) } returns flowOf(4)
+
+        repository.observeBooks(shelf.id).first()
+
+        // Состав умной полки считается запросом по правилам, а не связями collection_books:
+        // книг в связях у такой полки нет вовсе.
+        verify { bookDao.observePage(any()) }
+        // И счётчик в списке полок берётся тем же предикатом, иначе умная полка показывала бы 0.
+        assertThat(repository.observeCollections().first().single().bookCount).isEqualTo(4)
+    }
+
+    @Test
+    fun manual_shelf_ignores_rules() = runTest {
+        val repository = repository()
+        val shelf = repository.create("Ручная").getOrNull()!!
+        repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
+        every { bookDao.observeById(any()) } returns MutableStateFlow(null)
+
+        repository.observeBooks(shelf.id).first()
+
+        verify(exactly = 0) { bookDao.observePage(any()) }
+    }
+
+    @Test
+    fun smart_shelf_without_rules_is_empty_not_the_whole_library() = runTest {
+        val repository = repository()
+        val shelf = repository.create("Пустая умная", CollectionType.SMART).getOrNull()!!
+
+        assertThat(repository.observeBooks(shelf.id).first()).isEmpty()
+        verify(exactly = 0) { bookDao.observePage(any()) }
+    }
+
+    @Test
     fun adds_and_removes_book() = runTest {
         val repository = repository()
         val collection = repository.create("Полка").getOrNull()!!
@@ -82,6 +125,33 @@ class CollectionRepositoryTest {
         // Полка — это список: позиция задаёт порядок, а не множество.
         assertThat(dao.refs.map { it.bookId }).isEqualTo(listOf("book-1", "book-2"))
         assertThat(dao.refs.map { it.position }).isEqualTo(listOf(0, 1))
+    }
+
+    @Test
+    fun manual_shelf_previews_covers_of_its_books() = runTest {
+        val repository = repository()
+        val shelf = repository.create("Полка").getOrNull()!!
+        dao.covers[shelf.id] = listOf("/covers/1.webp", "/covers/2.webp")
+
+        // Строка полки показывает обложки первых книг: без них полка в списке не узнаётся.
+        assertThat(repository.observeCollections().first().single().previewCovers)
+            .containsExactly("/covers/1.webp", "/covers/2.webp")
+            .inOrder()
+    }
+
+    @Test
+    fun smart_shelf_previews_covers_from_its_rules() = runTest {
+        val repository = repository()
+        val shelf = repository.create("Космос", CollectionType.SMART).getOrNull()!!
+        repository.updateSmartRules(shelf.id, SmartRules(tags = setOf("sf_space")).toJson())
+        val book = mockk<BookEntity>(relaxed = true)
+        every { book.coverPath } returns "/covers/space.webp"
+        every { bookDao.observeCount(any()) } returns flowOf(2)
+        every { bookDao.observePage(any()) } returns flowOf(listOf(book))
+
+        // У умной полки обложки берутся предикатом правил: связей collection_books у неё нет.
+        assertThat(repository.observeCollections().first().single().previewCovers)
+            .containsExactly("/covers/space.webp")
     }
 
     @Test
@@ -114,14 +184,30 @@ class CollectionRepositoryTest {
         val rows = MutableStateFlow<List<CollectionEntity>>(emptyList())
         val refs = mutableListOf<CollectionBookCrossRef>()
 
+        /** Обложки по полкам: в тесте — заданные значения, а не содержимое `books`. */
+        val covers = mutableMapOf<String, List<String>>()
+
+        override fun observePreviewCovers(collectionId: String, limit: Int): Flow<List<String>> =
+            flowOf(covers[collectionId].orEmpty().take(limit))
+
         /** Счётчик книг по полкам — производная от `refs`, а не отдельное хранилище. */
         override fun observeBookCounts(): Flow<List<CollectionBookCount>> = flow {
             emit(refs.groupingBy { ref -> ref.collectionId }.eachCount()
                 .map { (id, count) -> CollectionBookCount(id, count) })
         }
 
+        /**
+         * Как `@Upsert` в Room: существующая строка обновляется на месте, новая дописывается.
+         *
+         * Раньше здесь было `(rows + collections).distinctBy { it.id }`, и первым побеждал СТАРЫЙ
+         * элемент: правка полки (имя, правила) не доходила до чтения, и тест умной полки видел
+         * «правил нет» у полки, которой они только что записаны.
+         */
         override suspend fun upsertAll(collections: List<CollectionEntity>) {
-            rows.value = (rows.value + collections).distinctBy { it.id }
+            val incoming = collections.associateBy { it.id }
+            val updated = rows.value.map { existing -> incoming[existing.id] ?: existing }
+            val added = collections.filter { candidate -> rows.value.none { it.id == candidate.id } }
+            rows.value = updated + added
         }
 
         override fun observeAll(): Flow<List<CollectionEntity>> = rows

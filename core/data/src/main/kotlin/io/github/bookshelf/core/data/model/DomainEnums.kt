@@ -19,6 +19,31 @@ enum class ReadingStatus {
 }
 
 /**
+ * Подпись статуса чтения для экранов: код `UNREAD` читался бы как код, а не как состояние.
+ *
+ * Одна реализация на полку, карточку книги и бейдж умной полки. До неё эта подпись лежала
+ * тремя независимыми копиями (полка, карточка, `SmartRules`) и уже начала разъезжаться.
+ */
+val ReadingStatus.label: String
+    get() = when (this) {
+        ReadingStatus.UNREAD -> "не прочитано"
+        ReadingStatus.READING -> "читаю"
+        ReadingStatus.READ -> "прочитано"
+    }
+
+/**
+ * Подпись статуса для бейджа на обложке: «не прочитано», «читаю 42%», «прочитано».
+ *
+ * @param progressPercent прогресс чтения 0..100; `null` — читалка его не отдаёт, и процент
+ *   не выдумывается: «читаю 0%» на свежей книге читалось бы как ошибка.
+ */
+fun ReadingStatus.badge(progressPercent: Int? = null): String = when {
+    this != ReadingStatus.READING -> label
+    progressPercent == null -> label
+    else -> "$label $progressPercent%"
+}
+
+/**
  * Откуда взяты метаданные книги.
  *
  * [MANUAL] — пользователь отредактировал вручную; такие данные не перезаписываются при

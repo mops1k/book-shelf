@@ -99,4 +99,20 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+/**
+ * 2 → 3: серия в строке загрузки OPDS.
+ *
+ * Аддитивная: добавляется один необязательный столбец, существующие строки и таблицы не меняются.
+ * Серия нужна шаблону пути загрузки (`opds.downloadFileNameTemplate`): вариант
+ * «{author}/{series}/{title}.{ext}» раскладывает скачанное по папкам, а фид к моменту работы
+ * воркера недоступен — серию приходится хранить вместе с загрузкой. Старые загрузки получают
+ * `NULL`, и заполнитель просто отбрасывает пустую папку.
+ */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `opds_downloads` ADD COLUMN `seriesName` TEXT")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)

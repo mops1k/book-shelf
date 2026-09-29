@@ -26,4 +26,12 @@ interface SourceRepository {
 
     /** Запустить повторный скан источника. */
     suspend fun rescan(sourceId: String): AppResult<Unit>
+
+    /**
+     * Есть ли у приложения сохранённое право записи в папку источника.
+     *
+     * Без него скачивание книги в эту папку провайдер отклонит (`Permission Denial`): так бывает
+     * после переноса папки или если приложение сохранило доступ только на чтение.
+     */
+    suspend fun hasWriteAccess(sourceId: String): Boolean
 }

@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.filters
 
 import io.github.bookshelf.core.data.model.BookQuery
+import io.github.bookshelf.core.data.model.ReadingStatus
 
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
@@ -101,6 +102,24 @@ internal fun filterSelectionFromQuery(query: BookQuery): FilterSelectionUi =
         statuses = query.statuses.map { it.name }.toSet(),
         tags = query.tags,
     )
+
+/**
+ * Выбор фасетов в запрос.
+ *
+ * Одна реализация на фильтры библиотеки и на правила умной полки: правила — это тот же набор
+ * условий, и второй сборщик запроса разошёлся бы с первым.
+ */
+internal fun FilterSelectionUi.toBookQuery(): BookQuery = BookQuery(
+    authorNames = authors,
+    series = series,
+    formats = formats,
+    statuses = statuses.mapNotNull { value -> value.toReadingStatus() }.toSet(),
+    tags = tags,
+)
+
+/** Неизвестное имя статуса из старой версии не должно ронять экран. */
+private fun String.toReadingStatus(): ReadingStatus? =
+    ReadingStatus.entries.firstOrNull { status -> status.name.equals(this, ignoreCase = true) }
 
 /** Пуст ли запрос: у пустого набора фильтров нет отдельного предиката в `:core:data`. */
 internal fun BookQuery.isEmptyQuery(): Boolean =

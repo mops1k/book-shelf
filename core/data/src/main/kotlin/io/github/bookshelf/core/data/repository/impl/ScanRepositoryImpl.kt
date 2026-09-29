@@ -85,14 +85,14 @@ class ScanRepositoryImpl @Inject constructor(
             .sample(PROGRESS_EMIT_INTERVAL_MILLIS)
 
     /**
-     * Мягкая отмена.
+     * Пауза.
      *
      * Сначала resumable-прогон переводится в `PAUSED`, затем отправляется команда очереди. Так
      * состояние не зависит от того, успел ли воркер записать остановку до получения команды.
      * Возвращаемого значения у метода нет по контракту, поэтому исключения реализации
      * [ScanScheduler] превращаются в `AppResult` и не выходят наружу.
      */
-    override suspend fun cancel(sourceId: String) {
+    override suspend fun pause(sourceId: String) {
         appRunCatching {
             val run = scanRunDao.findResumable(sourceId)
             if (run != null) {

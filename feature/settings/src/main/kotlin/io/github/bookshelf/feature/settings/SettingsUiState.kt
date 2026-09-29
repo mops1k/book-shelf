@@ -1,6 +1,10 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+import io.github.bookshelf.core.datastore.model.SortOrder
+import io.github.bookshelf.core.datastore.SettingsKeys
+import io.github.bookshelf.core.datastore.model.ThemeMode
 
 /** Разделы настроек (docs/eink-ux.md §6.8) — каждый открывается отдельным экраном. */
 enum class SettingsSectionKind {
@@ -64,6 +68,13 @@ data class SourceItemUi(
     val uri: String,
     /** Книг найдено последним сканом; `null` — скан ещё не выполнялся. */
     val booksCount: Int? = null,
+    /**
+     * Сохранено ли право записи в папку.
+     *
+     * `false` значит, что скачивание в неё отклонит провайдер: пользователь должен увидеть это
+     * в настройках, а не в виде непонятной ошибки при загрузке книги.
+     */
+    val hasWriteAccess: Boolean = true,
 )
 
 /** Разрешение, которое приложение может запросить у пользователя. */
@@ -104,6 +115,17 @@ data class AppSettingsUi(
     val viewModeLabel: String = "Сетка",
     /** Вид полки по умолчанию: сетка/список/компактно либо обзор по авторам/сериям. */
     val viewPreset: ShelfViewPreset = ShelfViewPreset.GRID,
+    /**
+     * Сортировка полки по умолчанию — то, чем полка открывается (`LibraryViewModel`).
+     *
+     * Начальное значение дублирует `SettingsKeys.Defaults.SORT_ORDER`: до первой эмиссии настроек
+     * показывать нечего, но расходиться с документированным умолчанием эти значения не должны.
+     */
+    val sortOrder: SortOrder = SortOrder.TITLE,
+    /** Обратный порядок для сортировки по умолчанию. */
+    val sortDescending: Boolean = false,
+    /** Группировка полки по умолчанию: заголовки-разделители внутри списка. */
+    val grouping: Grouping = Grouping.NONE,
     /** Показывать обложки на полке. */
     val showCovers: Boolean = true,
     /** Масштаб шрифта интерфейса в процентах: 100/115/130/150. */
@@ -120,8 +142,19 @@ data class AppSettingsUi(
     val fullRefreshOnPage: Boolean = true,
     /** Инвертировать обложки при отрисовке (файл кэша не перезаписывается). */
     val invertCovers: Boolean = false,
-    /** Тёмная тема: белое на чёрном. */
-    val darkTheme: Boolean = false,
+    /**
+     * Тема как её выбрал пользователь: светлая / тёмная / системная.
+     *
+     * Здесь именно выбор, а не готовое «тёмно/светло»: `SYSTEM` разрешается при отрисовке
+     * (`MainActivity`), и булево потеряло бы этот вариант при первом же открытии экрана.
+     */
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
+    /** Полный GC каждые N частичных обновлений (`EinkController.setGcInterval`). */
+    val gcInterval: Int = 10,
+    /** Уровень подсветки 0..100; `null` — пользователь её не настраивал. */
+    val frontLightLevel: Int? = null,
+    /** Клавиши громкости листают страницы (на устройствах без Page Up/Down). */
+    val volumeKeysAsPageTurn: Boolean = false,
     /** Отключить все анимации (на e-ink анимаций быть не должно). */
     val animationsDisabled: Boolean = true,
     /** Запускать скан при старте приложения. */
@@ -134,8 +167,14 @@ data class AppSettingsUi(
     val metadataPriorityLabel: String = "Встроенные",
     /** Всегда спрашивать читалку, а не открывать по умолчанию. */
     val askReaderAlways: Boolean = false,
-    /** Размер дискового кэша обложек. */
-    val coverCacheSizeLabel: String = "128 МБ",
+    /** Лимит дискового кэша обложек, МБ: 100 / 200 / 500 (`CoverCleanupWorker`). */
+    val coverCacheLimitMb: Int = 200,
+    /** Лимит временной копии книги из облачного источника, МБ: 50 / 100 / 200. */
+    val tempCopyLimitMb: Int = 100,
+    /** Шаблон имени скачанного файла (`opds.downloadFileNameTemplate`). */
+    val downloadFileNameTemplate: String = SettingsKeys.Defaults.DOWNLOAD_FILE_NAME_TEMPLATE,
+    /** Возраст кэша фидов в минутах (`opds.feedCacheMaxAgeMinutes`). */
+    val feedCacheMaxAgeMinutes: Int = SettingsKeys.Defaults.FEED_CACHE_MAX_AGE_MINUTES,
 )
 
 /**
@@ -160,6 +199,16 @@ data class SettingsUiState(
     val diagnostics: EinkDiagnosticsUi = EinkDiagnosticsUi(),
     /** Идёт загрузка настроек. */
     val isLoading: Boolean = false,
+    /** Идёт пересканирование всех папок: база очищена, сканы запущены. */
+    val isRescanning: Boolean = false,
+    /** Показывается подтверждение сброса: «Сбросить настройки? Да/Нет». */
+    val isConfirmingReset: Boolean = false,
+    /** Идёт сброс настроек. */
+    val isResetting: Boolean = false,
+    /** Идёт очистка кэша обложек («Очистить кэш обложек» в «Хранилище и кэш»). */
+    val isClearingCoverCache: Boolean = false,
+    /** Результат очистки кэша обложек: «освобождено 12,4 МБ» или причина сбоя. */
+    val coverCacheMessage: String? = null,
     /** Текст ошибки для `EinkErrorBanner`. */
     val error: String? = null,
 )
@@ -169,36 +218,36 @@ fun defaultSettingsSections(): List<SettingsSectionUi> = listOf(
     SettingsSectionUi(
         kind = SettingsSectionKind.APPEARANCE,
         title = "Внешний вид",
-        summary = "Плотность, сетка или список, обложки, сортировка по умолчанию",
+        summary = "Тема, плотность, масштаб шрифта и инверсия обложек",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.EINK_SCREEN,
         title = "Экран (e-ink)",
-        summary = "Режим обновления, полный refresh, инверсия обложек, тёмная тема, подсветка",
+        summary = "Режим обновления, события полного кадра, подсветка и клавиши",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.LIBRARY_SCAN,
         title = "Библиотека и сканирование",
-        summary = "Источники, автоскан, исключения, приоритет метаданных",
+        summary = "Вид и порядок полки, лимиты диска, папки-источники и разрешения",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.READERS,
         title = "Читалки",
-        summary = "Читалка по умолчанию для формата, профили, «Проверить»",
+        summary = "Установленные читалки и читалка по умолчанию",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.OPDS,
         title = "Каталоги OPDS",
-        summary = "Список каталогов, авторизация, загрузки",
+        summary = "Переход к каталогам: список, добавление по адресу, загрузки",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.STORAGE,
         title = "Хранилище и кэш",
-        summary = "Размер кэша обложек, очистка, экспорт и импорт библиотеки",
+        summary = "Очистка кэша обложек и экспорт библиотеки",
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.ABOUT,
         title = "О приложении и диагностика",
-        summary = "Версия, лицензии, «приложение работает полностью офлайн», вендор e-ink",
+        summary = "Версия, диагностика e-ink и системные разрешения",
     ),
 )

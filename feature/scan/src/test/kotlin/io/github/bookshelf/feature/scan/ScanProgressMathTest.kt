@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.scan
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.data.model.ScanStatus
 import org.junit.Test
 
 /**
@@ -32,11 +33,12 @@ class ScanProgressMathTest {
     }
 
     @Test
-    fun `scan can be resumed only when it is stopped and unfinished`() {
-        assertThat(canResumeScan(isRunning = false, filesSeen = 4300, filesTotal = 12000)).isTrue()
-        assertThat(canResumeScan(isRunning = true, filesSeen = 4300, filesTotal = 12000)).isFalse()
-        assertThat(canResumeScan(isRunning = false, filesSeen = 12000, filesTotal = 12000)).isFalse()
-        assertThat(canResumeScan(isRunning = false, filesSeen = 0, filesTotal = null)).isFalse()
+    fun `scan can be resumed only when the run is paused`() {
+        // Правило перенесено в ScanControlsTest: признак возобновляемости — состояние прогона,
+        // а не неизвестное общее число файлов.
+        assertThat(canResumeScan(status = ScanStatus.PAUSED, filesSeen = 4300)).isTrue()
+        assertThat(canResumeScan(status = ScanStatus.RUNNING, filesSeen = 4300)).isFalse()
+        assertThat(canResumeScan(status = ScanStatus.FINISHED, filesSeen = 12000)).isFalse()
     }
 
     @Test

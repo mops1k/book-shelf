@@ -101,6 +101,26 @@ class Opds1XmlParserTest {
     }
 
     @Test
+    fun descriptor_link_is_kept_when_the_feed_has_no_template() = runTest {
+        // Project Gutenberg объявляет поиск только дескриптором: шаблона в фиде нет вовсе.
+        val body = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <id>https://host/opds</id><title>Project Gutenberg</title>
+              <link rel="search" type="application/opensearchdescription+xml"
+                    href="/catalog/osd-books.xml"/>
+              <entry><id>tag:book:1</id><title>Книга</title></entry>
+            </feed>
+        """.trimIndent()
+
+        val feed = parser.parse(body, "https://host/opds/").getOrNull()
+
+        // Ссылка на дескриптор доходит до репозитория: без неё поиск на таком каталоге считался бы
+        // необъявленным, хотя он есть.
+        assertThat(feed?.searchUrl).isEqualTo("https://host/catalog/osd-books.xml")
+    }
+
+    @Test
     fun root_catalog_is_navigation_not_a_book_list() = runTest {
         val feed = parser.parse(FLIBUSTA_FIXTURE, BASE_URL).getOrNull()
 
@@ -160,6 +180,31 @@ class Opds1XmlParserTest {
         assertThat(body).isNotNull()
         assertThat(body).contains("Flibusta catalog")
         assertThat(body).contains("{searchTerms}")
+    }
+
+    /**
+     * Метаданные карточки книги: ссылки на фиды автора и серии, язык, жанры, год издания.
+     *
+     * Требование Александра 28.09.2026: в карточке должно быть видно, что это за книга, и по
+     * касанию автора или серии — попадать в их фиды. Всё это парсер обязан донести до слоя данных.
+     */
+    @Test
+    fun book_entry_carries_metadata_and_feed_links() = runTest {
+        val feed = parser.parse(
+            javaClass.classLoader!!.getResourceAsStream(BOOKS_FIXTURE)!!.readBytes().toString(Charsets.UTF_8),
+            "https://m.flibusta.is/opds/new/0/new",
+        ).getOrNull()
+
+        val entry = feed?.entries?.first { it.title == "Кольцо" }
+        // Имя серии — без служебной подписи ссылки «Все книги серии "Ксили"».
+        assertThat(entry?.seriesName).isEqualTo("Ксили")
+        assertThat(entry?.seriesUrl).isEqualTo("https://m.flibusta.is/opds/sequencebooks/24147")
+        assertThat(entry?.authorUrl).isEqualTo("https://m.flibusta.is/opds/author/750")
+        assertThat(entry?.language).isEqualTo("ru")
+        assertThat(entry?.genres).contains("Космическая фантастика")
+        // Год издания есть только у второй книги этого фида.
+        val withYear = feed?.entries?.first { it.title == "Развод. Бывшая жена генерала" }
+        assertThat(withYear?.issued).isEqualTo("2026")
     }
 
     private companion object {

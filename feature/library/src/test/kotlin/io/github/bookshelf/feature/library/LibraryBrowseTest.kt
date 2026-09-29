@@ -7,8 +7,12 @@ import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.paging.PageResult
+import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.data.repository.DeletionResult
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.LibrarySettings
@@ -37,6 +41,9 @@ import org.junit.Test
 class LibraryBrowseTest {
 
     private val dispatcher = StandardTestDispatcher()
+
+    /** Просьбы карточки книги: «покажи автора/серию» — их забирает эта же ViewModel. */
+    private val browseRequest = LibraryBrowseRequest()
     private val repository = RecordingBookRepository()
     private val filterRepository = FakeFilterRepository(
         authors = listOf(
@@ -128,6 +135,7 @@ class LibraryBrowseTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository(),
             filterSelection = FilterSelection(),
+            browseRequest = browseRequest,
             filterRepository = FakeFilterRepository(
                 authorSeries = mapOf(
                     "Денис Грей" to AuthorSeries(series = emptyList(), withoutSeries = 1),
@@ -211,6 +219,7 @@ class LibraryBrowseTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository(),
             filterSelection = selection,
+            browseRequest = browseRequest,
             filterRepository = filterRepository,
         )
         viewModel.onSetBrowse(BrowseMode.AUTHORS)
@@ -255,6 +264,7 @@ class LibraryBrowseTest {
             bookRepository = repository,
             settingsRepository = FakeSettingsRepository(ShelfViewPreset.SERIES),
             filterSelection = FilterSelection(),
+            browseRequest = browseRequest,
             filterRepository = filterRepository,
         )
         advanceUntilIdle()
@@ -266,10 +276,49 @@ class LibraryBrowseTest {
         assertThat(viewModel.uiState.value.browse.categories.map { it.label }).containsExactly("Классика")
     }
 
+    @Test
+    fun `card request opens the author view on that author with his series`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        // Так карточка книги просит полку показать автора: требование Александра (28.09.2026) —
+        // приходим в вид «Авторы» на нём, сверху его серии, снизу книги вне серий.
+        browseRequest.openAuthor("Лев Толстой")
+        advanceUntilIdle()
+
+        val browse = viewModel.uiState.value.browse
+        assertThat(browse.mode).isEqualTo(BrowseMode.AUTHORS)
+        assertThat(browse.level).isEqualTo(BrowseLevel.Author("Лев Толстой"))
+        assertThat(browse.categories.map { it.label }).containsExactly("Классика")
+        assertThat(repository.queries.last().bookQuery.authorNames).containsExactly("Лев Толстой")
+        // Просьба снимается: иначе она срабатывала бы при каждом возвращении на полку.
+        assertThat(browseRequest.request.value).isNull()
+    }
+
+    @Test
+    fun `card request opens the series without the previous author filter`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.onSetBrowse(BrowseMode.AUTHORS)
+        viewModel.onOpenCategory(CategoryItemUi(id = "Лев Толстой", label = "Лев Толстой", count = 3))
+        advanceUntilIdle()
+
+        browseRequest.openSeries("Классика")
+        advanceUntilIdle()
+
+        val browse = viewModel.uiState.value.browse
+        assertThat(browse.mode).isEqualTo(BrowseMode.SERIES)
+        assertThat(browse.level).isEqualTo(BrowseLevel.Series("Классика"))
+        // Авторский фильтр прошлого захода снят: иначе серия показала бы только книги Толстого.
+        val query = repository.queries.last().bookQuery
+        assertThat(query.series).containsExactly("Классика")
+        assertThat(query.authorNames).isEmpty()
+    }
+
     private fun viewModel(): LibraryViewModel = LibraryViewModel(
         bookRepository = repository,
         settingsRepository = FakeSettingsRepository(),
         filterSelection = FilterSelection(),
+        browseRequest = browseRequest,
         filterRepository = filterRepository,
     )
 
@@ -301,6 +350,12 @@ class LibraryBrowseTest {
         override suspend fun delete(bookId: String) =
             io.github.bookshelf.core.common.error.AppResult.success(Unit)
 
+        /** Удаление с файлом и поиск дублей в тестах полки не проверяются. */
+        override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
+            AppResult.success(DeletionResult(deleted = bookIds.size, failed = 0))
+
+        override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+
         override suspend fun rescanAll() = io.github.bookshelf.core.common.error.AppResult.success(Unit)
     }
 }
@@ -309,6 +364,8 @@ class LibraryBrowseTest {
 private class FakeSettingsRepository(
     private val preset: ShelfViewPreset = ShelfViewPreset.GRID,
 ) : SettingsRepository {
+
+    override suspend fun resetToDefaults() = Unit
     override val settings: Flow<AppSettings> = flowOf(appSettings())
 
     override suspend fun current(): AppSettings = appSettings()

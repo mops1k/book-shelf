@@ -45,18 +45,19 @@ class WorkManagerScanScheduler @Inject constructor(
      * Работа отдельная на книгу, а не пачка на библиотеку: у каждой книги свой приоритет, и
      * видимая на полке должна разобраться раньше той, что лежит в конце списка.
      */
-    override suspend fun enqueueMetadata(bookId: String, force: Boolean) {
+    override suspend fun enqueueMetadata(bookId: String, force: Boolean, refreshCover: Boolean) {
         val request = OneTimeWorkRequestBuilder<MetadataWorker>()
             .setInputData(
                 workDataOf(
                     MetadataWorker.KEY_BOOK_ID to bookId,
                     MetadataWorker.KEY_FORCE to force,
+                    MetadataWorker.KEY_REFRESH_COVER to refreshCover,
                 ),
             )
             .addTag(MetadataWorker.WORK_TAG)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
-            metadataWorkName(bookId, force),
+            metadataWorkName(bookId, force, refreshCover),
             ExistingWorkPolicy.KEEP,
             request,
         )
@@ -66,7 +67,17 @@ class WorkManagerScanScheduler @Inject constructor(
         WorkManager.getInstance(context).cancelUniqueWork(ScanSourceWorker.uniqueWorkName(sourceId))
     }
 
-    /** Имя работы: у принудительного разбора своё, чтобы не столкнуться с обычным (KEEP). */
-    private fun metadataWorkName(bookId: String, force: Boolean = false): String =
-        if (force) "metadata-force-$bookId" else "metadata-$bookId"
+    /**
+     * Имя работы: у принудительного разбора и у перерисовки обложки свои имена, иначе политика
+     * `KEEP` отбросила бы вторую работу как дубль первой.
+     */
+    private fun metadataWorkName(
+        bookId: String,
+        force: Boolean = false,
+        refreshCover: Boolean = false,
+    ): String = when {
+        refreshCover -> "metadata-cover-$bookId"
+        force -> "metadata-force-$bookId"
+        else -> "metadata-$bookId"
+    }
 }

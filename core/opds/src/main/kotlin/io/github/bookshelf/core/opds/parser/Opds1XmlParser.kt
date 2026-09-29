@@ -4,7 +4,10 @@ import android.util.Xml
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.opds.model.OPDS_ACQUISITION_REL_PREFIX
+import io.github.bookshelf.core.opds.model.OPDS_AUTHOR_FEED_MARKER
 import io.github.bookshelf.core.opds.model.OPDS_IMAGE_REL_PREFIX
+import io.github.bookshelf.core.opds.model.OPDS_SERIES_FEED_MARKER
+import io.github.bookshelf.core.opds.model.OPENSEARCH_DESCRIPTION_MIME
 import io.github.bookshelf.core.opds.model.OpdsEntry
 import io.github.bookshelf.core.opds.model.OpdsFeed
 import io.github.bookshelf.core.opds.model.OpdsLink
@@ -83,6 +86,9 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
                         "language" -> state.put("language", value)
                         "identifier" -> state.put("identifier", value)
                         "publisher" -> state.put("publisher", value)
+                        // dc:issued — год издания: в карточке книги он нужен, даже когда описания
+                        // каталог не прислал вовсе.
+                        "issued" -> state.put("issued", value)
                     }
                 }
             }
@@ -109,6 +115,7 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
         var updated: String = ""
         var nextPageUrl: String? = null
         var searchUrl: String? = null
+        var descriptorUrl: String? = null
         var author: StringBuilder? = null
         var entry: EntryBuilder? = null
         private val links = mutableListOf<OpdsLink>()
@@ -136,12 +143,23 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
                 href = parser.getAttributeValue(null, "href").orEmpty().resolveAgainst(base),
                 type = parser.getAttributeValue(null, "type"),
                 title = parser.getAttributeValue(null, "title"),
+                // Размер файла объявлен атрибутом length (Project Gutenberg) — без него в карточке
+                // нечего показать вместо размера, а «Скачать 30 МБ» пользователю важно.
+                length = parser.getAttributeValue(null, "length")?.toLongOrNull(),
             )
             val current = entry
             if (current != null) {
                 current.links += link
-                // Серия приходит ссылкой на раздел серий, а не полем category.
-                if (SERIES_MARKER in link.href) current.seriesTitle = link.title ?: current.seriesTitle
+                // Серия и фид автора приходят ссылками rel="related", а не полями category/author:
+                // по ним карточка книги переходит в фид серии и в фид автора.
+                when {
+                    OPDS_SERIES_FEED_MARKER in link.href -> {
+                        current.seriesUrl = link.href
+                        current.seriesTitle = seriesNameFromLinkTitle(link.title) ?: current.seriesTitle
+                    }
+
+                    OPDS_AUTHOR_FEED_MARKER in link.href -> current.authorUrl = link.href
+                }
                 return
             }
             links += link
@@ -149,6 +167,11 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
             // Ссылок rel="search" две: дескриптор OpenSearch и рабочий шаблон Atom с
             // {searchTerms}. Берём шаблон — по дескриптору запрос не пошлётся.
             if (searchUrl == null && TEMPLATE_MARKER in link.href) searchUrl = link.href
+            // Дескриптор держим запасным вариантом: у части каталогов (Project Gutenberg) шаблон
+            // лежит внутри него, и без этой ссылки поиск там не работал бы. Репозиторий достанет
+            // шаблон из дескриптора отдельным запросом — и только когда пользователь ищет.
+            val isDescriptor = link.type?.contains(OPENSEARCH_DESCRIPTION_MIME, ignoreCase = true) == true
+            if (descriptorUrl == null && isDescriptor) descriptorUrl = link.href
         }
 
         /** Пишет поле в текущую запись, а если её нет — в корень фида. */
@@ -173,7 +196,9 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
             links = links,
             entries = entries,
             nextPageUrl = nextPageUrl,
-            searchUrl = searchUrl,
+            // Рабочий шаблон предпочтительнее дескриптора: по нему запрос уходит сразу, без
+            // второго сетевого захода. Дескриптор отдаётся, если шаблона в фиде нет.
+            searchUrl = searchUrl ?: descriptorUrl,
             // У Flibusta маркера kind=navigation в теле нет: навигация определяется тем, что у
             // записей нет ссылок приобретения. Ошибить это — показать разделы как книги.
             isNavigation = entries.isNotEmpty() && entries.all { item ->
@@ -189,10 +214,15 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
         var summary: String? = null
         var language: String? = null
         var identifier: String? = null
+        var issued: String? = null
         val authors = mutableListOf<String>()
         val links = mutableListOf<OpdsLink>()
         /** Серия приходит ссылкой на /opds/sequencebooks/…, а не полем category. */
         var seriesTitle: String? = null
+        /** Адрес фида серии: по нему карточка открывает список книг серии. */
+        var seriesUrl: String? = null
+        /** Адрес фида автора: по нему карточка открывает его книги и серии. */
+        var authorUrl: String? = null
         val genres = mutableListOf<String>()
 
         fun set(field: String, value: String) {
@@ -203,6 +233,7 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
                 "summary" -> if (summary.isNullOrBlank()) summary = value
                 "language" -> language = value
                 "identifier" -> identifier = value
+                "issued" -> issued = value
             }
         }
 
@@ -218,6 +249,10 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
             language = language,
             seriesName = seriesTitle?.takeIf { it.isNotBlank() },
             dcIdentifier = identifier,
+            issued = issued?.takeIf { it.isNotBlank() },
+            genres = genres.toList(),
+            authorUrl = authorUrl,
+            seriesUrl = seriesUrl,
         )
     }
 
@@ -232,11 +267,35 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
         const val FEED_MARKER = "<feed"
         const val ENTRY_MARKER = "<entry"
         const val TEMPLATE_MARKER = "{searchTerms}"
-
-        /** Ссылка на раздел серий: по ней серия и берётся, а не из category. */
-        const val SERIES_MARKER = "/opds/sequencebooks/"
     }
 }
+
+/**
+ * Имя серии из подписи ссылки на неё.
+ *
+ * Флибуста называет ссылку «Все книги серии "Ксили"»: показать это в карточке значит показать
+ * служебную фразу вместо названия серии. Берём то, что в кавычках; если кавычек нет — убираем
+ * известный префикс, а если и его нет, оставляем подпись как есть.
+ */
+internal fun seriesNameFromLinkTitle(title: String?): String? {
+    val raw = title?.trim().orEmpty()
+    if (raw.isEmpty()) return null
+
+    val afterQuote = raw.substringAfter('"', missingDelimiterValue = raw)
+    if (afterQuote != raw) {
+        val inside = afterQuote.substringBefore('"', missingDelimiterValue = afterQuote).trim()
+        if (inside.isNotEmpty()) return inside
+    }
+    val afterGuillemet = raw.substringAfter('«', missingDelimiterValue = raw)
+    if (afterGuillemet != raw) {
+        val inside = afterGuillemet.substringBefore('»', missingDelimiterValue = afterGuillemet).trim()
+        if (inside.isNotEmpty()) return inside
+    }
+    return raw.removePrefix(SERIES_TITLE_PREFIX).trim().ifBlank { raw }
+}
+
+/** Служебный префикс подписи серии у Флибусты. */
+private const val SERIES_TITLE_PREFIX = "Все книги серии"
 
 /**
  * Разрешение ссылки относительно адреса фида.

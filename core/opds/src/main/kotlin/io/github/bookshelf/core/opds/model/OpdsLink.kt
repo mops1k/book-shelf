@@ -11,6 +11,19 @@ const val OPDS_IMAGE_REL_PREFIX: String = "http://opds-spec.org/image"
 /** `rel` навигационной записи (раздел каталога). */
 const val OPDS_SUBSECTION_REL: String = "subsection"
 
+/**
+ * Признаки фида автора и фида серии в ссылках `rel="related"`.
+ *
+ * OPDS 1.2 не даёт отдельного `rel` для «все книги автора»: каталоги кладут их в `related` с
+ * произвольной подписью. Единственный признак — адрес, поэтому у Флибусты он и проверяется
+ * (`/opds/author/750`, `/opds/sequencebooks/24147`). Без этого ссылки не отличаются от любых
+ * других `related`, и переходы «к автору» и «к серии» сделать нечем.
+ */
+const val OPDS_AUTHOR_FEED_MARKER: String = "/author/"
+
+/** Признак фида серии — см. [OPDS_AUTHOR_FEED_MARKER]. */
+const val OPDS_SERIES_FEED_MARKER: String = "/sequencebooks/"
+
 /** Фрагмент `rel`, по которому распознаётся OpenSearch. */
 const val OPENSEARCH_REL_FRAGMENT: String = "opensearch"
 
@@ -41,6 +54,7 @@ private val NON_CONTENT_RELS: Set<String> = setOf(
  * @param href адрес; может быть относительным — абсолютный строит парсер относительно `baseUrl`.
  * @param type MIME цели; null, если каталог его не указал.
  * @param title подпись ссылки для UI; null, если не задана.
+ * @param length размер файла в байтах из атрибута `length`; null, если каталог его не указал.
  */
 @Serializable
 data class OpdsLink(
@@ -48,6 +62,7 @@ data class OpdsLink(
     val href: String,
     val type: String? = null,
     val title: String? = null,
+    val length: Long? = null,
 )
 
 /**
