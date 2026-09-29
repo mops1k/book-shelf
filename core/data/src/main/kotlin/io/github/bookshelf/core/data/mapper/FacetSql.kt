@@ -79,10 +79,17 @@ internal object FacetSql {
         val args = mutableListOf<Any?>()
         args.addAll(authorNames)
         args.add(authorNames.size)
-        args.add(genreCode)
+        // Жанр добавляется отдельным условием, а не через «(? IS NULL OR EXISTS(… = ?))»: у такой
+        // записи ДВА плейсхолдера, а параметр передавался один — второй оставался NULL, и
+        // `tags.name = NULL` не находил ничего. Дефект с устройства (29.09.2026): из жанра у набора
+        // авторов не показывалось ни одной серии, хотя серии есть.
+        val genreCondition = genreCode?.let {
+            args.add(it)
+            "AND $BOOKS_WITH_GENRE "
+        }.orEmpty()
         val sql = "SELECT books.seriesName AS seriesName, COUNT(*) AS bookCount FROM books " +
             "WHERE ${BookPageSql.booksWithExactAuthorSet(authorNames.size)} " +
-            "AND (? IS NULL OR $BOOKS_WITH_GENRE) " +
+            genreCondition +
             "GROUP BY books.seriesName ORDER BY books.seriesName COLLATE NOCASE ASC"
         return SimpleSQLiteQuery(sql, args.toTypedArray())
     }

@@ -160,7 +160,9 @@ private fun Project.configureTestTaskDefaults() {
         systemProperty("user.language", "ru")
         systemProperty("user.country", "RU")
         systemProperty("user.timezone", "Europe/Moscow")
-        maxHeapSize = "2g"
+        // 1 ГБ на тестовую JVM: тесты мелкие, а на машине 7.8 ГБ — при 2 ГБ на JVM параллельные
+        // модули вместе с демонами уходили в своп, и сборка растягивалась в разы.
+        maxHeapSize = "1g"
         testLogging {
             events("failed")
             exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
