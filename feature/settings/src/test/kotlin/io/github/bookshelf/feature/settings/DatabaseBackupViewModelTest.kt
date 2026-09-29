@@ -94,16 +94,17 @@ class DatabaseBackupViewModelTest {
     }
 
     @Test
-    fun `restore waits for confirmation before touching the database`() = runTest(dispatcher) {
+    fun `selecting a copy does not touch the database`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onAskRestore(entry("копия.db", createdAt = 5L))
+        viewModel.onSelect(entry("копия.db", createdAt = 5L))
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.pendingRestore?.fileName).isEqualTo("копия.db")
-        // База не тронута: одно касание по списку не должно затирать библиотеку.
+        assertThat(viewModel.uiState.value.selected?.fileName).isEqualTo("копия.db")
+        // Касание по списку ничего не делает с базой: и восстановление, и удаление — второе нажатие.
         assertThat(backup.restored).isEmpty()
+        assertThat(backup.removed).isEmpty()
         assertThat(restarter.restarts).isEqualTo(0)
     }
 
@@ -111,7 +112,7 @@ class DatabaseBackupViewModelTest {
     fun `confirmed restore replaces the database and restarts the app`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onAskRestore(entry("копия.db", createdAt = 5L))
+        viewModel.onSelect(entry("копия.db", createdAt = 5L))
         advanceUntilIdle()
 
         viewModel.onConfirmRestore()
@@ -120,19 +121,20 @@ class DatabaseBackupViewModelTest {
         assertThat(backup.restored).hasSize(1)
         // После подмены файла процесс обязан перезапуститься: открытые соединения держат прежние данные.
         assertThat(restarter.restarts).isEqualTo(1)
+        assertThat(viewModel.uiState.value.selected).isNull()
     }
 
     @Test
-    fun `cancelled restore clears the choice`() = runTest(dispatcher) {
+    fun `cancelled selection clears the choice`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onAskRestore(entry("копия.db", createdAt = 5L))
+        viewModel.onSelect(entry("копия.db", createdAt = 5L))
         advanceUntilIdle()
 
-        viewModel.onCancelRestore()
+        viewModel.onCancelSelection()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.pendingRestore).isNull()
+        assertThat(viewModel.uiState.value.selected).isNull()
         assertThat(backup.restored).isEmpty()
     }
 
@@ -141,7 +143,7 @@ class DatabaseBackupViewModelTest {
         backup.restoreError = AppError.Io(message = "Копия повреждена: database disk image is malformed")
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onAskRestore(entry("битая.db", createdAt = 5L))
+        viewModel.onSelect(entry("битая.db", createdAt = 5L))
         advanceUntilIdle()
 
         viewModel.onConfirmRestore()
@@ -160,6 +162,68 @@ class DatabaseBackupViewModelTest {
 
         assertThat(viewModel.uiState.value.backups.map { it.fileName })
             .containsExactly("новая.db", "старая.db")
+    }
+
+    @Test
+    fun `selecting a copy does not delete the file`() = runTest(dispatcher) {
+        backup.available = listOf(entry("лишняя.db", createdAt = 5L))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onSelect(entry("лишняя.db", createdAt = 5L))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selected?.fileName).isEqualTo("лишняя.db")
+        // Копия — единственная страховка библиотеки: раскрытие действий её не удаляет.
+        assertThat(backup.removed).isEmpty()
+    }
+
+    @Test
+    fun `delete removes the file and refreshes the list`() = runTest(dispatcher) {
+        val doomed = entry("лишняя.db", createdAt = 5L)
+        backup.available = listOf(doomed, entry("нужная.db", createdAt = 4L))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onSelect(doomed)
+        advanceUntilIdle()
+
+        viewModel.onDeleteSelected()
+        advanceUntilIdle()
+
+        assertThat(backup.removed.map { it.fileName }).containsExactly("лишняя.db")
+        // Список перечитывается: удалённая копия не должна остаться строкой на экране.
+        assertThat(viewModel.uiState.value.backups.map { it.fileName }).containsExactly("нужная.db")
+        assertThat(viewModel.uiState.value.selected).isNull()
+        assertThat(viewModel.uiState.value.message).contains("лишняя.db")
+    }
+
+    @Test
+    fun `cancelled selection keeps the copy`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onSelect(entry("лишняя.db", createdAt = 5L))
+        advanceUntilIdle()
+
+        viewModel.onCancelSelection()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selected).isNull()
+        assertThat(backup.removed).isEmpty()
+    }
+
+    @Test
+    fun `failed delete is explained instead of looking like success`() = runTest(dispatcher) {
+        backup.removeError = AppError.Io(message = "Нет доступа к папке")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onSelect(entry("лишняя.db", createdAt = 5L))
+        advanceUntilIdle()
+
+        viewModel.onDeleteSelected()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.message).contains("Нет доступа к папке")
+        assertThat(viewModel.uiState.value.selected).isNull()
     }
 
     private fun viewModel() = DatabaseBackupViewModel(
@@ -181,8 +245,10 @@ class DatabaseBackupViewModelTest {
         var result: BackupResult = BackupResult(fileName = "копия.db", sizeBytes = 1L, removed = 0)
         var copyError: AppError? = null
         var restoreError: AppError? = null
+        var removeError: AppError? = null
         var available: List<BackupEntry> = emptyList()
         val restored = mutableListOf<BackupEntry>()
+        val removed = mutableListOf<BackupEntry>()
 
         override suspend fun backupNow(automatic: Boolean): AppResult<BackupResult> {
             val failure = copyError
@@ -196,6 +262,15 @@ class DatabaseBackupViewModelTest {
             val failure = restoreError
             if (failure != null) return AppResult.failure(failure)
             restored += entry
+            return AppResult.success(Unit)
+        }
+
+        override suspend fun remove(entry: BackupEntry): AppResult<Unit> {
+            val failure = removeError
+            if (failure != null) return AppResult.failure(failure)
+            removed += entry
+            // Удалённая копия исчезает из списка — как в настоящем дереве документов.
+            available = available.filterNot { item -> item.documentUri == entry.documentUri }
             return AppResult.success(Unit)
         }
     }

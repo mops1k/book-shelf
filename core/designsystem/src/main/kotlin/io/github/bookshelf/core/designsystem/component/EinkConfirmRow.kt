@@ -23,7 +23,9 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
  * перерисовывать кадр целиком, а вопрос рядом с тем, что нажали, читается сразу.
  *
  * Кнопка подтверждения идёт первой и выделена как основная; отмена всегда справа, чтобы «опасная»
- * и «безопасная» кнопки не менялись местами от экрана к экрану.
+ * и «безопасная» кнопки не менялись местами от экрана к экрану. Необязательное третье действие
+ * ([destructiveLabel]) встаёт между ними — это второй исход того же вопроса, а не отдельная строка
+ * (например у копии базы: «Восстановить» / «Удалить» / «Отмена»).
  */
 @Composable
 fun EinkConfirmRow(
@@ -33,6 +35,8 @@ fun EinkConfirmRow(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    destructiveLabel: String? = null,
+    onDestructive: (() -> Unit)? = null,
 ) {
     val dimens = LocalEinkDimens.current
     Column(
@@ -58,6 +62,14 @@ fun EinkConfirmRow(
                 primary = true,
                 enabled = enabled,
             )
+            if (destructiveLabel != null && onDestructive != null) {
+                EinkButton(
+                    text = destructiveLabel,
+                    onClick = onDestructive,
+                    modifier = Modifier.weight(1f),
+                    enabled = enabled,
+                )
+            }
             EinkButton(
                 text = "Отмена",
                 onClick = onCancel,

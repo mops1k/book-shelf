@@ -34,6 +34,9 @@ import java.util.Locale
  * Бэкап базы и выгрузка библиотеки — отдельные ViewModel: у общей уже девять зависимостей при
  * пороге detekt десять, а восстановление с подтверждением, списком копий и диалогом сохранения
  * файла в неё бы не поместилось.
+ *
+ * У каждой копии одна строка: касание раскрывает под ней три действия — «Восстановить», «Удалить»
+ * и «Отмена» (требование Александра, 29.09.2026: удаление не должно занимать отдельную строку).
  */
 @Composable
 internal fun StorageCategory(
@@ -94,9 +97,9 @@ internal fun StorageCategory(
                 title = "Сделать бэкап сейчас",
                 subtitle = when {
                     backupState.isWorking -> "Работаем…"
-                    backupState.pendingRestore == null -> backupState.message
+                    backupState.selected == null -> backupState.message
                         ?: "Копия базы в папке библиотеки"
-                    else -> "Сначала ответьте на вопрос ниже"
+                    else -> "Сначала ответьте на вопрос у выбранной копии"
                 },
                 onClick = backupViewModel::onCreateBackup,
             )
@@ -112,29 +115,31 @@ internal fun StorageCategory(
                 onClick = backupViewModel::onLoadBackups,
             )
         }
-        val pending = backupState.pendingRestore
-        if (pending != null) {
-            item(key = "storage-backup-confirm") {
-                EinkConfirmRow(
-                    question = "Заменить текущую библиотеку копией от " +
-                        "${formatBackupMoment(pending.createdAt)}? Текущая база будет сохранена " +
-                        "отдельной копией",
-                    confirmLabel = "Восстановить",
-                    onConfirm = backupViewModel::onConfirmRestore,
-                    onCancel = backupViewModel::onCancelRestore,
-                    enabled = !backupState.isWorking,
-                )
-            }
-        }
         items(
             items = backupState.backups,
             key = { entry -> entry.documentUri },
         ) { entry ->
+            val selected = backupState.selected?.documentUri == entry.documentUri
             EinkListRow(
                 title = formatBackupMoment(entry.createdAt),
                 subtitle = entry.fileName + (entry.sizeBytes?.let { size -> " · $size байт" } ?: ""),
-                onClick = { backupViewModel.onAskRestore(entry) },
+                hasDivider = !selected,
+                onClick = { backupViewModel.onSelect(entry) },
             )
+            // Действия раскрываются под самой копией, которую выбрали: у каждой копии одна строка,
+            // а не две, и видно, к чему относится каждое нажатие.
+            if (selected) {
+                EinkConfirmRow(
+                    question = "Копия от ${formatBackupMoment(entry.createdAt)}: восстановить " +
+                        "библиотеку или удалить копию?",
+                    confirmLabel = if (backupState.isWorking) "Работаем…" else "Восстановить",
+                    onConfirm = backupViewModel::onConfirmRestore,
+                    destructiveLabel = "Удалить",
+                    onDestructive = backupViewModel::onDeleteSelected,
+                    onCancel = backupViewModel::onCancelSelection,
+                    enabled = !backupState.isWorking,
+                )
+            }
         }
     }
 }

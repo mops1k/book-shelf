@@ -100,16 +100,57 @@ class DefaultDatabaseBackupTest {
     }
 
     @Test
-    fun `old copies beyond the limit are removed`() = runBlocking {
+    fun `five copies are kept and the sixth removes the oldest`() = runBlocking<Unit> {
         settings.backupEnabled = true
-        // Три копии уже есть, после новой остаётся ровно три — старейшая уходит.
-        store.existing = (1..3).map { index -> entry("копия-$index.db", createdAt = index.toLong()) }
+        // Пять копий уже есть: новая — шестая, и уходит ровно самая старая.
+        store.existing = (1..5).map { index -> entry("копия-$index.db", createdAt = index.toLong()) }
         val backup = backup()
 
         val result = backup.backupNow().getOrNull()
 
         assertThat(result?.removed).isEqualTo(1)
-        assertThat(store.removed).hasSize(1)
+        assertThat(store.removed.map { it.fileName }).containsExactly("копия-1.db")
+    }
+
+    @Test
+    fun `the fifth copy evicts nothing`() = runBlocking {
+        settings.backupEnabled = true
+        store.existing = (1..4).map { index -> entry("копия-$index.db", createdAt = index.toLong()) }
+        val backup = backup()
+
+        val result = backup.backupNow().getOrNull()
+
+        // Предел — пять копий: пятая ещё входит в него, и удалять ничего не нужно.
+        assertThat(result?.removed).isEqualTo(0)
+        assertThat(store.removed).isEmpty()
+    }
+
+    @Test
+    fun `deleting a copy removes exactly that file`() = runBlocking<Unit> {
+        store.existing = listOf(
+            entry("лишняя.db", createdAt = 3L),
+            entry("нужная.db", createdAt = 4L),
+        )
+        val backup = backup()
+
+        val result = backup.remove(store.existing.first())
+
+        assertThat(result.getOrNull()).isNotNull()
+        assertThat(store.removed.map { it.fileName }).containsExactly("лишняя.db")
+        // Удалённая копия исчезает и из списка: строка на экране не должна остаться «мёртвой».
+        assertThat(backup.availableBackups().getOrNull()?.map { it.fileName })
+            .containsExactly("нужная.db")
+    }
+
+    @Test
+    fun `failed deletion is reported with its cause`() = runBlocking {
+        store.removeFailure = AppError.Io(message = "Нет доступа к папке")
+        val backup = backup()
+
+        val result = backup.remove(entry("лишняя.db", createdAt = 3L))
+
+        assertThat(result.getOrNull()).isNull()
+        assertThat(result.errorOrNull()?.message).isEqualTo("Нет доступа к папке")
     }
 
     @Test
@@ -187,6 +228,7 @@ class DefaultDatabaseBackupTest {
 
         var existing: List<BackupEntry> = emptyList()
         var replaced: Boolean = false
+        var removeFailure: AppError? = null
         val saved = mutableListOf<Saved>()
         val removed = mutableListOf<BackupEntry>()
 
@@ -217,7 +259,10 @@ class DefaultDatabaseBackupTest {
         }
 
         override suspend fun remove(entry: BackupEntry): AppResult<Unit> {
+            removeFailure?.let { failure -> return AppResult.failure(failure) }
             removed += entry
+            // Удалённая копия исчезает из списка — как в настоящем дереве документов.
+            existing = existing.filterNot { item -> item.documentUri == entry.documentUri }
             return AppResult.success(Unit)
         }
 

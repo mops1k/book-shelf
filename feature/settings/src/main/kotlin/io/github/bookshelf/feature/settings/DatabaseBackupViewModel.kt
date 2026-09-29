@@ -21,16 +21,17 @@ import kotlinx.coroutines.launch
  * Состояние блока «Бэкап базы».
  *
  * @param isAutoEnabled включён ли ежедневный бэкап (настройка `advanced.dbBackupEnabled`).
- * @param isWorking идёт операция: копирование, список или восстановление.
+ * @param isWorking идёт операция: копирование, список, восстановление или удаление.
  * @param backups найденные копии, новые первыми.
- * @param pendingRestore копия, выбранная для восстановления и ждущая подтверждения.
+ * @param selected копия, выбранная касанием: под её строкой раскрыты «Восстановить», «Удалить»
+ *   и «Отмена». Одна копия — одно состояние, поэтому выбор общий для обоих действий.
  * @param message итог последней операции для показа человеку.
  */
 data class DatabaseBackupUiState(
     val isAutoEnabled: Boolean = true,
     val isWorking: Boolean = false,
     val backups: List<BackupEntry> = emptyList(),
-    val pendingRestore: BackupEntry? = null,
+    val selected: BackupEntry? = null,
     val message: String? = null,
 )
 
@@ -120,26 +121,32 @@ class DatabaseBackupViewModel @Inject constructor(
         }
     }
 
-    /** Выбрать копию: восстановление требует подтверждения, поэтому сначала только вопрос. */
-    fun onAskRestore(entry: BackupEntry) {
-        _uiState.update { state -> state.copy(pendingRestore = entry, message = null) }
+    /**
+     * Выбрать копию: под её строкой раскрываются действия «Восстановить» / «Удалить» / «Отмена».
+     *
+     * Одно касание по списку ничего не делает с файлами — ни восстановления, ни удаления. Так и
+     * промах пальцем, и осознанный выбор требуют второго нажатия, но лишних строк на экране нет:
+     * у каждой копии одна строка, а не две.
+     */
+    fun onSelect(entry: BackupEntry) {
+        _uiState.update { state -> state.copy(selected = entry, message = null) }
     }
 
-    /** Отказаться от восстановления. */
-    fun onCancelRestore() {
-        _uiState.update { state -> state.copy(pendingRestore = null) }
+    /** Закрыть действия выбранной копии, ничего с ней не делая. */
+    fun onCancelSelection() {
+        _uiState.update { state -> state.copy(selected = null) }
     }
 
     /**
-     * Подтвердить восстановление.
+     * Подтвердить восстановление выбранной копии.
      *
      * После успеха приложение перезапускается: файл базы подменён под работающим процессом, и
      * открытые соединения держат прежние данные.
      */
     fun onConfirmRestore() {
-        val entry = _uiState.value.pendingRestore ?: return
+        val entry = _uiState.value.selected ?: return
         viewModelScope.launch {
-            _uiState.update { state -> state.copy(isWorking = true, pendingRestore = null) }
+            _uiState.update { state -> state.copy(isWorking = true, selected = null) }
             val result = backup.restore(entry)
             if (result.getOrNull() != null) {
                 _uiState.update { state ->
@@ -161,4 +168,31 @@ class DatabaseBackupViewModel @Inject constructor(
     fun onDismissMessage() {
         _uiState.update { state -> state.copy(message = null) }
     }
+
+    /**
+     * Удалить выбранную копию.
+     *
+     * Отдельного вопроса «точно удалить?» нет: действия появились только после касания по этой
+     * копии, и «Удалить» нажато уже осознанно. Дальше строка честно сообщает, что именно удалено.
+     */
+    fun onDeleteSelected() {
+        val entry = _uiState.value.selected ?: return
+        viewModelScope.launch {
+            _uiState.update { state -> state.copy(isWorking = true, selected = null) }
+            val result = backup.remove(entry)
+            _uiState.update { state ->
+                state.copy(
+                    isWorking = false,
+                    message = if (result.getOrNull() != null) {
+                        "Копия удалена: ${entry.fileName}"
+                    } else {
+                        result.errorOrNull()?.message ?: "Копию удалить не удалось"
+                    },
+                )
+            }
+            // Список перечитывается: удалённой копии не должно остаться строкой на экране.
+            onLoadBackups()
+        }
+    }
 }
+

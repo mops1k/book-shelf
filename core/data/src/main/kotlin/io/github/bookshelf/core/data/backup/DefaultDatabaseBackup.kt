@@ -119,6 +119,14 @@ class DefaultDatabaseBackup @Inject constructor(
         return replaced
     }
 
+    /**
+     * Удалить копию.
+     *
+     * Одно действие хранилища и ничего больше: путь к документу уже известен из списка, а
+     * подчищать за собой нечего — копия лежит в отдельной папке `.bookshelf`.
+     */
+    override suspend fun remove(entry: BackupEntry): AppResult<Unit> = store.remove(entry)
+
     /** Папка первого включённого источника книг: туда и кладём копии. */
     private suspend fun libraryTreeUri(): String? =
         sources.observeSources().first().firstOrNull { source -> source.enabled }?.uri
