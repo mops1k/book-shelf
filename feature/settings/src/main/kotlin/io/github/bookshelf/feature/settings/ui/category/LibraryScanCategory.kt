@@ -28,6 +28,7 @@ import io.github.bookshelf.feature.settings.COVER_CACHE_LIMIT_CHOICES_MB
 import io.github.bookshelf.feature.settings.DiskLimitAction
 import io.github.bookshelf.feature.settings.DuplicatesUiState
 import io.github.bookshelf.feature.settings.DuplicatesViewModel
+import io.github.bookshelf.feature.settings.LibraryBehaviourAction
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.TEMP_COPY_LIMIT_CHOICES_MB
@@ -131,33 +132,16 @@ internal fun LibraryScanCategory(
             )
         }
 
-        item(key = "header-library-limits") {
-            EinkSectionHeader(title = "Лимиты диска")
-        }
+        diskLimitsSection(state = state, onPick = viewModel::onSetDiskLimit)
 
-        item(key = "cover-cache-limit") {
-            ValueChoiceRow(
-                title = "Лимит кэша обложек",
-                options = COVER_CACHE_LIMIT_CHOICES_MB,
-                selected = state.settings.coverCacheLimitMb,
-                label = ::megabytesLabel,
-                onPick = { limitMb -> viewModel.onSetDiskLimit(DiskLimitAction.SetCoverCacheMb(limitMb)) },
-                subtitle = "Больше лимит — дольше живут обложки, больше места на диске",
-            )
-        }
-
-        item(key = "temp-copy-limit") {
-            ValueChoiceRow(
-                title = "Лимит временной копии",
-                options = TEMP_COPY_LIMIT_CHOICES_MB,
-                selected = state.settings.tempCopyLimitMb,
-                label = ::megabytesLabel,
-                onPick = { limitMb -> viewModel.onSetDiskLimit(DiskLimitAction.SetTempCopyMb(limitMb)) },
-                subtitle = "Копия нужна книге из облака: больше лимит — откроются крупные файлы, " +
-                    "но и места уйдёт больше",
-            )
-        }
-
+        fileChangeSection(
+            state = state,
+            onKeepToggle = { enabled ->
+                viewModel.onSetLibraryBehaviour(
+                    LibraryBehaviourAction.SetKeepMetadataOnFileChange(enabled),
+                )
+            },
+        )
         duplicatesSection(
             state = duplicates,
             onCheck = duplicatesViewModel::onCheck,
@@ -203,6 +187,68 @@ internal fun LibraryScanCategory(
  * Отдельной функцией, а не блоком внутри экрана: тело экрана и так длинное (порог detekt
  * `LongMethod`), а блок цельный — он знает только своё состояние и пять команд.
  */
+/**
+ * Блок «Лимиты диска»: сколько места отдано кэшу обложек и временным копиям.
+ *
+ * Отдельной функцией по той же причине, что и соседние блоки: тело экрана упирается в порог
+ * detekt `LongMethod`.
+ */
+private fun LazyListScope.diskLimitsSection(
+    state: SettingsUiState,
+    onPick: (DiskLimitAction) -> Unit,
+) {
+    item(key = "header-library-limits") {
+        EinkSectionHeader(title = "Лимиты диска")
+    }
+
+    item(key = "cover-cache-limit") {
+        ValueChoiceRow(
+            title = "Лимит кэша обложек",
+            options = COVER_CACHE_LIMIT_CHOICES_MB,
+            selected = state.settings.coverCacheLimitMb,
+            label = ::megabytesLabel,
+            onPick = { limitMb -> onPick(DiskLimitAction.SetCoverCacheMb(limitMb)) },
+            subtitle = "Больше лимит — дольше живут обложки, больше места на диске",
+        )
+    }
+
+    item(key = "temp-copy-limit") {
+        ValueChoiceRow(
+            title = "Лимит временной копии",
+            options = TEMP_COPY_LIMIT_CHOICES_MB,
+            selected = state.settings.tempCopyLimitMb,
+            label = ::megabytesLabel,
+            onPick = { limitMb -> onPick(DiskLimitAction.SetTempCopyMb(limitMb)) },
+            subtitle = "Копия нужна книге из облака: больше лимит — откроются крупные файлы, " +
+                "но и места уйдёт больше",
+        )
+    }
+}
+
+/**
+ * Блок «Замена файлов книг»: что делать с данными книги, когда её файл изменили.
+ *
+ * Отдельной функцией, как и у дублей: тело экрана уже длинное (порог detekt `LongMethod`), а блок
+ * цельный — он знает только своё переключение.
+ */
+private fun LazyListScope.fileChangeSection(
+    state: SettingsUiState,
+    onKeepToggle: (Boolean) -> Unit,
+) {
+    item(key = "file-change-header") {
+        EinkSectionHeader(title = "Замена файлов книг")
+    }
+    item(key = "file-change-keep") {
+        ToggleRow(
+            title = "Сохранять данные при смене файла",
+            subtitle = "Оценка, статус чтения, полки и прогресс книги остаются, если файл заменили. " +
+                "Выключено — заменённый файл считается новой книгой, и эти данные стираются",
+            enabled = state.settings.isKeepMetadataOnFileChange,
+            onToggle = onKeepToggle,
+        )
+    }
+}
+
 private fun LazyListScope.duplicatesSection(
     state: DuplicatesUiState,
     onCheck: () -> Unit,

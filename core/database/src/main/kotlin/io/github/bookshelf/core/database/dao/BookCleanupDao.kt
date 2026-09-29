@@ -45,6 +45,23 @@ abstract class BookCleanupDao {
     @Query("DELETE FROM books WHERE id IN (:ids)")
     abstract suspend fun deleteBooks(ids: List<String>)
 
+    /**
+     * Стереть всё, что читатель сказал о книге: оценку, избранное, статус чтения и дату добавления.
+     *
+     * Нужно, когда файл книги заменили и её считают новой книгой (`advanced.keepMetadataOnFileChange`
+     * выключено). Одним запросом, а не четырьмя сеттерами: между ними книга успела бы побыть в
+     * противоречивом состоянии. Живёт здесь, а не в `BookDao`: у того интерфейса уже порог detekt
+     * по числу методов, а это — уборка данных, как и удаление книг, которое лежит рядом.
+     */
+    @Query(
+        """
+        UPDATE books SET rating = NULL, favorite = 0, readingStatus = :status,
+            addedAt = :addedAt, updatedAt = :addedAt
+        WHERE id = :id
+        """,
+    )
+    abstract suspend fun resetUserData(id: String, status: String, addedAt: Long)
+
     /** Связи «книга — тег». */
     @Query("DELETE FROM book_tags WHERE bookId IN (:ids)")
     abstract suspend fun deleteBookTags(ids: List<String>)

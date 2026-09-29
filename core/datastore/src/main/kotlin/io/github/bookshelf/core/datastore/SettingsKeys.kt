@@ -146,7 +146,14 @@ object SettingsKeys {
         const val DOWNLOAD_FILE_NAME_TEMPLATE = "{author} - {title}.{ext}"
         const val ALLOW_HTTP = false
 
-        const val KEEP_METADATA_ON_FILE_CHANGE = false
+        /**
+         * Сохранять данные книги, когда её файл заменили.
+         *
+         * Умолчание — **включено**: оценка, статус чтения, прогресс и полки относятся к книге,
+         * которую человек читал, и терять их из-за замены файла было бы неприятным сюрпризом.
+         * Выключено — заменённый файл считается новой книгой (решение Александра, 29.09.2026).
+         */
+        const val KEEP_METADATA_ON_FILE_CHANGE = true
         const val DUPLICATE_SCAN_ENABLED = false
         const val DB_BACKUP_ENABLED = true
     }

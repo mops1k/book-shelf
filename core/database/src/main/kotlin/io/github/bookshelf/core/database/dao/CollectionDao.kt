@@ -37,6 +37,10 @@ interface CollectionDao {
     @Query("DELETE FROM collection_books WHERE collectionId = :collectionId AND bookId = :bookId")
     suspend fun removeBook(collectionId: String, bookId: String)
 
+    /** Убрать книгу со всех полок: заменённый файл — уже не та книга, которую добавляли. */
+    @Query("DELETE FROM collection_books WHERE bookId = :bookId")
+    suspend fun removeBookFromAll(bookId: String)
+
     /** Состав коллекции в пользовательском порядке. */
     @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId ORDER BY position ASC")
     suspend fun getBooks(collectionId: String): List<CollectionBookCrossRef>

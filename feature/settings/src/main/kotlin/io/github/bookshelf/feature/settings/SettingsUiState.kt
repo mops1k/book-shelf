@@ -175,6 +175,8 @@ data class AppSettingsUi(
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */
     val isTempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
+    /** Сохранять ли данные книги (оценку, статус, полки, прогресс), когда её файл заменили. */
+    val isKeepMetadataOnFileChange: Boolean = SettingsKeys.Defaults.KEEP_METADATA_ON_FILE_CHANGE,
     /** Лимит временной копии книги из облачного источника, МБ: 50 / 100 / 200. */
     val tempCopyLimitMb: Int = 100,
     /** Шаблон имени скачанного файла (`opds.downloadFileNameTemplate`). */

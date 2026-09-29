@@ -149,6 +149,7 @@ interface BookDao {
     @Query("UPDATE books SET readingStatus = :status WHERE id = :id")
     suspend fun setReadingStatus(id: String, status: String)
 
+
     /** Быстрый хеш для сравнения «файл изменился»; `null` — хеш ещё не посчитан. */
     @Query("SELECT quickHash FROM books WHERE id = :id")
     suspend fun getQuickHash(id: String): String?

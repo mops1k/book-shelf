@@ -303,9 +303,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** Запускать сканирование при старте приложения. */
-    fun onSetScanOnStart(enabled: Boolean) {
+    fun onSetLibraryBehaviour(action: LibraryBehaviourAction) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(library = settings.library.copy(autoScanOnStart = enabled))
+            when (action) {
+                is LibraryBehaviourAction.SetScanOnStart ->
+                    settings.copy(library = settings.library.copy(autoScanOnStart = action.enabled))
+
+                is LibraryBehaviourAction.SetKeepMetadataOnFileChange -> settings.copy(
+                    advanced = settings.advanced.copy(
+                        keepMetadataOnFileChange = action.enabled,
+                    ),
+                )
+            }
         }
     }
 
@@ -596,6 +605,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
+    isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
     densityLabel = when (settings.appearance.density) {
         EinkDensityLike.LARGE -> "Крупный"
         EinkDensityLike.NORMAL -> "Обычный"
@@ -834,6 +844,26 @@ sealed interface ReaderProgressAction {
  * @param SetCoverCacheMb лимит кэша обложек, МБ.
  * @param SetTempCopyMb лимит временной копии книги из облака, МБ.
  */
+/**
+ * Поведение библиотеки, которое человек включает и выключает.
+ *
+ * Одним входом, а не отдельным методом на каждый переключатель: у `SettingsViewModel` порог detekt
+ * по числу методов, и десять однотипных `onSetX` его исчерпали бы.
+ */
+sealed interface LibraryBehaviourAction {
+
+    /** Сканировать библиотеку при запуске приложения. */
+    data class SetScanOnStart(val enabled: Boolean) : LibraryBehaviourAction
+
+    /**
+     * Сохранять данные книги (оценку, статус чтения, полки, прогресс), когда её файл заменили.
+     *
+     * Выключение означает: заменённый файл — новая книга, и прежние данные уходят. Подпись в
+     * интерфейсе говорит это прямо.
+     */
+    data class SetKeepMetadataOnFileChange(val enabled: Boolean) : LibraryBehaviourAction
+}
+
 sealed interface DiskLimitAction {
 
     data class SetCoverCacheMb(val limitMb: Int) : DiskLimitAction

@@ -227,6 +227,10 @@ class CollectionRepositoryTest {
             refs.removeAll { it.collectionId == collectionId && it.bookId == bookId }
         }
 
+        override suspend fun removeBookFromAll(bookId: String) {
+            refs.removeAll { it.bookId == bookId }
+        }
+
         override suspend fun getBooks(collectionId: String) = refs.filter { it.collectionId == collectionId }
 
         override fun getBooksFlow(collectionId: String): Flow<List<CollectionBookCrossRef>> =

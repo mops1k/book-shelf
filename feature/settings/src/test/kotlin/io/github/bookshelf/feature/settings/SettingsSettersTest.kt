@@ -120,12 +120,15 @@ class SettingsSettersTest {
         viewModel.onSetFullRefreshOnPage(false)
         viewModel.onSetGcInterval(50)
         viewModel.onSetVolumeKeysAsPageTurn(true)
-        viewModel.onSetScanOnStart(true)
+        viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetScanOnStart(true))
+        viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetKeepMetadataOnFileChange(false))
         viewModel.onSetDiskLimit(DiskLimitAction.SetCoverCacheMb(500))
         viewModel.onSetDiskLimit(DiskLimitAction.SetTempCopyMb(50))
         advanceUntilIdle()
 
         val state = settings.last()
+        // Данные книги при замене файла: выключено — значит, заменённый файл считается новой книгой.
+        assertThat(state.advanced.keepMetadataOnFileChange).isFalse()
         assertThat(state.eink.refreshOnScreenChange).isFalse()
         assertThat(state.eink.refreshOnDialog).isFalse()
         assertThat(state.eink.refreshOnPageChange).isFalse()

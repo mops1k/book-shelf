@@ -1,12 +1,14 @@
 package io.github.bookshelf.work
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.database.dao.BookDao
@@ -62,6 +64,7 @@ class ScanSourceWorker @AssistedInject constructor(
     private val treeReader: SafTreeReader,
     private val treeWalker: TreeWalker,
     private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
+    private val fileChangeHandler: io.github.bookshelf.core.data.sync.BookFileChangeHandler,
     /** Кэш обложек: обложка изменившегося файла не должна остаться старой. */
     private val coverCache: io.github.bookshelf.core.covers.CoverCache,
     private val clock: AppClock,
@@ -218,6 +221,18 @@ class ScanSourceWorker @AssistedInject constructor(
                         lastSeenAt = clock.nowMillis(),
                     ),
                 )
+                // Порядок обязателен: сначала запись обновлённых фактов файла, потом решение о
+                // данных человека. Наоборот запись с прежней оценкой перезаписала бы очистку.
+                //
+                // Результат проверяется и попадает в журнал: сброс данных — решение, которое
+                // может сорваться (занятая база, отменённая корутина), и молчаливое «не сбросилось»
+                // оставило бы прежнюю оценку рядом с новым файлом, не оставив следов.
+                fileChangeHandler.onFileChanged(id).errorOrNull()?.let { error ->
+                    Log.w(
+                        "BookShelf",
+                        "данные книги $id не сброшены при смене файла: ${error.message}",
+                    )
+                }
                 updated++
             }
         }
