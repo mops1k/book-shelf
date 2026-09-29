@@ -38,8 +38,12 @@ object RockchipWaveform {
  * Деградация: если скрытых методов нет ([isReflectionAvailable] == false), DI создаёт
  * [io.github.bookshelf.core.eink.noop.NoopEinkController].
  *
- * TODO("STUB(Sprint 10)"): реализация вызовов через рефлексию + кэширование `Method`-объектов
- *  (поиск метода в каждом кадре недопустим на e-ink).
+ * **Состояние.** Вызовы через рефлексию ещё не реализованы (Sprint 10): методы ниже ничего не
+ * делают, [hasVendorCommands] равно `false`. Это важно именно здесь: на настоящем Rockchip-устройстве
+ * [isReflectionAvailable] возвращает `true`, контроллер выбирается DI — и раньше первый же вызов
+ * бросал `NotImplementedError`, то есть ронял экран (дефект найден 29.09.2026). Когда появятся
+ * вызовы, признак станет `true` вместе с кэшированием `Method`-объектов: искать метод в каждом
+ * кадре на e-ink недопустимо.
  */
 class RockchipEinkController(
     private val device: EinkDeviceInfo,
@@ -47,8 +51,14 @@ class RockchipEinkController(
 
     override val isEinkDevice: Boolean = device.isEink
 
-    /** Вендорский SDK на месте: контроллер собирается только тогда, когда он доступен. */
-    override val hasVendorCommands: Boolean = true
+    /**
+     * Команд вендора пока нет: реализация Sprint 10.
+     *
+     * `false` здесь принципиально: приложение по этому признаку выбирает общее поведение, а не
+     * зовёт методы, которых нет. Раньше признак был `true`, а методы бросали
+     * `NotImplementedError` — на распознанном устройстве это роняло экран при первом обновлении.
+     */
+    override val hasVendorCommands: Boolean = false
 
     override val vendor: EinkVendor = EinkVendor.ROCKCHIP_BOYUE
 
@@ -56,23 +66,26 @@ class RockchipEinkController(
     override val supportsFastMode: Boolean = true
 
     override fun setRefreshMode(view: View, mode: RefreshMode) {
-        TODO("STUB(Sprint 10): view.setByEinkUpdateMode(rockchipWaveformFor(mode)) через рефлексию")
+        // Реализация Sprint 10 (режимы вендора). До неё — молча ничего: падение здесь означало бы
+        // нерабочее приложение на распознанном устройстве.
     }
 
     override fun fullRefresh(view: View) {
-        TODO("STUB(Sprint 10): refreshScreen(...) с EPD_FORCE_FULL / EPD_BLACK_WHITE через рефлексию")
+        // Реализация Sprint 10; до неё кадр обновляет сама система, как на обычном экране.
+        view.invalidate()
     }
 
     override fun setGcInterval(partialUpdates: Int) {
-        TODO("STUB(Sprint 10): у Rockchip нет setGcInterval — счётчик частичных обновлений ведём сами")
+        // Реализация Sprint 10; счётчик частичных обновлений ведётся в приложении, не здесь.
     }
 
     override fun setFrontLight(level: Int) {
-        TODO("STUB(Sprint 10): подсветка через sysfs/скрытый API устройства, если доступна")
+        // Реализация Sprint 10: подсветка доступна не на каждой прошивке.
     }
 
     override fun frontLight(): Int? {
-        TODO("STUB(Sprint 10): чтение уровня подсветки; null, если недоступно")
+        // `null` — «уровень неизвестен»: выдуманное число врало бы человеку в настройках.
+        return null
     }
 
     companion object {

@@ -22,6 +22,9 @@ complexity:
     # Hilt-воркер обязан принять каждый DAO отдельным параметром, а Compose-экран — каждый
     # колбэк. Разбирать их на «параметр-объекты» ради порога — хуже для читаемости.
     excludes:
+      # Репозиторий книг держит DAO и порты отдельными параметрами: «параметр-объект» спрятал бы
+      # зависимости, а порог здесь ничего не ловит.
+      - '**/repository/impl/BookRepositoryImpl.kt'
       - '**/work/ScanSourceWorker.kt'
       - '**/work/OpdsDownloadWorker.kt'
       - '**/storage/scan/TreeWalker.kt'

@@ -25,6 +25,8 @@ import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.database.entity.AuthorEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
+import io.github.bookshelf.core.database.entity.BookTagCrossRef
+import io.github.bookshelf.core.database.entity.CollectionBookCrossRef
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.model.SourceKind
@@ -87,6 +89,7 @@ class BookRepositoryTest {
             fileRemover = files,
             clock = FakeAppClock(),
             authorWriter = BookAuthorWriter(database.authorDao()),
+            bookCleanupDao = database.bookCleanupDao(),
         )
     }
 
@@ -383,6 +386,32 @@ class BookRepositoryTest {
     }
 
     @Test
+    fun delete_permanently_removes_the_book_with_its_links() = runBlocking<Unit> {
+        givenLibrary()
+        // Связи, которые в схеме не защищены внешним ключом: именно они оставались сиротами.
+        database.authorDao().insertBookAuthors(
+            listOf(BookAuthorCrossRef(bookId = "war", authorId = "author:leo")),
+        )
+        database.tagDao().insertBookTags(
+            listOf(BookTagCrossRef(bookId = "war", tagId = "tag:classic")),
+        )
+        database.collectionDao().insertBooks(
+            listOf(CollectionBookCrossRef(collectionId = "shelf-classic", bookId = "war")),
+        )
+
+        val deleted = repository.deletePermanently(listOf("war")).getOrNull()
+
+        assertThat(deleted?.deleted).isEqualTo(1)
+        assertThat(database.bookDao().getById("war")).isNull()
+        assertThat(database.metadataOverrideDao().getByBookId("war")).isNull()
+        // Связи не должны оставаться сиротами: на устройстве нашлись 19 строк `book_tags`
+        // от 9 удалённых книг, потому что удалялась только строка `books`.
+        assertThat(countRows("book_tags", "war")).isEqualTo(0)
+        assertThat(countRows("book_authors", "war")).isEqualTo(0)
+        assertThat(countRows("collection_books", "war")).isEqualTo(0)
+    }
+
+    @Test
     fun update_metadata_with_empty_values_clears_them_everywhere() = runBlocking<Unit> {
         givenLibrary()
 
@@ -498,16 +527,17 @@ class BookRepositoryTest {
 
 
     @Test
-    fun `rescanAll forgets every book and scans enabled sources`() = runBlocking<Unit> {
+    fun `rescanAll keeps the shelf and scans enabled sources`() = runBlocking<Unit> {
         givenLibrary()
+        val before = database.bookDao().getAll().size
         sources.sources = listOf(source(id = "s1"), source(id = "s2", enabled = false))
 
-        repository.rescanAll()
+        repository.rescanAll().assertOk()
 
-        // «Пересканировать» означает «забудь всё и собери заново» (решение Александра 28.09.2026):
-        // таблица книг очищается, а записи возвращает следующий скан. Именно поэтому команда
-        // живёт в настройках рядом с папками, а не рядом с книгами.
-        assertThat(database.bookDao().countBySource(SOURCE_ID)).isEqualTo(0)
+        // Книги остаются на месте: скан сам удаляет исчезнувшее и переразбирает изменённое.
+        // Раньше команда сначала очищала таблицу книг, и сбойный прогон оставлял человека
+        // без полки — именно это случилось 30.09.2026 (79 книг исчезли из базы).
+        assertThat(database.bookDao().getAll()).hasSize(before)
         // Фейк помнит, какие источники просили сканировать: выключенный не должен попасть в список.
         assertThat(scans.started).containsExactly("s1")
     }
@@ -535,6 +565,15 @@ class BookRepositoryTest {
     private fun AppResult<Unit>.assertOk() {
         assertThat(isSuccess).isTrue()
     }
+
+    /** Число строк связи по книге: проверяется сырым запросом, чтобы тест не зависел от DAO. */
+    private fun countRows(table: String, bookId: String): Int =
+        database.openHelper.readableDatabase
+            .query("SELECT COUNT(*) FROM $table WHERE bookId = ?", arrayOf(bookId))
+            .use { cursor ->
+                cursor.moveToFirst()
+                cursor.getInt(0)
+            }
 
     private suspend fun givenLibrary() {
         database.sourceDao().insert(

@@ -34,8 +34,9 @@ class CbrParser(
         if (!featureFlags.cbrEnabled) {
             return ParseResult.Unsupported
         }
-        // STUB(Sprint 6): junrar под ENABLE_CBR, ComicInfo.xml, первая страница как обложка.
-        TODO("STUB(Sprint 6): разобрать CBR через junrar (только flavor full, ENABLE_CBR)")
+        // Реализация отложена до релиза (решение Александра, 29.09.2026). До неё формат честно
+        // помечается неподдерживаемым: бросать нельзя, разбор идёт в фоновом воркере.
+        return ParseResult.Unsupported
     }
 
     private companion object {

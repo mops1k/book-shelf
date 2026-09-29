@@ -22,6 +22,7 @@ import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.database.dao.BookCleanupDao
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.ReadingProgressDao
@@ -68,6 +69,13 @@ class BookRepositoryImpl @Inject constructor(
     private val clock: AppClock,
     /** Правка авторов должна попадать в связи: по ним работает всё авторское измерение. */
     private val authorWriter: BookAuthorWriter,
+    /**
+     * Удаление книги вместе со связями.
+     *
+     * `BookDao.deleteById` убирал только строку `books`, а теги, авторы, полки, прогресс и кэш
+     * обложек оставались сиротами: на устройстве нашлись 19 строк `book_tags` от 9 удалённых книг.
+     */
+    private val bookCleanupDao: BookCleanupDao,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -186,7 +194,7 @@ class BookRepositoryImpl @Inject constructor(
                 when (fileRemover.delete(book.documentUri)) {
                     is AppResult.Failure -> failed++
                     is AppResult.Success -> {
-                        bookDao.deleteById(bookId)
+                        bookCleanupDao.deleteWithLinks(listOf(bookId))
                         deleted++
                     }
                 }
@@ -199,14 +207,20 @@ class BookRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Пересканировать библиотеку: очистить таблицу и запустить скан каждой включённой папки.
+     * Пересканировать библиотеку: запустить скан каждой включённой папки.
      *
-     * Файлы на устройстве не удаляются — команда стирает только то, что приложение само
-     * записало в базу. Скан ставится на источник с политикой `KEEP`, поэтому повторное
-     * нажатие кнопки не плодит дублирующие работы.
+     * Таблица книг **не очищается**. Раньше команда начиналась с `deleteAll()` («забудь всё и
+     * собери заново», решение 28.09.2026), и это оказалось опасным: 30.09.2026 прогон упал на
+     * `UNIQUE books.documentUri`, а полка осталась пустой — 79 книг исчезли из базы, пока
+     * следующий прогон не собрал их заново (решение Александра 30.09.2026 — очистку убрать).
+     *
+     * Отдельная очистка и не нужна: скан сам удаляет книги, которых больше нет на диске
+     * (после успешного полного обхода), и переразбирает изменённые файлы.
+     *
+     * Файлы на устройстве не удаляются. Скан ставится на источник с политикой `KEEP`, поэтому
+     * повторное нажатие кнопки не плодит дублирующие работы.
      */
     override suspend fun rescanAll(): AppResult<Unit> = appRunCatching {
-        bookDao.deleteAll()
         sourceRepository.observeSources().first()
             .filter { source -> source.enabled }
             .forEach { source -> scanRepository.startScan(source.id) }

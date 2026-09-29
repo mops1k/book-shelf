@@ -33,6 +33,7 @@ abstract class BookCleanupDao {
     open suspend fun deleteWithLinks(ids: List<String>) {
         if (ids.isEmpty()) return
         deleteBookTags(ids)
+        deleteBookAuthors(ids)
         deleteCollectionLinks(ids)
         deleteReadingProgress(ids)
         deleteReaderOverrides(ids)
@@ -63,6 +64,16 @@ abstract class BookCleanupDao {
     abstract suspend fun resetUserData(id: String, status: String, addedAt: Long)
 
     /** Связи «книга — тег». */
+    /**
+     * Убрать связи «книга — автор».
+     *
+     * Внешнего ключа у `book_authors` нет (составной первичный ключ), поэтому `ON DELETE CASCADE`
+     * её не чистит. Без этого шага после удаления книги оставались строки-сироты: на устройстве их
+     * нашли 19 от 9 уже удалённых книг.
+     */
+    @Query("DELETE FROM book_authors WHERE bookId IN (:ids)")
+    abstract suspend fun deleteBookAuthors(ids: List<String>)
+
     @Query("DELETE FROM book_tags WHERE bookId IN (:ids)")
     abstract suspend fun deleteBookTags(ids: List<String>)
 

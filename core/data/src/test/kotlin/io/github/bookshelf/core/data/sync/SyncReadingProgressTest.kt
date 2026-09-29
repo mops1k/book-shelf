@@ -78,6 +78,7 @@ class SyncReadingProgressTest {
             fileRemover = FakeFileRemover(),
             clock = FakeAppClock().apply { setTo(1_000L) },
             authorWriter = BookAuthorWriter(database.authorDao()),
+            bookCleanupDao = database.bookCleanupDao(),
         )
     }
 

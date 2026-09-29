@@ -11,6 +11,8 @@ import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.time.AppClock
+import io.github.bookshelf.core.data.sync.afterFileChange
+import io.github.bookshelf.core.data.sync.booksToDelete
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.ScanRunDao
 import io.github.bookshelf.core.database.dao.SourceDao
@@ -20,6 +22,7 @@ import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.model.ScanRunStatus
 import io.github.bookshelf.core.storage.saf.DocumentEntry
 import io.github.bookshelf.core.storage.saf.SafTreeReader
+import io.github.bookshelf.core.storage.saf.bookIdOfDocumentId
 import io.github.bookshelf.core.storage.saf.SourceRef
 import io.github.bookshelf.core.storage.scan.BookFileFilter
 import io.github.bookshelf.core.storage.scan.ScanCursor
@@ -80,6 +83,10 @@ class ScanSourceWorker @AssistedInject constructor(
         val sourceId = inputData.getString(KEY_SOURCE_ID) ?: return Result.failure()
         val source = sourceDao.getById(sourceId) ?: return Result.failure()
         val run = resumeOrCreateRun(sourceId)
+        // Возобновлённый прогон видит только хвост дерева: список встреченных книг в нём неполный,
+        // и удалять по нему нельзя. 30.09.2026 так исчезла вся полка: прогон ушёл в PAUSED на
+        // `UNIQUE books.documentUri`, повтор продолжил его с курсора и удалил 79 «не встреченных» книг.
+        val resumed = run.cursorDocumentId != null
 
         return try {
             val result = walkUntilFinished(source, run)
@@ -91,7 +98,7 @@ class ScanSourceWorker @AssistedInject constructor(
                 }
 
                 is ScanOutcome.Completed -> {
-                    deleteMissing(sourceId)
+                    deleteMissing(sourceId, resumed)
                     val finishedAt = clock.nowMillis()
                     scanRunDao.finish(
                         id = run.id,
@@ -183,9 +190,14 @@ class ScanSourceWorker @AssistedInject constructor(
      * не изменилось.
      */
     private suspend fun storeEntry(source: SourceEntity, entry: DocumentEntry) {
-        val id = bookIdOf(entry)
+        // Строка ищется по адресу документа, а не только по вычисленному id: адрес уникален, а id
+        // мог быть посчитан прежним способом — до 30.09.2026 OPDS-загрузка хэшировала весь URI
+        // вместо идентификатора документа. Без этой проверки скан падал на
+        // `UNIQUE books.documentUri`, прогон уходил в PAUSED и повторялся по кругу.
+        val existing = bookDao.getById(bookIdOf(entry))
+            ?: bookDao.getByDocumentUri(treeReader.documentUri(source.uri, entry.documentId))
+        val id = existing?.id ?: bookIdOf(entry)
         seenIds += id
-        val existing = bookDao.getById(id)
         if (existing == null) {
             bookDao.insert(newBook(source, id, entry))
             added++
@@ -203,22 +215,19 @@ class ScanSourceWorker @AssistedInject constructor(
                 // воркере разбора: там уже не отличить «обложка ещё актуальна» от «её надо взять
                 // заново», а решает это именно скан, который видит смену размера и времени файла.
                 coverCache.invalidate(id)
+                // Обновление строки вынесено в `afterFileChange`: там же сбрасывается состояние
+                // разбора. Без этого `MetadataWorker` выходил сразу (`parseState = OK`) и книга
+                // оставалась с метаданными прежнего файла.
                 bookDao.update(
-                    existing.copy(
+                    existing.afterFileChange(
                         documentUri = treeReader.documentUri(source.uri, entry.documentId),
-                        // Путь с папками, а не имя файла: по `relativePath` карточка показывает
-                        // «Путь», а полка группирует книги «По папкам».
                         relativePath = treeReader.relativePath(source.uri, entry.documentId),
                         fileName = entry.displayName,
                         extension = BookFileFilter.detectExtension(entry.displayName),
-                        mimeType = entry.mimeType ?: existing.mimeType,
-                        // Путь обложки обнуляется вместе с файлом кэша: иначе в базе остался бы
-                        // адрес удалённого файла, и плитка молча рисовала бы пустоту.
-                        coverPath = null,
+                        mimeType = entry.mimeType,
                         sizeBytes = entry.sizeBytes ?: existing.sizeBytes,
                         lastModified = entry.lastModified ?: existing.lastModified,
-                        updatedAt = clock.nowMillis(),
-                        lastSeenAt = clock.nowMillis(),
+                        now = clock.nowMillis(),
                     ),
                 )
                 // Порядок обязателен: сначала запись обновлённых фактов файла, потом решение о
@@ -273,11 +282,19 @@ class ScanSourceWorker @AssistedInject constructor(
      * библиотеку не вычистит: там срабатывает отдельная ветка с пометкой `accessLost`.
      * Вместе с записью убирается её обложка — иначе кэш копил бы картинки удалённых книг.
      *
+     * Что именно удалять, решает [booksToDelete]: возобновлённый проход и проход, не увидевший
+     * ни одного файла, не удаляют ничего.
+     *
      * Порциями по [MARK_BATCH]: на API 24 SQLite ограничивает число параметров в `IN`, и попытка
      * удалить сразу две тысячи книг упала бы с ошибкой на середине.
      */
-    private suspend fun deleteMissing(sourceId: String) {
-        val gone = bookDao.idsBySource(sourceId).filterNot { id -> id in seenIds }
+    private suspend fun deleteMissing(sourceId: String, resumed: Boolean) {
+        val gone = booksToDelete(
+            allIds = bookDao.idsBySource(sourceId),
+            seenIds = seenIds,
+            filesSeen = filesSeen,
+            resumed = resumed,
+        )
         gone.chunked(MARK_BATCH).forEach { batch ->
             if (batch.isEmpty()) return@forEach
             bookCleanupDao.deleteWithLinks(batch)
@@ -329,18 +346,13 @@ class ScanSourceWorker @AssistedInject constructor(
      * Идентификатор книги: `documentId` уникален в дереве, а путь меняется при переименовании.
      * Префикс имени файла оставлен, чтобы идентификатор был читаемым в отчёте и `logcat`.
      */
-    private fun bookIdOf(entry: DocumentEntry): String =
-        // documentId не годится как идентификатор: у файлов во внутреннем хранилище он
-        // содержит слеш («primary:Books/Имя.fb2»), а id подставляется в маршрут
-        // bookdetails/{id} — маршрут распался бы на два сегмента и навигация падала.
-        // Берём хэш: он безопасен для маршрута, стабилен между сканами и уникален в пределах дерева.
-        "$BOOK_ID_PREFIX${sha256Hex(entry.documentId)}"
-
-    /** SHA-256 строки в hex без локали: локаль меняет байты и ломает стабильность id. */
-    private fun sha256Hex(value: String): String {
-        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
-        return digest.joinToString("") { byte -> "%02x".format(byte) }
-    }
+    /**
+     * Идентификатор книги по документу.
+     *
+     * Считается общим помощником `:core:storage`: OPDS-загрузка обязана получить ровно такой же
+     * id для того же файла, иначе одна книга попадала бы в библиотеку дважды.
+     */
+    private fun bookIdOf(entry: DocumentEntry): String = bookIdOfDocumentId(entry.documentId)
 
     companion object {
         const val KEY_SOURCE_ID: String = "sourceId"

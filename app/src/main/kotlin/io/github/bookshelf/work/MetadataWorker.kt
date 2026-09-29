@@ -19,6 +19,7 @@ import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.metadata.model.CoverBytes
 import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.ParseResult
+import io.github.bookshelf.core.metadata.parser.parseSafely
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
 import io.github.bookshelf.core.storage.files.BookContentOpener
 import io.github.bookshelf.core.storage.files.readRange
@@ -74,7 +75,9 @@ class MetadataWorker @AssistedInject constructor(
         val parser = registry.select(book.extension, book.mimeType.ifEmpty { null }, EMPTY_PREFIX)
         val input = book.inputOf()
 
-        return when (val parsed = parser?.parse(input) ?: ParseResult.Unsupported) {
+        // `parseSafely`, а не прямой вызов: заглушка формата или чужой парсер могут бросить,
+        // и исключение не должно валить фоновую работу (книга получит причину в parseError).
+        return when (val parsed = parseSafely(parser, input)) {
             is ParseResult.Success -> {
                 // Обложка приходит из того же прохода, что и метаданные: отдельный
                 // CoverExtractor был бы вторым чтением файла и лишней точкой отказа.

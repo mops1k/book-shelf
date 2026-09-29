@@ -21,8 +21,11 @@ class DocxParser : BookMetadataParser {
             (mimeType != null && mimeType.lowercase() in MIME_TYPES)
 
     override suspend fun parse(input: BookInput): ParseResult {
-        // STUB(Sprint 6): ZipFile + docProps/core.xml и app.xml, обложки нет.
-        TODO("STUB(Sprint 6): разобрать DOCX (docProps/core.xml + app.xml) без Apache POI")
+        // Реализация отложена до релиза (решение Александра, 29.09.2026): EPUB и FB2 работают,
+        // остальные форматы пока честно помечаются как неподдерживаемые. Бросать здесь нельзя:
+        // `MetadataWorker` разбирает книги в фоне, и исключение оставляло книгу без метаданных,
+        // а работу — упавшей.
+        return ParseResult.Unsupported
     }
 
     private companion object {

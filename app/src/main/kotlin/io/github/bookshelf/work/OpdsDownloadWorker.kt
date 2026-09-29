@@ -21,6 +21,7 @@ import io.github.bookshelf.core.opds.download.DownloadRequest
 import io.github.bookshelf.core.opds.download.bookExtensionOf
 import io.github.bookshelf.core.opds.download.fileNameOf
 import io.github.bookshelf.core.opds.download.relativePathOf
+import io.github.bookshelf.core.storage.saf.bookIdOfDocumentUri
 import java.util.UUID
 import javax.inject.Inject
 
@@ -84,7 +85,12 @@ class OpdsDownloadWorker @AssistedInject constructor(
         // Без `fold`: его лямбды не suspend, а запись в базу внутри них suspend-функция.
         val documentUri = result.getOrNull()
             ?: return fail(downloadId, downloadErrorMessage(result.errorOrNull()?.message))
-        val bookId = "doc:${sha256(documentUri)}"
+        // Тот же идентификатор, что у скана: иначе та же книга попала бы на полку дважды. Если
+        // строка с таким адресом уже есть (скачали раньше или файл уже был в папке), берётся её id:
+        // иначе вставка упала бы на `UNIQUE books.documentUri`.
+        val bookId = bookDao.getByDocumentUri(documentUri)?.id
+            ?: bookIdOfDocumentUri(documentUri)
+            ?: return fail(downloadId, "Провайдер вернул адрес, из которого не собрать идентификатор")
         bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template)))
         authorWriter.replace(bookId, download.authorsText.orEmpty())
         downloadDao.upsert(download.copy(state = OpdsDownloadState.DONE, bookId = bookId, error = null))
@@ -198,9 +204,5 @@ class OpdsDownloadWorker @AssistedInject constructor(
 
         private const val PROGRESS_INTERVAL_MS = 500L
 
-        private fun sha256(value: String): String {
-            val digest = java.security.MessageDigest.getInstance("SHA-256")
-            return digest.digest(value.toByteArray()).joinToString("") { byte -> "%02x".format(byte) }
-        }
     }
 }

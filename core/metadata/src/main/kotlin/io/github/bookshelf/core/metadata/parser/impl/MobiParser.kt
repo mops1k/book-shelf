@@ -26,8 +26,11 @@ class MobiParser : BookMetadataParser {
             (mimeType != null && mimeType.lowercase() in MIME_TYPES)
 
     override suspend fun parse(input: BookInput): ParseResult {
-        // STUB(Sprint 6): PalmDB → PalmDOC → MOBI → EXTH, coveroffset, DRM-флаг не мешает.
-        TODO("STUB(Sprint 6): разобрать MOBI/AZW3/PRC (PalmDOC → MOBI → EXTH, coveroffset)")
+        // Реализация отложена до релиза (решение Александра, 29.09.2026): EPUB и FB2 работают,
+        // остальные форматы пока честно помечаются как неподдерживаемые. Бросать здесь нельзя:
+        // `MetadataWorker` разбирает книги в фоне, и исключение оставляло книгу без метаданных,
+        // а работу — упавшей.
+        return ParseResult.Unsupported
     }
 
     private companion object {

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.database.entity.AuthorEntity
+import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
 import io.github.bookshelf.core.database.entity.BookReaderOverrideEntity
 import io.github.bookshelf.core.database.entity.BookTagCrossRef
 import io.github.bookshelf.core.database.entity.BookmarkEntity
@@ -63,6 +65,9 @@ class BookDeletionTest {
         assertThat(database.bookReaderOverrideDao().getByBook(BOOK_ID)).isNull()
         assertThat(database.bookmarkDao().countByBook(BOOK_ID)).isEqualTo(0)
         assertThat(database.coverCacheEntryDao().getByBookId(BOOK_ID)).isNull()
+        // Авторское измерение живёт в `book_authors`, и внешнего ключа там нет: без явной уборки
+        // связи оставались бы после удаления книги (найдено на устройстве: 19 строк от 9 книг).
+        assertThat(database.authorDao().getBookAuthors(BOOK_ID)).isEmpty()
         // Удалённая книга не должна находиться поиском: библиотека после синхронизации не
         // показывает и не ищет то, чего нет на диске.
         assertThat(database.searchDao().search(SEARCH_QUERY, LIMIT).first()).isEmpty()
@@ -96,6 +101,12 @@ class BookDeletionTest {
         database.collectionDao().insertBooks(
             listOf(CollectionBookCrossRef(collectionId = SHELF_ID, bookId = BOOK_ID)),
         )
+        database.authorDao().upsertAll(
+            listOf(AuthorEntity(id = AUTHOR_ID, name = "Станислав Лем", sortName = "Станислав Лем")),
+        )
+        database.authorDao().insertBookAuthors(
+            listOf(BookAuthorCrossRef(bookId = BOOK_ID, authorId = AUTHOR_ID)),
+        )
         database.readingProgressDao().upsert(
             ReadingProgressEntity(bookId = BOOK_ID, updatedAt = UPDATED_AT),
         )
@@ -128,6 +139,7 @@ class BookDeletionTest {
         const val SOURCE_ID = "source-1"
         const val SHELF_ID = "shelf-1"
         const val TAG_ID = "tag:sf"
+        const val AUTHOR_ID = "author:lem"
         const val BOOKMARK_ID = "bookmark-1"
         const val SEARCH_QUERY = "солярис*"
         const val LIMIT = 10

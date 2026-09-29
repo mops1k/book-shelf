@@ -40,8 +40,10 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
  *   ([io.github.bookshelf.core.eink.reflection.RockchipEinkController]);
  * * `supportFastMode` = true соответствует `UpdateOption.FAST`/`FAST_X`, а не «A2».
  *
- * TODO("STUB(Sprint 10)"): реализация всех методов ниже. До неё класс существует только для того,
- *  чтобы DI-граф и выбор по вендору были описаны, а функциональность деградировала к no-op.
+ * **Состояние.** Вызовы SDK ещё не реализованы (Sprint 10): методы ниже ничего не делают, а
+ * [hasVendorCommands] равно `false`, поэтому приложение ведёт себя как на устройстве без вендорских
+ * команд. Бросать здесь нельзя: контроллер выбирается DI по вендору, и исключение из метода
+ * обновления роняло бы экран (дефект найден 29.09.2026).
  */
 class OnyxEinkController(
     private val device: EinkDeviceInfo,
@@ -49,8 +51,14 @@ class OnyxEinkController(
 
     override val isEinkDevice: Boolean = device.isEink
 
-    /** Вендорский SDK на месте: контроллер собирается только тогда, когда он доступен. */
-    override val hasVendorCommands: Boolean = true
+    /**
+     * Команд вендора пока нет: реализация Sprint 10.
+     *
+     * `false` здесь принципиально: приложение по этому признаку выбирает общее поведение, а не
+     * зовёт методы, которых нет. Раньше признак был `true`, а методы бросали
+     * `NotImplementedError` — на распознанном устройстве это роняло экран при первом обновлении.
+     */
+    override val hasVendorCommands: Boolean = false
 
     override val vendor: EinkVendor = EinkVendor.ONYX
 
@@ -58,23 +66,26 @@ class OnyxEinkController(
     override val supportsFastMode: Boolean = true
 
     override fun setRefreshMode(view: View, mode: RefreshMode) {
-        TODO("STUB(Sprint 10): EpdController.setViewDefaultUpdateMode(view, UpdateMode) / invalidate(view, UpdateMode)")
+        // Реализация Sprint 10 (режимы вендора). До неё — молча ничего: падение здесь означало бы
+        // нерабочее приложение на распознанном устройстве.
     }
 
     override fun fullRefresh(view: View) {
-        TODO("STUB(Sprint 10): EpdDeviceManager.applyGCUpdate(view) или EpdController.repaintEveryThing(UpdateMode.GC)")
+        // Реализация Sprint 10; до неё кадр обновляет сама система, как на обычном экране.
+        view.invalidate()
     }
 
     override fun setGcInterval(partialUpdates: Int) {
-        TODO("STUB(Sprint 10): EpdDeviceManager.setGcInterval(partialUpdates)")
+        // Реализация Sprint 10; счётчик частичных обновлений ведётся в приложении, не здесь.
     }
 
     override fun setFrontLight(level: Int) {
-        TODO("STUB(Sprint 10): фронтлайт Onyx (холодная/тёплая подсветка) через публичный API SDK")
+        // Реализация Sprint 10: подсветка доступна не на каждой прошивке.
     }
 
     override fun frontLight(): Int? {
-        TODO("STUB(Sprint 10): чтение текущего уровня подсветки; null, если прошивка не отдаёт")
+        // `null` — «уровень неизвестен»: выдуманное число врало бы человеку в настройках.
+        return null
     }
 
     companion object {

@@ -23,8 +23,11 @@ class CbzParser : BookMetadataParser {
             (mimeType != null && mimeType.lowercase() in MIME_TYPES)
 
     override suspend fun parse(input: BookInput): ParseResult {
-        // STUB(Sprint 6): ZipFile + ComicInfo.xml v2.0, natural sort, первая страница как обложка.
-        TODO("STUB(Sprint 6): разобрать CBZ (ComicInfo.xml, natural sort страниц, первая страница)")
+        // Реализация отложена до релиза (решение Александра, 29.09.2026): EPUB и FB2 работают,
+        // остальные форматы пока честно помечаются как неподдерживаемые. Бросать здесь нельзя:
+        // `MetadataWorker` разбирает книги в фоне, и исключение оставляло книгу без метаданных,
+        // а работу — упавшей.
+        return ParseResult.Unsupported
     }
 
     private companion object {
