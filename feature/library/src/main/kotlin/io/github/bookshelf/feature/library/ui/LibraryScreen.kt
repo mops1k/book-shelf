@@ -166,7 +166,9 @@ fun LibraryScreen(
                 },
                 onClose = { isPickingSort = false },
             )
-        } else {
+        } else if (state.browse.showsViewSwitch) {
+            // Строка видов живёт только на корне обзора: зашли в жанр, автора или серию — кнопок
+            // нет, назад возвращает шапка (решение Александра 29.09.2026).
             LibraryControls(
                 preset = viewPresetOf(state.browse.mode),
                 onPick = viewModel::onSetViewPreset,
