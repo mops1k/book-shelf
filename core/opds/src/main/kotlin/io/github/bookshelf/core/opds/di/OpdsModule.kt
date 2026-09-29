@@ -20,8 +20,8 @@ import io.github.bookshelf.core.opds.client.OkHttpOpdsClient
 import io.github.bookshelf.core.opds.client.OpdsHttpClient
 import io.github.bookshelf.core.opds.download.DefaultOpdsDownloader
 import io.github.bookshelf.core.opds.download.OpdsDownloader
-import io.github.bookshelf.core.opds.parser.Opds1XmlParser
 import io.github.bookshelf.core.opds.parser.OpdsFeedParser
+import io.github.bookshelf.core.opds.parser.OpdsFeedRouter
 import javax.inject.Singleton
 
 /**
@@ -31,9 +31,9 @@ import javax.inject.Singleton
  * в сеть, а разрешение `INTERNET` объявляется только в манифесте flavor'а с OPDS
  * (docs/opds.md §4.1, ADR-006). Поэтому ни один офлайн-модуль не должен зависеть от `:core:opds`.
  *
- * Парсером по умолчанию связан [Opds1XmlParser] — обязательный OPDS 1.2. `Opds2JsonParser`
- * намеренно не связан: он включается флагом в Sprint 12, и тогда выбор парсера станет
- * осознанным (фабрика/делегат), а не ещё одной привязкой в этом модуле.
+ * Парсером связан [OpdsFeedRouter]: он сам выбирает разбор по телу ответа — OPDS 1.2 (Atom XML)
+ * или OPDS 2.0 (JSON). Так каталоги обеих версий открываются одинаково, и добавление версии не
+ * требует правок в слое данных.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -46,7 +46,7 @@ internal abstract class OpdsModule {
 
     @Binds
     abstract fun bindOpdsFeedParser(
-        impl: Opds1XmlParser,
+        impl: OpdsFeedRouter,
     ): OpdsFeedParser
 
     @Binds

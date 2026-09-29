@@ -48,6 +48,30 @@ interface OpdsDownloadDao {
     )
     suspend fun findActive(catalogId: String, entryId: String): OpdsDownloadEntity?
 
+    /**
+     * Уже скачанная книга того же каталога.
+     *
+     * Повторное нажатие «Скачать» на скачанной книге не должно создавать вторую загрузку: файл уже
+     * лежит в библиотеке, а строка-дубликат показывала бы «в очереди» и качала бы его заново.
+     */
+    @Query(
+        """
+        SELECT * FROM opds_downloads
+        WHERE catalogId = :catalogId AND entryId = :entryId AND state = 'DONE'
+        LIMIT 1
+        """,
+    )
+    suspend fun findFinished(catalogId: String, entryId: String): OpdsDownloadEntity?
+
+    /**
+     * Уже скачанный файл по его адресу.
+     *
+     * Одна и та же книга встречается в разных фидах каталога под разными `entryId` (поиск, серия,
+     * автор), но ссылка на файл у неё одна. Проверка по адресу не даёт скачать её второй раз.
+     */
+    @Query("SELECT * FROM opds_downloads WHERE downloadUrl = :url AND state = 'DONE' LIMIT 1")
+    suspend fun findFinishedByUrl(url: String): OpdsDownloadEntity?
+
     /** Удалить запись о загрузке. */
     @Query("DELETE FROM opds_downloads WHERE id = :id")
     suspend fun deleteById(id: String)

@@ -27,6 +27,13 @@ data class CatalogUi(
     val url: String,
     /** Требуется авторизация Basic/Digest. */
     val requiresAuth: Boolean = false,
+    /**
+     * Логин каталога; `null` — каталог открытый.
+     *
+     * Пароля здесь нет и быть не может: он лежит в шифрованном хранилище, а в форме правки поле
+     * пароля пустое и означает «оставить прежний».
+     */
+    val username: String? = null,
     /** Подпись «Последний раз: 12.03». */
     val lastOpenedLabel: String? = null,
     /** false — каталог недоступен (ошибка сети или авторизации). */
@@ -153,8 +160,19 @@ data class CatalogsUiState(
     val currentFeed: FeedUi? = null,
     /** Очередь и история загрузок. */
     val downloads: List<DownloadUi> = emptyList(),
-    /** Поля формы добавления каталога. */
+    /** Поля формы добавления или правки каталога. */
     val addForm: AddCatalogFormUi = AddCatalogFormUi(),
+    /** Каталог, у которого раскрыто меню действий («⋯»); `null` — меню закрыто. */
+    val actionsForCatalogId: String? = null,
+    /**
+     * Каталог, который правится; `null` — форма открыта для добавления.
+     *
+     * Отдельное поле, а не режим экрана: форма одна и та же, разница только в подписях и в том,
+     * что сохранение меняет существующий каталог.
+     */
+    val editingCatalogId: String? = null,
+    /** Каталог, удаление которого подтверждают; `null` — подтверждения нет. */
+    val confirmingDeleteCatalogId: String? = null,
     /** Поисковый запрос внутри фида (OpenSearch). */
     val feedQuery: String = "",
     /** Идёт сетевой запрос. */

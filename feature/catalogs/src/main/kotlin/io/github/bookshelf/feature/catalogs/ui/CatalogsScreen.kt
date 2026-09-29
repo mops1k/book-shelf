@@ -129,6 +129,7 @@ private fun CatalogsListScreen(
     modifier: Modifier = Modifier,
 ) {
     val pager = rememberEinkPagerState(pageSize = CATALOGS_PAGE_SIZE, totalItems = state.catalogs.size)
+    val dimens = LocalEinkDimens.current
 
     LaunchedEffect(state.catalogs.size) { pager.updateTotalItems(state.catalogs.size) }
 
@@ -182,12 +183,51 @@ private fun CatalogsListScreen(
                 val visible = state.catalogs.drop(pager.offset).take(pager.pageSize)
                 LazyColumn(modifier = Modifier.fillMaxSize(), userScrollEnabled = false) {
                     listItems(items = visible, key = { catalog -> catalog.id }) { catalog ->
-                        EinkListRow(
-                            title = catalog.title,
-                            subtitle = catalog.url,
-                            trailing = catalogTrailing(catalog),
-                            onClick = { viewModel.onOpenCatalog(catalog.id) },
-                        )
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            EinkListRow(
+                                title = catalog.title,
+                                subtitle = catalog.url,
+                                trailing = catalogTrailing(catalog),
+                                // «⋯» — единственный вход к правке и удалению: раньше каталог
+                                // можно было только добавить, а убрать или переименовать — нет.
+                                trailingContent = {
+                                    EinkButton(
+                                        text = "⋯",
+                                        onClick = { viewModel.catalogActions.onToggleActions(catalog.id) },
+                                    )
+                                },
+                                onClick = { viewModel.onOpenCatalog(catalog.id) },
+                            )
+                            if (state.actionsForCatalogId == catalog.id) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = dimens.gutter),
+                                    horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+                                ) {
+                                    EinkButton(
+                                        text = "Изменить",
+                                        onClick = { viewModel.catalogActions.onAskEdit(catalog.id) },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    EinkButton(
+                                        text = "Удалить",
+                                        onClick = { viewModel.catalogActions.onAskDelete(catalog.id) },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                            if (state.confirmingDeleteCatalogId == catalog.id) {
+                                EinkConfirmRow(
+                                    question = "Удалить каталог «${catalog.title}»? Книги, скачанные " +
+                                        "из него, останутся в библиотеке.",
+                                    confirmLabel = "Удалить",
+                                    onConfirm = viewModel.catalogActions::onConfirmDelete,
+                                    onCancel = viewModel.catalogActions::onCancelDelete,
+                                    modifier = Modifier.padding(horizontal = dimens.gutter),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -206,9 +246,14 @@ private fun AddCatalogScreen(
     val dimens = LocalEinkDimens.current
     val form = state.addForm
 
+    val isEditing = state.editingCatalogId != null
     EinkScaffold(
-        title = "Новый каталог",
-        subtitle = "Проверим фид перед добавлением",
+        title = if (isEditing) "Изменить каталог" else "Новый каталог",
+        subtitle = if (isEditing) {
+            "Проверим фид по новому адресу перед сохранением"
+        } else {
+            "Проверим фид перед добавлением"
+        },
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -226,8 +271,8 @@ private fun AddCatalogScreen(
             ) {
                 EinkButton(text = "Отмена", onClick = onBack, modifier = Modifier.weight(1f))
                 EinkButton(
-                    text = "Проверить и добавить",
-                    onClick = viewModel::onCheckAndAdd,
+                    text = if (isEditing) "Сохранить" else "Проверить и добавить",
+                    onClick = if (isEditing) viewModel.catalogActions::onSaveChanges else viewModel::onCheckAndAdd,
                     primary = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -275,7 +320,7 @@ private fun AddCatalogScreen(
             EinkTextField(
                 value = form.password,
                 onValueChange = { viewModel.onFormChange(form.copy(password = it)) },
-                label = "Пароль (если требуется)",
+                label = if (isEditing) "Новый пароль (пусто — оставить прежний)" else "Пароль (если требуется)",
                 visualTransformation = PasswordVisualTransformation(),
             )
             EinkCheckbox(

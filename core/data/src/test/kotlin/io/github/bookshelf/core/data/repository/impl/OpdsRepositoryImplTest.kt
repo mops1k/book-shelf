@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.data.model.OpdsCatalog
 import io.github.bookshelf.core.data.sync.DownloadScheduler
 import io.github.bookshelf.core.database.dao.OpdsCatalogDao
@@ -93,6 +94,66 @@ class OpdsRepositoryImplTest {
     }
 
     @Test
+    fun `editing a catalog saves a new password`() = runTest {
+        val catalog = io.github.bookshelf.core.data.model.OpdsCatalog(
+            id = "c1",
+            title = "Флибуста",
+            url = "https://host/opds",
+            requiresAuth = true,
+            username = "reader",
+        )
+
+        assertThat(repository().updateCatalog(catalog, password = "new-secret").isSuccess).isTrue()
+
+        assertThat(credentials.saved["c1"])
+            .isEqualTo(io.github.bookshelf.core.opds.auth.OpdsCredentials("reader", "new-secret"))
+        // Ссылка на секрет появляется вместе с паролем.
+        assertThat(catalogDao.rows["c1"]?.passwordAlias).isEqualTo("c1")
+        assertThat(catalogDao.rows["c1"]?.title).isEqualTo("Флибуста")
+    }
+
+    @Test
+    fun `editing a catalog without a password keeps the stored secret`() = runTest {
+        credentials.saved["c1"] = io.github.bookshelf.core.opds.auth.OpdsCredentials("reader", "old")
+
+        val result = repository().updateCatalog(
+            io.github.bookshelf.core.data.model.OpdsCatalog(
+                id = "c1",
+                title = "Флибуста",
+                url = "https://host/opds",
+            ),
+            password = "",
+        )
+        assertThat(result.isSuccess).isTrue()
+
+        // Пустое поле пароля в форме означает «не менять»: иначе правка названия стирала бы секрет.
+        assertThat(credentials.saved["c1"]?.password)
+            .isEqualTo("old")
+    }
+
+    @Test
+    fun `a downloaded book is not downloaded twice`() = runTest {
+        downloadDao.rows["done"] = downloadRow("done", OpdsDownloadState.DONE)
+            .copy(catalogId = "catalog-1", entryId = "entry-1", downloadUrl = "https://host/book.fb2")
+
+        repository().enqueueDownload(downloadableEntry("entry-1"), "catalog-1", "s1", "Books")
+
+        // Файл уже в библиотеке: вторая строка показывала бы «в очереди» и качала бы его заново.
+        assertThat(downloadDao.rows).hasSize(1)
+    }
+
+    @Test
+    fun `the same file in another feed is not downloaded twice`() = runTest {
+        // Та же книга в другом фиде каталога приходит с другим entryId, но с той же ссылкой.
+        downloadDao.rows["done"] = downloadRow("done", OpdsDownloadState.DONE)
+            .copy(catalogId = "catalog-1", entryId = "entry-other", downloadUrl = "https://host/book.fb2")
+
+        repository().enqueueDownload(downloadableEntry("entry-1"), "catalog-1", "s1", "Books")
+
+        assertThat(downloadDao.rows).hasSize(1)
+    }
+
+    @Test
     fun clear_download_history_reports_how_many_records_were_removed() = runTest {
         downloadDao.rows["done"] = downloadRow("done", OpdsDownloadState.DONE)
         downloadDao.rows["running"] = downloadRow("running", OpdsDownloadState.RUNNING)
@@ -103,6 +164,13 @@ class OpdsRepositoryImplTest {
         // Активная загрузка остаётся: иначе работа писала бы прогресс в никуда.
         assertThat(downloadDao.rows.keys).containsExactly("running")
     }
+
+    /** Запись с той же ссылкой, что у `downloadRow`: по ней проверяется дедупликация. */
+    private fun downloadableEntry(entryId: String) = io.github.bookshelf.core.data.model.OpdsEntry(
+        id = entryId,
+        title = "Книга",
+        acquisitionUrl = "https://host/book.fb2",
+    )
 
     private fun downloadRow(id: String, state: OpdsDownloadState) = OpdsDownloadEntity(
         id = id,
@@ -662,6 +730,14 @@ class OpdsRepositoryImplTest {
         }
 
         override suspend fun getById(id: String) = rows[id]
+
+        override suspend fun findFinished(catalogId: String, entryId: String) = rows.values.firstOrNull {
+            it.catalogId == catalogId && it.entryId == entryId && it.state == OpdsDownloadState.DONE
+        }
+
+        override suspend fun findFinishedByUrl(url: String) = rows.values.firstOrNull {
+            it.downloadUrl == url && it.state == OpdsDownloadState.DONE
+        }
 
         override suspend fun deleteById(id: String) {
             rows.remove(id)

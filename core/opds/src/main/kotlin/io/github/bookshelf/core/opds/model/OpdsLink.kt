@@ -37,6 +37,12 @@ const val OPDS_NAVIGATION_KIND_FRAGMENT: String = "kind=navigation"
 const val OPDS_ATOM_TYPE_PREFIX: String = "application/atom+xml"
 
 /**
+ * Тип навигационной ссылки OPDS 2.0: это фид (раздел), а книга объявлена как
+ * `application/opds-publication+json`.
+ */
+const val OPDS_JSON_FEED_TYPE: String = "application/opds+json"
+
+/**
  * Служебные `rel`, которые не открывают раздел, а обслуживают навигацию по самому фиду.
  *
  * Даже при Atom-типе их нельзя считать содержимым каталога: `next` — следующая страница
@@ -91,7 +97,10 @@ fun OpdsLink.isNavigation(): Boolean {
     // `<link href="/opds/genres" type="application/atom+xml;profile=opds-catalog" />` —
     // без `rel` вообще. Смотреть только на `rel` было причиной того, что адрес раздела
     // не находился и кнопка «Открыть» ничего не делала.
-    val isFeed = type?.trim()?.startsWith(OPDS_ATOM_TYPE_PREFIX, ignoreCase = true) == true
+    val isFeed = type?.trim()?.startsWith(OPDS_ATOM_TYPE_PREFIX, ignoreCase = true) == true ||
+        // OPDS 2.0: навигационная ссылка объявлена типом `application/opds+json` (фид), а книга —
+        // `application/opds-publication+json`. Без этого разделы JSON-каталога не открывались.
+        type?.trim()?.equals(OPDS_JSON_FEED_TYPE, ignoreCase = true) == true
     return isFeed && rel.lowercase() !in NON_CONTENT_RELS
 }
 

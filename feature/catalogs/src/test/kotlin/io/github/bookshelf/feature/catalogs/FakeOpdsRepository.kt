@@ -70,9 +70,12 @@ internal class FakeOpdsRepository : OpdsRepository {
     /** Адреса, по которым репозиторий реально ходил за фидом. */
     val requestedUrls = mutableListOf<String?>()
 
-    override fun observeCatalogs(): Flow<List<OpdsCatalog>> = flowOf(
-        listOf(OpdsCatalog(id = CATALOG_ID, title = "Flibusta", url = "https://host/opds")),
+    /** Каталоги, которые «видит» экран: тесты правки подставляют сюда свои. */
+    var catalogs: List<OpdsCatalog> = listOf(
+        OpdsCatalog(id = CATALOG_ID, title = "Flibusta", url = "https://host/opds"),
     )
+
+    override fun observeCatalogs(): Flow<List<OpdsCatalog>> = flowOf(catalogs)
 
     override suspend fun addCatalog(
         title: String,
@@ -81,9 +84,21 @@ internal class FakeOpdsRepository : OpdsRepository {
         password: String?,
     ): AppResult<OpdsCatalog> = AppResult.failure(AppError.Unknown(message = "не нужно в тестах"))
 
-    override suspend fun updateCatalog(catalog: OpdsCatalog): AppResult<Unit> = AppResult.success(Unit)
+    /** Правки каталогов, применённые в тестах, в порядке обращений. */
+    val catalogUpdates = mutableListOf<Pair<OpdsCatalog, String?>>()
 
-    override suspend fun removeCatalog(catalogId: String): AppResult<Unit> = AppResult.success(Unit)
+    override suspend fun updateCatalog(catalog: OpdsCatalog, password: String?): AppResult<Unit> {
+        catalogUpdates += catalog to password
+        return AppResult.success(Unit)
+    }
+
+    /** Каталоги, удаление которых запросили. */
+    val removedCatalogs = mutableListOf<String>()
+
+    override suspend fun removeCatalog(catalogId: String): AppResult<Unit> {
+        removedCatalogs += catalogId
+        return AppResult.success(Unit)
+    }
 
     override suspend fun browse(catalogId: String, url: String?): AppResult<List<OpdsEntry>> =
         AppResult.success(entriesFor(url))

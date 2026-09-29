@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.fold
 import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.DownloadState
@@ -446,6 +447,120 @@ class CatalogsViewModel @Inject constructor(
 
     /** Отменить активную загрузку (уже скачанное сохраняется). */
     /**
+     * Действия над каталогом: раскрыть меню, изменить, удалить.
+     *
+     * Вынесены во вложенный класс по ответственности: экран каталогов и без них держит обход фида,
+     * поиск, загрузки и форму, а у класса есть порог detekt по числу функций. Здесь ровно одно:
+     * что человек делает с самим каталогом.
+     */
+    inner class CatalogActions {
+
+        /** Раскрыть или закрыть меню действий у каталога. */
+        fun onToggleActions(catalogId: String) {
+            val opened = _uiState.value.actionsForCatalogId
+            _uiState.value = _uiState.value.copy(
+                actionsForCatalogId = if (opened == catalogId) null else catalogId,
+                confirmingDeleteCatalogId = null,
+            )
+        }
+
+        /**
+         * Открыть форму правки с текущими значениями каталога.
+         *
+         * Пароль в форму не подставляется: он лежит в шифрованном хранилище и обратно в поля не
+         * возвращается. Пустое поле означает «оставить прежний пароль».
+         */
+        fun onAskEdit(catalogId: String) {
+            val catalog = _uiState.value.catalogs.firstOrNull { it.id == catalogId } ?: return
+            _uiState.value = _uiState.value.copy(
+                mode = CatalogsMode.ADD_FORM,
+                editingCatalogId = catalogId,
+                actionsForCatalogId = null,
+                error = null,
+                addForm = AddCatalogFormUi(
+                    title = catalog.title,
+                    url = catalog.url,
+                    username = catalog.username.orEmpty(),
+                    openImmediately = false,
+                ),
+            )
+        }
+
+        /** Спросить подтверждение удаления каталога. */
+        fun onAskDelete(catalogId: String) {
+            _uiState.value = _uiState.value.copy(
+                confirmingDeleteCatalogId = catalogId,
+                actionsForCatalogId = null,
+                error = null,
+            )
+        }
+
+        /** Отказаться от удаления: ничего не меняется. */
+        fun onCancelDelete() {
+            _uiState.value = _uiState.value.copy(confirmingDeleteCatalogId = null)
+        }
+
+        /** Удалить каталог вместе с сохранённым паролем; книги остаются в библиотеке. */
+        fun onConfirmDelete() {
+            val catalogId = _uiState.value.confirmingDeleteCatalogId ?: return
+            _uiState.value = _uiState.value.copy(confirmingDeleteCatalogId = null)
+            viewModelScope.launch {
+                opdsRepository.removeCatalog(catalogId).fold(
+                    onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
+                    onFailure = { showError("Не удалось удалить каталог", it) },
+                )
+            }
+        }
+
+        /** Сохранить правку каталога: название, адрес, логин и — если введён — пароль. */
+        fun onSaveChanges() {
+            val catalogId = _uiState.value.editingCatalogId ?: return
+            val original = _uiState.value.catalogs.firstOrNull { it.id == catalogId } ?: return
+            val form = _uiState.value.addForm
+            val url = form.url.trim()
+            if (url.isBlank()) {
+                showError("Изменение каталога", AppError.InvalidArgument("url", "укажите адрес каталога"))
+                return
+            }
+            if (_uiState.value.isLoading) return
+            viewModelScope.launch {
+                setLoading(true)
+                // Адрес изменился — сначала проверяем фид: иначе каталог остался бы с нерабочим
+                // адресом, и человек узнал бы об этом при следующем открытии.
+                if (url != original.url) {
+                    val checked = opdsRepository.browsePage(catalogId, url)
+                    if (checked is AppResult.Failure) {
+                        setLoading(false)
+                        showError("Каталог по новому адресу не открылся", checked.error)
+                        return@launch
+                    }
+                }
+                val updated = original.toCatalog(
+                    title = form.title.trim().ifBlank { original.title },
+                    url = url,
+                    username = form.username.trim().ifBlank { null },
+                )
+                val result = opdsRepository.updateCatalog(updated, password = form.password.ifBlank { null })
+                setLoading(false)
+                result.fold(
+                    onSuccess = {
+                        _uiState.value = _uiState.value.copy(
+                            mode = CatalogsMode.LIST,
+                            editingCatalogId = null,
+                            addForm = AddCatalogFormUi(),
+                            error = null,
+                        )
+                    },
+                    onFailure = { showError("Не удалось сохранить каталог", it) },
+                )
+            }
+        }
+    }
+
+    /** Действия над каталогом для экрана. */
+    val catalogActions = CatalogActions()
+
+    /**
      * Спросить подтверждение очистки истории загрузок — или убрать его, если оно уже показано.
      *
      * История — это записи о загрузках, а не книги: файлы и строки библиотеки не трогаются, и об
@@ -691,10 +806,27 @@ private fun OpdsCatalog.toCatalogUi(): CatalogUi = CatalogUi(
     title = title,
     url = url,
     requiresAuth = requiresAuth,
+    username = username,
     lastOpenedLabel = lastOpenedAt?.let { openedAt ->
         "Последний раз: " + SimpleDateFormat(DATE_PATTERN, russianLocale).format(Date(openedAt))
     },
     isAvailable = enabled,
+)
+
+/**
+ * Каталог после правки: меняются название, адрес и логин, остальное сохраняется.
+ *
+ * Собирается из строки списка, а не из доменного каталога: список — единственное место, где эти
+ * значения видны экрану, и лишний запрос к базе ради правки не нужен.
+ */
+private fun CatalogUi.toCatalog(title: String, url: String, username: String?): OpdsCatalog = OpdsCatalog(
+    id = id,
+    title = title,
+    url = url,
+    // Признак авторизации следует за логином: снятый логин означает открытый каталог.
+    requiresAuth = !username.isNullOrBlank(),
+    username = username,
+    enabled = isAvailable,
 )
 
 /**

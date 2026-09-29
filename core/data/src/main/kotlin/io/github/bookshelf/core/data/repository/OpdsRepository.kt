@@ -27,7 +27,13 @@ interface OpdsRepository {
         password: String? = null,
     ): AppResult<OpdsCatalog>
 
-    suspend fun updateCatalog(catalog: OpdsCatalog): AppResult<Unit>
+    /**
+     * Изменить каталог.
+     *
+     * @param password новый пароль; `null` — оставить сохранённый. Пустая строка тоже означает
+     *   «не менять»: поле пароля в форме всегда пустое, и стирать секрет от пустого поля нельзя.
+     */
+    suspend fun updateCatalog(catalog: OpdsCatalog, password: String? = null): AppResult<Unit>
 
     suspend fun removeCatalog(catalogId: String): AppResult<Unit>
 

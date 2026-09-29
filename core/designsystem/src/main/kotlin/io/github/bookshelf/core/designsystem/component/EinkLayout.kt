@@ -74,6 +74,13 @@ fun EinkListRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     trailing: String? = null,
+    /**
+     * Кнопка или значок справа от подписи.
+     *
+     * Нужен там, где у строки есть собственное действие (меню каталога «⋯»): подпись `trailing`
+     * остаётся текстом, а действие — отдельным элементом, по которому можно попасть пальцем.
+     */
+    trailingContent: (@Composable () -> Unit)? = null,
     selected: Boolean = false,
     enabled: Boolean = true,
     hasDivider: Boolean = true,
@@ -132,6 +139,7 @@ fun EinkListRow(
                     modifier = Modifier.padding(start = dimens.gutterSmall),
                 )
             }
+            trailingContent?.invoke()
         }
         if (!enabled) {
             // Отключённое состояние — пунктиром нельзя (нет API), поэтому рамкой и без реакции.

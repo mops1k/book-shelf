@@ -148,8 +148,29 @@ class OpdsRepositoryImpl @Inject constructor(
         }.mapResult { entity.toDomain() }
     }
 
-    override suspend fun updateCatalog(catalog: OpdsCatalog): AppResult<Unit> =
-        appRunCatching { catalogDao.upsertAll(listOf(catalog.toEntity())) }
+    override suspend fun updateCatalog(catalog: OpdsCatalog, password: String?): AppResult<Unit> {
+        val secret = password?.takeIf { it.isNotBlank() }
+        // Порядок как при добавлении: сначала секрет, потом строка каталога. Иначе каталог мог бы
+        // сослаться на пароль, которого нет.
+        if (secret != null) {
+            val username = catalog.username
+                ?: return AppResult.failure(
+                    AppError.InvalidArgument(
+                        what = "catalog",
+                        message = "Для нового пароля нужен логин",
+                    ),
+                )
+            when (val saved = credentialStore.save(catalog.id, OpdsCredentials(username, secret))) {
+                is AppResult.Failure -> return saved
+                is AppResult.Success -> Unit
+            }
+        }
+        val entity = catalog.toEntity().let { row ->
+            // Ссылка на секрет появляется только тогда, когда пароль действительно есть.
+            if (secret != null) row.copy(passwordAlias = catalog.id) else row
+        }
+        return appRunCatching { catalogDao.upsertAll(listOf(entity)) }
+    }
 
     override suspend fun removeCatalog(catalogId: String): AppResult<Unit> {
         // Секрет удаляется первым: если это не удалось, каталог лучше оставить — иначе пароль
@@ -323,6 +344,10 @@ class OpdsRepositoryImpl @Inject constructor(
         downloadDao.findActive(catalogId, entry.id)?.let { existing ->
             return AppResult.success(Unit)
         }
+        // Уже скачанное тоже не качаем заново. Проверка по записи — обычный случай; проверка по
+        // адресу ловит ту же книгу в другом фиде каталога (у неё другой `entryId`, а файл тот же).
+        downloadDao.findFinished(catalogId, entry.id)?.let { return AppResult.success(Unit) }
+        downloadDao.findFinishedByUrl(url)?.let { return AppResult.success(Unit) }
         return appRunCatching {
             val download = OpdsDownloadEntity(
                     id = UUID.randomUUID().toString(),
