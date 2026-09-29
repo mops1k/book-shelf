@@ -66,6 +66,11 @@ class EpubMetadataWriter {
             result = replaceText(result, DC_TITLE, escapeText(title))
         }
         edit.authors?.let { authors ->
+            // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
+            if (authors.isEmpty()) {
+                result = CREATOR.replace(result, "")
+                return@let
+            }
             val first = CREATOR.find(result)
             // Атрибуты первого автора (`opf:file-as`, `id`) переносятся: их пишут читалки и Calibre.
             val attributes = first
@@ -91,17 +96,28 @@ class EpubMetadataWriter {
             }
         }
         edit.description?.let { description ->
-            result = if (DC_DESCRIPTION.containsMatchIn(result)) {
-                replaceText(result, DC_DESCRIPTION, escapeText(description))
-            } else {
-                insertBeforeMetadataEnd(result, "<dc:description>${escapeText(description)}</dc:description>")
+            // Пустая строка — «описание убрать»: элемент удаляется целиком.
+            result = when {
+                description.isEmpty() -> DC_DESCRIPTION.replace(result, "")
+                DC_DESCRIPTION.containsMatchIn(result) -> replaceText(result, DC_DESCRIPTION, escapeText(description))
+                else -> insertBeforeMetadataEnd(
+                    result,
+                    "<dc:description>${escapeText(description)}</dc:description>",
+                )
             }
         }
-        if (edit.seriesName != null || edit.seriesIndex != null) {
+        if (edit.seriesName == EMPTY_SERIES) {
+            // «Серия убрать»: старые теги серии удаляются, новые не пишутся. Номер без названия
+            // смысла не имеет, поэтому индекс тоже не возвращается.
+            result = SERIES_META.replace(result, "")
+        } else if (edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex) {
             val existingName = SERIES_NAME_CONTENT.find(result)?.groupValues?.get(1)
             val name = edit.seriesName ?: existingName
-            val number = edit.seriesIndex?.let(::formatIndex) ?: SERIES_INDEX_CONTENT.find(result)
-                ?.groupValues?.get(1)
+            val number = when {
+                edit.clearSeriesIndex -> null
+                else -> edit.seriesIndex?.let(::formatIndex)
+                    ?: SERIES_INDEX_CONTENT.find(result)?.groupValues?.get(1)
+            }
             result = SERIES_META.replace(result, "")
             val xml = buildString {
                 name?.takeIf { it.isNotBlank() }?.let { value ->
@@ -201,6 +217,9 @@ class EpubMetadataWriter {
         const val MIMETYPE_CONTENT = "application/epub+zip"
         const val METADATA_END = "</metadata>"
         const val COLLECTION_ID = "bookshelf-series"
+
+        /** Пустая строка в правке означает «убрать значение». */
+        const val EMPTY_SERIES = ""
 
         val FULL_PATH = Regex("full-path\\s*=\\s*\"([^\"]+)\"")
         val DC_TITLE = Regex("<dc:title(?:\\s[^>]*)?>.*?</dc:title>", RegexOption.DOT_MATCHES_ALL)

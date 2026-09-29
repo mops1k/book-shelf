@@ -91,6 +91,46 @@ class Fb2MetadataWriterTest {
     }
 
     @Test
+    fun `empty series and description remove them from the file`() = runTest {
+        val original = realBook()
+
+        // Пустая строка в правке — «убрать»: пользователь стёр серию и описание в форме.
+        val rewritten = (writer.rewrite(
+            original,
+            MetadataEdit(seriesName = "", description = ""),
+        ) as MetadataWriteResult.Rewritten).bytes
+
+        val text = rewritten.toString(Charsets.UTF_8)
+        val block = text.substringAfter("<title-info>").substringBefore("</title-info>")
+        assertThat(block).doesNotContain("<sequence")
+        assertThat(block).doesNotContain("<annotation")
+        val metadata = parse(rewritten)
+        assertThat(metadata?.seriesName).isNull()
+        assertThat(metadata?.description).isNull()
+        // Название и авторы книги не тронуты: убирали только серию и описание.
+        assertThat(metadata?.title).isEqualTo("Кольцо")
+        assertThat(metadata?.authors?.joinToString(" ")).contains("Бакстер")
+    }
+
+    @Test
+    fun `clearing only the index keeps the series name`() = runTest {
+        val original = realBook()
+
+        val rewritten = (writer.rewrite(original, MetadataEdit(clearSeriesIndex = true)) as
+            MetadataWriteResult.Rewritten).bytes
+
+        val block = rewritten.toString(Charsets.UTF_8)
+            .substringAfter("<title-info>")
+            .substringBefore("</title-info>")
+        assertThat(block).contains("<sequence")
+        assertThat(block).contains("name=\"Ксили\"")
+        assertThat(block).doesNotContain("number=")
+        val metadata = parse(rewritten)
+        assertThat(metadata?.seriesName).isEqualTo("Ксили")
+        assertThat(metadata?.seriesIndex).isNull()
+    }
+
+    @Test
     fun `windows-1251 book stays in windows-1251`() = runTest {
         val cp1251 = toWindows1251(realBook())
 

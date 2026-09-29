@@ -15,12 +15,19 @@ data class MetadataEdit(
     val seriesName: String? = null,
     val seriesIndex: Double? = null,
     val description: String? = null,
+    /**
+     * Убрать номер серии, оставив название.
+     *
+     * Отдельный флаг, потому что `null` у [seriesIndex] означает «поле не трогали»; пустая строка
+     * в [seriesName] или [description] означает «убрать значение целиком».
+     */
+    val clearSeriesIndex: Boolean = false,
 ) {
 
     /** Правка ничего не меняет: писать файл не нужно. */
     val isEmpty: Boolean
         get() = title == null && authors == null && seriesName == null &&
-            seriesIndex == null && description == null
+            seriesIndex == null && description == null && !clearSeriesIndex
 }
 
 /**
@@ -86,6 +93,11 @@ class Fb2MetadataWriter {
             )
         }
         edit.authors?.let { authors ->
+            // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
+            if (authors.isEmpty()) {
+                result = AUTHOR.replace(result, "")
+                return@let
+            }
             val xml = authors.joinToString(separator = "") { author -> authorXml(author) }
             result = if (AUTHOR.containsMatchIn(result)) {
                 // Первый автор заменяется всем списком, остальные блоки убираются: иначе в файле
@@ -104,17 +116,28 @@ class Fb2MetadataWriter {
             }
         }
         edit.description?.let { description ->
-            result = replaceOrInsert(
-                result,
-                ANNOTATION_ELEMENT,
-                "<annotation><p>${escapeText(description)}</p></annotation>",
-            )
+            // Пустая строка — «описание убрать»: элемент удаляется целиком.
+            result = if (description.isEmpty()) {
+                ANNOTATION_ELEMENT.replace(result, "")
+            } else {
+                replaceOrInsert(
+                    result,
+                    ANNOTATION_ELEMENT,
+                    "<annotation><p>${escapeText(description)}</p></annotation>",
+                )
+            }
         }
-        if (edit.seriesName != null || edit.seriesIndex != null) {
+        if (edit.seriesName == EMPTY_SERIES) {
+            // «Серия убрать»: удаляются все элементы sequence, номер без названия смысла не имеет.
+            result = removeSequences(result)
+        } else if (edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex) {
             val existing = SEQUENCE_ELEMENT.find(result)
             val name = edit.seriesName ?: existing?.let { attributeOf(it.value, NAME) }
-            val number = edit.seriesIndex?.let(::formatIndex)
-                ?: existing?.let { attributeOf(it.value, NUMBER) }
+            val number = when {
+                edit.clearSeriesIndex -> null
+                else -> edit.seriesIndex?.let(::formatIndex)
+                    ?: existing?.let { attributeOf(it.value, NUMBER) }
+            }
             val xml = buildString {
                 append("<sequence")
                 name?.takeIf { it.isNotBlank() }?.let { append(" name=\"${escapeAttribute(it)}\"") }
@@ -128,6 +151,21 @@ class Fb2MetadataWriter {
             }
         }
         return result
+    }
+
+    /**
+     * Убрать все элементы `sequence`, в том числе вложенные.
+     *
+     * Сначала уходят вложенные (они самозакрывающиеся), потом внешние: поэтому проход повторяется,
+     * пока текст меняется — иначе после удаления внутреннего остался бы висячий `</sequence>`.
+     */
+    private fun removeSequences(fragment: String): String {
+        var result = fragment
+        while (true) {
+            val next = SEQUENCE_ELEMENT.replace(result, "")
+            if (next == result) return result
+            result = next
+        }
     }
 
     /** Заменить первый элемент; если его в книге нет — дописать перед `</title-info>`. */
@@ -208,6 +246,12 @@ class Fb2MetadataWriter {
 
         val BOOK_TITLE_ELEMENT = Regex("<book-title(?:\\s[^>]*)?>.*?</book-title>", RegexOption.DOT_MATCHES_ALL)
         val ANNOTATION_ELEMENT = Regex("<annotation(?:\\s[^>]*)?>.*?</annotation>", RegexOption.DOT_MATCHES_ALL)
-        val SEQUENCE_ELEMENT = Regex("<sequence(?:\\s[^>]*)?/>", RegexOption.DOT_MATCHES_ALL)
+        val SEQUENCE_ELEMENT = Regex(
+            "<sequence(?:\\s[^>]*)?/>|<sequence(?:\\s[^>]*)?>.*?</sequence>",
+            RegexOption.DOT_MATCHES_ALL,
+        )
+
+        /** Пустая строка в правке означает «убрать значение». */
+        const val EMPTY_SERIES = ""
     }
 }

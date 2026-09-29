@@ -115,9 +115,16 @@ class BookRepositoryImpl @Inject constructor(
                     // and Peace» осталось бы на месте «Войны и мира».
                     sortTitle = BookMetadata(title = mergedTitle).sortTitleOf(),
                     authorsText = mergedAuthors,
-                    seriesName = updated.seriesName ?: book.seriesName,
-                    seriesIndex = updated.seriesIndex ?: book.seriesIndex,
-                    description = updated.description ?: book.description,
+                    // Пустая строка в правке — «значение убрали»: в базе это NULL, иначе полка
+                    // показывала бы пустую серию вместо её отсутствия.
+                    seriesName = (updated.seriesName ?: book.seriesName).withoutEmpty(),
+                    // Номер серии очищается по флагу: у `Double?` нет «пустого» значения.
+                    seriesIndex = if (patch.clearSeriesIndex) {
+                        null
+                    } else {
+                        updated.seriesIndex ?: book.seriesIndex
+                    },
+                    description = (updated.description ?: book.description).withoutEmpty(),
                 ),
             )
             // Авторское измерение читает связи, а не строку `books.authorsText`, поэтому правка
@@ -233,14 +240,16 @@ class BookRepositoryImpl @Inject constructor(
         if (override == null) return this
         return copy(
             title = override.title ?: title,
-            subtitle = override.subtitle ?: subtitle,
+            subtitle = override.subtitle.overrideOr(subtitle),
             authorsText = override.authorsText ?: authorsText,
-            seriesName = override.seriesName ?: seriesName,
+            // `""` в правке означает «значение убрали»: подставлять значение из файла нельзя,
+            // иначе стёртая серия вернулась бы на экран.
+            seriesName = override.seriesName.overrideOr(seriesName),
             seriesIndex = override.seriesIndex ?: seriesIndex,
-            language = override.language ?: language,
+            language = override.language.overrideOr(language),
             publishedYear = override.publishedYear ?: publishedYear,
-            publisher = override.publisher ?: publisher,
-            description = override.description ?: description,
+            publisher = override.publisher.overrideOr(publisher),
+            description = override.description.overrideOr(description),
             pageCount = override.pageCount ?: pageCount,
         )
     }
@@ -290,6 +299,21 @@ class BookRepositoryImpl @Inject constructor(
 }
 
 
+/**
+ * Значение правки поверх значения из файла.
+ *
+ * `null` — поле не трогали, берётся значение файла; пустая строка — значение убрали, и подставлять
+ * файловое нельзя; иначе — значение пользователя.
+ */
+private fun String?.overrideOr(fileValue: String?): String? = when {
+    this == null -> fileValue
+    isEmpty() -> null
+    else -> this
+}
+
+/** Пустая строка при записи в `books` становится `NULL`: «серии нет», а не «серия без названия». */
+private fun String?.withoutEmpty(): String? = if (isNullOrEmpty()) null else this
+
 /** Наложение патча на существующую строку переопределения: заданные поля обновляются, остальные сохраняются. */
 private fun MetadataOverrideEntity?.orEmptyPatch(
     bookId: String,
@@ -301,7 +325,10 @@ private fun MetadataOverrideEntity?.orEmptyPatch(
     subtitle = patch.subtitle ?: this?.subtitle,
     authorsText = patch.authorsText ?: this?.authorsText,
     seriesName = patch.seriesName ?: this?.seriesName,
-    seriesIndex = patch.seriesIndex ?: this?.seriesIndex,
+    seriesIndex = when {
+        patch.clearSeriesIndex -> null
+        else -> patch.seriesIndex ?: this?.seriesIndex
+    },
     language = patch.language ?: this?.language,
     publishedYear = patch.publishedYear ?: this?.publishedYear,
     publisher = patch.publisher ?: this?.publisher,

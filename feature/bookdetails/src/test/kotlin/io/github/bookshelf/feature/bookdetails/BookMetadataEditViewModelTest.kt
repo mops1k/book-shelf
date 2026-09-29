@@ -81,6 +81,37 @@ class BookMetadataEditViewModelTest {
     }
 
     @Test
+    fun `emptying a prefilled field clears the value`() = runTest(dispatcher) {
+        repository.bookById = AppResult.success(book(series = "Старая серия"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onSeriesChange("")
+        viewModel.onSave()
+        advanceUntilIdle()
+
+        // Пустая строка, а не «поле не трогали»: именно так стирается серия и в приложении, и в файле.
+        assertThat(repository.metadataPatches.single().seriesName).isEqualTo("")
+        assertThat(editor.edits.single().seriesName).isEqualTo("")
+    }
+
+    @Test
+    fun `emptying only the index clears the number and keeps the series`() = runTest(dispatcher) {
+        repository.bookById = AppResult.success(book(series = "Серия", index = 3.0))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onSeriesIndexChange("")
+        viewModel.onSave()
+        advanceUntilIdle()
+
+        val patch = repository.metadataPatches.single()
+        assertThat(patch.clearSeriesIndex).isTrue()
+        assertThat(patch.seriesIndex).isNull()
+        assertThat(editor.edits.single().clearSeriesIndex).isTrue()
+    }
+
+    @Test
     fun `file failure is named on the screen`() = runTest(dispatcher) {
         repository.bookById = AppResult.success(book())
         editor.result = AppResult.failure(AppError.Io(message = "Нет права записи"))
@@ -130,11 +161,12 @@ class BookMetadataEditViewModelTest {
         savedStateHandle = SavedStateHandle(mapOf(BookDetailsRoute.ARG_BOOK_ID to BOOK_ID)),
     )
 
-    private fun book(series: String? = "Серия") = Book(
+    private fun book(series: String? = "Серия", index: Double? = null) = Book(
         id = BOOK_ID,
         title = "Книга",
         authorsText = "Автор",
         seriesName = series,
+        seriesIndex = index,
         extension = "epub",
         documentUri = "content://test/book.epub",
         sizeBytes = 10L,

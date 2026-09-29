@@ -80,6 +80,13 @@ data class MetadataPatch(
     val authorsText: String? = null,
     val seriesName: String? = null,
     val seriesIndex: Double? = null,
+    /**
+     * Убрать номер серии, оставив её название.
+     *
+     * Отдельный флаг, потому что `null` у [seriesIndex] означает «пользователь это поле не трогал»:
+     * без флага «очистить номер» было бы неотличимо от «ничего не менять».
+     */
+    val clearSeriesIndex: Boolean = false,
     val language: String? = null,
     val publishedYear: Int? = null,
     val publisher: String? = null,

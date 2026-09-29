@@ -68,4 +68,5 @@ private fun MetadataPatch.toEdit() = MetadataEdit(
     seriesName = seriesName,
     seriesIndex = seriesIndex,
     description = description,
+    clearSeriesIndex = clearSeriesIndex,
 )

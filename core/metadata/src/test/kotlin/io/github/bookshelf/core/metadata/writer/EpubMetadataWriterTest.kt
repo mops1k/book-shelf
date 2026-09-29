@@ -104,6 +104,36 @@ class EpubMetadataWriterTest {
     }
 
     @Test
+    fun `empty series and description remove them from the OPF`() = runTest {
+        val original = realBook()
+
+        val rewritten = rewritten(original, MetadataEdit(seriesName = "", description = ""))
+
+        val opf = String(readEntries(rewritten).single { it.name == OPF_PATH }.bytes)
+        assertThat(opf).doesNotContain("calibre:series")
+        assertThat(opf).doesNotContain("belongs-to-collection")
+        assertThat(opf).doesNotContain("group-position")
+        assertThat(opf).doesNotContain("<dc:description")
+        // Название и автор остались: убирали только серию и описание.
+        val metadata = parse(rewritten)
+        assertThat(metadata?.title).isEqualTo("Pride and Prejudice")
+        assertThat(metadata?.seriesName).isNull()
+    }
+
+    @Test
+    fun `clearing only the index keeps the series name`() = runTest {
+        val withSeries = rewritten(realBook(), MetadataEdit(seriesName = "Классика", seriesIndex = 3.0))
+
+        val withoutNumber = rewritten(withSeries, MetadataEdit(clearSeriesIndex = true))
+
+        val opf = String(readEntries(withoutNumber).single { it.name == OPF_PATH }.bytes)
+        assertThat(opf).contains("calibre:series")
+        assertThat(opf).contains("Классика")
+        assertThat(opf).doesNotContain("series_index")
+        assertThat(opf).doesNotContain("group-position")
+    }
+
+    @Test
     fun `not an epub is reported instead of being damaged`() = runTest {
         val result = writer.rewrite(
             bytes = "не архив".toByteArray(),

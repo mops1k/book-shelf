@@ -64,6 +64,19 @@ class BookMetadataEditorTest {
     }
 
     @Test
+    fun `clearing a value is written instead of being rejected by the check`() = runBlocking {
+        opener.bytes = FB2_WITH_SERIES.toByteArray()
+        val written = ByteArrayOutputStream()
+        shadowOf(context.contentResolver).registerOutputStream(DOCUMENT, written)
+
+        val result = editor.writeToFile(book(extension = "fb2"), MetadataEdit(seriesName = ""))
+
+        assertThat(result.errorOrNull()).isNull()
+        // Серия убрана именно в файле, а не только в базе.
+        assertThat(written.toString("UTF-8")).doesNotContain("<sequence")
+    }
+
+    @Test
     fun `unsupported format leaves the document untouched`() = runBlocking {
         opener.bytes = FB2.toByteArray()
         val written = ByteArrayOutputStream()
@@ -129,6 +142,7 @@ class BookMetadataEditorTest {
     private companion object {
         val DOCUMENT: Uri = Uri.parse("content://test/book.fb2")
 
+
         val FB2 = """
             <?xml version="1.0" encoding="UTF-8"?>
             <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
@@ -145,5 +159,11 @@ class BookMetadataEditorTest {
               <body><section><p>Текст</p></section></body>
             </FictionBook>
         """.trimIndent()
+
+        /** Та же книга, но с серией: на ней проверяется очистка значения. */
+        val FB2_WITH_SERIES = FB2.replace(
+            "<book-title>Книга</book-title>",
+            "<book-title>Книга</book-title><sequence name=\"Серия\" number=\"1\"/>",
+        )
     }
 }

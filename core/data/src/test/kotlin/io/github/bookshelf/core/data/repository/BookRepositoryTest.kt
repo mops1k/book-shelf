@@ -383,6 +383,48 @@ class BookRepositoryTest {
     }
 
     @Test
+    fun update_metadata_with_empty_values_clears_them_everywhere() = runBlocking<Unit> {
+        givenLibrary()
+
+        // Пустая строка — это «убрать значение»: пользователь стёр серию и описание в форме.
+        repository.updateMetadata(
+            "war",
+            MetadataPatch(seriesName = "", description = ""),
+        ).assertOk()
+
+        val row = database.bookDao().getById("war")
+        assertThat(row?.seriesName).isNull()
+        assertThat(row?.description).isNull()
+        // В правке остаётся пустая строка, а не пустое место: иначе скан вернул бы серию из файла.
+        val override = database.metadataOverrideDao().getByBookId("war")
+        assertThat(override?.seriesName).isEqualTo("")
+        assertThat(override?.description).isEqualTo("")
+        // Карточка тоже показывает, что серии больше нет.
+        assertThat(repository.getById("war").getOrNull()?.seriesName).isNull()
+        // Полка по серии книгу больше не находит.
+        val page = repository.observePage(
+            LibraryQuery(bookQuery = BookQuery(series = setOf("Классика"))),
+        ).first()
+        assertThat(page.items.map { it.id }).doesNotContain("war")
+    }
+
+    @Test
+    fun update_metadata_can_clear_only_the_series_index() = runBlocking<Unit> {
+        givenLibrary()
+        repository.updateMetadata("war", MetadataPatch(seriesIndex = 4.0)).assertOk()
+
+        // Номер убираем, название серии оставляем.
+        repository.updateMetadata("war", MetadataPatch(clearSeriesIndex = true)).assertOk()
+
+        val row = database.bookDao().getById("war")
+        assertThat(row?.seriesIndex).isNull()
+        assertThat(row?.seriesName).isEqualTo("Классика")
+        // Правка не возвращает старый номер на экран: в ней он тоже очищен.
+        assertThat(database.metadataOverrideDao().getByBookId("war")?.seriesIndex).isNull()
+        assertThat(repository.getById("war").getOrNull()?.seriesIndex).isNull()
+    }
+
+    @Test
     fun update_metadata_rewrites_authors_in_books_and_in_the_links() = runBlocking<Unit> {
         givenLibrary()
 

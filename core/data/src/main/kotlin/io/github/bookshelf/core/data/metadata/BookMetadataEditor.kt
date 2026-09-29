@@ -110,10 +110,14 @@ class DefaultBookMetadataEditor @Inject constructor(
         val missing = when {
             metadata.title.isBlank() -> "название"
             wantedTitle != null && metadata.title.trim() != wantedTitle -> "название"
-            wantedSeries != null && metadata.seriesName?.trim() != wantedSeries -> "серия"
+            // `orEmpty()`: пустая строка в правке означает «убрать значение», и в файле его
+            // действительно не остаётся — сравнивать с `null` напрямую значило бы отвергать
+            // правильную очистку (найдено на устройстве: серия не убиралась из файла).
+            wantedSeries != null && metadata.seriesName?.trim().orEmpty() != wantedSeries -> "серия"
             edit.seriesIndex != null && metadata.seriesIndex != edit.seriesIndex -> "номер в серии"
             wantedAuthors != null && metadata.authors.map(String::trim) != wantedAuthors -> "авторы"
-            wantedDescription != null && metadata.description?.trim() != wantedDescription -> "описание"
+            wantedDescription != null && metadata.description?.trim().orEmpty() != wantedDescription ->
+                "описание"
             else -> null
         }
         return missing?.let { field -> "Правка не записана: файл после неё не отдаёт «$field»" }

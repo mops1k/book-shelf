@@ -135,8 +135,8 @@ class BookMetadataEditViewModel @Inject constructor(
     /**
      * Патч только из изменившихся полей; `null` — менять нечего.
      *
-     * Пустое поле означает «пользователь его не задавал», а не «стереть»: у патча нет способа
-     * отличить «не трогали» от «очистили», поэтому стирание значения — отдельная задача.
+     * Пустое поле поверх заполненного означает «убрать значение» (серия, описание, авторы),
+     * а пустое поле, которое и было пустым, — «не трогали».
      */
     private fun patchOf(state: BookMetadataEditUiState): MetadataPatch? {
         val book = original
@@ -146,11 +146,15 @@ class BookMetadataEditViewModel @Inject constructor(
         val index = state.seriesIndex.trim().replace(',', '.').toDoubleOrNull()
         val description = state.description.trim()
         val patch = MetadataPatch(
+            // Пустая строка в заполненном поле — «убрать значение»: поля заполнены текущими
+            // значениями книги, поэтому стереть их можно только осознанно.
             title = title.takeIf { it.isNotEmpty() && it != book?.title },
-            authorsText = authors.takeIf { it.isNotEmpty() && it != book?.authorsText },
-            seriesName = series.takeIf { it.isNotEmpty() && it != book?.seriesName },
+            authorsText = authors.takeIf { it != book?.authorsText.orEmpty() },
+            seriesName = series.takeIf { it != book?.seriesName.orEmpty() },
             seriesIndex = index?.takeIf { it != book?.seriesIndex },
-            description = description.takeIf { it.isNotEmpty() && it != book?.description },
+            // Номер убран, а название серии осталось — значит, убираем только номер.
+            clearSeriesIndex = index == null && book?.seriesIndex != null,
+            description = description.takeIf { it != book?.description.orEmpty() },
         )
         return patch.takeIf { patch.hasChanges }
     }
@@ -160,7 +164,7 @@ class BookMetadataEditViewModel @Inject constructor(
 
     private val MetadataPatch.hasChanges: Boolean
         get() = title != null || authorsText != null || seriesName != null ||
-            seriesIndex != null || description != null
+            seriesIndex != null || description != null || clearSeriesIndex
 
     private fun MetadataSaveResult.describe(): String = when {
         fileWritten -> "Сохранено и записано в файл книги"
