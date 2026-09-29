@@ -21,6 +21,7 @@ import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import io.github.bookshelf.core.storage.files.readRange
 import java.io.File
 import java.nio.channels.FileChannel
 import javax.inject.Inject
@@ -134,8 +135,9 @@ class MetadataWorker @AssistedInject constructor(
 
     private fun BookEntity.readRange(offset: Long, length: Int): ByteArray =
         contentOpener.openStream(documentUri)?.use { stream ->
-            stream.skip(offset)
-            stream.readNBytes(length)
+            // `readNBytes` здесь нельзя: он появился только в API 33 при `minSdk 24`, и на старых
+            // устройствах разбор метаданных падал бы с NoSuchMethodError (нашёл lint, режим NewApi).
+            stream.readRange(offset, length)
         } ?: ByteArray(0)
 
     /**

@@ -60,9 +60,12 @@ fun BookShelfNavHost(
     sourceRepository: SourceRepository,
     onExit: () -> Unit = rememberExitAction(),
 ) {
-    val hasSources by sourceRepository.observeSources()
-        .map { it.isNotEmpty() }
-        .collectAsState(initial = true)
+    // Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
+    // и подписка пересоздавалась бы (на это и указал lint, режим FlowOperatorInvokedInComposition).
+    val hasSourcesFlow = remember(sourceRepository) {
+        sourceRepository.observeSources().map { sources -> sources.isNotEmpty() }
+    }
+    val hasSources by hasSourcesFlow.collectAsState(initial = true)
 
     NavHost(
         navController = navController,
