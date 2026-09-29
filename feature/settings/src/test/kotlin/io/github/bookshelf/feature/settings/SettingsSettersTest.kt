@@ -57,8 +57,9 @@ import io.github.bookshelf.core.testing.fake.FakeBookRepository
  * опечатка в сеттере (`appearance` вместо `eink`, забытый `copy`) на устройстве выглядит как
  * работающий переключатель.
  *
- * Фейков шесть — ровно столько зависимостей у `SettingsViewModel`; каждый из остальных нужен
- * только чтобы ViewModel собралась, поэтому они пустые.
+ * Все зависимости `SettingsViewModel` подменены фейками: те, что участвуют в проверке (настройки,
+ * кэш обложек, выгрузка библиотеки), содержательные, остальные — пустые, но без них ViewModel
+ * не собрать.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsSettersTest {

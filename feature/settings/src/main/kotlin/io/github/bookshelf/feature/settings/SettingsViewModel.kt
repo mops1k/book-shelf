@@ -416,11 +416,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Экспортировать библиотеку и настройки в JSON (без паролей OPDS). */
-    fun onExportLibrary() {
-        _uiState.showError("Экспорт библиотеки пока не поддерживается")
-    }
-
     /** Перечитать диагностику вендора e-ink. */
     fun onRefreshDiagnostics() {
         _uiState.value = _uiState.value.copy(

@@ -21,4 +21,7 @@ dependencies {
     // Системный выборщик папки и запрос разрешений — оба через activity-compose.
     implementation("androidx.activity:activity-compose")
     testImplementation(project(":core:testing"))
+    // Единственное место, где нужен mockk: `android.net.Uri` — тип Android SDK, и в обычном
+    // JVM-тесте выгрузки библиотеки его не создать. Свои интерфейсы по правилу проекта — фейками.
+    testImplementation(libs.mockk)
 }

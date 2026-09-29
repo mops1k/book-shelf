@@ -27,6 +27,15 @@ interface ReadingProgressDao {
     @Query("SELECT * FROM reading_progress WHERE bookId = :bookId")
     suspend fun getByBook(bookId: String): ReadingProgressEntity?
 
+    /**
+     * Прогресс всей библиотеки одним запросом — выгрузка библиотеки в файл.
+     *
+     * Книг с прогрессом обычно меньше, чем книг вообще, поэтому строк в ответе может быть мало;
+     * отсутствие строки означает «прогресса нет», а не «прогресс нулевой».
+     */
+    @Query("SELECT * FROM reading_progress")
+    suspend fun getAll(): List<ReadingProgressEntity>
+
     /** Сбросить прогресс (например, при «Отметить непрочитанным»). */
     @Query("DELETE FROM reading_progress WHERE bookId = :bookId")
     suspend fun deleteByBook(bookId: String)

@@ -79,6 +79,9 @@ fun SettingsCategoryScreen(
                 state = state,
                 viewModel = viewModel,
                 backupViewModel = hiltViewModel(),
+                // Выгрузка библиотеки — своя ViewModel: у общей уже девять зависимостей при
+                // пороге detekt десять.
+                exportViewModel = hiltViewModel(),
             )
             SettingsSectionKind.ABOUT -> AboutCategory(state = state, viewModel = viewModel)
         }

@@ -44,4 +44,27 @@ interface TagDao {
     /** Теги книги. */
     @Query("SELECT * FROM book_tags WHERE bookId = :bookId")
     suspend fun getBookTags(bookId: String): List<BookTagCrossRef>
+
+    /**
+     * Жанры/теги всей библиотеки одним запросом — выгрузка библиотеки в файл.
+     *
+     * По одной книге спрашивать нельзя по той же причине, что и у авторов: в файл попадает вся
+     * библиотека. Значения — имена тегов, то есть те же коды жанров (`sf_space`), что лежат
+     * в фильтрах и правилах умных полок.
+     */
+    @Query(
+        """
+        SELECT book_tags.bookId AS bookId, tags.name AS name
+        FROM book_tags
+        INNER JOIN tags ON tags.id = book_tags.tagId
+        ORDER BY tags.name COLLATE NOCASE ASC
+        """,
+    )
+    suspend fun getAllBookTags(): List<BookTagName>
 }
+
+/** Строка результата [TagDao.getAllBookTags]: книга и её жанр/тег. */
+data class BookTagName(
+    val bookId: String,
+    val name: String,
+)

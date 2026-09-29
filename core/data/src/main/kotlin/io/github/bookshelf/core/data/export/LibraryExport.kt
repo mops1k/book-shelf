@@ -2,6 +2,9 @@ package io.github.bookshelf.core.data.export
 
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.Collection
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -64,6 +67,16 @@ data class ExportedCollection(
 
 /** Текущая версия формата файла. */
 const val CURRENT_EXPORT_VERSION: Int = 1
+
+/**
+ * Имя файла, предлагаемое в системном диалоге «создать документ»: `bookshelf-export-2026-09-29.json`.
+ *
+ * Дата в имени — чтобы две выгрузки не спорили за одно имя и чтобы файл в папке загрузок
+ * отличался от бэкапа базы и от книг. Расширение `.json` провайдеру нужно: по нему он выбирает
+ * тип документа при создании.
+ */
+fun libraryExportFileName(now: Long): String =
+    "bookshelf-export-" + SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date(now)) + ".json"
 
 private val exportJson = Json {
     prettyPrint = true

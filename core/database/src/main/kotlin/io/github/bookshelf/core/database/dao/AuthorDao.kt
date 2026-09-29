@@ -88,4 +88,27 @@ interface AuthorDao {
         """,
     )
     suspend fun idsWithoutAuthors(): List<String>
+
+    /**
+     * Авторы всей библиотеки одним запросом — выгрузка библиотеки в файл.
+     *
+     * По одной книге спрашивать нельзя: в файл попадает вся библиотека, и запрос на каждую книгу
+     * превратил бы выгрузку в тысячи обращений. Порядок — по книге, внутри книги по `position`,
+     * то есть так, как авторы записаны в файле книги.
+     */
+    @Query(
+        """
+        SELECT book_authors.bookId AS bookId, authors.name AS name
+        FROM book_authors
+        INNER JOIN authors ON authors.id = book_authors.authorId
+        ORDER BY book_authors.bookId ASC, book_authors.position ASC
+        """,
+    )
+    suspend fun getAllBookAuthors(): List<BookAuthorName>
 }
+
+/** Строка результата [AuthorDao.getAllBookAuthors]: книга и имя её автора. */
+data class BookAuthorName(
+    val bookId: String,
+    val name: String,
+)

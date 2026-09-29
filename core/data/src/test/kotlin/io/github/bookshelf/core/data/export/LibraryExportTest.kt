@@ -69,7 +69,12 @@ class LibraryExportTest {
             exportedAt = 1L,
             books = emptyList(),
             collections = listOf(
-                Collection(id = "c1", name = "Космос", type = CollectionType.SMART, rulesJson = "{\"tags\":[\"sf_space\"]}"),
+                Collection(
+                    id = "c1",
+                    name = "Космос",
+                    type = CollectionType.SMART,
+                    rulesJson = "{\"tags\":[\"sf_space\"]}",
+                ),
                 Collection(id = "c2", name = "Читаю", type = CollectionType.MANUAL, bookCount = 3),
             ),
         )
@@ -91,6 +96,17 @@ class LibraryExportTest {
         assertThat(parsed.books).isEmpty()
         assertThat(parsed.collections).isEmpty()
         assertThat(json).contains("\"version\"")
+    }
+
+    @Test
+    fun `suggested file name carries the export date and the json extension`() {
+        val name = libraryExportFileName(now = 1_790_000_000_000L)
+
+        // Имя предлагается в системном диалоге: без расширения `.json` провайдер создаст документ
+        // без типа, и файл нельзя будет открыть как JSON, а без даты две выгрузки спорят за имя.
+        assertThat(name).startsWith("bookshelf-export-")
+        assertThat(name).endsWith(".json")
+        assertThat(name).matches("bookshelf-export-\\d{4}-\\d{2}-\\d{2}\\.json")
     }
 
     private fun book(

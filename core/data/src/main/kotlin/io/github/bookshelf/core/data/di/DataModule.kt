@@ -27,7 +27,9 @@ import io.github.bookshelf.core.data.backup.DatabaseSnapshot
 import io.github.bookshelf.core.data.backup.DefaultDatabaseBackup
 import io.github.bookshelf.core.data.backup.RoomDatabaseSnapshot
 import io.github.bookshelf.core.data.backup.SafBackupStore
+import io.github.bookshelf.core.data.export.DefaultLibraryExport
 import io.github.bookshelf.core.data.export.DefaultReaderExport
+import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.data.repository.impl.ReadingProgressRepositoryImpl
@@ -92,6 +94,11 @@ abstract class DataModule {
     abstract fun bindReaderExport(
         impl: DefaultReaderExport,
     ): ReaderExport
+
+    @Binds
+    abstract fun bindLibraryExport(
+        impl: DefaultLibraryExport,
+    ): LibraryExportRepository
 
     @Binds
     abstract fun bindReaderRepository(impl: ReaderRepositoryImpl): ReaderRepository

@@ -149,6 +149,8 @@ class BookFileChangeHandlerTest {
 
         override suspend fun getByBook(bookId: String) = delegate.getByBook(bookId)
 
+        override suspend fun getAll() = delegate.getAll()
+
         override suspend fun deleteByBook(bookId: String): Unit = error("База занята")
     }
 
