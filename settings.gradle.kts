@@ -42,6 +42,7 @@ include(":core:metadata")
 include(":core:covers")
 include(":core:readerlink")
 include(":core:opds")
+include(":core:fb2opt")
 include(":core:eink")
 include(":core:testing")
 
