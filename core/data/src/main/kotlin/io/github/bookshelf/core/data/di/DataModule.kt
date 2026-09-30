@@ -33,6 +33,8 @@ import io.github.bookshelf.core.data.metadata.DefaultBookMetadataEditor
 import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
+import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
+import io.github.bookshelf.core.fb2opt.Fb2Optimizer
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
@@ -107,6 +109,12 @@ abstract class DataModule {
     abstract fun bindReaderSession(
         impl: DefaultReaderSession,
     ): ReaderSession
+
+    /** Оптимизация FB2 без потери данных: минификация разметки, пересборка картинок, упаковка. */
+    @Binds
+    abstract fun bindFb2Optimizer(
+        impl: DefaultFb2Optimizer,
+    ): Fb2Optimizer
 
     @Binds
     abstract fun bindBookMetadataEditor(

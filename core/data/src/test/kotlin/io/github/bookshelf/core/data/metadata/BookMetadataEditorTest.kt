@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.data.model.Book
@@ -135,6 +136,9 @@ class BookMetadataEditorTest {
         override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
 
         override fun tempCopy(documentUri: String): AppResult<String> = AppResult.success("unused")
+
+        override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
+            AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
 
         override fun exportCopy(documentUri: String): AppResult<String> = AppResult.success("unused")
     }

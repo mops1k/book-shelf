@@ -62,6 +62,9 @@ class QuickHashTest {
             AppResult.failure(AppError.NotFound("copy"))
 
         /** Копия для читалки в этих проверках не нужна. */
+        override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
+            AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
+
         override fun exportCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.NotFound("export"))
     }

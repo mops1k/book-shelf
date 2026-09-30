@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description>
+  <title-info>
+    <genre>nonf_biography</genre>
+    <author>
+      <first-name>Станислав</first-name>
+      <middle-name>Владимирович</middle-name>
+      <last-name>Гридасов</last-name>
+    </author>
+    <book-title>Книга Уткина: Мы тут жизнь живём</book-title>
+    <annotation>
+      <p>Проще сказать, чем не занимался Василий Уткин – человек, изменивший если не все, то многое в культуре российского спортивного комментария. Непросто объяснить, почему книга, которую он так хотел написать «о жизни, друзьях, всяких встречах и бывальщинах», случилась уже без автора, но как будто в постоянном незримом его присутствии. На этих страницах друзья, коллеги, сам Василий рассказывают истории, травят байки, отвечают друг другу на вопросы в интервью и блоге, рассуждают о спорте, азарте, любви и ненависти, дилетантах и профессионалах, лукавят и печалятся – словом, живут жизнь, которая без Уткина была бы совсем другой.</p>
+    </annotation>
+    <keywords>интервью,современная журналистика,футбол,российский футбол,воспоминания и мемуары,история футбола,звезды спорта,спортивные байки</keywords>
+    <date value="2026-01-01">2026</date>
+    <coverpage>
+      <image l:href="#cover.jpg"/>
+    </coverpage>
+    <lang>ru</lang>
+  </title-info>
+  <document-info>
+    <author>
+      <nickname>Lungwort</nickname>
+    </author>
+    <program-used>FictionBook Editor Release 2.7.9</program-used>
+    <date value="2026-07-25">25 июля 2026</date>
+    <src-url>http://www.litres.ru/pages/biblio_book/?art=74229856</src-url>
+    <id>1acdefa0-8811-11f1-9ed9-ac1f6b0b2fde</id>
+    <version>1.0</version>
+  </document-info>
+  <publish-info>
+    <book-name>Книга Уткина: Мы тут жизнь живём</book-name>
+    <year>2026</year>
+    <isbn>9785002239900</isbn>
+  </publish-info>
+</description>
+<body><title><p>Составитель Станислав Гридасов</p>
+<p>Книга Уткина: Мы тут жизнь живём</p>
+</title><section><p>Знак информационной продукции (Федеральный закон № 436–ФЗ от 29.12.2010 г.)</p>
+<empty-line></empty-line><image l:href="#i_001.jpg"></image><empty-line></empty-line><p><emphasis>Информационный партнер Спортс&quot;</emphasis></p>
+<p><emphasis>Редакция благодарит CityFootball и Павла Крупнова за поддержку в издании книги</emphasis></p>
+<p><emphasis>Благодарим Романа Дубова за поддержку книги, которая помогает сохранить память о Василии Уткине.</emphasis></p>
+<empty-line></empty-line><p>Редактор: <emphasis>Анастасия Шевченко</emphasis></p>
+<p>Авторы: <emphasis>Станислав Гридасов, Юрий Сапрыкин, Анна Волкова, Владимир Стогниенко, Роман Трушечкин, Михаил Михайлин, Максим Семеляк, Артем Борисов, Тимур Журавель, Ростислав Хаит, Денис Казанский, Елена Вайцеховская, Денис Романцов, Станислав Минин, Роман Нагучев, Сергей Микулик, Арина Бородина, Алексей Дурново, Алексей Казаков.</emphasis></p>
+<p>Издатель: <emphasis>Павел Подкосов</emphasis></p>
+<p>Руководитель проекта: <emphasis>Александра Казакова</emphasis></p>
+<p>Художественное оформление и макет: <emphasis>Юрий Буга</emphasis></p>
+<p>Корректоры: <emphasis>Елена Барановская, Лариса Татнинова</emphasis></p>
+<p>Верстка: <emphasis>Ольга Макаренко</emphasis></p>
+<p>Фотография на обложке: <emphasis>Эмин Джафаров/Коммерсантъ/FOTODOM</emphasis></p>
+<p>Источники фотографий: <emphasis>Виктор Борисов/ТАСС; Игорь Уткин/ТАСС; Сергей Михеев/Коммерсантъ/FOTODOM; Дмитрий Лебедев/Коммерсантъ/FOTODOM; ©Владимир Федоренко/РИА Новости/Россия сегодня; Франк Вильягра/Коммерсантъ/FOTODOM; ©Евгений Одиноков/РИА Новости/Россия сегодня; Григорий Сысоев/ТАСС; Валерий Левитин/Коммерсантъ/FOTODOM; ©Екатерина Чеснокова/РИА Новости/Россия сегодня (2); Игорь Кубединов/ТАСС; ©Виталий Белоусов/РИА Новости/Россия сегодня; Геннадий Гуляев/Коммерсантъ/FOTODOM; ©Дмитрий Донской/РИА Новости/Россия сегодня; Вячеслав Прокофьев/Коммерсантъ/FOTODOM; Дмитрий Духанин/Коммерсантъ/FOTODOM; ©Александр Вильф/РИА Новости/Россия сегодня; Владислав Шатило/RBC/ТАСС; ©Алексей Филиппов/РИА Новости/Россия сегодня; Елена Никитченко/Коммерсантъ/FOTODOM; Thomas Eisenhuth/Legion-Media; Валерий Шарифулин/ТАСС; ©Григорий Сысоев/РИА Новости/Россия сегодня; из личных архивов семьи Василия Уткина, Станислава Гридасова, Тимура Журавеля, Михаила Моссаковского, Антона Ореха, Игоря Рабинера, Емельяна Руднева, Руслана Солуянова, Романа Трушечкина, Дмитрия Федорова, семьи Розановых, из архива программы «Три репортера», театра «Квартет И»; работы Юрия Штукина, Сергея Дандуряна, Владимира Мишукова, Ивана Куринного, Ирины Ерохиной («БИЗНЕС Online»), Алексея Белкина («БИЗНЕС Online»), Марии Плотниковой.</emphasis></p>
+<empty-line></empty-line><p>«Футбольный клуб» Василия Уткина:</p>
+<p>https://youtube.com/@utkin</p>
+<p>https://vkvideo.ru/@radioutkin</p>
+<p>https://t.me/QryaProDucktion</p>
+<empty-line></empty-line><p>«Архив Васи Уткина»</p>
+<p>https://www.sports.ru/tribuna/blogs/vasyautkinarchive/</p>
+<p>https://t.me/vasyautkinarchive</p>
+<empty-line></empty-line><p>Телеграм-канал «Гридасов с бородой»</p>
+<p>https://t.me/stg_50</p>
+<empty-line></empty-line><p>© ООО «Альпина нон-фикшн», 2026</p>
+<subtitle>* * *</subtitle><image l:href="#i_001.jpg"/></section>
+<binary id="i_001.jpg" content-type="image/jpeg">/9j/4AAQSkZJRgABAQEAYABgAAD/4QBYRXhpZgAATU0AKgAAAAgABAExAAIAAAARAAAAPlEQAAEAAAABAQAAAFERAAQAAAABAAAAAFESAAQAAAABAAAAAAAAAABBZG9iZSBJbWFnZVJlYWR5AAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAqACsDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9Q9c1yz8OabLf38vlQRj6lj2UDuTXg3ir4w61r0zx2UraVZZwqQNiQj1Z+ufpj8am+NHiiTWPEzadG5+x6f8AJtB4aQj5j+H3fwPrXnlAE8t9cTyeZLPLI/Xczkn8629C+IGveHZFa11GZoweYJ2MkZ9sHp+GDWLb6fdXUbPBbTTIv3mjjLAcZ5I9qr0AfS3w/wDiNaeNrdoyotdSiXMlvnIYf3lPcfy/Wuwr5G0XV7nQdUtr+0fZPA4dfQ+oPsRwfrX1dpOpRaxplrfQ/wCquIllX2BGcUAfK3iSR5PEWqPJ99rqUtn13nNdTZBZPg7qLmOPzE1FIw4QBtuFOCcZPJPWqvxY0B9C8Z3rbSILxjcxN2O45Yfg2f0rLh8XT2/hibQls7U2kz+azkP5m/jDZ3YzwO2PagDv/Btja6lpHhyzuX/s3W7GRr6wjd9q3iM27n0yVx64GQCK4+HwTq+sXGsXEmnzxPGJJFWGI7GkEoUovsMt0/u1Rh8Y3sf9mu0dvNcacAtrcSKd8ag5VeCAQDyMg1n2+sXMDagxIlkvo2imeTJJy6uSOeuVH5mgCtdWs1lcPBcRNDNGcNG4wQfcV9JfCV2k+HukF+u2QfgJXA/TFfNlvbyXdxFBChkmkYIiL1ZicACvq/wzo40Dw/p+nggm3hVGI6FsfMfzzQBQ8ceC7XxrpBtZj5VxGd0FwBko39Qe4/wr5z8SeE9T8KXhg1C2aMZwky8xye6t3+nWvq6o7i3iuoWimiSaJuGSRQyn6g0AfHtTWlnPf3CQW0MlxM5wscalmP0Ar2HxJoOmQa68cenWkabvurAoH5Yr0nw7pNjpunxG0s7e1Lr8xhiVN31wOaAOF+F/wrbQJU1bV1U3+P3Nv1EOf4ie7fy+vT1CiigD/9k=</binary>
+</body>
+</FictionBook>

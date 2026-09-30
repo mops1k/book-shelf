@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.appRunCatching
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -52,6 +53,16 @@ interface BookContentOpener {
      * одной настройкой.
      */
     fun exportCopy(documentUri: String): AppResult<String>
+
+    /**
+     * Записать новое содержимое в **существующий** документ.
+     *
+     * Нужно оптимизации книги: она заменяет оригинал уменьшенным файлом. Переименование в SAF
+     * не поддерживается («Update not supported»), поэтому замена — это запись в тот же документ
+     * в режиме усечения. Безопасность обеспечивает вызывающий: он держит исходные байты и
+     * возвращает их обратно, если запись не удалась.
+     */
+    fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit>
 }
 
 /**
@@ -125,6 +136,22 @@ class DefaultBookContentOpener(
     override fun exportCopy(documentUri: String): AppResult<String> =
         copyInto(directory = exportDir, purpose = "экспорта", documentUri = documentUri)
 
+    /**
+     * Замена содержимого документа.
+     *
+     * Режим `"wt"` (усечение) обязателен: без него провайдер дописал бы новое содержимое к старому,
+     * и книга превратилась бы в мусор.
+     */
+    override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> = appRunCatching {
+        val uri = Uri.parse(documentUri)
+        val output = resolver.openOutputStream(uri, WRITE_TRUNCATE)
+            ?: error("Провайдер не открыл файл для записи: $documentUri")
+        output.use { stream ->
+            stream.write(bytes)
+            stream.flush()
+        }
+    }
+
     /** Общая часть обеих копий: отличаются только каталогом и словом в сообщении об ошибке. */
     private fun copyInto(directory: File, purpose: String, documentUri: String): AppResult<String> {
         val maxTempCopyBytes = tempCopyLimitBytes()
@@ -167,6 +194,9 @@ class DefaultBookContentOpener(
     companion object {
         /** Резервный лимит временной копии — 100 МБ (docs/architecture.md §4.4): совпадает с умолчанием настройки. */
         const val DEFAULT_MAX_TEMP_COPY_BYTES: Long = 100L * 1024L * 1024L
+
+        /** Режим записи с усечением: иначе провайдер допишет новое к старому содержимому. */
+        const val WRITE_TRUNCATE = "wt"
 
         private const val TEMP_SUFFIX = ".tmp"
         private val SIZE_PROJECTION = arrayOf(OpenableColumns.SIZE)

@@ -116,6 +116,9 @@ class DefaultReaderExportTest {
 
         override fun sizeOf(documentUri: String): Long? = null
 
+        override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
+            AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
+
         override fun tempCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 

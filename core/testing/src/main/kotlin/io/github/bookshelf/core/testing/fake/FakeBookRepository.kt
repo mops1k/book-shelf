@@ -8,6 +8,7 @@ import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -105,6 +106,19 @@ class FakeBookRepository(
         locatorJson: String?,
         source: String,
     ): AppResult<Unit> = AppResult.success(Unit)
+
+    /** Итог, который вернёт оптимизация; тесты подставляют свой. */
+    var optimization: AppResult<BookOptimizationResult> = AppResult.success(
+        BookOptimizationResult(savedBytes = 0, beforeBytes = 0, afterBytes = 0, images = 0),
+    )
+
+    /** Книги, у которых просили оптимизацию. */
+    val optimized = mutableListOf<String>()
+
+    override suspend fun optimizeBook(bookId: String): AppResult<BookOptimizationResult> {
+        optimized += bookId
+        return optimization
+    }
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(report)
 

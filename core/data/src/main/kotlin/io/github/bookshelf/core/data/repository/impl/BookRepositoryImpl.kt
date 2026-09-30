@@ -8,6 +8,9 @@ import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.author.parseAuthors
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.common.reader.ReaderSession
+import io.github.bookshelf.core.data.repository.BookOptimizationResult
+import io.github.bookshelf.core.fb2opt.Fb2Optimizer
+import io.github.bookshelf.core.storage.files.BookContentOpener
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.data.repository.ScanRepository
@@ -79,6 +82,10 @@ class BookRepositoryImpl @Inject constructor(
      * обложек оставались сиротами: на устройстве нашлись 19 строк `book_tags` от 9 удалённых книг.
      */
     private val bookCleanupDao: BookCleanupDao,
+    /** Доступ к содержимому книги: чтение и безопасная замена файла. */
+    private val contentOpener: BookContentOpener,
+    /** Оптимизация FB2 без потери данных. */
+    private val fb2Optimizer: Fb2Optimizer,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -204,6 +211,72 @@ class BookRepositoryImpl @Inject constructor(
             }
             DeletionResult(deleted = deleted, failed = failed)
         }
+
+    /**
+     * Оптимизация книги FB2: файл заменяется уменьшенным, если выигрыш есть.
+     *
+     * Порядок и причины:
+     * 1. читалка открыта — отказываемся: оптимизация тяжёлая и не должна конкурировать с чтением;
+     * 2. читаем файл целиком: он нужен и для оптимизации, и как страховка на случай сбоя записи;
+     * 3. заменяем содержимое документа в режиме усечения (переименование SAF не поддерживает);
+     * 4. запись не удалась — возвращаем исходные байты на место, иначе книга осталась бы битой.
+     */
+    override suspend fun optimizeBook(bookId: String): AppResult<BookOptimizationResult> {
+        val entity = bookDao.getById(bookId)
+            ?: return AppResult.failure(
+                AppError.NotFound(what = "book", message = "Книга $bookId не найдена"),
+            )
+        val extension = entity.extension.lowercase()
+        if (extension !in OPTIMIZABLE_EXTENSIONS) {
+            return AppResult.failure(
+                AppError.InvalidArgument(
+                    what = "extension",
+                    message = "Оптимизируются только книги FB2 и FB2.ZIP, а это «${entity.extension}»",
+                ),
+            )
+        }
+        if (readerSession.isActive()) {
+            return AppResult.failure(
+                AppError.PermissionDenied(
+                    message = "Открыта читалка — оптимизация подождёт, пока вы вернётесь в приложение",
+                ),
+            )
+        }
+        val original = contentOpener.openStream(entity.documentUri)?.use { stream -> stream.readBytes() }
+            ?: return AppResult.failure(AppError.Io(message = "Не удалось прочитать файл книги"))
+        return try {
+            val optimization = fb2Optimizer.optimize(entity.fileName, original)
+            val optimized = optimization.bytes
+            if (!optimization.changed || optimized == null) {
+                AppResult.success(
+                    BookOptimizationResult(
+                        savedBytes = 0,
+                        beforeBytes = optimization.beforeBytes,
+                        afterBytes = optimization.beforeBytes,
+                        images = 0,
+                    ),
+                )
+            } else {
+                val replaced = contentOpener.replaceContent(entity.documentUri, optimized)
+                if (replaced is AppResult.Failure) {
+                    // Откат: файл уже мог быть усечён, поэтому возвращаем исходные байты на место.
+                    contentOpener.replaceContent(entity.documentUri, original)
+                    AppResult.failure(replaced.error)
+                } else {
+                    AppResult.success(
+                        BookOptimizationResult(
+                            savedBytes = optimization.savedBytes,
+                            beforeBytes = optimization.beforeBytes,
+                            afterBytes = optimization.afterBytes,
+                            images = optimization.images,
+                        ),
+                    )
+                }
+            }
+        } catch (error: IllegalStateException) {
+            AppResult.failure(AppError.Unknown(message = "Оптимизация книги не удалась", cause = error))
+        }
+    }
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = appRunCatching {
         // Полный хеш файлов — самая тяжёлая работа в приложении, и она уступает читалке: открылась
@@ -359,3 +432,6 @@ private fun MetadataOverrideEntity?.orEmptyPatch(
     pageCount = patch.pageCount ?: this?.pageCount,
     updatedAt = updatedAt,
 )
+
+/** Расширения, которые оптимизируются: только формат FB2 (в том числе в архиве). */
+private val OPTIMIZABLE_EXTENSIONS = setOf("fb2", "fb2.zip")

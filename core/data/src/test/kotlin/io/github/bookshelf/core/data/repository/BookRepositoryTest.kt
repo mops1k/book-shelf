@@ -7,6 +7,10 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
+import io.github.bookshelf.core.fb2opt.Fb2ImageOptimizer
+import io.github.bookshelf.core.fb2opt.JpegEntropyOptimizer
+import io.github.bookshelf.core.testing.fake.FakeBookContentOpener
 import io.github.bookshelf.core.storage.files.ContentHasher
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.common.error.getOrNull
@@ -92,6 +96,8 @@ class BookRepositoryTest {
             clock = FakeAppClock(),
             authorWriter = BookAuthorWriter(database.authorDao()),
             bookCleanupDao = database.bookCleanupDao(),
+            contentOpener = FakeBookContentOpener(),
+            fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
         )
     }
 

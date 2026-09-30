@@ -8,8 +8,10 @@ import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.paging.PageResult
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
+import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.DeletionResult
 import io.github.bookshelf.core.data.repository.FilterSelection
@@ -365,6 +367,12 @@ class LibraryBrowseTest {
         /** Удаление с файлом и поиск дублей в тестах полки не проверяются. */
         override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
             AppResult.success(DeletionResult(deleted = bookIds.size, failed = 0))
+
+        override suspend fun optimizeBook(
+            bookId: String,
+        ): AppResult<BookOptimizationResult> = AppResult.failure(
+                AppError.Unknown(message = "не нужно в этом тесте"),
+            )
 
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
         /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */

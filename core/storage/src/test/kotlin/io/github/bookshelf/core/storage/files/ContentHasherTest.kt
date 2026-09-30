@@ -72,6 +72,9 @@ class ContentHasherTest {
             AppResult.failure(AppError.Unknown(message = "файл не нужен"))
 
         /** Копия для читалки в этих проверках не нужна. */
+        override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
+            AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
+
         override fun exportCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.Unknown(message = "не используется"))
     }

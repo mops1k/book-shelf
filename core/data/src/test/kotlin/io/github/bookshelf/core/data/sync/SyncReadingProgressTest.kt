@@ -9,6 +9,10 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
+import io.github.bookshelf.core.fb2opt.Fb2ImageOptimizer
+import io.github.bookshelf.core.fb2opt.JpegEntropyOptimizer
+import io.github.bookshelf.core.testing.fake.FakeBookContentOpener
 import io.github.bookshelf.core.testing.fake.FakeReaderSession
 import io.github.bookshelf.core.data.model.ScanProgress
 import io.github.bookshelf.core.data.model.ScanReport
@@ -81,6 +85,8 @@ class SyncReadingProgressTest {
             clock = FakeAppClock().apply { setTo(1_000L) },
             authorWriter = BookAuthorWriter(database.authorDao()),
             bookCleanupDao = database.bookCleanupDao(),
+            contentOpener = FakeBookContentOpener(),
+            fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
         )
     }
 

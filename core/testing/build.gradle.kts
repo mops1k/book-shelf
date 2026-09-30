@@ -12,6 +12,7 @@ android {
 // ВАЖНО: :core:testing зависит от :core:common, значит :core:common не может использовать
 // :core:testing в своих тестах (циклическая зависимость) — там фейки объявляются локально.
 dependencies {
+    api(project(":core:storage"))
     api(project(":core:common"))
     // Фейки репозиториев и DAO живут здесь: собственные интерфейсы в тестах не мокаются
     // (ADR-012, правило 2), а `src/testFixtures` на AGP 8.7.3 не компилируют Kotlin.

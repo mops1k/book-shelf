@@ -84,6 +84,14 @@ interface BookRepository {
     suspend fun findDuplicates(): AppResult<DuplicateReport>
 
     /**
+     * Оптимизировать книгу FB2 (или FB2.ZIP) без потери данных.
+     *
+     * Файл заменяется уменьшенным только если оптимизация дала выигрыш. Пока открыта читалка,
+     * оптимизация не запускается: это тяжёлая работа, и она не должна конкурировать с чтением.
+     */
+    suspend fun optimizeBook(bookId: String): AppResult<BookOptimizationResult>
+
+    /**
      * Очистить библиотеку и заново просканировать все настроенные папки.
      *
      * Файлы на устройстве не трогаются: удаляются только записи в базе, после чего сканы
@@ -117,4 +125,22 @@ object ReadingProgressOrigins {
 
     /** Прочитано из API-сервиса FBReader. */
     const val FBREADER_AIDL = "FBREADER_AIDL"
+}
+
+/**
+ * Итог оптимизации книги.
+ *
+ * @param savedBytes сколько байт сэкономлено; 0 — выигрыша не было и файл остался прежним.
+ * @param beforeBytes размер до оптимизации.
+ * @param afterBytes размер после (или прежний, если замены не было).
+ * @param images сколько картинок пересобрано.
+ */
+data class BookOptimizationResult(
+    val savedBytes: Int,
+    val beforeBytes: Int,
+    val afterBytes: Int,
+    val images: Int,
+) {
+    /** Файл заменён: экономия есть. */
+    val changed: Boolean get() = savedBytes > 0
 }
