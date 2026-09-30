@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
@@ -26,6 +27,7 @@ import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.ShelfRulesViewModel
+import io.github.bookshelf.feature.filters.R
 import io.github.bookshelf.feature.filters.activeFilterCount
 import io.github.bookshelf.feature.filters.hasActiveFilters
 import io.github.bookshelf.feature.filters.toSectionsUi
@@ -59,8 +61,8 @@ fun ShelfRulesScreen(
     }
 
     EinkScaffold(
-        title = "Правила полки",
-        subtitle = state.shelfName.ifEmpty { "Умная полка" },
+        title = stringResource(R.string.shelf_rules_title),
+        subtitle = state.shelfName.ifEmpty { stringResource(R.string.shelf_rules_subtitle) },
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -81,12 +83,15 @@ fun ShelfRulesScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "Условий: ${activeFilterCount(state.selected)}",
+                        text = stringResource(
+                            R.string.shelf_rules_conditions,
+                            activeFilterCount(state.selected),
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.foreground,
                     )
                     Text(
-                        text = "Подходит книг: ${state.resultCount}",
+                        text = stringResource(R.string.shelf_rules_matching, state.resultCount),
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.foreground,
                     )
@@ -98,13 +103,13 @@ fun ShelfRulesScreen(
                     horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
                 ) {
                     EinkButton(
-                        text = "Сбросить",
+                        text = stringResource(R.string.filters_action_reset),
                         onClick = viewModel::onReset,
                         enabled = hasActiveFilters(state.selected),
                         modifier = Modifier.weight(1f),
                     )
                     EinkButton(
-                        text = "Сохранить",
+                        text = stringResource(R.string.shelf_rules_action_save),
                         onClick = viewModel::onSave,
                         primary = true,
                         enabled = hasActiveFilters(state.selected),
@@ -118,7 +123,7 @@ fun ShelfRulesScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.shelf_rules_action_retry),
                 onAction = viewModel::onLoadFacets,
             )
         }
@@ -126,10 +131,8 @@ fun ShelfRulesScreen(
         Box(modifier = Modifier.weight(1f)) {
             if (sections.isEmpty()) {
                 EinkEmptyState(
-                    title = "Условия появятся, когда в библиотеке будут книги",
-                    message = "Умная полка собирается по тем же условиям, что и фильтры: авторы, " +
-                        "серии, жанры и теги, форматы, статус чтения. Выберите хотя бы одно — " +
-                        "и полка начнёт считать свой состав сама.",
+                    title = stringResource(R.string.shelf_rules_empty_title),
+                    message = stringResource(R.string.shelf_rules_empty_message),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

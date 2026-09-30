@@ -1,7 +1,7 @@
 package io.github.bookshelf.feature.filters
 
 import com.google.common.truth.Truth.assertThat
-import io.github.bookshelf.feature.filters.ui.facetOverview
+import io.github.bookshelf.feature.filters.ui.facetOverviewCounts
 import org.junit.Test
 
 /**
@@ -13,6 +13,10 @@ import org.junit.Test
  * печатает все критерии, печатает именно те разделы, которые ей передали, и говорит словами:
  * раньше это была строка «Авторы 20 · Серии 14 · …», в которой число без пояснения читалось как
  * «выбрано 20 авторов» (замечание Александра, 29.09.2026).
+ *
+ * Текст сводки живёт в ресурсах (`filters_overview`), поэтому здесь проверяется состав и порядок
+ * критериев, а формы слов («1 автор», «2 автора», «5 авторов», «11 авторов») — в `FacetPluralsTest`
+ * на самих ресурсах.
  */
 class FacetOverviewTest {
 
@@ -26,10 +30,13 @@ class FacetOverviewTest {
             section(FacetKind.STATUSES, "READING"),
         )
 
-        assertThat(facetOverview(sections))
-            .isEqualTo(
-                "Значений на выбор: 3 автора · 1 серия · 2 жанра · 0 форматов · 1 статус",
-            )
+        assertThat(facetOverviewCounts(sections)).containsExactly(
+            FacetKind.AUTHORS to 3,
+            FacetKind.SERIES to 1,
+            FacetKind.TAGS to 2,
+            FacetKind.FORMATS to 0,
+            FacetKind.STATUSES to 1,
+        ).inOrder()
     }
 
     @Test
@@ -40,41 +47,22 @@ class FacetOverviewTest {
             section(FacetKind.SERIES, "s"),
         )
 
-        assertThat(facetOverview(narrowed))
-            .isEqualTo("Значений на выбор: 3 автора · 1 серия")
-    }
-
-    @Test
-    fun `words agree with the number`() {
-        // Русские формы: 1 автор, 2 автора, 5 авторов, но 11 авторов и снова 21 автор.
-        val sections = listOf(
-            section(FacetKind.AUTHORS, *ids(1)),
-            section(FacetKind.AUTHORS, *ids(2)),
-            section(FacetKind.AUTHORS, *ids(5)),
-            section(FacetKind.AUTHORS, *ids(11)),
-            section(FacetKind.AUTHORS, *ids(21)),
-            section(FacetKind.SERIES, *ids(22)),
-            section(FacetKind.STATUSES, *ids(12)),
-        )
-
-        assertThat(facetOverview(sections)).isEqualTo(
-            "Значений на выбор: 1 автор · 2 автора · 5 авторов · 11 авторов · 21 автор · " +
-                "22 серии · 12 статусов",
-        )
+        assertThat(facetOverviewCounts(narrowed)).containsExactly(
+            FacetKind.AUTHORS to 3,
+            FacetKind.SERIES to 1,
+        ).inOrder()
     }
 
     @Test
     fun `empty facet set prints nothing`() {
         // Пустой список — это экран «фильтров пока нет»: подпись «Значений на выбор:» без чисел
         // выглядела бы как обрезанная строка.
-        assertThat(facetOverview(emptyList())).isEmpty()
+        assertThat(facetOverviewCounts(emptyList())).isEmpty()
     }
 
     private fun section(kind: FacetKind, vararg ids: String) = FacetSectionUi(
         kind = kind,
-        title = kind.name,
+        titleRes = R.string.filters_section_authors,
         items = ids.map { id -> FacetChipUi(id = id, label = id, count = 1) },
     )
-
-    private fun ids(count: Int): Array<String> = Array(count) { index -> "id-$index" }
 }

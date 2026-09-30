@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки фильтров и правил умной полки. Русский — основной, английский в values-en. -->
+<resources>
+    <string name="filters_title">Фильтры</string>
+    <string name="filters_subtitle">Можно выбрать несколько значений</string>
+    <string name="filters_active_count">Активно фильтров: %1$d</string>
+    <string name="filters_found_count">Найдено: %1$d</string>
+    <string name="filters_action_reset">Сбросить</string>
+    <string name="filters_action_apply">Применить</string>
+    <string name="filters_action_refresh">Обновить</string>
+    <string name="filters_empty_title">Фильтры появятся, когда в библиотеке будут книги</string>
+    <string name="filters_empty_message">Здесь появятся авторы, серии, жанры и теги, форматы и статус чтения — с числом книг и выбором нескольких значений сразу.</string>
+    <string name="filters_search_placeholder">Поиск: %1$s</string>
+    <string name="filters_nothing_found">Ничего не найдено</string>
+    <string name="filters_section_row_title">%1$s: %2$s</string>
+    <string name="filters_section_not_selected">не выбрано</string>
+    <string name="filters_section_available">доступно: %1$d</string>
+    <string name="filters_section_chosen">выбрано: %1$d из %2$d</string>
+    <string name="filters_overview">Значений на выбор: %1$s</string>
+
+    <string name="filters_section_authors">Авторы</string>
+    <string name="filters_section_series">Серии</string>
+    <string name="filters_section_tags">Жанры и теги</string>
+    <string name="filters_section_formats">Форматы</string>
+    <string name="filters_section_statuses">Статус чтения</string>
+
+    <plurals name="filters_word_authors">
+        <item quantity="one">%1$d автор</item>
+        <item quantity="few">%1$d автора</item>
+        <item quantity="many">%1$d авторов</item>
+        <item quantity="other">%1$d авторов</item>
+    </plurals>
+    <plurals name="filters_word_series">
+        <item quantity="one">%1$d серия</item>
+        <item quantity="few">%1$d серии</item>
+        <item quantity="many">%1$d серий</item>
+        <item quantity="other">%1$d серий</item>
+    </plurals>
+    <plurals name="filters_word_tags">
+        <item quantity="one">%1$d жанр</item>
+        <item quantity="few">%1$d жанра</item>
+        <item quantity="many">%1$d жанров</item>
+        <item quantity="other">%1$d жанров</item>
+    </plurals>
+    <plurals name="filters_word_formats">
+        <item quantity="one">%1$d формат</item>
+        <item quantity="few">%1$d формата</item>
+        <item quantity="many">%1$d форматов</item>
+        <item quantity="other">%1$d форматов</item>
+    </plurals>
+    <plurals name="filters_word_statuses">
+        <item quantity="one">%1$d статус</item>
+        <item quantity="few">%1$d статуса</item>
+        <item quantity="many">%1$d статусов</item>
+        <item quantity="other">%1$d статусов</item>
+    </plurals>
+
+    <string name="shelf_rules_title">Правила полки</string>
+    <string name="shelf_rules_subtitle">Умная полка</string>
+    <string name="shelf_rules_conditions">Условий: %1$d</string>
+    <string name="shelf_rules_matching">Подходит книг: %1$d</string>
+    <string name="shelf_rules_action_save">Сохранить</string>
+    <string name="shelf_rules_action_retry">Повторить</string>
+    <string name="shelf_rules_empty_title">Условия появятся, когда в библиотеке будут книги</string>
+    <string name="shelf_rules_empty_message">Умная полка собирается по тем же условиям, что и фильтры: авторы, серии, жанры и теги, форматы, статус чтения. Выберите хотя бы одно — и полка начнёт считать свой состав сама.</string>
+</resources>

@@ -49,8 +49,13 @@ data class FacetChipUi(
 data class FacetSectionUi(
     /** К какому фасету относится секция. */
     val kind: FacetKind,
-    /** Заголовок: «Авторы», «Серии», «Жанры и теги», «Форматы», «Статус чтения». */
-    val title: String,
+    /**
+     * Заголовок: «Авторы», «Серии», «Жанры и теги», «Форматы», «Статус чтения».
+     *
+     * Ресурс, а не текст: слова живут в `res/values` (ru) и `values-en`, а выбор заголовка
+     * остаётся чистой функцией маппинга.
+     */
+    val titleRes: Int,
     /** Чипы секции с числами книг. */
     val items: List<FacetChipUi>,
 )
@@ -62,11 +67,31 @@ data class FacetSectionUi(
  * с [FacetSectionUi] и не зависит от изменений в `core:data`.
  */
 fun FacetSet.toSectionsUi(): List<FacetSectionUi> = listOf(
-    FacetSectionUi(kind = FacetKind.AUTHORS, title = "Авторы", items = authors.toChipsUi()),
-    FacetSectionUi(kind = FacetKind.SERIES, title = "Серии", items = series.toChipsUi()),
-    FacetSectionUi(kind = FacetKind.TAGS, title = "Жанры и теги", items = tags.toChipsUi()),
-    FacetSectionUi(kind = FacetKind.FORMATS, title = "Форматы", items = formats.toChipsUi()),
-    FacetSectionUi(kind = FacetKind.STATUSES, title = "Статус чтения", items = statuses.toChipsUi()),
+    FacetSectionUi(
+        kind = FacetKind.AUTHORS,
+        titleRes = R.string.filters_section_authors,
+        items = authors.toChipsUi(),
+    ),
+    FacetSectionUi(
+        kind = FacetKind.SERIES,
+        titleRes = R.string.filters_section_series,
+        items = series.toChipsUi(),
+    ),
+    FacetSectionUi(
+        kind = FacetKind.TAGS,
+        titleRes = R.string.filters_section_tags,
+        items = tags.toChipsUi(),
+    ),
+    FacetSectionUi(
+        kind = FacetKind.FORMATS,
+        titleRes = R.string.filters_section_formats,
+        items = formats.toChipsUi(),
+    ),
+    FacetSectionUi(
+        kind = FacetKind.STATUSES,
+        titleRes = R.string.filters_section_statuses,
+        items = statuses.toChipsUi(),
+    ),
 ).filter { section -> section.items.isNotEmpty() }
 
 private fun List<FacetItem>.toChipsUi(): List<FacetChipUi> = map { item ->

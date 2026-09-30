@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import io.github.bookshelf.core.designsystem.component.EinkChip
 import io.github.bookshelf.core.designsystem.component.EinkDivider
 import io.github.bookshelf.core.designsystem.component.EinkListRow
@@ -25,6 +27,7 @@ import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.FacetChipUi
+import io.github.bookshelf.feature.filters.R
 import io.github.bookshelf.feature.filters.FacetKind
 import io.github.bookshelf.feature.filters.FacetSectionUi
 import io.github.bookshelf.feature.filters.FilterSelectionUi
@@ -54,48 +57,41 @@ private const val CHIPS_PER_ROW = 2
  * Пустой набор разделов даёт пустую строку: там экран показывает «фильтров пока нет», и подпись
  * «Значений на выбор:» без чисел выглядела бы обрезанной.
  */
+@Composable
 internal fun facetOverview(sections: List<FacetSectionUi>): String {
     if (sections.isEmpty()) return ""
-    val parts = sections.joinToString(separator = " · ") { section ->
-        // «20 авторов» — сколько значений осталось доступно после остальных фильтров.
-        "${section.items.size} ${section.kind.availableWord(section.items.size)}"
-    }
-    return "Значений на выбор: $parts"
-}
-
-/** Слово критерия в нужной форме: «1 автор», «2 автора», «5 авторов». */
-internal fun FacetKind.availableWord(count: Int): String = when (this) {
-    FacetKind.AUTHORS -> russianPlural(count, "автор", "автора", "авторов")
-    FacetKind.SERIES -> russianPlural(count, "серия", "серии", "серий")
-    FacetKind.TAGS -> russianPlural(count, "жанр", "жанра", "жанров")
-    FacetKind.FORMATS -> russianPlural(count, "формат", "формата", "форматов")
-    FacetKind.STATUSES -> russianPlural(count, "статус", "статуса", "статусов")
+    // «20 авторов» — сколько значений осталось доступно после остальных фильтров. Формы слова
+    // выбирает система по правилам языка (`<plurals>`), а не самодельная арифметика: у русского
+    // три формы, и исключение для 11–14 обязано быть частью ресурса, а не кода.
+    val parts = sections
+        .map { section -> availableWord(section.kind, section.items.size) }
+        .joinToString(separator = " · ")
+    return stringResource(R.string.filters_overview, parts)
 }
 
 /**
- * Русская форма слова по числу: 1 автор, 2 автора, 5 авторов, но 11 авторов и снова 21 автор.
+ * Числа сводки в порядке разделов: сколько значений осталось доступно по каждому критерию.
  *
- * Исключение для 11–14 обязательно: «11 автор» и «12 автора» — именно те ошибки, которые выдают
- * машинный перевод. Общий помощник, потому что та же арифметика нужна любой подписи с числом.
+ * Текст сводки собирается из ресурсов ([facetOverview]), а состав и порядок критериев — здесь:
+ * эту часть можно проверить JUnit без Compose, тогда как формы слов проверяются на ресурсах
+ * (см. `FacetPluralsTest`).
  */
-internal fun russianPlural(count: Int, one: String, few: String, many: String): String {
-    val lastTwo = count % CENTURY
-    val last = count % DECADE
-    return when {
-        lastTwo in TEENS_START..TEENS_END -> many
-        last == 1 -> one
-        last in FEW_START..FEW_END -> few
-        else -> many
-    }
-}
+internal fun facetOverviewCounts(sections: List<FacetSectionUi>): List<Pair<FacetKind, Int>> =
+    sections.map { section -> section.kind to section.items.size }
 
-/** Разряды счёта: единицы, сотни и «подростковый» разряд 11–14, который всегда даёт «много». */
-private const val DECADE = 10
-private const val CENTURY = 100
-private const val TEENS_START = 11
-private const val TEENS_END = 14
-private const val FEW_START = 2
-private const val FEW_END = 4
+/** Слово критерия в нужной форме: «1 автор», «2 автора», «5 авторов». */
+@Composable
+internal fun availableWord(kind: FacetKind, count: Int): String =
+    pluralStringResource(availableWordRes(kind), count, count)
+
+/** Ресурс слова критерия — нужен и сводке, и тесту форм. */
+internal fun availableWordRes(kind: FacetKind): Int = when (kind) {
+    FacetKind.AUTHORS -> R.plurals.filters_word_authors
+    FacetKind.SERIES -> R.plurals.filters_word_series
+    FacetKind.TAGS -> R.plurals.filters_word_tags
+    FacetKind.FORMATS -> R.plurals.filters_word_formats
+    FacetKind.STATUSES -> R.plurals.filters_word_statuses
+}
 
 
 /**
@@ -161,7 +157,10 @@ internal fun FacetList(
                             EinkTextField(
                                 value = search,
                                 onValueChange = { search = it },
-                                placeholder = "Поиск: ${section.title.lowercase()}",
+                                placeholder = stringResource(
+                                    R.string.filters_search_placeholder,
+                                    stringResource(section.titleRes).lowercase(),
+                                ),
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
@@ -172,7 +171,7 @@ internal fun FacetList(
                     if (visible.isEmpty()) {
                         item(key = "empty:${section.kind}") {
                             Text(
-                                text = "Ничего не найдено",
+                                text = stringResource(R.string.filters_nothing_found),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colors.foreground,
                             )
@@ -215,12 +214,18 @@ private fun FacetRow(
     onClick: () -> Unit,
 ) {
     val chosen = section.items.filter { chip -> isFacetSelected(selected, section.kind, chip.id) }
+    val title = stringResource(section.titleRes)
     EinkListRow(
-        title = "${section.title}: " + chosen.joinToString(", ") { chip -> chip.label }.ifEmpty { "не выбрано" },
+        title = stringResource(
+            R.string.filters_section_row_title,
+            title,
+            chosen.joinToString(", ") { chip -> chip.label }
+                .ifEmpty { stringResource(R.string.filters_section_not_selected) },
+        ),
         subtitle = if (chosen.isEmpty()) {
-            "доступно: ${section.items.size}"
+            stringResource(R.string.filters_section_available, section.items.size)
         } else {
-            "выбрано: ${chosen.size} из ${section.items.size}"
+            stringResource(R.string.filters_section_chosen, chosen.size, section.items.size)
         },
         trailing = if (expanded) "▲" else "▼",
         // Раскрытый критерий инвертируется: видно, чьи значения показаны ниже.

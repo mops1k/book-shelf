@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
@@ -25,6 +26,7 @@ import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.FiltersViewModel
+import io.github.bookshelf.feature.filters.R
 import io.github.bookshelf.feature.filters.activeFilterCount
 import io.github.bookshelf.feature.filters.hasActiveFilters
 import io.github.bookshelf.feature.filters.toSectionsUi
@@ -54,10 +56,10 @@ fun FiltersScreen(
     val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
-        title = "Фильтры",
+        title = stringResource(R.string.filters_title),
         // Было «ИЛИ внутри фасета, И между фасетами» — слова «фасет» человек не знает, а «ИЛИ/И»
         // читались как часть названия (замечание Александра, 29.09.2026).
-        subtitle = "Можно выбрать несколько значений",
+        subtitle = stringResource(R.string.filters_subtitle),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -78,12 +80,15 @@ fun FiltersScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "Активно фильтров: ${activeFilterCount(state.selected)}",
+                        text = stringResource(
+                            R.string.filters_active_count,
+                            activeFilterCount(state.selected),
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.foreground,
                     )
                     Text(
-                        text = "Найдено: ${state.resultCount}",
+                        text = stringResource(R.string.filters_found_count, state.resultCount),
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.foreground,
                     )
@@ -95,13 +100,13 @@ fun FiltersScreen(
                     horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
                 ) {
                     EinkButton(
-                        text = "Сбросить",
+                        text = stringResource(R.string.filters_action_reset),
                         onClick = viewModel::onReset,
                         enabled = hasActiveFilters(state.selected),
                         modifier = Modifier.weight(1f),
                     )
                     EinkButton(
-                        text = "Применить",
+                        text = stringResource(R.string.filters_action_apply),
                         onClick = onApply,
                         primary = true,
                         modifier = Modifier.weight(1f),
@@ -114,7 +119,7 @@ fun FiltersScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Обновить",
+                actionLabel = stringResource(R.string.filters_action_refresh),
                 onAction = viewModel::onLoadFacets,
             )
         }
@@ -122,9 +127,8 @@ fun FiltersScreen(
         Box(modifier = Modifier.weight(1f)) {
             if (sections.isEmpty()) {
                 EinkEmptyState(
-                    title = "Фильтры появятся, когда в библиотеке будут книги",
-                    message = "Здесь появятся авторы, серии, жанры и теги, форматы и статус чтения — " +
-                        "с числом книг и выбором нескольких значений сразу.",
+                    title = stringResource(R.string.filters_empty_title),
+                    message = stringResource(R.string.filters_empty_message),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

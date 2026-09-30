@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="filters_title">Filters</string>
+    <string name="filters_subtitle">Several values can be selected</string>
+    <string name="filters_active_count">Active filters: %1$d</string>
+    <string name="filters_found_count">Found: %1$d</string>
+    <string name="filters_action_reset">Reset</string>
+    <string name="filters_action_apply">Apply</string>
+    <string name="filters_action_refresh">Refresh</string>
+    <string name="filters_empty_title">Filters will appear when there are books in the library</string>
+    <string name="filters_empty_message">Authors, series, genres and tags, formats and reading status will appear here — with the number of books and several values selectable at once.</string>
+    <string name="filters_search_placeholder">Search: %1$s</string>
+    <string name="filters_nothing_found">Nothing found</string>
+    <string name="filters_section_row_title">%1$s: %2$s</string>
+    <string name="filters_section_not_selected">not selected</string>
+    <string name="filters_section_available">available: %1$d</string>
+    <string name="filters_section_chosen">selected: %1$d of %2$d</string>
+    <string name="filters_overview">Available: %1$s</string>
+
+    <string name="filters_section_authors">Authors</string>
+    <string name="filters_section_series">Series</string>
+    <string name="filters_section_tags">Genres and tags</string>
+    <string name="filters_section_formats">Formats</string>
+    <string name="filters_section_statuses">Reading status</string>
+
+    <plurals name="filters_word_authors">
+        <item quantity="one">%1$d author</item>
+        <item quantity="other">%1$d authors</item>
+    </plurals>
+    <plurals name="filters_word_series">
+        <item quantity="one">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+    <plurals name="filters_word_tags">
+        <item quantity="one">%1$d genre</item>
+        <item quantity="other">%1$d genres</item>
+    </plurals>
+    <plurals name="filters_word_formats">
+        <item quantity="one">%1$d format</item>
+        <item quantity="other">%1$d formats</item>
+    </plurals>
+    <plurals name="filters_word_statuses">
+        <item quantity="one">%1$d status</item>
+        <item quantity="other">%1$d statuses</item>
+    </plurals>
+
+    <string name="shelf_rules_title">Shelf rules</string>
+    <string name="shelf_rules_subtitle">Smart shelf</string>
+    <string name="shelf_rules_conditions">Conditions: %1$d</string>
+    <string name="shelf_rules_matching">Matching books: %1$d</string>
+    <string name="shelf_rules_action_save">Save</string>
+    <string name="shelf_rules_action_retry">Retry</string>
+    <string name="shelf_rules_empty_title">Conditions will appear when there are books in the library</string>
+    <string name="shelf_rules_empty_message">A smart shelf is built from the same conditions as the filters: authors, series, genres and tags, formats, reading status. Choose at least one — and the shelf starts counting its own contents.</string>
+</resources>
