@@ -25,14 +25,36 @@ import javax.inject.Singleton
  * Возвращается `null`, если выигрыша нет: «не стало меньше» — это не повод переписывать файл.
  */
 @Singleton
-class Fb2ImageOptimizer @Inject constructor() {
+class Fb2ImageOptimizer @Inject constructor(
+    private val entropy: JpegEntropyOptimizer,
+) {
 
-    /** Оптимизировать картинку [bytes] с типом [contentType]; `null` — оставить как есть. */
+    /**
+     * Оптимизировать картинку [bytes] с типом [contentType]; `null` — оставить как есть.
+     *
+     * Для JPEG делаются два независимых шага, и берётся лучший результат: снятие служебных
+     * сегментов и пережатие сжатых данных оптимизированными таблицами Хаффмана. Оба не меняют
+     * пиксели, и вместе они дают больше, чем каждый по отдельности.
+     */
     fun optimize(bytes: ByteArray, contentType: String): ByteArray? = when (contentType.lowercase()) {
-        JPEG_TYPE -> optimizeJpeg(bytes)
+        JPEG_TYPE -> bestOf(
+            source = bytes,
+            candidates = listOfNotNull(
+                optimizeJpeg(bytes),
+                entropy.optimize(bytes),
+                // Оба шага вместе: снятие метаданных уменьшает файл, после чего таблицы Хаффмана
+                // считаются по тем же данным и дают ещё немного.
+                optimizeJpeg(bytes)?.let { stripped -> entropy.optimize(stripped) },
+            ),
+        )
+
         PNG_TYPE -> optimizePng(bytes)
         else -> null
     }
+
+    /** Самый маленький из вариантов, если он строго меньше исходного; иначе — не трогать. */
+    private fun bestOf(source: ByteArray, candidates: List<ByteArray>): ByteArray? =
+        candidates.filter { it.size < source.size }.minByOrNull { it.size }
 
     private fun optimizeJpeg(bytes: ByteArray): ByteArray? {
         if (bytes.size < SOI.size + 2 || !bytes.startsWith(SOI)) return null

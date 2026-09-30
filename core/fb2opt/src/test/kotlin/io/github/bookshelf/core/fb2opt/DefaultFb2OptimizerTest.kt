@@ -21,7 +21,7 @@ import java.util.zip.ZipOutputStream
  */
 class DefaultFb2OptimizerTest {
 
-    private val optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer())
+    private val optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer()))
 
     @Test
     fun `a plain fb2 book becomes smaller and keeps its picture`() {
@@ -35,10 +35,10 @@ class DefaultFb2OptimizerTest {
         // Отступы между тегами ушли, текст остался.
         assertThat(optimized).doesNotContain("\n  <section>")
         assertThat(optimized).contains("Мы тут жизнь живём")
-        // Пиксели те же: сжатые данные после SOS совпадают. Метаданные при этом снимаются —
-        // в этом и смысл шага, поэтому сравнивать байты картинки целиком было бы неверно.
-        assertThat(optimized.imageBytes().scanData())
-            .isEqualTo(String(source, Charsets.UTF_8).imageBytes().scanData())
+        // Пиксели те же: сравниваются коэффициенты картинки (то, что и определяет изображение).
+        // Байты сравнивать нельзя — пережатие таблицами Хаффмана их как раз и меняет.
+        assertThat(optimized.imageBytes().coefficients())
+            .isEqualTo(String(source, Charsets.UTF_8).imageBytes().coefficients())
     }
 
     @Test
@@ -89,17 +89,11 @@ class DefaultFb2OptimizerTest {
         return java.util.Base64.getDecoder().decode(base64)
     }
 
-    /** Сжатые данные JPEG: всё, что идёт после маркера начала сканирования. */
-    private fun ByteArray.scanData(): ByteArray {
-        var index = 2
-        while (index + 1 < size) {
-            if (this[index] != 0xFF.toByte()) return this
-            val kind = this[index + 1].toInt() and 0xFF
-            if (kind == 0xDA) return copyOfRange(index, size)
-            val length = ((this[index + 2].toInt() and 0xFF) shl 8) or (this[index + 3].toInt() and 0xFF)
-            index += 2 + length
-        }
-        return this
+    /** Коэффициенты картинки: то, что определяет пиксели. */
+    private fun ByteArray.coefficients(): List<List<Short>> {
+        val structure = checkNotNull(JpegParser.parse(this)) { "картинка не разбирается" }
+        val decoded = checkNotNull(JpegEntropyTranscoder(structure).decode()) { "данные не читаются" }
+        return decoded.blocks.map { blocks -> blocks.flatMap { block -> block.toList() } }
     }
 
     private fun zipOf(name: String, content: ByteArray): ByteArray {

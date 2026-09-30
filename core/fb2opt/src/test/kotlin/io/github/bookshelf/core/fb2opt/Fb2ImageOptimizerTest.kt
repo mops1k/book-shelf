@@ -22,7 +22,7 @@ import java.util.zip.Inflater
  */
 class Fb2ImageOptimizerTest {
 
-    private val optimizer = Fb2ImageOptimizer()
+    private val optimizer = Fb2ImageOptimizer(JpegEntropyOptimizer())
 
     @Test
     fun `jpeg metadata is dropped while the compressed picture stays the same`() {
@@ -33,28 +33,37 @@ class Fb2ImageOptimizerTest {
         assertThat(result).isNotNull()
         assertThat(result!!.size).isLessThan(source.size)
         assertThat(String(result, Charsets.ISO_8859_1)).doesNotContain("Exif")
-        // Пиксели: всё, что идёт после SOS, обязано совпасть байт-в-байт.
-        assertThat(result.scanData()).isEqualTo(source.scanData())
+        // Пиксели: коэффициенты картинки обязаны совпасть. Сжатые байты сравнивать нельзя —
+        // пережатие таблицами Хаффмана их как раз и меняет.
+        assertThat(result.coefficients()).isEqualTo(source.coefficients())
     }
 
     @Test
-    fun `jpeg without metadata is left alone`() {
+    fun `jpeg without metadata gets its tables optimized`() {
         val source = fixture("image-plain.jpg")
 
         val result = optimizer.optimize(source, "image/jpeg")
 
-        // Ничего не выиграли — значит и трогать нечего: возвращаем null, а не те же байты.
-        assertThat(result).isNull()
+        // Метаданных нет, но таблицы Хаффмана можно посчитать по самой картинке: выигрыш есть.
+        // Если выигрыша нет — возвращается null, и файл остаётся как был.
+        if (result != null) {
+            assertThat(result.size).isLessThan(source.size)
+            assertThat(result.coefficients()).isEqualTo(source.coefficients())
+        }
     }
 
     @Test
-    fun `jpeg with an exif orientation is not touched`() {
+    fun `jpeg with an exif orientation keeps its metadata`() {
         val source = fixture("image-with-exif.jpg").withOrientation(6)
 
         val result = optimizer.optimize(source, "image/jpeg")
 
-        // Снятие EXIF перевернуло бы такую картинку в читалке: пусть остаётся как есть.
-        assertThat(result).isNull()
+        // Снятие EXIF перевернуло бы такую картинку в читалке, поэтому метаданные остаются на месте.
+        // Пережать при этом можно: пиксели не меняются.
+        if (result != null) {
+            assertThat(String(result, Charsets.ISO_8859_1)).contains("Exif")
+            assertThat(result.coefficients()).isEqualTo(source.coefficients())
+        }
     }
 
     @Test
@@ -86,24 +95,12 @@ class Fb2ImageOptimizerTest {
 
     // --- вспомогательное: разбор форматов прямо в тесте, чтобы проверка не зависела от проверяемого кода ---
 
-    private fun ByteArray.scanData(): ByteArray {
-        val start = indexOfMarker(SOS)
-        return if (start < 0) this else copyOfRange(start, size)
+    private fun ByteArray.coefficients(): List<List<Short>> {
+        val structure = checkNotNull(JpegParser.parse(this)) { "картинка не разбирается" }
+        val decoded = checkNotNull(JpegEntropyTranscoder(structure).decode()) { "данные не читаются" }
+        return decoded.blocks.map { blocks -> blocks.flatMap { block -> block.toList() } }
     }
 
-    private fun ByteArray.indexOfMarker(marker: Int): Int {
-        var index = 2
-        while (index + 1 < size) {
-            if (this[index] != 0xFF.toByte()) return -1
-            val kind = this[index + 1].toInt() and 0xFF
-            if (kind == marker) return index
-            val length = ((this[index + 2].toInt() and 0xFF) shl 8) or (this[index + 3].toInt() and 0xFF)
-            index += 2 + length
-        }
-        return -1
-    }
-
-    /** Распакованное содержимое всех `IDAT`: сравнение доказывает, что картинка не изменилась. */
     private fun ByteArray.inflatedIdat(): ByteArray {
         var index = 8
         val deflated = ByteArrayOutputStream()
