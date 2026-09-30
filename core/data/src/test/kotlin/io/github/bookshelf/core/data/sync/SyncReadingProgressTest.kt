@@ -9,6 +9,7 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.testing.fake.FakeReaderSession
 import io.github.bookshelf.core.data.model.ScanProgress
 import io.github.bookshelf.core.data.model.ScanReport
 import io.github.bookshelf.core.data.model.ScanStatus
@@ -74,6 +75,7 @@ class SyncReadingProgressTest {
             readingProgressDao = database.readingProgressDao(),
             sourceRepository = FakeSourceRepository(),
             scanRepository = FakeScanRepository(),
+            readerSession = FakeReaderSession(),
             duplicateFinder = DuplicateFinder(FakeContentHasher()),
             fileRemover = FakeFileRemover(),
             clock = FakeAppClock().apply { setTo(1_000L) },

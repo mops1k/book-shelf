@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.data.sync.LibrarySync
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
 import io.github.bookshelf.work.DatabaseBackupScheduler
@@ -81,6 +82,15 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var librarySync: LibrarySync
 
+    /**
+     * Сессия чтения: пока читалка открыта, тяжёлые работы уступают.
+     *
+     * Ставится при запуске читалки (`ReaderRepositoryImpl.openBook`), снимается здесь — когда
+     * человек вернулся в приложение.
+     */
+    @Inject
+    lateinit var readerSession: ReaderSession
+
     /** Прогресс чтения из читалки: читается при возврате в приложение и по событию читалки. */
     @Inject
     lateinit var readingProgressSync: SyncReadingProgress
@@ -102,6 +112,9 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
+        // Сначала «мы на экране»: иначе синхронизация ниже решила бы, что человек всё ещё читает,
+        // и не стала бы работать, пока приложение открыто.
+        readerSession.onAppForeground()
         lifecycleScope.launch { librarySync.syncIfStale() }
         // Человек мог только что закрыть читалку: прогресс читаем сразу, не дожидаясь таймера.
         launchProgressSync()
@@ -109,6 +122,12 @@ class MainActivity : ComponentActivity() {
         // Расписание копий пересматривается при каждом запуске: если настройку выключили, работа
         // должна быть снята, а не сработать после запрета.
         lifecycleScope.launch { databaseBackupSchedule.review() }
+    }
+
+    override fun onStop() {
+        // Ушли в фон — возможно, в читалку: с этого момента тяжёлые работы уступают ей дорогу.
+        readerSession.onAppBackground()
+        super.onStop()
     }
 
     override fun onDestroy() {

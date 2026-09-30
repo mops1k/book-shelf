@@ -10,6 +10,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.sync.afterFileChange
 import io.github.bookshelf.core.data.sync.booksToDelete
@@ -71,6 +72,8 @@ class ScanSourceWorker @AssistedInject constructor(
     private val fileChangeHandler: io.github.bookshelf.core.data.sync.BookFileChangeHandler,
     /** Кэш обложек: обложка изменившегося файла не должна остаться старой. */
     private val coverCache: io.github.bookshelf.core.covers.CoverCache,
+    /** Сессия чтения: пока читалка открыта, обход уступает ей процессор. */
+    private val readerSession: ReaderSession,
     private val clock: AppClock,
 ) : CoroutineWorker(appContext, params) {
 
@@ -83,6 +86,13 @@ class ScanSourceWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val sourceId = inputData.getString(KEY_SOURCE_ID) ?: return Result.failure()
         val source = sourceDao.getById(sourceId) ?: return Result.failure()
+        // Читалка открыта — обход не начинаем вовсе. Проверка стоит ДО создания прогона: иначе в
+        // базе осталась бы запись «идёт скан», которого нет, и экран показывал бы вечный прогресс.
+        // Работа не теряется: прогон поставит следующий возврат в приложение или расписание.
+        if (readerSession.isActive()) {
+            Log.w("BookShelf", "скан отложен: открыта читалка")
+            return Result.success()
+        }
         val run = resumeOrCreateRun(sourceId)
         // Возобновлённый прогон видит только хвост дерева: список встреченных книг в нём неполный,
         // и удалять по нему нельзя. 30.09.2026 так исчезла вся полка: прогон ушёл в PAUSED на
@@ -98,6 +108,14 @@ class ScanSourceWorker @AssistedInject constructor(
                     // Повторы ограничены: без предела работа уходит в backoff, а `KEEP` не даёт
                     // поставить новый скан — кнопка «Пересканировать» перестаёт действовать.
                     if (shouldRetryScan(runAttemptCount)) Result.retry() else Result.success()
+                }
+
+                is ScanOutcome.Deferred -> {
+                    // PAUSED с причиной: прогон не терминален, курсор на месте, статистика источника
+                    // не переписывается — «N книг» остаётся прежним, пока обход не закончится.
+                    scanRunDao.finish(run.id, ScanRunStatus.PAUSED, null, result.reason)
+                    Log.w("BookShelf", "скан остановлен: ${result.reason}")
+                    Result.success()
                 }
 
                 is ScanOutcome.Completed -> {
@@ -134,6 +152,14 @@ class ScanSourceWorker @AssistedInject constructor(
     private sealed interface ScanOutcome {
         data object Completed : ScanOutcome
         data class Failed(val reason: String) : ScanOutcome
+
+        /**
+         * Обход остановлен, потому что открылась читалка.
+         *
+         * Отдельный исход, а не [Failed]: ничего не сломалось, и повторять с задержкой не нужно —
+         * курсор сохранён, а работу продолжит следующий запуск.
+         */
+        data class Deferred(val reason: String) : ScanOutcome
     }
 
     /**
@@ -148,6 +174,10 @@ class ScanSourceWorker @AssistedInject constructor(
 
         while (true) {
             currentCoroutineContext().ensureActive()
+            // Проверка между батчами: обход длинной библиотеки идёт минутами, и читалка может
+            // открыться уже посреди него. Курсор сохранён предыдущим батчем, поэтому остановка
+            // ничего не теряет — следующий запуск продолжит с этого места.
+            if (readerSession.isActive()) return ScanOutcome.Deferred("открыта читалка")
             val step = treeWalker.walk(source.toRef(), cursor, options) { batch, resumeFrom ->
                 storeBatch(source, batch, resumeFrom, run)
             }
@@ -198,8 +228,24 @@ class ScanSourceWorker @AssistedInject constructor(
         // вместо идентификатора документа. Без этой проверки скан падал на
         // `UNIQUE books.documentUri`, прогон уходил в PAUSED и повторялся по кругу.
         val existing = bookDao.getById(bookIdOf(entry))
-            ?: bookDao.getByDocumentUri(treeReader.documentUri(source.uri, entry.documentId))
+            ?: bookDao.findByDocumentUri(treeReader.documentUri(source.uri, entry.documentId))
         val id = existing?.id ?: bookIdOf(entry)
+        // Копия уже известной книги книгой не считается. Так ведёт себя FBReader: открывая книгу из
+        // нашего приложения, он копирует файл в `Books/<дата>/` внутри нашей библиотеки (его
+        // настройка «Куда сохранять загруженные книги» указывает на ту же папку, что мы сканируем),
+        // и в полке появлялась вторая такая же книга (30.09.2026). Совпали имя и размер — это тот же
+        // файл, поэтому заводить его заново нельзя; сравнение дешёвое, без чтения содержимого.
+        val entrySize = entry.sizeBytes
+        val copyOfKnownBook = existing == null && entrySize != null &&
+            bookDao.countByFileNameAndSize(
+                fileName = entry.displayName,
+                sizeBytes = entrySize,
+                excludeId = id,
+            ) > 0
+        if (copyOfKnownBook) {
+            Log.w("BookShelf", "копия книги пропущена: ${entry.displayName}")
+            return
+        }
         seenIds += id
         if (existing == null) {
             bookDao.insert(newBook(source, id, entry))

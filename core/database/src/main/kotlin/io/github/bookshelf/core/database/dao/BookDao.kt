@@ -39,8 +39,21 @@ interface BookDao {
      * Нужно синхронизации прогресса: читалка отдаёт адрес открытой книги, и для наших книг это ровно
      * тот `content://`, которым мы её открыли (`books.documentUri`).
      */
-    @Query("SELECT * FROM books WHERE documentUri = :documentUri LIMIT 1")
-    suspend fun getByDocumentUri(documentUri: String): BookEntity?
+    /**
+     * Сколько книг уже имеют такое имя файла и размер.
+     *
+     * Нужно скану, чтобы не заводить книгу на копию: FBReader, открывая книгу из нашего приложения,
+     * копирует файл в `Books/<дата>/` внутри нашей библиотеки (его «Куда сохранять загруженные
+     * книги» указывает на ту же папку, что мы сканируем). Копия — тот же файл, у неё совпадают имя и
+     * размер, и в полке она оказывалась второй книгой (30.09.2026).
+     *
+     * `excludeId` — книга, которую мы сейчас пишем: сама себе она копией не является.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM books WHERE fileName = :fileName AND sizeBytes = :sizeBytes " +
+            "AND id != :excludeId",
+    )
+    suspend fun countByFileNameAndSize(fileName: String, sizeBytes: Long, excludeId: String): Int
 
     /**
      * Все книги одним списком.

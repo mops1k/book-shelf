@@ -7,6 +7,7 @@ import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.author.parseAuthors
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.data.repository.ScanRepository
@@ -65,6 +66,8 @@ class BookRepositoryImpl @Inject constructor(
     private val sourceRepository: SourceRepository,
     private val scanRepository: ScanRepository,
     private val duplicateFinder: DuplicateFinder,
+    /** Сессия чтения: тяжёлые работы (поиск дублей) уступают читалке. */
+    private val readerSession: ReaderSession,
     private val fileRemover: SafTreeWriter,
     private val clock: AppClock,
     /** Правка авторов должна попадать в связи: по ним работает всё авторское измерение. */
@@ -162,7 +165,7 @@ class BookRepositoryImpl @Inject constructor(
         forExistingBook(bookId) { bookDao.setReadingStatus(bookId, status.name) }
 
     override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> = appRunCatching {
-        bookDao.getByDocumentUri(documentUri)?.toDomain(authors = emptyList())
+        bookDao.findByDocumentUri(documentUri)?.toDomain(authors = emptyList())
     }
 
     override suspend fun saveReadingProgress(
@@ -203,7 +206,12 @@ class BookRepositoryImpl @Inject constructor(
         }
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = appRunCatching {
-        duplicateFinder.find(bookDao.getAll().map { entity -> entity.toDomain(authors = emptyList()) })
+        // Полный хеш файлов — самая тяжёлая работа в приложении, и она уступает читалке: открылась
+        // читалка — поиск останавливается и честно говорит об этом, а не молчит «дублей нет».
+        duplicateFinder.find(
+            books = bookDao.getAll().map { entity -> entity.toDomain(authors = emptyList()) },
+            shouldStop = { readerSession.isActive() },
+        )
     }
 
     /**

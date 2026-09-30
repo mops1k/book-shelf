@@ -1,6 +1,7 @@
 package io.github.bookshelf.work
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -8,6 +9,7 @@ import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.covers.CoverCache
 import io.github.bookshelf.core.database.dao.BookDao
@@ -59,10 +61,19 @@ class MetadataWorker @AssistedInject constructor(
      * писали врозь, и авторы не попадали в `authors`/`book_authors` вовсе.
      */
     private val parsedBookWriter: ParsedBookWriter,
+    /** Сессия чтения: разбор — тяжёлая работа и не должен конкурировать с читалкой. */
+    private val readerSession: ReaderSession,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         val bookId = inputData.getString(KEY_BOOK_ID) ?: return Result.failure()
+        // Открыта читалка — разбор откладываем. `retry` здесь честный: работа не потеряна, книга
+        // остаётся в состоянии PENDING и будет разобрана, когда чтение закончится. `success` был бы
+        // хуже: книга осталась бы неразобранной до следующего скана, которого может не быть.
+        if (readerSession.isActive()) {
+            Log.w("BookShelf", "разбор отложен: открыта читалка")
+            return Result.retry()
+        }
         val book = bookDao.getById(bookId) ?: return Result.success()
         // Принудительный разбор нужен бэкфиллу: у старых книг parseState уже OK, но жанров
         // в базе нет — обычный путь их пропускает, и жанры не появились бы никогда.

@@ -32,7 +32,9 @@ import io.github.bookshelf.core.data.metadata.BookMetadataEditor
 import io.github.bookshelf.core.data.metadata.DefaultBookMetadataEditor
 import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
+import io.github.bookshelf.core.data.reader.DefaultReaderSession
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.data.repository.impl.ReadingProgressRepositoryImpl
 import io.github.bookshelf.core.data.repository.impl.ScanRepositoryImpl
@@ -96,6 +98,15 @@ abstract class DataModule {
     abstract fun bindReaderExport(
         impl: DefaultReaderExport,
     ): ReaderExport
+
+    /**
+     * Сессия чтения: пока читалка открыта, тяжёлые работы уступают (иначе её главный поток встаёт
+     * в сборке мусора и человек видит «FBReader не отвечает», ANR 30.09.2026).
+     */
+    @Binds
+    abstract fun bindReaderSession(
+        impl: DefaultReaderSession,
+    ): ReaderSession
 
     @Binds
     abstract fun bindBookMetadataEditor(

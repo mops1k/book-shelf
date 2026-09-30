@@ -106,7 +106,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
         // Тот же идентификатор, что у скана: иначе та же книга попала бы на полку дважды. Если
         // строка с таким адресом уже есть (скачали раньше или файл уже был в папке), берётся её id:
         // иначе вставка упала бы на `UNIQUE books.documentUri`.
-        val bookId = bookDao.getByDocumentUri(documentUri)?.id
+        val bookId = bookDao.findByDocumentUri(documentUri)?.id
             ?: bookIdOfDocumentUri(documentUri)
             ?: return fail(downloadId, "Провайдер вернул адрес, из которого не собрать идентификатор")
         bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template, credentials)))

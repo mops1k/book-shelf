@@ -11,6 +11,7 @@ import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.readerlink.discovery.InstalledReader
 import io.github.bookshelf.core.readerlink.discovery.ReaderDiscovery
@@ -18,6 +19,7 @@ import io.github.bookshelf.core.readerlink.launch.LaunchRequest
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
 import io.github.bookshelf.core.readerlink.profile.ReaderProfile
+import io.github.bookshelf.core.testing.fake.FakeReaderSession
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -42,6 +44,7 @@ class ReaderOpenBookTest {
     private val launcher = FakeLauncher()
     private val export = FakeReaderExport()
     private val discovery = FakeReaderDiscovery()
+    private val session = FakeReaderSession()
 
     @Before
     fun setUp() {
@@ -113,10 +116,46 @@ class ReaderOpenBookTest {
         assertThat(launcher.requests).hasSize(1)
     }
 
+    @Test
+    fun `a successful launch starts the reading session`() = runBlocking {
+        givenBook()
+
+        repository().openBook(BOOK_ID)
+
+        // Пока читалка открыта, тяжёлые работы обязаны уступать: 30.09.2026 её главный поток встал
+        // в сборке мусора из-за нашей фоновой работы, и человек видел «FBReader не отвечает».
+        assertThat(session.opened).isEqualTo(listOf(BOOK_ID))
+    }
+
+    @Test
+    fun `a refused launch does not start the reading session`() = runBlocking {
+        givenBook()
+        launcher.refuseUris = setOf(DOCUMENT_URI)
+        export.error = AppError.PermissionDenied(message = "Временный экспорт выключен")
+
+        repository().openBook(BOOK_ID)
+
+        // Читалка не открылась — чтения нет, и запрещать фоновую работу было бы вредно.
+        assertThat(session.opened).isEmpty()
+    }
+
+    @Test
+    fun `the fallback copy also starts the reading session`() = runBlocking {
+        givenBook()
+        launcher.refuseUris = setOf(DOCUMENT_URI)
+        export.exported = Uri.parse(EXPORTED_URI)
+
+        repository().openBook(BOOK_ID)
+
+        // Открыли копией — чтение всё равно началось, и фон должен уступить так же.
+        assertThat(session.opened).isEqualTo(listOf(BOOK_ID))
+    }
+
     private fun repository() = ReaderRepositoryImpl(
         discovery = discovery,
         launcher = launcher,
         export = export,
+        session = session,
         profileDao = database.readerProfileDao(),
         bookDao = database.bookDao(),
         formatDefaultDao = database.formatDefaultDao(),

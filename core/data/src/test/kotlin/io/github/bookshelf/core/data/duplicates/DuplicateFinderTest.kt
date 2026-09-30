@@ -112,4 +112,33 @@ class DuplicateFinderTest {
             return hashes[id]
         }
     }
+
+    @Test
+    fun `a stopped search reports that it did not finish`() {
+        val hasher = RecordingHasher(mapOf("a" to "same", "b" to "same"))
+        val books = listOf(
+            book(id = "a", path = "Автор/Книга.fb2", size = 100, hash = "same"),
+            book(id = "b", path = "Книга.fb2", size = 100, hash = "same"),
+        )
+
+        // Читалка открылась до начала поиска: файлы читать нельзя вовсе.
+        val report = DuplicateFinder(hasher).find(books, shouldStop = { true })
+
+        assertThat(report.stopped).isTrue()
+        assertThat(report.groups).isEmpty()
+        assertThat(hasher.commonUris).isEmpty()
+    }
+
+    @Test
+    fun `a search that was not stopped is marked complete`() {
+        val hasher = RecordingHasher(mapOf("a" to "same", "b" to "same"))
+        val books = listOf(
+            book(id = "a", path = "Автор/Книга.fb2", size = 100, hash = "same"),
+            book(id = "b", path = "Книга.fb2", size = 100, hash = "same"),
+        )
+
+        val report = DuplicateFinder(hasher).find(books)
+
+        assertThat(report.stopped).isFalse()
+    }
 }

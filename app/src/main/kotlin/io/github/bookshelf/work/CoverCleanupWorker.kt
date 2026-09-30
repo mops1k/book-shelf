@@ -1,8 +1,10 @@
 package io.github.bookshelf.work
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import io.github.bookshelf.core.covers.cache.CoverCacheCleaner
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.LibrarySettings
 import io.github.bookshelf.core.datastore.model.megabytesToBytes
@@ -25,6 +27,8 @@ class CoverCleanupWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val cleaner: CoverCacheCleaner,
     private val settingsRepository: SettingsRepository,
+    /** Сессия чтения: уборка читает и удаляет файлы, читалке это мешает так же, как скан. */
+    private val readerSession: ReaderSession,
 ) : CoroutineWorker(appContext, params) {
 
     /**
@@ -38,6 +42,12 @@ class CoverCleanupWorker @AssistedInject constructor(
      * без чистки — на этот случай есть резервный лимит ([coverCacheLimitBytes]).
      */
     override suspend fun doWork(): Result = runCatching {
+        // Открыта читалка — уборку откладываем: она ходит по файлам кэша, а читалке нужен процессор.
+        // Работа периодическая, поэтому пропуск ничего не ломает: следующий проход сделает своё.
+        if (readerSession.isActive()) {
+            Log.w("BookShelf", "уборка кэша обложек пропущена: открыта читалка")
+            return@runCatching Result.success()
+        }
         val library = runCatching { settingsRepository.current().library }.getOrNull()
         cleaner.evictToLimit(limitBytes = coverCacheLimitBytes(library))
         Result.success()

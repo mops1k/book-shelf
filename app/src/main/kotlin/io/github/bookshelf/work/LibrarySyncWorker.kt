@@ -1,11 +1,13 @@
 package io.github.bookshelf.work
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.data.sync.LibrarySync
 
 /**
@@ -23,9 +25,18 @@ class LibrarySyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val librarySync: LibrarySync,
+    /** Сессия чтения: пока читалка открыта, обход дерева не запускаем. */
+    private val readerSession: ReaderSession,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        // Открыта читалка — проход пропускаем целиком: обход дерева и разбор файлов отбирают у неё
+        // процессор, и её главный поток встаёт в сборке мусора (ANR 30.09.2026). Пропуск ничего не
+        // теряет: библиотеку синхронизирует возврат в приложение, а периодический проход повторится.
+        if (readerSession.isActive()) {
+            Log.w("BookShelf", "периодическая синхронизация пропущена: открыта читалка")
+            return Result.success()
+        }
         // Ошибки синхронизации не роняют работу: неудачный проход повторит следующее срабатывание,
         // а `Result.retry()` на периодической работе превратился бы в немедленные повторы.
         librarySync.syncNow()

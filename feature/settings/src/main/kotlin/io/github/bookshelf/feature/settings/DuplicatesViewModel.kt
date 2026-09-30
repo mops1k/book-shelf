@@ -87,7 +87,12 @@ class DuplicatesViewModel @Inject constructor(
                     broken = broken,
                     isConfirming = toRemove.isNotEmpty(),
                     isConfirmingBroken = broken.isNotEmpty(),
-                    message = resultMessage(found?.groups?.size ?: 0, toRemove.size, broken.size),
+                    message = resultMessage(
+                        groups = found?.groups?.size ?: 0,
+                        duplicates = toRemove.size,
+                        broken = broken.size,
+                        stopped = found?.stopped == true,
+                    ),
                 )
             }
         }
@@ -160,7 +165,18 @@ class DuplicatesViewModel @Inject constructor(
 }
 
 /** Строка результата проверки: сколько групп и файлов нашлось. */
-private fun resultMessage(groups: Int, duplicates: Int, broken: Int): String {
+private fun resultMessage(groups: Int, duplicates: Int, broken: Int, stopped: Boolean): String {
+    // Прерванный поиск нельзя выдавать за «дубликатов не найдено»: файлы ещё не сравнены, и
+    // человек сделал бы вывод, что копий нет. Причина остановки — открытая читалка, которой
+    // поиск уступает процессор (ANR читалки 30.09.2026).
+    if (stopped) {
+        val found = if (groups == 0 && broken == 0) {
+            "ничего не найдено до остановки"
+        } else {
+            "найдено до остановки: групп дублей $groups, битых файлов $broken"
+        }
+        return "Поиск остановлен: открыта читалка ($found). Закройте читалку и повторите."
+    }
     if (groups == 0 && broken == 0) return "Дубликатов не найдено"
     val parts = mutableListOf<String>()
     if (groups > 0) parts += "групп дублей: $groups, к удалению файлов: $duplicates"

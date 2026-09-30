@@ -41,6 +41,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import io.github.bookshelf.core.testing.fake.FakeScanRepository
 import io.github.bookshelf.core.testing.fake.FakeSourceRepository
+import io.github.bookshelf.core.testing.fake.FakeReaderSession
 
 /**
  * Чтение полки и команды над книгами (docs/architecture.md §3.1, §3.5).
@@ -85,6 +86,7 @@ class BookRepositoryTest {
             readingProgressDao = database.readingProgressDao(),
             sourceRepository = sources,
             scanRepository = scans,
+            readerSession = FakeReaderSession(),
             duplicateFinder = DuplicateFinder(hashes),
             fileRemover = files,
             clock = FakeAppClock(),

@@ -10,6 +10,7 @@ import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.database.dao.BookDao
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.database.dao.FormatDefaultDao
 import io.github.bookshelf.core.database.dao.ReaderProfileDao
 import io.github.bookshelf.core.database.entity.FormatDefaultEntity
@@ -49,6 +50,7 @@ class ReaderRepositoryImpl @Inject constructor(
     private val profileDao: ReaderProfileDao,
     private val bookDao: BookDao,
     private val formatDefaultDao: FormatDefaultDao,
+    private val session: ReaderSession,
 ) : ReaderRepository {
 
     /**
@@ -121,10 +123,16 @@ class ReaderRepositoryImpl @Inject constructor(
         )
         // Читалка, которая не умеет открывать по ссылке, получает копию сразу: пробовать
         // `content://` и ждать отказа незачем.
-        if (!profile.supportsContentUri) return launchExportedCopy(book.documentUri, request)
+        if (!profile.supportsContentUri) {
+            return launchExportedCopy(book.id, book.documentUri, request)
+        }
         val direct = launcher.launch(request)
         // Отказ читалки — не тупик: есть один запасной ход, временная копия файла.
-        return if (direct.isSuccess) direct else launchExportedCopy(book.documentUri, request)
+        if (direct.isSuccess) {
+            session.markOpened(book.id)
+            return direct
+        }
+        return launchExportedCopy(book.id, book.documentUri, request)
     }
 
     /**
@@ -138,6 +146,7 @@ class ReaderRepositoryImpl @Inject constructor(
      * исправить (поднять лимит в «Библиотеке и сканировании»), а общее «не удалось открыть» — нет.
      */
     private suspend fun launchExportedCopy(
+        bookId: String,
         documentUri: String,
         request: LaunchRequest,
     ): AppResult<Unit> {
@@ -146,7 +155,11 @@ class ReaderRepositoryImpl @Inject constructor(
             ?: return AppResult.failure(
                 exported.errorOrNull() ?: AppError.Unknown(message = "Копия книги не подготовлена"),
             )
-        return launcher.launch(request.copy(documentUri = exportedUri))
+        val launched = launcher.launch(request.copy(documentUri = exportedUri))
+        // Сессию отмечаем только по факту запуска: читалка, которая не открылась, чтением не стала,
+        // и запрещать фоновую работу после отказа было бы вредно.
+        if (launched.isSuccess) session.markOpened(bookId)
+        return launched
     }
 
     /**

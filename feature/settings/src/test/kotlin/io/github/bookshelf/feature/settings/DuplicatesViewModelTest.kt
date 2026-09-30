@@ -63,6 +63,22 @@ class DuplicatesViewModelTest {
     }
 
     @Test
+    fun `a stopped search says so instead of claiming there are no duplicates`() = runTest(dispatcher) {
+        // Открылась читалка: поиск уступает ей процессор и не досчитывает файлы.
+        books.report = DuplicateReport(stopped = true)
+        val viewModel = DuplicatesViewModel(books)
+
+        viewModel.onCheck()
+        advanceUntilIdle()
+
+        val message = viewModel.uiState.value.message.orEmpty()
+        // Молчаливое «дубликатов не найдено» было бы ложью: файлы ещё не сравнены.
+        assertThat(message).contains("Поиск остановлен")
+        assertThat(message).contains("читалка")
+        assertThat(viewModel.uiState.value.isConfirming).isFalse()
+    }
+
+    @Test
     fun `found duplicates ask for confirmation before deleting anything`() = runTest(dispatcher) {
         books.report = report(duplicates = 1, broken = 1)
         val viewModel = DuplicatesViewModel(books)

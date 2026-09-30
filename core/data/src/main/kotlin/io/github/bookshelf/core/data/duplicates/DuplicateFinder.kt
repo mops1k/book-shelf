@@ -25,6 +25,13 @@ data class DuplicateGroup(
 data class DuplicateReport(
     val groups: List<DuplicateGroup> = emptyList(),
     val broken: List<Book> = emptyList(),
+    /**
+     * Проверка прервана, не дойдя до конца.
+     *
+     * Так бывает, когда открылась читалка: полный хеш файлов — тяжёлая работа, и она уступает ей
+     * дорогу (ANR читалки 30.09.2026). Итог при этом неполный, и говорить «дублей нет» нельзя.
+     */
+    val stopped: Boolean = false,
 ) {
 
     /** Сколько копий предлагается удалить как дубли. */
@@ -53,19 +60,35 @@ class DuplicateFinder @Inject constructor(
     private val contentHasher: ContentHasher,
 ) {
 
-    /** Найти группы дублей среди [books]. */
-    fun find(books: List<Book>): DuplicateReport {
+    /**
+     * Найти группы дублей среди [books].
+     *
+     * @param shouldStop спрашивается перед каждым чтением файла. По умолчанию не мешает: поиск
+     *   идёт до конца. Вызывающий передаёт проверку «открыта ли читалка» — полный хеш файлов
+     *   отбирает процессор у читалки, и её главный поток встаёт в сборке мусора.
+     */
+    fun find(books: List<Book>, shouldStop: () -> Boolean = { false }): DuplicateReport {
         val broken = books.filter { book -> book.sizeBytes <= 0L }
         val bySize = books
             .filter { book -> book.sizeBytes > 0L }
             .groupBy { book -> book.sizeBytes }
 
         val groups = mutableListOf<DuplicateGroup>()
+        var stopped = false
         bySize.values
             .filter { sameSize -> sameSize.size > 1 }
             .forEach { sameSize ->
+                if (stopped) return@forEach
                 sameSize
-                    .mapNotNull { book -> contentHasher.contentHash(book.documentUri)?.let { hash -> hash to book } }
+                    .mapNotNull { book ->
+                        // Проверка стоит здесь, а не в начале поиска: файлы читаются минутами, и
+                        // читалка может открыться уже посреди работы.
+                        if (shouldStop()) {
+                            stopped = true
+                            return@mapNotNull null
+                        }
+                        contentHasher.contentHash(book.documentUri)?.let { hash -> hash to book }
+                    }
                     .groupBy(keySelector = { (hash, _) -> hash }, valueTransform = { (_, book) -> book })
                     .values
                     .filter { sameContent -> sameContent.size > 1 }
@@ -74,7 +97,11 @@ class DuplicateFinder @Inject constructor(
                         groups += DuplicateGroup(keep = ordered.first(), remove = ordered.drop(1))
                     }
             }
-        return DuplicateReport(groups = groups.sortedBy { group -> group.keep.title }, broken = broken)
+        return DuplicateReport(
+            groups = groups.sortedBy { group -> group.keep.title },
+            broken = broken,
+            stopped = stopped,
+        )
     }
 
     private companion object {

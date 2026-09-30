@@ -6,6 +6,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.relation.BookWithRelations
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -48,7 +49,22 @@ class FakeBookDao(
     override suspend fun insert(book: BookEntity) = notUsed("insert")
     override suspend fun upsertAll(books: List<BookEntity>) = notUsed("upsertAll")
     override suspend fun update(book: BookEntity) = notUsed("update")
-    override suspend fun getByDocumentUri(documentUri: String): BookEntity? = notUsed("getByDocumentUri")
+    /**
+     * Поиск копии книги.
+     *
+     * Отвечает по [byIdFlow] — единственной книге, которую фейк знает: тесты полок о копиях не
+     * спрашивают, а если спросят, поведение должно быть предсказуемым, а не падать.
+     */
+    override suspend fun countByFileNameAndSize(
+        fileName: String,
+        sizeBytes: Long,
+        excludeId: String,
+    ): Int {
+        val book = byIdFlow.firstOrNull() ?: return 0
+        val same = book.fileName == fileName && book.sizeBytes == sizeBytes && book.id != excludeId
+        return if (same) 1 else 0
+    }
+
     override suspend fun getAll(): List<BookEntity> = notUsed("getAll")
     override suspend fun deleteById(id: String) = notUsed("deleteById")
     override suspend fun deleteAll() = notUsed("deleteAll")
