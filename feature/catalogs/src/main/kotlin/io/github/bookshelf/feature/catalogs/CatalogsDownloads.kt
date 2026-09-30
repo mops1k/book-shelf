@@ -31,14 +31,14 @@ fun entryDownloadOf(entryId: String, downloads: List<DownloadUi>): EntryDownload
     )
 }
 
-/** Подпись состояния загрузки для карточки записи. */
-fun entryDownloadLabel(download: DownloadUi): String = when (download.state) {
-    DownloadState.QUEUED -> "Загрузка началась: в очереди"
-    DownloadState.RUNNING -> "Загрузка идёт: ${download.progressPercent}%"
-    DownloadState.PAUSED -> "Загрузка на паузе: ${download.progressPercent}%"
-    DownloadState.DONE -> "Скачано"
-    DownloadState.FAILED -> "Ошибка загрузки"
-    DownloadState.CANCELLED -> "Загрузка отменена"
+/** Подпись состояния загрузки для карточки записи. Ресурс, не текст. */
+fun entryDownloadLabel(download: DownloadUi): CatalogsText = when (download.state) {
+    DownloadState.QUEUED -> CatalogsText(R.string.catalogs_download_queued)
+    DownloadState.RUNNING -> CatalogsText(R.string.catalogs_download_running, download.progressPercent)
+    DownloadState.PAUSED -> CatalogsText(R.string.catalogs_download_paused, download.progressPercent)
+    DownloadState.DONE -> CatalogsText(R.string.catalogs_download_done)
+    DownloadState.FAILED -> CatalogsText(R.string.catalogs_download_failed)
+    DownloadState.CANCELLED -> CatalogsText(R.string.catalogs_download_cancelled)
 }
 
 /** Проставить каждой записи фида её состояние загрузки. */
@@ -55,9 +55,13 @@ fun withDownloads(
  * Число показывает, сколько загрузок идёт прямо сейчас: без него кнопка не отвечала на вопрос
  * «началась ли загрузка», ради которого она и появилась.
  */
-fun downloadsButtonLabel(downloads: List<DownloadUi>): String {
+fun downloadsButtonLabel(downloads: List<DownloadUi>): CatalogsText {
     val active = downloads.count { download -> download.isActive }
-    return if (active > 0) "Загрузки ($active)" else "Загрузки"
+    return if (active > 0) {
+        CatalogsText(R.string.catalogs_downloads_button_active, active)
+    } else {
+        CatalogsText(R.string.catalogs_downloads_button)
+    }
 }
 
 /** Полная шкала прогресса загрузки: [DownloadUi.progressPercent] хранит проценты, 0..100. */
@@ -85,12 +89,12 @@ internal fun OpdsDownload.toDownloadUi(): DownloadUi {
         state = state,
         title = title,
         stateLabel = when (state) {
-            DownloadState.QUEUED -> "В очереди"
-            DownloadState.RUNNING -> "Скачивается"
-            DownloadState.PAUSED -> "На паузе"
-            DownloadState.DONE -> "Готово"
-            DownloadState.FAILED -> "Ошибка"
-            DownloadState.CANCELLED -> "Отменено"
+            DownloadState.QUEUED -> CatalogsText(R.string.catalogs_state_queued)
+            DownloadState.RUNNING -> CatalogsText(R.string.catalogs_state_running)
+            DownloadState.PAUSED -> CatalogsText(R.string.catalogs_state_paused)
+            DownloadState.DONE -> CatalogsText(R.string.catalogs_state_done)
+            DownloadState.FAILED -> CatalogsText(R.string.catalogs_state_failed)
+            DownloadState.CANCELLED -> CatalogsText(R.string.catalogs_state_cancelled)
         },
         progressPercent = percent,
         isActive = isActive,

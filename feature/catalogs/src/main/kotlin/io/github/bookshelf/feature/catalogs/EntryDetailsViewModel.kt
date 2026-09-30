@@ -72,7 +72,7 @@ data class EntryDetailsUiState(
     /** Форматы: «FB2, EPUB, MOBI». */
     val formatsLabel: String = "",
     /** Подпись размера файла. */
-    val sizeLabel: String? = null,
+    val sizeLabel: CatalogsText? = null,
     /** Язык записи. */
     val language: String? = null,
     /** Год издания (`dc:issued`). */

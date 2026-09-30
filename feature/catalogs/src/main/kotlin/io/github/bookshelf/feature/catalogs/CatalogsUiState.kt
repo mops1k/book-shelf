@@ -57,7 +57,7 @@ data class FeedEntryUi(
     /** Форматы, доступные к скачиванию: `FB2`, `EPUB`. */
     val formats: List<String> = emptyList(),
     /** Подпись размера файла: «1,2 МБ». */
-    val sizeLabel: String? = null,
+    val sizeLabel: CatalogsText? = null,
     /** Язык записи. */
     val language: String? = null,
     /**
@@ -97,7 +97,7 @@ data class DownloadUi(
     /** Название книги. */
     val title: String,
     /** Подпись состояния: «В очереди», «Скачивается», «Готово», «Ошибка». */
-    val stateLabel: String,
+    val stateLabel: CatalogsText,
     /** Прогресс в процентах, 0..100. */
     val progressPercent: Int = 0,
     /** true — загрузка активна: строка показывает статичный индикатор-полосу. */
@@ -116,7 +116,7 @@ data class DownloadUi(
  */
 data class EntryDownloadUi(
     /** Подпись состояния: «Загрузка началась: в очереди», «Загрузка идёт: 45%», «Скачано». */
-    val label: String,
+    val label: CatalogsText,
     /** Прогресс в процентах, 0..100. */
     val progressPercent: Int = 0,
     /** Загрузка ещё идёт: повторно качать не нужно. */

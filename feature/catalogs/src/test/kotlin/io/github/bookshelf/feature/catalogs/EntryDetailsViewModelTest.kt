@@ -63,7 +63,7 @@ class EntryDetailsViewModelTest {
         assertThat(state.authorUrl).isEqualTo(AUTHOR_FEED_URL)
         assertThat(state.seriesUrl).isEqualTo(SERIES_FEED_URL)
         assertThat(state.formatsLabel).isEqualTo("FB2, EPUB, MOBI")
-        assertThat(state.sizeLabel).isEqualTo("1,4 МБ")
+        assertThat(state.sizeLabel).isEqualTo(CatalogsText(R.string.catalogs_size_mb, "1,4"))
         assertThat(state.canDownload).isTrue()
     }
 

@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.BookCover
@@ -26,11 +27,11 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.catalogs.EntryDetailsUiState
 import io.github.bookshelf.feature.catalogs.EntryDetailsViewModel
+import io.github.bookshelf.feature.catalogs.R
+import io.github.bookshelf.feature.catalogs.resolve
 
 /** Подпись, когда каталог не сообщил описание книги. */
-private const val NO_SUMMARY_TEXT =
-    "В каталоге нет описания этой книги. Всё, что о ней известно, — выше: автор, серия, " +
-        "год издания, язык и форматы файлов."
+private val NO_SUMMARY_TEXT_RES = R.string.catalogs_entry_no_description
 
 /**
  * Карточка записи каталога: обложка, метаданные, описание и кнопка «Скачать».
@@ -53,7 +54,7 @@ fun EntryDetailsScreen(
     val dimens = LocalEinkDimens.current
 
     EinkScaffold(
-        title = state.title.ifEmpty { "Запись каталога" },
+        title = state.title.ifEmpty { stringResource(R.string.catalogs_entry_details) },
         subtitle = state.authors.takeIf { it.isNotBlank() },
         modifier = modifier,
         onBack = onBack,
@@ -68,25 +69,34 @@ fun EntryDetailsScreen(
                 // «Загрузка идёт: 45%». Так видно, что нажатие сработало, и нельзя поставить
                 // в очередь второй экземпляр той же книги.
                 EinkButton(
-                    text = state.download?.label ?: "Скачать",
+                    text = state.download?.label?.resolve()
+                        ?: stringResource(R.string.catalogs_action_download),
                     onClick = viewModel::onDownload,
                     primary = state.download == null,
                     enabled = state.canStartDownload,
                     modifier = Modifier.weight(1f),
                 )
-                EinkButton(text = "Назад", onClick = onBack, modifier = Modifier.weight(1f))
+                EinkButton(
+                    text = stringResource(R.string.catalogs_action_back),
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f),
+                )
             }
         },
     ) {
         val error = state.error
         if (error != null) {
-            EinkErrorBanner(message = error, actionLabel = "Повторить", onAction = viewModel::onRefresh)
+            EinkErrorBanner(
+                message = error,
+                actionLabel = stringResource(R.string.catalogs_action_retry),
+                onAction = viewModel::onRefresh,
+            )
         }
 
         if (state.title.isEmpty()) {
             EinkEmptyState(
-                title = "Запись не найдена",
-                message = "Вернитесь к каталогу и откройте книгу заново — фид обновился.",
+                title = stringResource(R.string.catalogs_entry_missing_title),
+                message = stringResource(R.string.catalogs_entry_missing_message),
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
@@ -125,18 +135,18 @@ private fun EntryCardBody(
                 coverUrl = state.coverUrl,
                 title = state.title,
                 modifier = Modifier.weight(1f),
-                contentDescription = "Обложка: ${state.title}",
+                contentDescription = stringResource(R.string.catalogs_cover_title, state.title),
             )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
                 if (state.formatsLabel.isNotBlank()) {
-                    DetailLine("Форматы", state.formatsLabel)
+                    DetailLine(stringResource(R.string.catalogs_formats), state.formatsLabel)
                 }
-                state.sizeLabel?.let { size -> DetailLine("Размер", size) }
-                state.issued?.let { year -> DetailLine("Год", year) }
-                state.language?.let { language -> DetailLine("Язык", language) }
+                state.sizeLabel?.let { size -> DetailLine(stringResource(R.string.catalogs_size), size.resolve()) }
+                state.issued?.let { year -> DetailLine(stringResource(R.string.catalogs_year), year) }
+                state.language?.let { language -> DetailLine(stringResource(R.string.catalogs_language), language) }
             }
         }
 
@@ -144,9 +154,9 @@ private fun EntryCardBody(
         // автора или серию; подсказка появляется только там, где фид объявлен.
         if (state.authors.isNotBlank()) {
             FeedLinkRow(
-                label = "Автор",
+                label = stringResource(R.string.catalogs_author),
                 value = state.authors,
-                hint = "его книги и серии",
+                hint = stringResource(R.string.catalogs_author_hint),
                 onClick = if (state.authorUrl != null) {
                     {
                         viewModel.onOpenAuthor()
@@ -159,9 +169,9 @@ private fun EntryCardBody(
         }
         if (state.seriesName != null || state.seriesUrl != null) {
             FeedLinkRow(
-                label = "Серия",
-                value = state.seriesName ?: "серия каталога",
-                hint = "книги этой серии",
+                label = stringResource(R.string.catalogs_series),
+                value = state.seriesName ?: stringResource(R.string.catalogs_series_hint),
+                hint = stringResource(R.string.catalogs_series_books),
                 onClick = if (state.seriesUrl != null) {
                     {
                         viewModel.onOpenSeries()
@@ -173,37 +183,40 @@ private fun EntryCardBody(
             )
         }
 
-        state.genresLabel?.let { genres -> DetailLine("Жанры", genres) }
-        state.updated?.let { updated -> DetailLine("Обновлено", updated) }
+        state.genresLabel?.let { genres -> DetailLine(stringResource(R.string.catalogs_genres), genres) }
+        state.updated?.let { updated -> DetailLine(stringResource(R.string.catalogs_updated), updated) }
 
-        EinkSectionHeader(title = "Описание")
+        EinkSectionHeader(title = stringResource(R.string.catalogs_description))
         Text(
-            text = state.summary ?: NO_SUMMARY_TEXT,
+            text = state.summary ?: stringResource(NO_SUMMARY_TEXT_RES),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.foreground,
         )
 
         if (state.folders.size > 1) {
-            EinkSectionHeader(title = "Куда сохранить", count = state.folders.size)
+            EinkSectionHeader(title = stringResource(R.string.catalogs_save_to), count = state.folders.size)
             state.folders.forEach { folder ->
                 EinkListRow(
                     title = folder.name,
-                    trailing = if (folder.id == state.selectedFolderId) "выбрана" else "выбрать",
+                    trailing = if (folder.id == state.selectedFolderId) {
+                        stringResource(R.string.catalogs_folder_chosen)
+                    } else {
+                        stringResource(R.string.catalogs_folder_choose)
+                    },
                     onClick = { viewModel.onSelectFolder(folder.id) },
                 )
             }
         } else if (state.folders.isEmpty()) {
             EinkListRow(
-                title = "Папка не выбрана",
-                subtitle = "Добавьте папку в приложении: настройки → «Где искать книги».",
+                title = stringResource(R.string.catalogs_folder_missing_title),
+                subtitle = stringResource(R.string.catalogs_folder_missing_message),
             )
         }
 
         if (!state.canDownload) {
             EinkListRow(
-                title = "Скачивание недоступно",
-                subtitle = "У записи нет прямой ссылки на файл — каталог предлагает " +
-                    "только покупку или образец.",
+                title = stringResource(R.string.catalogs_download_unavailable_title),
+                subtitle = stringResource(R.string.catalogs_download_unavailable_message),
             )
         }
     }
@@ -231,7 +244,11 @@ private fun FeedLinkRow(
 ) {
     EinkListRow(
         title = "$label: $value",
-        subtitle = if (onClick != null) "Нажмите, чтобы открыть $hint" else null,
+        subtitle = if (onClick != null) {
+            stringResource(R.string.catalogs_open_hint, hint)
+        } else {
+            null
+        },
         trailing = if (onClick != null) "→" else null,
         onClick = onClick,
     )

@@ -34,24 +34,30 @@ class CatalogsDownloadsTest {
 
         val state = entryDownloadOf(entryId = "entry-1", downloads = downloads)
 
-        assertThat(state?.label).isEqualTo("Загрузка идёт: 45%")
+        assertThat(state?.label).isEqualTo(CatalogsText(R.string.catalogs_download_running, 45))
         assertThat(state?.isActive).isTrue()
         assertThat(state?.isDone).isFalse()
     }
 
     @Test
     fun `labels describe each download state`() {
-        assertThat(label(DownloadState.QUEUED)).isEqualTo("Загрузка началась: в очереди")
-        assertThat(label(DownloadState.RUNNING, progressPercent = 12)).isEqualTo("Загрузка идёт: 12%")
-        assertThat(label(DownloadState.PAUSED, progressPercent = 12)).isEqualTo("Загрузка на паузе: 12%")
-        assertThat(label(DownloadState.DONE)).isEqualTo("Скачано")
-        assertThat(label(DownloadState.FAILED)).isEqualTo("Ошибка загрузки")
-        assertThat(label(DownloadState.CANCELLED)).isEqualTo("Загрузка отменена")
+        // Тексты живут в ресурсах (ru/en), поэтому тест фиксирует выбранный ресурс и аргумент:
+        // подмена подписи на чужую обязана упасть так же, как падала на тексте.
+        assertThat(label(DownloadState.QUEUED)).isEqualTo(CatalogsText(R.string.catalogs_download_queued))
+        assertThat(label(DownloadState.RUNNING, progressPercent = 12))
+            .isEqualTo(CatalogsText(R.string.catalogs_download_running, 12))
+        assertThat(label(DownloadState.PAUSED, progressPercent = 12))
+            .isEqualTo(CatalogsText(R.string.catalogs_download_paused, 12))
+        assertThat(label(DownloadState.DONE)).isEqualTo(CatalogsText(R.string.catalogs_download_done))
+        assertThat(label(DownloadState.FAILED)).isEqualTo(CatalogsText(R.string.catalogs_download_failed))
+        assertThat(label(DownloadState.CANCELLED))
+            .isEqualTo(CatalogsText(R.string.catalogs_download_cancelled))
     }
 
     @Test
     fun `feed button counts only the downloads that are running`() {
-        assertThat(downloadsButtonLabel(emptyList())).isEqualTo("Загрузки")
+        assertThat(downloadsButtonLabel(emptyList()))
+            .isEqualTo(CatalogsText(R.string.catalogs_downloads_button))
         assertThat(
             downloadsButtonLabel(
                 listOf(
@@ -60,7 +66,7 @@ class CatalogsDownloadsTest {
                     download(id = "d3", entryId = "e3", state = DownloadState.DONE),
                 ),
             ),
-        ).isEqualTo("Загрузки (2)")
+        ).isEqualTo(CatalogsText(R.string.catalogs_downloads_button_active, 2))
     }
 
     @Test
@@ -70,7 +76,8 @@ class CatalogsDownloadsTest {
 
         val mapped = withDownloads(entries, downloads)
 
-        assertThat(mapped.first { it.id == "e1" }.download?.label).isEqualTo("Скачано")
+        assertThat(mapped.first { it.id == "e1" }.download?.label)
+            .isEqualTo(CatalogsText(R.string.catalogs_download_done))
         assertThat(mapped.first { it.id == "e2" }.download).isNull()
     }
 
@@ -103,7 +110,7 @@ class CatalogsDownloadsTest {
         expectedSize = expectedSize,
     )
 
-    private fun label(state: DownloadState, progressPercent: Int = 0): String =
+    private fun label(state: DownloadState, progressPercent: Int = 0): CatalogsText =
         entryDownloadLabel(download(id = "d1", entryId = "e1", state = state, progressPercent = progressPercent))
 
     private fun download(
@@ -116,7 +123,7 @@ class CatalogsDownloadsTest {
         entryId = entryId,
         state = state,
         title = "Солярис",
-        stateLabel = state.name,
+        stateLabel = CatalogsText(R.string.catalogs_state_queued),
         progressPercent = progressPercent,
         isActive = state == DownloadState.QUEUED ||
             state == DownloadState.RUNNING ||

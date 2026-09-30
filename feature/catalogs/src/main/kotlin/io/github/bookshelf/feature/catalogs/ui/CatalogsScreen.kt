@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,6 +53,8 @@ import io.github.bookshelf.feature.catalogs.downloadsButtonLabel
 import io.github.bookshelf.feature.catalogs.entryCoverOf
 import io.github.bookshelf.feature.catalogs.DownloadUi
 import io.github.bookshelf.feature.catalogs.FeedEntryUi
+import io.github.bookshelf.feature.catalogs.R
+import io.github.bookshelf.feature.catalogs.resolve
 
 /** Полная шкала прогресса: `progressPercent` приходит в процентах, `EinkProgress` ждёт 0..1. */
 private const val PERCENT_MAX = 100f
@@ -131,13 +134,13 @@ private fun CatalogsListScreen(
     val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
-        title = "Каталоги OPDS",
-        subtitle = "Ручное добавление по URL",
+        title = stringResource(R.string.catalogs_title),
+        subtitle = stringResource(R.string.catalogs_subtitle),
         modifier = modifier,
         onBack = onBack,
         actions = {
-            EinkButton(text = "Добавить", onClick = viewModel::onOpenAddForm)
-            EinkButton(text = "Загрузки", onClick = viewModel::onOpenDownloads)
+            EinkButton(text = stringResource(R.string.catalogs_action_add), onClick = viewModel::onOpenAddForm)
+            EinkButton(text = stringResource(R.string.catalogs_downloads_title), onClick = viewModel::onOpenDownloads)
         },
         onKeyAction = { action ->
             when (action) {
@@ -150,9 +153,9 @@ private fun CatalogsListScreen(
         },
         footer = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                StatusFooter(label = catalogsStatusLabel(state.catalogs.size))
+                StatusFooter(label = stringResource(R.string.catalogs_count, state.catalogs.size))
                 EinkButton(
-                    text = "Добавить каталог",
+                    text = stringResource(R.string.catalogs_action_add_catalog),
                     onClick = viewModel::onOpenAddForm,
                     primary = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -162,7 +165,11 @@ private fun CatalogsListScreen(
     ) {
         val error = state.error
         if (error != null) {
-            EinkErrorBanner(message = error, actionLabel = "Обновить", onAction = viewModel::onBackToList)
+            EinkErrorBanner(
+                message = error,
+                actionLabel = stringResource(R.string.catalogs_action_refresh),
+                onAction = viewModel::onBackToList,
+            )
         }
 
         Box(
@@ -170,10 +177,8 @@ private fun CatalogsListScreen(
             ) {
             if (state.catalogs.isEmpty()) {
                 EinkEmptyState(
-                    title = "Каталогов пока нет",
-                    message = "Добавьте каталог по адресу — например, https://m.flibusta.is/opds " +
-                        "без логина. Каталогов может быть сколько угодно, и каждый открывается отдельно. " +
-                        "Нажмите «Добавить каталог» внизу экрана.",
+                    title = stringResource(R.string.catalogs_empty_title),
+                    message = stringResource(R.string.catalogs_empty_message),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -202,12 +207,12 @@ private fun CatalogsListScreen(
                                     horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
                                 ) {
                                     EinkButton(
-                                        text = "Изменить",
+                                        text = stringResource(R.string.catalogs_action_edit),
                                         onClick = { viewModel.catalogActions.onAskEdit(catalog.id) },
                                         modifier = Modifier.weight(1f),
                                     )
                                     EinkButton(
-                                        text = "Удалить",
+                                        text = stringResource(R.string.catalogs_action_delete),
                                         onClick = { viewModel.catalogActions.onAskDelete(catalog.id) },
                                         modifier = Modifier.weight(1f),
                                     )
@@ -215,9 +220,11 @@ private fun CatalogsListScreen(
                             }
                             if (state.confirmingDeleteCatalogId == catalog.id) {
                                 EinkConfirmRow(
-                                    question = "Удалить каталог «${catalog.title}»? Книги, скачанные " +
-                                        "из него, останутся в библиотеке.",
-                                    confirmLabel = "Удалить",
+                                    question = stringResource(
+                                        R.string.catalogs_delete_confirm,
+                                        catalog.title,
+                                    ),
+                                    confirmLabel = stringResource(R.string.catalogs_action_delete),
                                     onConfirm = viewModel.catalogActions::onConfirmDelete,
                                     onCancel = viewModel.catalogActions::onCancelDelete,
                                     modifier = Modifier.padding(horizontal = dimens.gutter),
@@ -244,11 +251,15 @@ private fun AddCatalogScreen(
 
     val isEditing = state.editingCatalogId != null
     EinkScaffold(
-        title = if (isEditing) "Изменить каталог" else "Новый каталог",
-        subtitle = if (isEditing) {
-            "Проверим фид по новому адресу перед сохранением"
+        title = if (isEditing) {
+            stringResource(R.string.catalogs_form_edit_title)
         } else {
-            "Проверим фид перед добавлением"
+            stringResource(R.string.catalogs_form_new_title)
+        },
+        subtitle = if (isEditing) {
+            stringResource(R.string.catalogs_form_edit_hint)
+        } else {
+            stringResource(R.string.catalogs_form_new_hint)
         },
         modifier = modifier,
         onBack = onBack,
@@ -265,9 +276,17 @@ private fun AddCatalogScreen(
                     .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
-                EinkButton(text = "Отмена", onClick = onBack, modifier = Modifier.weight(1f))
                 EinkButton(
-                    text = if (isEditing) "Сохранить" else "Проверить и добавить",
+                    text = stringResource(R.string.catalogs_action_cancel),
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f),
+                )
+                EinkButton(
+                    text = if (isEditing) {
+                        stringResource(R.string.catalogs_action_save)
+                    } else {
+                        stringResource(R.string.catalogs_action_check_and_add)
+                    },
                     onClick = if (isEditing) viewModel.catalogActions::onSaveChanges else viewModel::onCheckAndAdd,
                     primary = true,
                     modifier = Modifier.weight(1f),
@@ -283,7 +302,7 @@ private fun AddCatalogScreen(
 
         if (state.isLoading) {
             Text(
-                text = "Проверяем каталог…",
+                text = stringResource(R.string.catalogs_form_checking),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = dimens.gutterSmall),
             )
@@ -298,31 +317,35 @@ private fun AddCatalogScreen(
             EinkTextField(
                 value = form.title,
                 onValueChange = { viewModel.onFormChange(form.copy(title = it)) },
-                label = "Название",
-                placeholder = "Моя библиотека",
+                label = stringResource(R.string.catalogs_form_name),
+                placeholder = stringResource(R.string.catalogs_form_name_placeholder),
             )
             EinkTextField(
                 value = form.url,
                 onValueChange = { viewModel.onFormChange(form.copy(url = it)) },
-                label = "URL каталога",
+                label = stringResource(R.string.catalogs_form_url),
                 placeholder = "https://example.org/opds",
             )
             EinkTextField(
                 value = form.username,
                 onValueChange = { viewModel.onFormChange(form.copy(username = it)) },
-                label = "Логин (если требуется)",
+                label = stringResource(R.string.catalogs_form_login),
             )
             // Пароль не логируется и не экспортируется: в БД попадает только alias.
             EinkTextField(
                 value = form.password,
                 onValueChange = { viewModel.onFormChange(form.copy(password = it)) },
-                label = if (isEditing) "Новый пароль (пусто — оставить прежний)" else "Пароль (если требуется)",
+                label = if (isEditing) {
+                    stringResource(R.string.catalogs_form_password_new)
+                } else {
+                    stringResource(R.string.catalogs_form_password)
+                },
                 visualTransformation = PasswordVisualTransformation(),
             )
             EinkCheckbox(
                 checked = form.openImmediately,
                 onCheckedChange = { viewModel.onFormChange(form.copy(openImmediately = it)) },
-                label = "Открывать этот каталог сразу",
+                label = stringResource(R.string.catalogs_form_open_now),
             )
         }
     }
@@ -345,8 +368,9 @@ private fun FeedBrowserScreen(
     val scrollEntries = rememberEinkGridPageScroller(entriesGridState)
 
     EinkScaffold(
-        title = feed?.title ?: "Браузер каталога",
-        subtitle = feed?.breadcrumbs?.joinToString(separator = " / ") ?: "Фид ещё не загружен",
+        title = feed?.title ?: stringResource(R.string.catalogs_browser_title),
+        subtitle = feed?.breadcrumbs?.joinToString(separator = " / ")
+            ?: stringResource(R.string.catalogs_browser_empty_title),
         modifier = modifier,
         onBack = onBack,
         // Кнопка правого края: из любого уровня каталога возвращает к списку каталогов одним
@@ -357,10 +381,10 @@ private fun FeedBrowserScreen(
             // а «Загрузки» были доступны только из списка каталогов — в разделах фида их не было
             // видно вовсе (жалоба Александра, 28.09.2026).
             EinkButton(
-                text = downloadsButtonLabel(state.downloads),
+                text = downloadsButtonLabel(state.downloads).resolve(),
                 onClick = viewModel::onOpenDownloads,
             )
-            EinkButton(text = "Каталоги", onClick = viewModel::onBackToList)
+            EinkButton(text = stringResource(R.string.catalogs_browser_feed_title), onClick = viewModel::onBackToList)
         },
         onKeyAction = { action ->
             when (action) {
@@ -395,10 +419,10 @@ private fun FeedBrowserScreen(
             EinkTextField(
                 value = state.feedQuery,
                 onValueChange = viewModel::onFeedQueryChange,
-                placeholder = "Поиск по каталогу",
+                placeholder = stringResource(R.string.catalogs_search_title),
                 modifier = Modifier.weight(1f),
             )
-            EinkButton(text = "Искать", onClick = viewModel::onSearchInFeed)
+            EinkButton(text = stringResource(R.string.catalogs_search_action), onClick = viewModel::onSearchInFeed)
         }
 
         // Ошибка загрузки фида раньше не показывалась вовсе: нажатие на раздел, который не
@@ -407,7 +431,7 @@ private fun FeedBrowserScreen(
         state.error?.let { message ->
             EinkErrorBanner(
                 message = message,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.catalogs_action_retry),
                 onAction = viewModel::onReloadFeed,
             )
         }
@@ -415,7 +439,7 @@ private fun FeedBrowserScreen(
         // Индикация загрузки: переход по разделам ждёт сеть, и без подписи экран выглядел
         // зависшим — пользователь не понимал, идёт работа или приложение задумалось.
         if (state.isLoading) {
-            LoadingRow(label = "Загружаем раздел каталога…")
+            LoadingRow(label = stringResource(R.string.catalogs_loading_section))
         }
 
         Box(
@@ -424,22 +448,19 @@ private fun FeedBrowserScreen(
             if (entries.isEmpty()) {
                 when {
                     // Первый фид: пустая подсказка «фид не загружен» противоречила бы индикатору.
-                    state.isLoading -> LoadingRow(label = "Загружаем фид каталога…")
+                    state.isLoading -> LoadingRow(label = stringResource(R.string.catalogs_loading_feed))
 
                     feed == null -> EinkEmptyState(
-                        title = "Фид не загружен",
-                        message = "Здесь появятся записи фида: хлебные крошки, обложки, форматы и размер. " +
-                            "Нажмите на книгу — откроется карточка с описанием и кнопкой «Скачать».",
+                        title = stringResource(R.string.catalogs_feed_empty_title),
+                        message = stringResource(R.string.catalogs_feed_empty_message),
                         modifier = Modifier.fillMaxSize(),
                     )
 
                     // Фид загружен, но записей в нём нет: так отвечает поиск, которому нечего
                     // показать. «Фид не загружен» здесь было бы неправдой, а «Назад» — выходом.
                     else -> EinkEmptyState(
-                        title = "Ничего не найдено",
-                        message = "Каталог ответил пустым списком: по этому запросу записей нет. " +
-                            "Измените запрос и нажмите «Искать» или вернитесь назад — «Назад» " +
-                            "возвращает к прежнему списку.",
+                        title = stringResource(R.string.catalogs_nothing_found_title),
+                        message = stringResource(R.string.catalogs_nothing_found_message),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -468,11 +489,12 @@ private fun FeedBrowserScreen(
  * (`rel="next"` отсутствует): OPDS не отдаёт общее количество записей, и «записей: 20» на фиде
  * из двухсот книг читалось как реальное число, хотя это была всего одна страница.
  */
+@Composable
 private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean): String = when {
-    loaded == 0 && !hasNext -> "ничего не найдено"
-    hasNext -> "загружено $loaded, есть ещё"
-    isNavigation -> "разделов: $loaded"
-    else -> "книг: $loaded"
+    loaded == 0 && !hasNext -> stringResource(R.string.catalogs_nothing_found_short)
+    hasNext -> stringResource(R.string.catalogs_feed_loaded_more, loaded)
+    isNavigation -> stringResource(R.string.catalogs_feed_sections, loaded)
+    else -> stringResource(R.string.catalogs_feed_books, loaded)
 }
 
 /**
@@ -485,7 +507,7 @@ private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean
 private fun LoadingRow(label: String) {
     EinkListRow(
         title = label,
-        subtitle = "Идёт запрос к каталогу по сети",
+        subtitle = stringResource(R.string.catalogs_network_request),
         hasDivider = false,
     )
 }
@@ -533,7 +555,7 @@ private fun FeedContent(
                 EinkListRow(
                     title = section.title,
                     subtitle = section.authors.takeIf { it.isNotBlank() },
-                    trailing = "раздел",
+                    trailing = stringResource(R.string.catalogs_section_marker),
                     onClick = { onOpen(section) },
                 )
             }
@@ -543,7 +565,7 @@ private fun FeedContent(
         }
         if (isLoadingMore) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "loading-more") {
-                LoadingRow(label = "Загружаем следующую страницу…")
+                LoadingRow(label = stringResource(R.string.catalogs_loading_next))
             }
         }
     }
@@ -577,7 +599,11 @@ private fun EntryCard(
             coverUrl = cover.url,
             title = entry.title,
             modifier = Modifier.fillMaxWidth(),
-            contentDescription = "Обложка: ${entry.title}, ${entry.authors}",
+            contentDescription = stringResource(
+                R.string.catalogs_cover_description,
+                entry.title,
+                entry.authors,
+            ),
         )
         Text(
             text = entry.title,
@@ -605,7 +631,7 @@ private fun EntryCard(
         // ничего не произошло.
         entry.download?.let { download ->
             Text(
-                text = download.label,
+                text = download.label.resolve(),
                 style = MaterialTheme.typography.labelMedium,
                 color = colors.foreground,
                 maxLines = 1,
@@ -634,8 +660,8 @@ private fun DownloadsScreen(
     val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
-        title = "Загрузки",
-        subtitle = "Файлы качаются во временный .part и переименовываются атомарно",
+        title = stringResource(R.string.catalogs_downloads_title),
+        subtitle = stringResource(R.string.catalogs_downloads_subtitle),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -649,7 +675,10 @@ private fun DownloadsScreen(
         actions = {
             // Кнопка показывается только когда есть что убирать: пустое действие сбивает с толку.
             if (state.downloads.isNotEmpty()) {
-                EinkButton(text = "Очистить историю", onClick = viewModel::onToggleClearHistory)
+                EinkButton(
+                    text = stringResource(R.string.catalogs_action_clear_history),
+                    onClick = viewModel::onToggleClearHistory,
+                )
             }
         },
         footer = { StatusFooter(label = downloadCountLabel(state.downloads.size)) },
@@ -657,19 +686,16 @@ private fun DownloadsScreen(
         Column(modifier = Modifier.weight(1f)) {
             if (state.isConfirmingClearHistory) {
                 EinkConfirmRow(
-                    question = "Убрать историю загрузок? Записи о завершённых, сбойных и " +
-                        "отменённых загрузках исчезнут. Книги в библиотеке останутся, " +
-                        "активные загрузки продолжатся.",
-                    confirmLabel = "Убрать",
+                    question = stringResource(R.string.catalogs_downloads_clear_confirm),
+                    confirmLabel = stringResource(R.string.catalogs_action_remove),
                     onConfirm = viewModel::onConfirmClearHistory,
                     onCancel = viewModel::onToggleClearHistory,
                 )
             }
             if (state.downloads.isEmpty()) {
                 EinkEmptyState(
-                    title = "Загрузок пока нет",
-                    message = "Вы ещё ничего не скачивали. Здесь появится очередь: прогресс, " +
-                        "отмена, причина ошибки и переход к уже скачанной книге.",
+                    title = stringResource(R.string.catalogs_downloads_empty_title),
+                    message = stringResource(R.string.catalogs_downloads_empty_message),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -688,10 +714,11 @@ private fun DownloadsScreen(
 }
 
 /** Подпись под списком загрузок: сколько всего строк в очереди и в истории. */
+@Composable
 private fun downloadCountLabel(count: Int): String = when (count) {
-    0 -> "загрузок нет"
-    1 -> "1 загрузка"
-    else -> "загрузок: $count"
+    0 -> stringResource(R.string.catalogs_downloads_none)
+    1 -> stringResource(R.string.catalogs_downloads_one)
+    else -> stringResource(R.string.catalogs_downloads_many, count)
 }
 
 
@@ -707,21 +734,25 @@ private fun DownloadRow(
     Column {
         EinkListRow(
             title = download.title,
-            subtitle = download.stateLabel,
+            subtitle = download.stateLabel.resolve(),
             trailing = "${download.progressPercent}%",
             onClick = openDownloadedBook,
         )
         if (download.isActive) {
             EinkProgress(
-                caption = "Скачивание",
+                caption = stringResource(R.string.catalogs_download_status_downloading),
                 progress = download.progressPercent / PERCENT_MAX,
                 detail = "Скачано ${download.progressPercent}%",
             )
-            EinkButton(text = "Отменить", onClick = onCancel)
+            EinkButton(text = stringResource(R.string.catalogs_action_cancel_download), onClick = onCancel)
         }
         val error = download.error
         if (error != null) {
-            EinkErrorBanner(message = error, actionLabel = "Повторить", onAction = onCancel)
+            EinkErrorBanner(
+                message = error,
+                actionLabel = stringResource(R.string.catalogs_action_retry),
+                onAction = onCancel,
+            )
         }
     }
 }
@@ -747,21 +778,22 @@ private fun StatusFooter(label: String) {
  * Страниц нет — список прокручивается, поэтому подпись только считает каталоги: «Стр. 1/2»
  * обещала страницу, до которой нельзя было добраться пальцем.
  */
-internal fun catalogsStatusLabel(count: Int): String = "каталогов: $count"
 
 /** Подпись состояния каталога в списке. */
+@Composable
 private fun catalogTrailing(catalog: CatalogUi): String = when {
-    !catalog.isAvailable -> "недоступен"
-    catalog.requiresAuth -> "нужен вход"
+    !catalog.isAvailable -> stringResource(R.string.catalogs_catalog_unavailable)
+    catalog.requiresAuth -> stringResource(R.string.catalogs_catalog_login)
     catalog.lastOpenedLabel != null -> catalog.lastOpenedLabel
-    else -> "готов"
+    else -> stringResource(R.string.catalogs_catalog_ready)
 }
 
 /** Подпись записи фида: форматы, размер, язык. */
+@Composable
 private fun entryMeta(entry: FeedEntryUi): String {
     val parts = buildList {
         if (entry.formats.isNotEmpty()) add(entry.formats.joinToString(separator = ", "))
-        entry.sizeLabel?.let { add(it) }
+        entry.sizeLabel?.let { size -> add(size.resolve()) }
         entry.language?.let { add(it) }
     }
     return parts.joinToString(separator = " · ")

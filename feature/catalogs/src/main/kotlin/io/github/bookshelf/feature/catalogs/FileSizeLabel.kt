@@ -10,16 +10,16 @@ private const val BYTES_IN_KILOBYTE = 1024L
 private const val BYTES_IN_MEGABYTE = 1024.0 * 1024.0
 
 /**
- * Подпись размера файла: «1,2 МБ», «730 КБ».
+ * Подпись размера файла: «1,2 МБ», «730 КБ». Число считается здесь, единица — в ресурсах.
  *
  * Одна на весь модуль: размер показывают и листинг каталога, и карточка книги, а две копии
  * округления разошлись бы в подписях.
  */
-internal fun fileSizeLabel(bytes: Long): String {
+internal fun fileSizeLabel(bytes: Long): CatalogsText {
     val megabytes = bytes / BYTES_IN_MEGABYTE
     return if (megabytes >= 1.0) {
-        String.format(russianLocale, "%.1f МБ", megabytes)
+        CatalogsText(R.string.catalogs_size_mb, String.format(russianLocale, "%.1f", megabytes))
     } else {
-        "${bytes / BYTES_IN_KILOBYTE} КБ"
+        CatalogsText(R.string.catalogs_size_kb, bytes / BYTES_IN_KILOBYTE)
     }
 }
