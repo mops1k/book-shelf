@@ -2,6 +2,7 @@ package io.github.bookshelf.core.storage.files
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
@@ -23,6 +24,17 @@ import java.util.UUID
  * [tempCopy] кладёт файл в `cacheDir/import` с лимитом из настроек группы «Полка»
  * (`library.tempCopyLimitMb`, умолчание 100 МБ, docs/architecture.md §4.4).
  */
+/**
+ * Факты документа, которые скан сравнивает с файлом.
+ *
+ * @param sizeBytes размер; `null` — провайдер его не сообщает.
+ * @param lastModified время изменения в миллисекундах; `null` — провайдер его не сообщает.
+ */
+data class DocumentFacts(
+    val sizeBytes: Long?,
+    val lastModified: Long?,
+)
+
 interface BookContentOpener {
 
     /** Одноразовый поток чтения с начала файла; `null`, если провайдер его не отдал. */
@@ -33,6 +45,18 @@ interface BookContentOpener {
 
     /** Размер в байтах, если провайдер его сообщает; `null`, если колонка `SIZE` пуста. */
     fun sizeOf(documentUri: String): Long?
+
+    /**
+     * Факты документа: размер и время изменения.
+     *
+     * Нужны после замены содержимого. Скан сравнивает эти два значения с файлом и по расхождению
+     * решает, что файл изменился, — а значит, перечитывает метаданные, сбрасывает обложку и снимает
+     * отметку оптимизации. Записав то, что сообщает провайдер, мы не заставляем скан перечитывать
+     * книгу, которую только что сами и переписали.
+     *
+     * `null` — провайдер не ответил; отдельные поля `null`, если он не сообщает их.
+     */
+    fun factsOf(documentUri: String): DocumentFacts?
 
     /**
      * Временная копия файла в `cacheDir/import`.
@@ -123,6 +147,31 @@ class DefaultBookContentOpener(
     }.getOrNull()
 
     /**
+     * Размер и время изменения одним запросом.
+     *
+     * Колонок может не быть вовсе: `LAST_MODIFIED` объявлена у `DocumentsProvider`, и не каждый
+     * провайдер её отдаёт. Тогда поле `null`, а вызывающий оставляет прежнее значение — врать
+     * выдуманным временем нельзя, скан по нему решит, что файл не менялся.
+     */
+    override fun factsOf(documentUri: String): DocumentFacts? = runCatching {
+        val cursor = resolver.query(Uri.parse(documentUri), FACTS_PROJECTION, null, null, null)
+            ?: return@runCatching null
+        cursor.use {
+            if (!it.moveToFirst()) return@runCatching null
+            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+            val modifiedIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            DocumentFacts(
+                sizeBytes = if (sizeIndex < 0 || it.isNull(sizeIndex)) null else it.getLong(sizeIndex),
+                lastModified = if (modifiedIndex < 0 || it.isNull(modifiedIndex)) {
+                    null
+                } else {
+                    it.getLong(modifiedIndex)
+                },
+            )
+        }
+    }.getOrNull()
+
+    /**
      * Временная копия для не-seekable источников.
      *
      * Сначала проверяется размер: копировать 500 МБ, чтобы упереться в лимит на середине, хуже,
@@ -200,5 +249,11 @@ class DefaultBookContentOpener(
 
         private const val TEMP_SUFFIX = ".tmp"
         private val SIZE_PROJECTION = arrayOf(OpenableColumns.SIZE)
+
+        /** Размер и время изменения: время объявлено у `DocumentsProvider`, а не у `OpenableColumns`. */
+        private val FACTS_PROJECTION = arrayOf(
+            OpenableColumns.SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+        )
     }
 }

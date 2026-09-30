@@ -12,6 +12,7 @@ import io.github.bookshelf.core.metadata.parser.impl.Fb2Parser
 import io.github.bookshelf.core.metadata.registry.DefaultParserRegistry
 import io.github.bookshelf.core.metadata.writer.MetadataEdit
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import io.github.bookshelf.core.storage.files.DocumentFacts
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -134,6 +135,7 @@ class BookMetadataEditorTest {
         override fun openSeekableChannel(documentUri: String): FileChannel? = null
 
         override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
+        override fun factsOf(documentUri: String): DocumentFacts? = null
 
         override fun tempCopy(documentUri: String): AppResult<String> = AppResult.success("unused")
 

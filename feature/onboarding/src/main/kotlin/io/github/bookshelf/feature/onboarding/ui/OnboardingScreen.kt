@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
@@ -25,6 +27,7 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.onboarding.R
 import io.github.bookshelf.feature.onboarding.OnboardingStep
 import io.github.bookshelf.feature.onboarding.OnboardingUiState
 import io.github.bookshelf.feature.onboarding.OnboardingViewModel
@@ -51,13 +54,17 @@ fun OnboardingScreen(
     // Системный пикер папок. ViewModel только просит открыть пикер (событие pickerRequests) и
     // принимает результат через onSourcePicked: запись в БД и проверка persistable-доступа —
     // его забота, а не UI. Так экран не знает про источники, а ViewModel — про Android Intent.
+    val context = LocalContext.current
     val folderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
         if (uri != null) {
             viewModel.onSourcePicked(
                 uri = uri.toString(),
-                displayName = uri.lastPathSegment?.substringAfterLast(':').orEmpty().ifBlank { "Книги" },
+                displayName = uri.lastPathSegment
+                    ?.substringAfterLast(':')
+                    .orEmpty()
+                    .ifBlank { context.getString(R.string.onboarding_default_source_name) },
             )
         }
     }
@@ -66,8 +73,12 @@ fun OnboardingScreen(
     }
 
     EinkScaffold(
-        title = "Первый запуск",
-        subtitle = "Шаг ${state.step.ordinal + 1} из ${OnboardingStep.entries.size}",
+        title = stringResource(R.string.onboarding_title),
+        subtitle = stringResource(
+            R.string.onboarding_step,
+            state.step.ordinal + 1,
+            OnboardingStep.entries.size,
+        ),
         modifier = modifier,
         onBack = if (state.step.isFirst) null else viewModel::onPreviousStep,
         onKeyAction = { action ->
@@ -117,8 +128,7 @@ fun OnboardingScreen(
 private fun WelcomeStep() {
     EinkEmptyState(
         title = "BookShelf",
-        message = "Приложение не читает книги само: оно собирает библиотеку и открывает книгу " +
-            "в вашей читалке. Полка, поиск и фильтры работают полностью офлайн.",
+        message = stringResource(R.string.onboarding_welcome_message),
     )
 }
 
@@ -135,30 +145,30 @@ private fun SourcesStep(
     val colors = LocalEinkColors.current
 
     Text(
-        text = "Шаг 2. Папки с книгами",
+        text = stringResource(R.string.onboarding_sources_title),
         style = MaterialTheme.typography.titleMedium,
         color = colors.foreground,
     )
     Text(
-        text = "Выберите саму папку с книгами (например, «Books»), а не корень хранилища: " +
-            "на Android 11+ система не отдаёт приложению корень накопителя, корень SD-карты и папку " +
-            "«Download». Если книги лежат в «Download», перенесите их в другую папку или включите " +
-            "«Доступ ко всем файлам» в полной сборке.",
+        text = stringResource(R.string.onboarding_sources_message),
         style = MaterialTheme.typography.bodyMedium,
         color = colors.foreground,
     )
     Text(
-        text = "Доступ к папке теряется, если её переместить или удалить. Тогда полка попросит " +
-            "указать папку заново, а уже найденные книги останутся в библиотеке.",
+        text = stringResource(R.string.onboarding_sources_access_lost_message),
         style = MaterialTheme.typography.bodySmall,
         color = colors.foreground,
     )
 
-    EinkButton(text = "Добавить папку", onClick = onAddSource, primary = true)
+    EinkButton(
+        text = stringResource(R.string.onboarding_action_add_folder),
+        onClick = onAddSource,
+        primary = true,
+    )
 
     if (sources.isEmpty()) {
         Text(
-            text = "Папки пока не добавлены — без источника собирать библиотеку нечего.",
+            text = stringResource(R.string.onboarding_sources_empty),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.foreground,
         )
@@ -177,7 +187,11 @@ private fun SourcesList(
         sources.forEach { source ->
             EinkListRow(
                 title = source.displayName,
-                subtitle = if (source.accessLost) "Папка недоступна — выбрать заново" else source.uri,
+                subtitle = if (source.accessLost) {
+                    stringResource(R.string.onboarding_source_unavailable)
+                } else {
+                    source.uri
+                },
                 trailing = source.documentCount?.toString(),
                 onClick = { onRemoveSource(source.id) },
             )
@@ -196,20 +210,19 @@ private fun ReadersStep(
     val dimens = LocalEinkDimens.current
 
     Text(
-        text = "Шаг 3. Читалка по умолчанию",
+        text = stringResource(R.string.onboarding_readers_title),
         style = MaterialTheme.typography.titleMedium,
         color = colors.foreground,
     )
     Text(
-        text = "Книга открывается во внешней читалке. Выберите читалку по умолчанию — " +
-            "позже её можно сменить для каждого формата в настройках.",
+        text = stringResource(R.string.onboarding_readers_message),
         style = MaterialTheme.typography.bodyMedium,
         color = colors.foreground,
     )
 
     if (readers.isEmpty()) {
         Text(
-            text = "Читалки пока не найдены: проверка установленных приложений появится в Sprint 5.",
+            text = stringResource(R.string.onboarding_readers_empty),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.foreground,
         )
@@ -220,11 +233,21 @@ private fun ReadersStep(
                     EinkListRow(
                         title = reader.name,
                         subtitle = reader.packageName,
-                        trailing = if (reader.isDefault) "по умолчанию" else null,
+                        trailing = if (reader.isDefault) {
+                            stringResource(R.string.onboarding_reader_default)
+                        } else {
+                            null
+                        },
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-                        EinkButton(text = "Сделать основной", onClick = { onSelectReader(reader.id) })
-                        EinkButton(text = "Проверить", onClick = { onCheckReader(reader.id) })
+                        EinkButton(
+                            text = stringResource(R.string.onboarding_action_make_default),
+                            onClick = { onSelectReader(reader.id) },
+                        )
+                        EinkButton(
+                            text = stringResource(R.string.onboarding_action_check),
+                            onClick = { onCheckReader(reader.id) },
+                        )
                     }
                 }
             }
@@ -249,17 +272,21 @@ private fun OnboardingFooter(
         horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
         if (!state.step.isFirst) {
-            EinkButton(text = "Назад", onClick = onPrevious)
+            EinkButton(text = stringResource(R.string.onboarding_action_back), onClick = onPrevious)
         }
         if (state.step.isLast) {
             EinkButton(
-                text = "Собрать библиотеку",
+                text = stringResource(R.string.onboarding_action_finish),
                 onClick = onFinish,
                 enabled = state.canFinish,
                 primary = true,
             )
         } else {
-            EinkButton(text = "Далее", onClick = onNext, primary = true)
+            EinkButton(
+                text = stringResource(R.string.onboarding_action_next),
+                onClick = onNext,
+                primary = true,
+            )
         }
     }
 }

@@ -22,6 +22,22 @@ const SKIP_DIRS = new Set([
   '.git', '.gradle', 'build', 'dist', 'node_modules', '.idea', '.kotlin', 'schemas',
 ]);
 
+/**
+ * Списки, у которых отключена прокрутка.
+ *
+ * Дефект, ради которого правило появилось: в скане и каталогах у списков стояло
+ * `userScrollEnabled = false`, страниц при этом не было (или они листались только аппаратными
+ * клавишами), и хвост списка было не достать ни пальцем, ни клавишами (найдено на устройстве
+ * 30.09.2026). Отключение прокрутки допустимо только вместе с сенсорным листанием на экране —
+ * такого в проекте нет, поэтому правило строгое.
+ */
+const FORBIDDEN_ANYWHERE = [
+  {
+    pattern: /userScrollEnabled\s*=\s*false/,
+    hint: 'список без прокрутки — хвост недостижим; прокручивайте список или дайте кнопки листания',
+  },
+];
+
 /** Правила тестируемости из docs/tdd.md §5: в main-коде этих вызовов быть не должно. */
 const FORBIDDEN_IN_MAIN = [
   { pattern: /System\.currentTimeMillis\(\)/, hint: 'используйте AppClock (docs/tdd.md §5)' },
@@ -96,8 +112,14 @@ function codeOnly(source) {
         out += source[j] === '\n' ? '\n' : ' ';
         j += 1;
       }
-      out += '      ';
-      i = j + 3;
+      // Кавычек подряд может быть больше трёх: строка, кончающаяся кавычкой, пишется как
+      // `"""a""""`. Закрывающей считается последняя кавычка серии — иначе хвост «""» открывал бы
+      // новую строку, и до конца файла скобки не считались бы вовсе (ложное «несбалансированные
+      // скобки» на валидном файле).
+      let end = j + 3;
+      while (end < source.length && source[end] === '"') end += 1;
+      out += ' '.repeat(end - i);
+      i = end;
       continue;
     }
 
@@ -186,6 +208,8 @@ function selfTest() {
     { code: String.raw`val text = "скобка ( внутри строки"`, expected: 0 },
     { code: String.raw`val comment = 1 // ( в комментарии`, expected: 0 },
     { code: String.raw`val broken = call(one(2)`, expected: 1 },
+    // Строка, кончающаяся кавычкой: четыре кавычки подряд. Хвост не должен открывать новую строку.
+    { code: String.raw`check("""<binary id="a.jpg"""").contains("[" )`, expected: 0 },
   ];
   const failures = cases.filter((item) => parenBalance(item.code) !== item.expected);
   if (failures.length) {
@@ -253,6 +277,12 @@ function checkFile(file) {
       warnings.push(`${rel}:${number}: @Ignore — нужна ссылка на задачу (docs/tdd.md §2)`);
     }
   });
+
+  for (const rule of FORBIDDEN_ANYWHERE) {
+    if (rule.pattern.test(stripped)) {
+      errors.push(`${rel}: найдено «${rule.pattern.source}» — ${rule.hint}`);
+    }
+  }
 
   const isTest = rel.includes('/src/test/') || rel.includes('/src/testFixtures/') || rel.includes('/src/androidTest/');
   if (!isTest && !ALLOWED_FILES.has(rel.replaceAll('\\', '/'))) {

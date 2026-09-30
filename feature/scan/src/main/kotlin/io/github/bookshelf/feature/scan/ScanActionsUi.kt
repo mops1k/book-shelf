@@ -33,6 +33,16 @@ fun scanActionsOf(status: ScanStatus): ScanActionsUi = when (status) {
     else -> ScanActionsUi()
 }
 
+/**
+ * Показывать ли кнопку «К отчёту».
+ *
+ * Отчёт есть — значит, прогон завершён, и смотреть там есть что: сколько добавлено и какие файлы
+ * не разобрались. Раньше отчёт открывался только клавишей MENU, и с сенсорного экрана входа к
+ * нему не было вовсе — раздел «Проблемные файлы» оставался недостижимым (проверено на устройстве
+ * 30.09.2026).
+ */
+fun canOpenReport(report: ScanReportUi?, isRunning: Boolean): Boolean = report != null && !isRunning
+
 /** Подпись состояния прогона для строки под заголовком. */
 fun scanStatusLabel(status: ScanStatus): String = when (status) {
     ScanStatus.IDLE -> "Скан не запущен"

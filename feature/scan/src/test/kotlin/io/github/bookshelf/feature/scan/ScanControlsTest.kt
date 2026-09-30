@@ -32,6 +32,16 @@ class ScanControlsTest {
     }
 
     @Test
+    fun `the way to the report appears only when there is a report and no running scan`() {
+        val report = ScanReportUi(added = 3, failed = 1)
+
+        assertThat(canOpenReport(report, isRunning = false)).isTrue()
+        // Во время прогона отчёт ещё не итог: показывать его кнопкой рано.
+        assertThat(canOpenReport(report, isRunning = true)).isFalse()
+        assertThat(canOpenReport(null, isRunning = false)).isFalse()
+    }
+
+    @Test
     fun `running scan offers pause and the way to the shelf`() {
         val actions = scanActionsOf(ScanStatus.RUNNING)
 

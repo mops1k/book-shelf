@@ -6,9 +6,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.model.ScanProgress
 import io.github.bookshelf.core.data.model.ScanReport
 import io.github.bookshelf.core.data.model.ScanStatus
+import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
 import javax.inject.Inject
@@ -34,6 +36,11 @@ import kotlinx.coroutines.launch
 class ScanViewModel @Inject constructor(
     private val scanRepository: ScanRepository,
     private val sourceRepository: SourceRepository,
+    /**
+     * Проблемные файлы берутся из библиотеки, а не из статистики прогона: разбор файла идёт
+     * отдельной работой после скана, и в момент отчёта в `scan_runs` есть только их число.
+     */
+    private val bookRepository: BookRepository,
 ) : ViewModel() {
 
     /** Выход с экрана: кнопка «Отменить» работает как «Назад», когда отменять нечего. */
@@ -111,21 +118,6 @@ class ScanViewModel @Inject constructor(
     /** Показать отчёт последнего скана. */
     fun onShowReport() {
         _uiState.value = _uiState.value.copy(mode = ScanMode.REPORT)
-    }
-
-    /** Показать группы дубликатов. */
-    fun onShowDuplicates() {
-        _uiState.value = _uiState.value.copy(mode = ScanMode.DUPLICATES)
-    }
-
-    /** Оставить выбранную копию, остальные скрыть. */
-    fun onKeepCopy(groupId: String, bookId: String) {
-        showError("Разрешение дубликатов пока не поддерживается")
-    }
-
-    /** Убрать лишние записи группы из библиотеки (файлы не удаляются никогда). */
-    fun onRemoveDuplicates(groupId: String) {
-        showError("Удаление дубликатов пока не поддерживается")
     }
 
     /** Перечитать прогресс и отчёт. */
@@ -294,9 +286,34 @@ class ScanViewModel @Inject constructor(
                     removed = it.removed,
                     failed = it.failedCount,
                     durationLabel = reportDuration(it),
+                    // Причины отказов приходят не из прогона скана, а из строк книг: разбор идёт
+                    // отдельной работой, и на момент отчёта в `scan_runs` есть только их число.
+                    // Без этого раздел «Проблемные файлы» всегда оставался пустым и сообщал
+                    // «Проблемных файлов нет», даже когда не разобралась не одна книга.
+                    problemFiles = _uiState.value.report?.problemFiles.orEmpty(),
                 )
             },
         )
+        if (report != null) loadProblemFiles()
+    }
+
+    /** Подтянуть проблемные файлы в отчёт: имя и причину отказа. */
+    private fun loadProblemFiles() {
+        viewModelScope.launch {
+            val failure = bookRepository.booksWithParseErrors()
+            val books = failure.getOrNull() ?: return@launch
+            _uiState.value = _uiState.value.copy(
+                report = _uiState.value.report?.copy(
+                    problemFiles = books.map { book ->
+                        ProblemFileUi(
+                            id = book.id,
+                            fileName = book.title,
+                            reason = book.parseError ?: "Причина не записана",
+                        )
+                    },
+                ),
+            )
+        }
     }
 
     private fun reportDuration(report: ScanReport): String? {

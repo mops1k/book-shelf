@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -35,7 +36,9 @@ import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.search.R
 import io.github.bookshelf.feature.search.SearchUiState
+import io.github.bookshelf.feature.search.searchEmptyState
 import io.github.bookshelf.feature.search.SearchViewModel
 
 
@@ -77,8 +80,8 @@ fun SearchScreen(
     }
 
     EinkScaffold(
-        title = "Поиск",
-        subtitle = "Название, автор, серия, имя файла, аннотация",
+        title = stringResource(R.string.search_title),
+        subtitle = stringResource(R.string.search_subtitle),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -95,7 +98,7 @@ fun SearchScreen(
             Text(
                 // Число берётся из того же состояния, что и список, а не из пагинатора:
                 // пагинатор обновлялся отдельной подпиской и мог отставать от списка.
-                text = resultCountLabel(state.total),
+                text = stringResource(R.string.search_results_count, state.total),
                 style = MaterialTheme.typography.labelMedium,
                 color = colors.foreground,
                 modifier = Modifier
@@ -148,8 +151,8 @@ private fun ColumnScope.SearchContent(
         EinkTextField(
             value = state.query,
             onValueChange = viewModel::onQueryChange,
-            label = "Поиск по библиотеке",
-            placeholder = "Название, автор, серия, файл",
+            label = stringResource(R.string.search_field_label),
+            placeholder = stringResource(R.string.search_field_placeholder),
             imeAction = ImeAction.Search,
             onImeAction = onSearch,
         )
@@ -159,13 +162,13 @@ private fun ColumnScope.SearchContent(
             horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
         ) {
             EinkButton(
-                text = "Найти",
+                text = stringResource(R.string.search_action_find),
                 onClick = viewModel::onSearch,
                 primary = true,
                 modifier = Modifier.weight(1f),
             )
             EinkButton(
-                text = "Очистить",
+                text = stringResource(R.string.search_action_clear),
                 onClick = viewModel::onClearQuery,
                 modifier = Modifier.weight(1f),
             )
@@ -175,14 +178,14 @@ private fun ColumnScope.SearchContent(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.search_action_retry),
                 onAction = onSearch,
             )
         }
 
         if (state.isSearching) {
             Text(
-                text = "Идёт поиск…",
+                text = stringResource(R.string.search_in_progress),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.foreground,
             )
@@ -198,7 +201,7 @@ private fun ColumnScope.SearchContent(
             if (state.isSearching) {
                 item(key = "searching") {
                     Text(
-                        text = "Идёт поиск…",
+                        text = stringResource(R.string.search_in_progress),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.foreground,
                         modifier = Modifier.padding(vertical = dimens.gutterSmall),
@@ -210,7 +213,10 @@ private fun ColumnScope.SearchContent(
             // и пустой список подсказок выглядел как отдельный раздел.
             if (state.suggestions.isNotEmpty()) {
                 item(key = "suggestions-header") {
-                    EinkSectionHeader(title = "Подсказки", count = state.suggestions.size)
+                    EinkSectionHeader(
+                        title = stringResource(R.string.search_suggestions_header),
+                        count = state.suggestions.size,
+                    )
                 }
                 items(items = state.suggestions, key = { suggestion -> "s-$suggestion" }) { suggestion ->
                     EinkListRow(
@@ -230,21 +236,24 @@ private fun ColumnScope.SearchContent(
             }
 
             item(key = "results-header") {
-                EinkSectionHeader(title = "Результаты", count = state.total)
+                EinkSectionHeader(
+                    title = stringResource(R.string.search_results_header),
+                    count = state.total,
+                )
             }
 
             if (state.results.isEmpty()) {
                 item(key = "empty") {
-                    // Текст не обещает того, чего нет: подсветки совпадения и фильтров по
-                    // результатам в приложении пока не существует, а раньше он их обещал.
+                    // До поиска раздел пуст, но это не значит, что совпадений нет: пока человек
+                    // набирает запрос, экран обязан звать нажать «Найти», а не сообщать «Ничего
+                    // не найдено». Правило живёт в чистой функции `searchEmptyState`.
+                    val empty = searchEmptyState(state.query, state.searchedTerm)
                     EinkEmptyState(
-                        title = if (state.query.isBlank()) "Введите запрос" else "Ничего не найдено",
-                        message = if (state.query.isBlank()) {
-                            "Поиск идёт по названию, автору, серии, имени файла и аннотации."
-                        } else {
-                            "По запросу «${state.query.trim()}» совпадений нет. " +
-                                "Попробуйте другое слово или часть слова."
-                        },
+                        title = stringResource(empty.titleRes),
+                        // Аргумент один (искомый термин) — раскрывать массив незачем.
+                        message = empty.messageArg?.let { arg ->
+                            stringResource(empty.messageRes, arg)
+                        } ?: stringResource(empty.messageRes),
                         modifier = Modifier.fillMaxWidth().padding(vertical = dimens.gutter),
                     )
                 }
@@ -253,7 +262,7 @@ private fun ColumnScope.SearchContent(
                     EinkListRow(
                         title = result.title,
                         subtitle = result.snippet ?: result.authors,
-                        trailing = result.matchedField,
+                        trailing = result.matchedFieldRes?.let { field -> stringResource(field) },
                         onClick = { onOpenBook(result.id) },
                     )
                 }
@@ -275,14 +284,17 @@ private fun LazyListScope.recentQueriesSection(
 ) {
     if (recents.isEmpty()) return
     item(key = "recent-header") {
-        EinkSectionHeader(title = "Последние запросы", count = recents.size)
+        EinkSectionHeader(
+            title = stringResource(R.string.search_recent_header),
+            count = recents.size,
+        )
     }
     items(items = recents, key = { recent -> "r-$recent" }) { recent ->
         EinkListRow(title = recent, onClick = { onChoose(recent) })
     }
     item(key = "recent-clear") {
         EinkButton(
-            text = "Очистить историю",
+            text = stringResource(R.string.search_action_clear_history),
             onClick = onClear,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -290,4 +302,3 @@ private fun LazyListScope.recentQueriesSection(
 }
 
 /** Подпись числа результатов: «Найдено: 7». */
-private fun resultCountLabel(total: Int): String = "Найдено: $total"

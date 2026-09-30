@@ -56,6 +56,24 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `typing does not pretend a search has already happened`() = runTest(dispatcher) {
+        repository.books = listOf(book(id = "b1", title = "Солярис"))
+        val viewModel = SearchViewModel(repository)
+
+        viewModel.onQueryChange("соляр")
+        advanceUntilIdle()
+
+        // Результатов ещё нет, и экран обязан звать нажать «Найти», а не сообщать «не найдено».
+        assertThat(viewModel.uiState.value.results).isEmpty()
+        assertThat(viewModel.uiState.value.searchedTerm).isNull()
+
+        viewModel.onSearch()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.searchedTerm).isEqualTo("соляр")
+    }
+
+    @Test
     fun `results carry the field where the match was found`() = runTest(dispatcher) {
         repository.books = listOf(book(id = "b1", title = "Солярис", authors = "Станислав Лем"))
         val viewModel = SearchViewModel(repository)
@@ -64,7 +82,8 @@ class SearchViewModelTest {
         viewModel.onSearch()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.results.single().matchedField).isEqualTo("автор")
+        assertThat(viewModel.uiState.value.results.single().matchedFieldRes)
+            .isEqualTo(R.string.search_field_author)
     }
 
     @Test

@@ -1,7 +1,6 @@
 package io.github.bookshelf.feature.scan.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,21 +25,17 @@ import io.github.bookshelf.core.designsystem.component.EinkProgress
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.input.EinkAction
-import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
-import io.github.bookshelf.core.designsystem.paging.statusLabel
+import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
-import io.github.bookshelf.feature.scan.DuplicateGroupUi
 import io.github.bookshelf.feature.scan.ProblemFileUi
+import io.github.bookshelf.feature.scan.canOpenReport
 import io.github.bookshelf.feature.scan.ScanMode
 import io.github.bookshelf.feature.scan.ScanUiState
 import io.github.bookshelf.feature.scan.ScanViewModel
 import io.github.bookshelf.feature.scan.scanProgressCaption
 import io.github.bookshelf.feature.scan.scanProgressFraction
 import io.github.bookshelf.feature.scan.scanStatusLabel
-
-/** Сколько групп дубликатов помещается на «страницу». */
-private const val DUPLICATES_PAGE_SIZE = 2
 
 /**
  * Сканирование: прогресс, отчёт и дубликаты (docs/eink-ux.md §6.6–6.7).
@@ -75,13 +71,6 @@ fun ScanScreen(
             modifier = modifier,
         )
 
-        ScanMode.DUPLICATES -> DuplicatesScreen(
-            state = state,
-            viewModel = viewModel,
-            onBack = onBack,
-            onOpenBook = onOpenBook,
-            modifier = modifier,
-        )
     }
 }
 
@@ -164,6 +153,13 @@ private fun ProgressScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                if (canOpenReport(state.report, state.actions.canPause)) {
+                    EinkButton(
+                        text = "К отчёту",
+                        onClick = viewModel::onShowReport,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 if (state.actions.canOpenLibrary) {
                     EinkButton(
                         text = "К полке",
@@ -189,16 +185,22 @@ private fun ReportScreen(
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
     val report = state.report
+    val problemListState = rememberLazyListState()
+    val scrollProblems = rememberEinkListPageScroller(problemListState)
 
     EinkScaffold(
         title = "Отчёт сканирования",
         subtitle = report?.durationLabel,
         modifier = modifier,
         onBack = onBack,
-        actions = { EinkButton(text = "Дубликаты", onClick = viewModel::onShowDuplicates) },
+        // Кнопки «Дубликаты» здесь нет: поиск дублей живёт в настройках («Библиотека и
+        // сканирование» → «Проверить на дубли»), а второй вход вёл на экран, где кнопки отвечали
+        // «пока не поддерживается», и список групп никто не заполнял.
         onKeyAction = { action ->
             when (action) {
-                EinkAction.OPEN -> viewModel.onShowDuplicates()
+                EinkAction.PREVIOUS_PAGE -> scrollProblems(-1)
+                EinkAction.NEXT_PAGE -> scrollProblems(1)
+                EinkAction.OPEN -> viewModel.onShowProgress()
                 EinkAction.MENU -> viewModel.onShowProgress()
                 EinkAction.BACK -> onBack()
                 else -> Unit
@@ -210,8 +212,8 @@ private fun ReportScreen(
                 title = "Отчёта пока нет",
                 message = "Здесь появится итог скана: сколько добавлено, обновлено, пропало и не разобрано, " +
                     "и список проблемных файлов с причиной ошибки.",
-                actionLabel = "К дубликатам",
-                onAction = viewModel::onShowDuplicates,
+                actionLabel = "К сканированию",
+                onAction = viewModel::onShowProgress,
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -234,7 +236,9 @@ private fun ReportScreen(
                         color = colors.foreground,
                     )
                 } else {
-                    LazyColumn(modifier = Modifier.weight(1f), userScrollEnabled = false) {
+                    // Список прокручивается: страниц у него нет, и с выключенной прокруткой
+                    // хвост проблемных файлов было не достать ни пальцем, ни клавишами.
+                    LazyColumn(state = problemListState, modifier = Modifier.weight(1f)) {
                         items(items = report.problemFiles, key = { file -> file.id }) { file ->
                             ProblemFileRow(file = file, onClick = { onOpenBook(file.id) })
                         }
@@ -254,112 +258,3 @@ private fun ProblemFileRow(
     EinkListRow(title = file.fileName, subtitle = file.reason, onClick = onClick)
 }
 
-/** Группы дубликатов: по одному решению на группу, без множественного выделения. */
-@Composable
-private fun DuplicatesScreen(
-    state: ScanUiState,
-    viewModel: ScanViewModel,
-    onBack: () -> Unit,
-    onOpenBook: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val dimens = LocalEinkDimens.current
-    val pager = rememberEinkPagerState(pageSize = DUPLICATES_PAGE_SIZE, totalItems = state.duplicates.size)
-
-    LaunchedEffect(state.duplicates.size) { pager.updateTotalItems(state.duplicates.size) }
-
-    EinkScaffold(
-        title = "Дубликаты",
-        subtitle = "Файлы не удаляются — только записи библиотеки",
-        modifier = modifier,
-        onBack = onBack,
-        actions = { EinkButton(text = "К отчёту", onClick = viewModel::onShowReport) },
-        onKeyAction = { action ->
-            when (action) {
-                EinkAction.PREVIOUS_PAGE -> pager.previous()
-                EinkAction.NEXT_PAGE -> pager.next()
-                EinkAction.MENU -> viewModel.onShowReport()
-                EinkAction.BACK -> onBack()
-                else -> Unit
-            }
-        },
-        footer = {
-            Text(
-                text = pager.statusLabel("групп"),
-                style = MaterialTheme.typography.labelMedium,
-                color = LocalEinkColors.current.foreground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            )
-        },
-    ) {
-        Box(
-                modifier = Modifier.weight(1f),
-            ) {
-            if (state.duplicates.isEmpty()) {
-                EinkEmptyState(
-                    title = "Дубликатов не найдено",
-                    message = "Здесь появятся группы книг с одинаковым contentHash: «оставить этот», " +
-                        "«скрыть остальные», «удалить из библиотеки» — по одному решению на группу.",
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = dimens.gutter),
-                    verticalArrangement = Arrangement.spacedBy(dimens.gutter),
-                ) {
-                    state.duplicates.drop(pager.offset).take(pager.pageSize).forEach { group ->
-                        DuplicateGroupBlock(
-                            group = group,
-                            onKeep = viewModel::onKeepCopy,
-                            onRemove = viewModel::onRemoveDuplicates,
-                            onOpenBook = onOpenBook,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** Одна группа дубликатов: копии и два решения по группе. */
-@Composable
-private fun DuplicateGroupBlock(
-    group: DuplicateGroupUi,
-    onKeep: (String, String) -> Unit,
-    onRemove: (String) -> Unit,
-    onOpenBook: (String) -> Unit,
-) {
-    val dimens = LocalEinkDimens.current
-    val keeper = group.copies.firstOrNull()
-
-    Column(verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-        EinkSectionHeader(title = group.title, count = group.copies.size)
-        group.copies.forEach { copy ->
-            EinkListRow(
-                title = copy.path,
-                subtitle = copy.sizeLabel,
-                trailing = if (copy.isKeeper) "оставить" else null,
-                selected = copy.isKeeper,
-                onClick = { onOpenBook(copy.bookId) },
-            )
-        }
-        if (keeper != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-                EinkButton(
-                    text = "Оставить эту",
-                    onClick = { onKeep(group.id, keeper.bookId) },
-                    modifier = Modifier.weight(1f),
-                )
-                EinkButton(
-                    text = "Убрать остальные",
-                    onClick = { onRemove(group.id) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}

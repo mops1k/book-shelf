@@ -6,7 +6,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.testing.FakeAppClock
+import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
@@ -115,6 +117,81 @@ class BookOptimizationTest {
     }
 
     @Test
+    fun `a book checked earlier is not read again`() = runBlocking {
+        givenBook(extension = "fb2", content = fixture(), optimizedAt = 1_000L)
+
+        val result = repository().optimizeBook(BOOK_ID).getOrNull()
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.alreadyOptimized).isTrue()
+        // Файл даже не открывали: эту версию книги уже смотрели, и смотреть снова нечего.
+        assertThat(opener.threads).isEmpty()
+        assertThat(opener.replacements).isEqualTo(0)
+    }
+
+    @Test
+    fun `a successful optimization marks the book as checked`() = runBlocking {
+        givenBook(extension = "fb2", content = fixture())
+
+        repository().optimizeBook(BOOK_ID)
+
+        // Без отметки повторный прогон «оптимизировать все» заново пересобирал бы всю библиотеку.
+        assertThat(database.bookDao().getById(BOOK_ID)!!.optimizedAt).isNotNull()
+    }
+
+    @Test
+    fun `a book without gain is marked too`() = runBlocking {
+        val already = checkNotNull(
+            DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer()))
+                .optimize("book.fb2", fixture()).bytes,
+        )
+        givenBook(extension = "fb2", content = already)
+
+        repository().optimizeBook(BOOK_ID)
+
+        // Отметка означает «эту версию файла проверили», а не «файл стал меньше».
+        assertThat(database.bookDao().getById(BOOK_ID)!!.optimizedAt).isNotNull()
+    }
+
+    @Test
+    fun `a failed write leaves no mark`() = runBlocking {
+        givenBook(extension = "fb2", content = fixture())
+        opener.failingUris = setOf(URI)
+
+        repository().optimizeBook(BOOK_ID)
+
+        // Книга осталась прежней: считать её проверенной нельзя.
+        assertThat(database.bookDao().getById(BOOK_ID)!!.optimizedAt).isNull()
+    }
+
+    @Test
+    fun `the file facts are recorded so the scan does not re-read the book`() = runBlocking {
+        givenBook(extension = "fb2", content = fixture())
+        opener.lastModified = 4_242L
+
+        val result = repository().optimizeBook(BOOK_ID).getOrNull()
+
+        val row = database.bookDao().getById(BOOK_ID)!!
+        // Размер и время совпадают с тем, что сообщил провайдер: скан не увидит расхождения,
+        // не перечитает метаданные и не снимет отметку проверки.
+        assertThat(row.sizeBytes).isEqualTo(result!!.afterBytes.toLong())
+        assertThat(row.lastModified).isEqualTo(4_242L)
+    }
+
+    @Test
+    fun `optimization does not run on the calling thread`() = runBlocking {
+        givenBook(extension = "fb2", content = fixture())
+        val caller = Thread.currentThread().name
+
+        repository(dispatchers = BackgroundDispatchers).optimizeBook(BOOK_ID)
+
+        // Тяжёлая работа на вызывающем потоке означает замерший интерфейс: именно так 30.09.2026
+        // на устройстве случился ANR карточки книги («Книжная полка не отвечает»).
+        assertThat(opener.threads).isNotEmpty()
+        assertThat(opener.threads).doesNotContain(caller)
+    }
+
+    @Test
     fun `optimization waits while the reader is open`() = runBlocking {
         givenBook(extension = "fb2", content = fixture())
         session.markOpened(BOOK_ID)
@@ -125,7 +202,10 @@ class BookOptimizationTest {
         assertThat(opener.replacements).isEqualTo(0)
     }
 
-    private fun repository() = BookRepositoryImpl(
+    private fun repository(
+        dispatchers: AppDispatchers = TestAppDispatchers(),
+    ) = BookRepositoryImpl(
+        dispatchers = dispatchers,
         bookDao = database.bookDao(),
         overrideDao = database.metadataOverrideDao(),
         readingProgressDao = database.readingProgressDao(),
@@ -141,7 +221,11 @@ class BookOptimizationTest {
         fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
     )
 
-    private suspend fun givenBook(extension: String, content: ByteArray) {
+    private suspend fun givenBook(
+        extension: String,
+        content: ByteArray,
+        optimizedAt: Long? = null,
+    ) {
         opener.files[URI] = content
         database.bookDao().insert(
             BookEntity(
@@ -160,6 +244,7 @@ class BookOptimizationTest {
                 addedAt = 1_000L,
                 updatedAt = 1_000L,
                 lastSeenAt = 1_000L,
+                optimizedAt = optimizedAt,
             ),
         )
     }
@@ -167,6 +252,19 @@ class BookOptimizationTest {
     private fun fixture(): ByteArray = checkNotNull(
         javaClass.getResourceAsStream("/book-small.fb2"),
     ) { "нет фикстуры book-small.fb2" }.use { stream -> stream.readBytes() }
+
+    /**
+     * Диспетчеры с настоящим фоновым потоком.
+     *
+     * `TestAppDispatchers` выполняет всё на одном тестовом диспетчере, поэтому им такую проверку
+     * не сделать: работа шла бы прямо на потоке теста и «всё в порядке» ничего не значило бы.
+     */
+    private object BackgroundDispatchers : AppDispatchers {
+        override val io = kotlinx.coroutines.Dispatchers.IO
+        override val default = kotlinx.coroutines.Dispatchers.Default
+        override val main = kotlinx.coroutines.Dispatchers.Default
+        override val metadata = kotlinx.coroutines.Dispatchers.Default
+    }
 
     /** Хеши содержимого в этих тестах не нужны: дубликаты не ищутся. */
     private object NoContentHashes : io.github.bookshelf.core.storage.files.ContentHasher {

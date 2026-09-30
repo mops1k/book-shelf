@@ -75,7 +75,3 @@ fun rememberEinkPagerState(
 ): EinkPagerState = remember(pageSize) {
     EinkPagerState(initialPageSize = pageSize, initialTotalItems = totalItems)
 }
-
-/** Подпись под списком: «Стр. 3/12 · 47 книг». */
-fun EinkPagerState.statusLabel(totalLabel: String): String =
-    "Стр. ${page + 1}/$pageCount · $totalItems $totalLabel"

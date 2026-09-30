@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.database.migration.MIGRATION_1_2
 import io.github.bookshelf.core.database.migration.MIGRATION_2_3
+import io.github.bookshelf.core.database.migration.MIGRATION_3_4
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -139,8 +140,42 @@ class BookshelfDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate_3_to_4_marks_existing_books_as_not_yet_optimized() {
+        givenVersion3WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_3_4).use { db ->
+            // Старые книги получают «ещё не проверяли»: первый прогон оптимизации после обновления
+            // пройдёт по всем книгам один раз, и это правильное поведение.
+            assertThat(db.nullableLongOf("SELECT optimizedAt FROM books WHERE id = ?", BOOK_ID)).isNull()
+            assertThat(db.stringOf("SELECT title FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo("Война и мир")
+        }
+    }
+
+    @Test
+    fun migrate_3_to_4_lets_the_mark_be_written_and_read() {
+        givenVersion3WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_3_4).use { db ->
+            // Столбец не только существует, но и записывается: иначе пакетная оптимизация
+            // перечитывала бы уже проверенные книги на каждом запуске.
+            db.execSQL("UPDATE books SET optimizedAt = ? WHERE id = ?", arrayOf<Any>(1234L, BOOK_ID))
+            assertThat(db.nullableLongOf("SELECT optimizedAt FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo(1234L)
+        }
+    }
+
     private fun givenVersion1WithBook() {
         helper.createDatabase(TEST_DB, 1).apply {
+            execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
+            close()
+        }
+    }
+
+    /** Книга, записанная в схеме 3 — до появления отметки оптимизации. */
+    private fun givenVersion3WithBook() {
+        helper.createDatabase(TEST_DB, 3).apply {
             execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
             close()
         }
@@ -196,6 +231,13 @@ class BookshelfDatabaseMigrationTest {
             close()
         }
     }
+
+    /** Числовое значение столбца, допускающего NULL: `getLong` на NULL вернул бы ноль. */
+    private fun SupportSQLiteDatabase.nullableLongOf(sql: String, id: String): Long? =
+        query(sql, arrayOf<Any>(id)).use { cursor ->
+            check(cursor.moveToFirst()) { "запрос не вернул строк: $sql" }
+            if (cursor.isNull(0)) null else cursor.getLong(0)
+        }
 
     /** Значение столбца, допускающего NULL: [stringOf] на NULL бросил бы исключение. */
     private fun SupportSQLiteDatabase.nullableStringOf(sql: String, id: String): String? =

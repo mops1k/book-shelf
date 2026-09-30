@@ -2,6 +2,7 @@ package io.github.bookshelf.core.database
 
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
+import io.github.bookshelf.core.database.model.ParseState
 
 /**
  * Общие заготовки сущностей для тестов базы.
@@ -21,6 +22,8 @@ internal object BookDaoTestFixtures {
         extension: String = "fb2",
         sizeBytes: Long = 1024L,
         addedAt: Long = 1000L,
+        parseState: ParseState = ParseState.PENDING,
+        parseError: String? = null,
     ) = BookEntity(
         id = id,
         sourceId = sourceId,
@@ -38,6 +41,8 @@ internal object BookDaoTestFixtures {
         addedAt = addedAt,
         updatedAt = addedAt,
         lastSeenAt = addedAt,
+        parseState = parseState,
+        parseError = parseError,
     )
 
     fun source(id: String, name: String = "Books") = SourceEntity(

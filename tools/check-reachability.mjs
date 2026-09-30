@@ -12,7 +12,16 @@
  * Что проверяется:
  * 1. каждый `composable(...)` в feature-модулях достижим — есть переход на его маршрут;
  * 2. ни один экран не рисует текст «Раздел в разработке» вне состояния «данных нет»;
- * 3. каждый `onOpen*` ведёт на существующий маршрут, а не в никуда.
+ * 3. каждый `onOpen*` ведёт на существующий маршрут, а не в никуда;
+ * 4. маршрут не достижим **только** из пустого состояния.
+ *
+ * Как считается переход (правило ужесточено 30.09.2026). Раньше переходом считалось любое
+ * упоминание `<Маршрут>.route`, и файл самой регистрации экрана тоже подходил: `composable(route =
+ * XRoute.route, …)` делал экран «достижимым» сам для себя. Из-за этого проверка пропустила два
+ * разрыва, найденных на устройстве: экран сканирования открывался только с пустой полки, а экран
+ * каталогов — через `CatalogsRoute.createRoute()`, который вообще не распознавался.
+ * Теперь переходом считается упоминание маршрута вне аргументов `composable(…)`: сама регистрация
+ * экрана переходом не является, а `navigate(…)` и `createRoute(…)` — являются.
  *
  * Запуск: node tools/check-reachability.mjs
  */
@@ -54,16 +63,141 @@ for (const file of featureFiles) {
   if (route) routes.set(obj[1], { value: route[1], file: relative(ROOT, file) });
 }
 
-/** Кто на кого ведёт: имя маршрута → файлы, где встречается переход на него. */
+/** Кто на кого ведёт: имя маршрута → файлы, где маршрут указан в переходе. */
 const transitions = new Map();
 for (const file of [...featureFiles, ...appFiles]) {
   const text = read(file);
-  for (const [name, { value }] of routes) {
-    if (text.includes(`${name}.route`)) {
-      if (!transitions.has(name)) transitions.set(name, []);
-      transitions.get(name).push(relative(ROOT, file));
+  const rel = relative(ROOT, file);
+  for (const name of routes.keys()) {
+    if (transitionIndices(name, text).length === 0) continue;
+    if (!transitions.has(name)) transitions.set(name, []);
+    transitions.get(name).push(rel);
+  }
+}
+
+/**
+ * Убрать из текста строки, символьные литералы и комментарии.
+ *
+ * Нужно для разбора блоков `EinkEmptyState(…)`: скобки внутри подписей не должны сбивать подсчёт.
+ */
+function codeOnly(source) {
+  let out = "";
+  let i = 0;
+  let line = false;
+  let block = false;
+  while (i < source.length) {
+    const two = source.slice(i, i + 2);
+    const char = source[i];
+    if (line) {
+      if (char === "\n") { line = false; out += "\n"; } else out += " ";
+      i += 1;
+      continue;
+    }
+    if (block) {
+      if (two === "*/") { block = false; out += "  "; i += 2; } else { out += char === "\n" ? "\n" : " "; i += 1; }
+      continue;
+    }
+    if (two === "//") { line = true; out += "  "; i += 2; continue; }
+    if (two === "/*") { block = true; out += "  "; i += 2; continue; }
+    if (char === '"') {
+      out += " ";
+      i += 1;
+      while (i < source.length && source[i] !== '"') {
+        if (source[i] === "\\") { out += "  "; i += 2; } else { out += " "; i += 1; }
+      }
+      out += " ";
+      i += 1;
+      continue;
+    }
+    out += char;
+    i += 1;
+  }
+  // Инвариант: маска совпадает по длине с исходником, иначе индексы в ней означают не то место.
+  // Ошибка в этом месте уже приводила к тихому пропуску: диапазоны регистрации уезжали влево.
+  if (out.length !== source.length) {
+    throw new Error(`codeOnly сместил индексы: ${out.length} вместо ${source.length}`);
+  }
+  return out;
+}
+
+/** Диапазоны блоков `EinkEmptyState(…)`: переход внутри них — вход только из пустого состояния. */
+function emptyStateRanges(text) {
+  const code = codeOnly(text);
+  const ranges = [];
+  let from = 0;
+  while (true) {
+    const start = code.indexOf("EinkEmptyState(", from);
+    if (start < 0) break;
+    let depth = 0;
+    let i = start + "EinkEmptyState".length;
+    while (i < code.length) {
+      if (code[i] === "(") depth += 1;
+      else if (code[i] === ")") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      i += 1;
+    }
+    ranges.push([start, i]);
+    from = i + 1;
+  }
+  return ranges;
+}
+
+/**
+ * Диапазоны аргументов `composable(…)` — это регистрация экрана, а не переход.
+ *
+ * Именно аргументы, а не тело лямбды: внутри `composable(LibraryRoute.route) { libraryScreen(…) }`
+ * лежит вся привязка экрана, и переходы оттуда настоящие.
+ */
+function registrationRanges(text) {
+  const code = codeOnly(text);
+  const ranges = [];
+  let from = 0;
+  while (true) {
+    const start = code.indexOf("composable(", from);
+    if (start < 0) break;
+    let depth = 0;
+    let i = start + "composable".length;
+    while (i < code.length) {
+      if (code[i] === "(") depth += 1;
+      else if (code[i] === ")") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      i += 1;
+    }
+    ranges.push([start, i]);
+    from = i + 1;
+  }
+  return ranges;
+}
+
+/** Индексы упоминаний маршрута, которые являются переходом, а не регистрацией. */
+function transitionIndices(name, text) {
+  const ranges = registrationRanges(text);
+  const mention = new RegExp(`${name}\\.(route|createRoute)\\b`, "g");
+  const out = [];
+  for (const m of text.matchAll(mention)) {
+    if (ranges.some(([start, end]) => m.index > start && m.index < end)) continue;
+    out.push(m.index);
+  }
+  return out;
+}
+
+/** Все переходы на маршрут лежат внутри пустых состояний? */
+function onlyFromEmptyState(name) {
+  let total = 0;
+  let empty = 0;
+  for (const file of [...featureFiles, ...appFiles]) {
+    const text = read(file);
+    const ranges = emptyStateRanges(text);
+    for (const index of transitionIndices(name, text)) {
+      total += 1;
+      if (ranges.some(([start, end]) => index > start && index < end)) empty += 1;
     }
   }
+  return total > 0 && total === empty;
 }
 
 const problems = [];
@@ -75,6 +209,13 @@ for (const [name, info] of routes) {
   const targets = transitions.get(name) ?? [];
   if (targets.length === 0) {
     problems.push(`экран ${name} (маршрут "${info.value}") недостижим: на него нет перехода`);
+    continue;
+  }
+  if (onlyFromEmptyState(name)) {
+    problems.push(
+      `экран ${name} (маршрут "${info.value}") достижим только из пустого состояния: ` +
+        `при живых данных входа к нему нет`,
+    );
   }
 }
 
@@ -98,10 +239,14 @@ for (const file of featureFiles) {
 
 // 3. Обработчики переходов не должны быть заглушками.
 // Заглушкой считается ЛЮБОЙ колбэк без перехода: popBackStack — тоже переход.
+// Проверяется только граф приложения: в feature-модулях `onX = { … }` — обычная привязка к
+// ViewModel, а не переход, и попытка считать её переходом дала 115 ложных срабатываний, то есть
+// проверка перестала бы ловить что-либо вообще. Переходы из feature-модулей ловит проверка 1 —
+// по вызовам `navigate(…)` и `createRoute(…)` в любом файле.
 const BACK = "popBackStack";
 for (const file of appFiles) {
   const text = read(file);
-  for (const m of text.matchAll(/(on\w+)\s*=\s*\{([^{}]*)\}/g)) {
+  for (const m of text.matchAll(/(on[A-Z]\w*)\s*=\s*\{([^{}]*)\}/g)) {
     const [, name, body] = m;
     if (body.includes("navigate") || body.includes(BACK)) continue;
     problems.push(
@@ -122,5 +267,6 @@ if (problems.length > 0) {
 }
 
 console.log(
-  `OK: ${routes.size} маршрутов, все достижимы; надписей о незавершённости вне пустых состояний нет`,
+  `OK: ${routes.size} маршрутов, все достижимы не только из пустого состояния; ` +
+    `надписей о незавершённости вне пустых состояний нет`,
 );

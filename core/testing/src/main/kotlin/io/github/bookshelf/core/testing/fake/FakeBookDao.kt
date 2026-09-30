@@ -65,9 +65,14 @@ class FakeBookDao(
         return if (same) 1 else 0
     }
 
+    /** Книги с ошибкой разбора: тест кладёт сюда то, что должен увидеть отчёт сканирования. */
+    var parseErrors: List<BookEntity> = emptyList()
+
+    override suspend fun booksWithParseErrors(limit: Int): List<BookEntity> =
+        parseErrors.take(limit)
+
     override suspend fun getAll(): List<BookEntity> = notUsed("getAll")
     override suspend fun deleteById(id: String) = notUsed("deleteById")
-    override suspend fun deleteAll() = notUsed("deleteAll")
     override suspend fun getById(id: String): BookEntity? = notUsed("getById")
     override suspend fun findByDocumentUri(documentUri: String): BookEntity? = notUsed("findByDocumentUri")
     override suspend fun touchLastSeen(ids: List<String>, seenAt: Long) = notUsed("touchLastSeen")

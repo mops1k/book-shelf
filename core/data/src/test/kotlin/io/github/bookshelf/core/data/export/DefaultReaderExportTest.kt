@@ -12,6 +12,7 @@ import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.ReaderSettings
 import io.github.bookshelf.core.readerlink.launch.ExportedUriFactory
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import io.github.bookshelf.core.storage.files.DocumentFacts
 import java.io.File
 import java.io.InputStream
 import java.nio.channels.FileChannel
@@ -115,6 +116,7 @@ class DefaultReaderExportTest {
         override fun openSeekableChannel(documentUri: String): FileChannel? = null
 
         override fun sizeOf(documentUri: String): Long? = null
+        override fun factsOf(documentUri: String): DocumentFacts? = null
 
         override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
             AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_default_source_name">Books</string>
+    <string name="onboarding_title">First launch</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
+
+    <string name="onboarding_welcome_message">The app does not read books itself: it builds the library and opens a book in your reader. The shelf, search and filters work fully offline.</string>
+
+    <string name="onboarding_sources_title">Step 2. Folders with books</string>
+    <string name="onboarding_sources_message">Choose the folder with books itself (for example «Books»), not the storage root: on Android 11+ the system does not give the app the storage root, the SD card root or the «Download» folder. If the books are in «Download», move them to another folder or enable «All files access» in the full build.</string>
+    <string name="onboarding_sources_access_lost_message">Access to a folder is lost if the folder is moved or deleted. Then the shelf will ask to choose the folder again, and the books already found stay in the library.</string>
+    <string name="onboarding_action_add_folder">Add folder</string>
+    <string name="onboarding_sources_empty">No folders added yet — there is nothing to build the library from without a source.</string>
+    <string name="onboarding_source_unavailable">Folder unavailable — choose again</string>
+
+    <string name="onboarding_readers_title">Step 3. Default reader</string>
+    <string name="onboarding_readers_message">A book opens in an external reader. Choose the default reader — later you can change it for each format in the settings.</string>
+    <string name="onboarding_readers_empty">No installed readers found. You can check the list later in the settings, section «Readers».</string>
+    <string name="onboarding_reader_default">default</string>
+    <string name="onboarding_action_make_default">Make default</string>
+    <string name="onboarding_action_check">Check</string>
+
+    <string name="onboarding_action_back">Back</string>
+    <string name="onboarding_action_next">Next</string>
+    <string name="onboarding_action_finish">Build the library</string>
+</resources>

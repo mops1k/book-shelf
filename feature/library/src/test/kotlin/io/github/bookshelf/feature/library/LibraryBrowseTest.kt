@@ -11,6 +11,7 @@ import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
+import io.github.bookshelf.core.data.repository.BookOptimizationBatch
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.DeletionResult
@@ -88,7 +89,7 @@ class LibraryBrowseTest {
         advanceUntilIdle()
 
         val browse = viewModel.uiState.value.browse
-        assertThat(browse.title).isEqualTo("Авторы")
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_authors))
         assertThat(browse.categories.map { it.label })
             .containsExactly("Лев Толстой", "Фёдор Достоевский")
         assertThat(browse.canGoBack).isFalse()
@@ -113,7 +114,7 @@ class LibraryBrowseTest {
         assertThat(query.series).isEmpty()
 
         val browse = viewModel.uiState.value.browse
-        assertThat(browse.title).isEqualTo("Автор: Лев Толстой")
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_author, "Лев Толстой"))
         assertThat(browse.categories.map { it.label }).containsExactly("Классика")
         assertThat(browse.canGoBack).isTrue()
     }
@@ -135,7 +136,8 @@ class LibraryBrowseTest {
         assertThat(query.onlyWithoutSeries).isFalse()
         // Уровень «серия» показывает книги, а не категории.
         assertThat(viewModel.uiState.value.browse.categories).isEmpty()
-        assertThat(viewModel.uiState.value.browse.title).isEqualTo("Серия: Классика")
+        assertThat(viewModel.uiState.value.browse.title)
+            .isEqualTo(BrowseTitleUi(R.string.library_browse_series_level, "Классика"))
     }
 
     @Test
@@ -184,14 +186,15 @@ class LibraryBrowseTest {
         advanceUntilIdle()
 
         // Назад из серии: снова серии того же автора, а книги остаются его же.
-        assertThat(viewModel.uiState.value.browse.title).isEqualTo("Автор: Лев Толстой")
+        assertThat(viewModel.uiState.value.browse.title)
+            .isEqualTo(BrowseTitleUi(R.string.library_browse_author, "Лев Толстой"))
         assertThat(repository.queries.last().bookQuery.authorSets).containsExactly(listOf("Лев Толстой"))
         assertThat(repository.queries.last().bookQuery.series).isEmpty()
 
         viewModel.onBrowseBack()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.browse.title).isEqualTo("Авторы")
+        assertThat(viewModel.uiState.value.browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_authors))
         assertThat(viewModel.uiState.value.browse.canGoBack).isFalse()
         assertThat(repository.queries.last().bookQuery.authorSets).isEmpty()
     }
@@ -217,7 +220,7 @@ class LibraryBrowseTest {
         viewModel.onSetBrowse(BrowseMode.SERIES)
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.browse.title).isEqualTo("Серии")
+        assertThat(viewModel.uiState.value.browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_series))
         assertThat(viewModel.uiState.value.browse.categories.map { it.label }).containsExactly("Классика")
 
         viewModel.onOpenCategory(CategoryItemUi(id = "Классика", label = "Классика", count = 2))
@@ -286,7 +289,7 @@ class LibraryBrowseTest {
         // Настройка «вид полки по умолчанию» — то, чем полка открывается, а не только значение
         // на экране настроек.
         assertThat(viewModel.uiState.value.browse.mode).isEqualTo(BrowseMode.SERIES)
-        assertThat(viewModel.uiState.value.browse.title).isEqualTo("Серии")
+        assertThat(viewModel.uiState.value.browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_series))
         assertThat(viewModel.uiState.value.browse.categories.map { it.label }).containsExactly("Классика")
     }
 
@@ -374,7 +377,17 @@ class LibraryBrowseTest {
                 AppError.Unknown(message = "не нужно в этом тесте"),
             )
 
+        /** Пакетная оптимизация в тестах полки не участвует. */
+        override suspend fun optimizeAllFb2(
+            onProgress: (done: Int, total: Int) -> Unit,
+        ): AppResult<BookOptimizationBatch> = AppResult.failure(
+            AppError.Unknown(message = "не нужно в этом тесте"),
+        )
+
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+
+        /** Отчёт сканирования в тестах полки не собирается. */
+        override suspend fun booksWithParseErrors(): AppResult<List<Book>> = AppResult.success(emptyList())
         /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */
         override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> =
             AppResult.success(null)

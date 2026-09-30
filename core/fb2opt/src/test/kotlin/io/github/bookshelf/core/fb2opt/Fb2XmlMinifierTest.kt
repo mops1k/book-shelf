@@ -15,17 +15,25 @@ import org.junit.Test
  *
  * Образцы — настоящие куски FB2 (структура и типичные для книг конструкции: `<?xml?>`, `<FictionBook>`,
  * `<section>`, `<p>`, `<empty-line/>`, сноски, `CDATA`, комментарии), а не выдуманные строки.
+ *
+ * Минификатор работает с байтами (книга в 13 МБ как строка занимает вдвое больше памяти, а на
+ * e-ink-читалке это и был отказ), поэтому здесь текст переводится в байты и обратно: проверяются
+ * правила минификации, а не кодировка.
  */
 class Fb2XmlMinifierTest {
 
     private val minifier = Fb2XmlMinifier()
+
+    /** Сжать текст целиком: так проверки читаются как утверждения о разметке. */
+    private fun minify(text: String): String =
+        String(minifier.minify(text.toByteArray(Charsets.UTF_8)), Charsets.UTF_8)
 
     @Test
     fun `comments are dropped`() {
         val source = "<FictionBook><!-- служебная пометка конвертера -->" +
             "<body><section><p>Текст</p></section></body></FictionBook>"
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         assertThat(result).doesNotContain("служебная пометка")
         assertThat(result).doesNotContain("<!--")
@@ -44,7 +52,7 @@ class Fb2XmlMinifierTest {
             </FictionBook>
         """.trimIndent()
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         assertThat(result).doesNotContain("\n")
         assertThat(result).isEqualTo(
@@ -56,7 +64,7 @@ class Fb2XmlMinifierTest {
     fun `text is not glued and keeps its own spaces`() {
         val source = "<p>Одно <emphasis>слово</emphasis> другое</p>"
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         // Между строчными тегами пробел обязан остаться: без него получилось бы «Однослово».
         assertThat(result).isEqualTo("<p>Одно <emphasis>слово</emphasis> другое</p>")
@@ -66,7 +74,7 @@ class Fb2XmlMinifierTest {
     fun `cdata stays byte-exact`() {
         val source = "<p><![CDATA[  a < b && c > d  ]]></p>"
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         assertThat(result).isEqualTo(source)
     }
@@ -75,7 +83,7 @@ class Fb2XmlMinifierTest {
     fun `binary content is not touched by the minifier`() {
         val source = "<binary id=\"img.png\" content-type=\"image/png\">iVBORw0KGgo=\nAAAAB</binary>"
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         // Картинку обрабатывает отдельный шаг: минификатор обязан отдать её как есть.
         assertThat(result).contains("iVBORw0KGgo=")
@@ -87,7 +95,7 @@ class Fb2XmlMinifierTest {
         val source = "<FictionBook\n    xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n" +
             "    xmlns=\"http://www.gribuser.ru/xml/fictionbook/2.0\">"
 
-        val result = minifier.minify(source)
+        val result = minify(source)
 
         assertThat(result).isEqualTo(
             "<FictionBook xmlns:xlink=\"http://www.w3.org/1999/xlink\" " +
@@ -97,6 +105,27 @@ class Fb2XmlMinifierTest {
 
     @Test
     fun `an empty document stays empty`() {
-        assertThat(minifier.minify("")).isEmpty()
+        assertThat(minify("")).isEmpty()
+    }
+
+    @Test
+    fun `a chunk is minified exactly like the whole document`() {
+        val document = "<FictionBook>\n  <body>\n    <section>\n      <p>Текст</p>\n" +
+            "    </section>\n  </body>\n  <binary id=\"i.jpg\">AAA</binary>\n</FictionBook>"
+        val bytes = document.toByteArray(Charsets.UTF_8)
+        val cut = document.indexOf("<binary")
+
+        // Разметку сжимают по частям — между блоками картинок. Края кусков описываются байтами
+        // соседей, поэтому результат обязан совпасть со сжатием всего документа целиком.
+        val first = minifier.minify(bytes, 0, cut, previousByte = -1, nextByte = bytes[cut].toInt() and 0xFF)
+        val second = minifier.minify(
+            bytes,
+            cut,
+            bytes.size,
+            previousByte = bytes[cut - 1].toInt() and 0xFF,
+            nextByte = -1,
+        )
+
+        assertThat(String(first + second, Charsets.UTF_8)).isEqualTo(minify(document))
     }
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки поиска. Русский — основной язык, английский в values-en с теми же ключами. -->
+<resources>
+    <string name="search_title">Поиск</string>
+    <string name="search_subtitle">Название, автор, серия, имя файла, аннотация</string>
+    <string name="search_field_label">Поиск по библиотеке</string>
+    <string name="search_field_placeholder">Название, автор, серия, файл</string>
+    <string name="search_action_find">Найти</string>
+    <string name="search_action_clear">Очистить</string>
+    <string name="search_action_retry">Повторить</string>
+    <string name="search_action_clear_history">Очистить историю</string>
+    <string name="search_in_progress">Идёт поиск…</string>
+    <string name="search_suggestions_header">Подсказки</string>
+    <string name="search_results_header">Результаты</string>
+    <string name="search_recent_header">Последние запросы</string>
+    <string name="search_results_count">Найдено: %1$d</string>
+
+    <string name="search_field_title">название</string>
+    <string name="search_field_author">автор</string>
+    <string name="search_field_series">серия</string>
+    <string name="search_field_file">файл</string>
+    <string name="search_field_description">аннотация</string>
+
+    <string name="search_empty_enter_query">Введите запрос</string>
+    <string name="search_empty_hint">Поиск идёт по названию, автору, серии, имени файла и аннотации.</string>
+    <string name="search_empty_press_find">Нажмите «Найти»</string>
+    <string name="search_empty_press_find_message">Подсказки появляются по ходу набора, а поиск по всей библиотеке запускает кнопка «Найти». До неё результатов нет — и это не значит, что совпадений нет.</string>
+    <string name="search_empty_nothing_found">Ничего не найдено</string>
+    <string name="search_empty_nothing_found_message">По запросу «%1$s» совпадений нет. Попробуйте другое слово или часть слова.</string>
+</resources>

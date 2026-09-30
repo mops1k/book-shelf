@@ -9,6 +9,7 @@ import java.io.FileOutputStream
 import java.nio.charset.Charset
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.random.Random
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -164,6 +165,54 @@ class Fb2ParserTest {
 
         val failed = result as ParseResult.Failed
         assertThat(failed.reason).contains("fb2")
+    }
+
+    @Test
+    fun parses_fb2_in_zip_larger_than_the_old_sixteen_mb_limit() = runBlocking {
+        // Настоящий случай с устройства: «Книга Уткина Мы тут жизнь живём» — XML внутри архива
+        // 19 465 467 Б, и прежний предел 16 МБ отказывал ей в разборе («FB2 внутри архива
+        // превышает допустимый размер XML»), книга навсегда оставалась FAILED. Большой XML
+        // получается из настоящего FB2 добавлением одного большого `<binary>` — именно так
+        // выглядят реальные книги с картинками, а не выдуманной нагрузкой.
+        val padded = padPastSixteenMb(UTF8_XML.toByteArray(Charsets.UTF_8))
+        assertThat(padded.size).isGreaterThan(16 * 1_024 * 1_024)
+        val file = createZip("book.fb2" to padded)
+
+        val result = parser.parse(input(file, "fb2.zip"))
+
+        val success = result as ParseResult.Success
+        assertThat(success.metadata.title).isEqualTo("Три товарища")
+    }
+
+    @Test
+    fun an_entry_over_the_limit_is_still_rejected_with_a_clear_reason() = runBlocking {
+        // Предел нужен: без него архив-бомба распаковывается в память целиком. Проверяется на
+        // настоящем FB2 с крошечным пределом — так же, как это сделает бомба.
+        val file = createZip("book.fb2" to UTF8_XML.toByteArray(Charsets.UTF_8))
+
+        val result = Fb2Parser(maxXmlBytes = 64).parse(input(file, "fb2.zip"))
+
+        assertThat((result as ParseResult.Failed).reason).contains("превышает допустимый размер")
+    }
+
+    /**
+     * Дополнить настоящий FB2 одним большим `<binary>`: так растут книги с картинками.
+     *
+     * Наполнение — псевдослучайное, а не повторяющийся символ: настоящие картинки в base64 почти
+     * не сжимаются, а `"A".repeat(...)` дал бы отношение сжатия в сотни раз, и архив справедливо
+     * попал бы под проверку zip-bomb (`ZipLimits`) — то есть проверялся бы не предел XML.
+     */
+    private fun padPastSixteenMb(xml: ByteArray): ByteArray {
+        val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        val random = Random(seed = 42)
+        val size = 17 * 1_024 * 1_024
+        val padding = buildString(size) {
+            repeat(size) { append(alphabet[random.nextInt(alphabet.length)]) }
+        }
+        val binary = """<binary id="pad.bin" content-type="image/jpeg">$padding</binary>"""
+        return String(xml, Charsets.UTF_8)
+            .replace("</FictionBook>", binary + "</FictionBook>")
+            .toByteArray(Charsets.UTF_8)
     }
 
     private fun input(file: File, extension: String): BookInput = BookInput(

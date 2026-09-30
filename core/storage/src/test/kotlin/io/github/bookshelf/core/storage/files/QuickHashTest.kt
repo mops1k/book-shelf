@@ -57,6 +57,7 @@ class QuickHashTest {
         override fun openSeekableChannel(documentUri: String): FileChannel? = null
 
         override fun sizeOf(documentUri: String): Long? = null
+        override fun factsOf(documentUri: String): DocumentFacts? = null
 
         override fun tempCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.NotFound("copy"))

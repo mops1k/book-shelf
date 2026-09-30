@@ -14,31 +14,31 @@ class SearchMatchTest {
 
     @Test
     fun `title is reported first`() {
-        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldLabel("соляр"))
-            .isEqualTo("название")
+        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldRes("соляр"))
+            .isEqualTo(R.string.search_field_title)
     }
 
     @Test
     fun `author, series, file and description are recognized`() {
-        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldLabel("лем"))
-            .isEqualTo("автор")
+        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldRes("лем"))
+            .isEqualTo(R.string.search_field_author)
         assertThat(
-            book(title = "Солярис", authors = "Лем", series = "Приключения Флинкса").matchedFieldLabel("флинкса"),
-        ).isEqualTo("серия")
-        assertThat(book(title = "Солярис", authors = "Лем", path = "Лем/Солярис.fb2").matchedFieldLabel("fb2"))
-            .isEqualTo("файл")
+            book(title = "Солярис", authors = "Лем", series = "Приключения Флинкса").matchedFieldRes("флинкса"),
+        ).isEqualTo(R.string.search_field_series)
+        assertThat(book(title = "Солярис", authors = "Лем", path = "Лем/Солярис.fb2").matchedFieldRes("fb2"))
+            .isEqualTo(R.string.search_field_file)
         assertThat(
-            book(title = "Солярис", authors = "Лем", description = "Планета-океан").matchedFieldLabel("океан"),
-        ).isEqualTo("аннотация")
+            book(title = "Солярис", authors = "Лем", description = "Планета-океан").matchedFieldRes("океан"),
+        ).isEqualTo(R.string.search_field_description)
     }
 
     @Test
     fun `unconfirmed match yields no label`() {
         // FTS мог найти книгу по стеммингу («planet» → «planets»), а по подстроке поля её нет:
         // выдуманная подпись хуже её отсутствия.
-        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldLabel("планета"))
+        assertThat(book(title = "Солярис", authors = "Станислав Лем").matchedFieldRes("планета"))
             .isNull()
-        assertThat(book(title = "Солярис", authors = "Лем").matchedFieldLabel("   ")).isNull()
+        assertThat(book(title = "Солярис", authors = "Лем").matchedFieldRes("   ")).isNull()
     }
 
     private fun book(

@@ -209,14 +209,31 @@ data class CategoryItemUi(
     val count: Int,
 )
 
+/**
+ * Подпись уровня обзора: ресурс и его аргументы.
+ *
+ * Готовый текст здесь держать нельзя: слова живут в `res/values` (ru) и `values-en`, а выбор
+ * подписи остаётся чистой функцией ViewModel — её проверяют тесты без Compose.
+ */
+data class BrowseTitleUi(
+    val titleRes: Int,
+    /**
+     * Единственный подставляемый аргумент («Жанр: %1$s») или `null`, если подставлять нечего.
+     *
+     * Не список: у подписей уровня больше одного аргумента не бывает, а список заставил бы
+     * раскрывать массив на каждом вызове `stringResource` (`SpreadOperator` в detekt).
+     */
+    val arg: String? = null,
+)
+
 /** Состояние обзора полки. */
 data class BrowseUi(
     val mode: BrowseMode = BrowseMode.OFF,
     val level: BrowseLevel = BrowseLevel.Root,
     /** Категории текущего уровня; пустой список при уровне «серия» — тогда показываются книги. */
     val categories: List<CategoryItemUi> = emptyList(),
-    /** Подпись уровня: «Авторы», «Серии», «Автор: …», «Серия: …». */
-    val title: String? = null,
+    /** Подпись уровня: «Авторы», «Серии», «Автор: …», «Серия: …». Текст берётся из ресурсов. */
+    val title: BrowseTitleUi? = null,
     /** Есть ли куда вернуться (у корня «назад» выключает обзор). */
     val canGoBack: Boolean = false,
 ) {

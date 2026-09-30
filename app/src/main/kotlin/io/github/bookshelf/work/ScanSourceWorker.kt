@@ -145,7 +145,11 @@ class ScanSourceWorker @AssistedInject constructor(
             throw cancelled
         } catch (error: Throwable) {
             scanRunDao.finish(run.id, ScanRunStatus.FAILED, clock.nowMillis(), error.message)
-            Result.retry()
+            // Предел повторов тот же, что и у исчерпания обхода: без него неожиданная ошибка
+            // крутила бы работу бесконечно, уводила её в экспоненциальный backoff и жгла батарею
+            // на каждом шаге. Прогон уже помечен FAILED, курсор не потерян — следующий скан
+            // начнёт новый прогон.
+            if (shouldRetryScan(runAttemptCount)) Result.retry() else Result.success()
         }
     }
 

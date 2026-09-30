@@ -186,6 +186,9 @@ fun BookShelfNavHost(
             // Категория OPDS ведёт в тот же браузер каталогов, что и полка: второй список
             // каталогов внутри настроек разошёлся бы с первым.
             onOpenCatalogs = { navController.navigate(CatalogsRoute.createRoute()) },
+            // Тот же экран сканирования, что и с пустой полки: отчёт и проблемные файлы должны
+            // быть доступны и при живой библиотеке.
+            onOpenScan = { navController.navigate(ScanRoute.route) },
         )
 
     }

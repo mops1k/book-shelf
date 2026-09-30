@@ -8,6 +8,7 @@ import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
+import io.github.bookshelf.core.data.repository.BookOptimizationBatch
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.DeletionResult
@@ -173,7 +174,17 @@ class LibraryFilterSubscriptionTest {
                 AppError.Unknown(message = "не нужно в этом тесте"),
             )
 
+        /** Пакетная оптимизация в тестах полки не участвует. */
+        override suspend fun optimizeAllFb2(
+            onProgress: (done: Int, total: Int) -> Unit,
+        ): AppResult<BookOptimizationBatch> = AppResult.failure(
+            AppError.Unknown(message = "не нужно в этом тесте"),
+        )
+
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+
+        /** Отчёт сканирования в тестах полки не собирается. */
+        override suspend fun booksWithParseErrors(): AppResult<List<Book>> = AppResult.success(emptyList())
         /** Прогресс чтения и поиск по адресу в этих проверках не участвуют. */
         override suspend fun findByDocumentUri(documentUri: String): AppResult<Book?> =
             AppResult.success(null)

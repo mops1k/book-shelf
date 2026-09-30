@@ -78,7 +78,7 @@ import io.github.bookshelf.core.database.entity.TagEntity
         OpdsFeedCacheEntity::class,
         MetadataOverrideEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

@@ -59,6 +59,7 @@ internal fun LibraryScanCategory(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
     duplicatesViewModel: DuplicatesViewModel,
+    onOpenScan: () -> Unit,
 ) {
     val context = LocalContext.current
     val dimens = LocalEinkDimens.current
@@ -157,6 +158,7 @@ internal fun LibraryScanCategory(
             onAddFolder = { folderPicker.launch(null) },
             onRemoveSource = viewModel::onRemoveSource,
             onRescanAll = viewModel::onRescanAll,
+            onOpenScan = onOpenScan,
         )
 
         item(key = "header-permissions") {

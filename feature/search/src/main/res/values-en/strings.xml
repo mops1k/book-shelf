@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_title">Search</string>
+    <string name="search_subtitle">Title, author, series, file name, annotation</string>
+    <string name="search_field_label">Search the library</string>
+    <string name="search_field_placeholder">Title, author, series, file</string>
+    <string name="search_action_find">Find</string>
+    <string name="search_action_clear">Clear</string>
+    <string name="search_action_retry">Retry</string>
+    <string name="search_action_clear_history">Clear history</string>
+    <string name="search_in_progress">Searching…</string>
+    <string name="search_suggestions_header">Suggestions</string>
+    <string name="search_results_header">Results</string>
+    <string name="search_recent_header">Recent queries</string>
+    <string name="search_results_count">Found: %1$d</string>
+
+    <string name="search_field_title">title</string>
+    <string name="search_field_author">author</string>
+    <string name="search_field_series">series</string>
+    <string name="search_field_file">file</string>
+    <string name="search_field_description">annotation</string>
+
+    <string name="search_empty_enter_query">Enter a query</string>
+    <string name="search_empty_hint">The search covers the title, author, series, file name and annotation.</string>
+    <string name="search_empty_press_find">Tap «Find»</string>
+    <string name="search_empty_press_find_message">Suggestions appear while you type; the search over the whole library starts with the «Find» button. Until then there are no results — and that does not mean there are no matches.</string>
+    <string name="search_empty_nothing_found">Nothing found</string>
+    <string name="search_empty_nothing_found_message">No matches for «%1$s». Try another word or part of a word.</string>
+</resources>

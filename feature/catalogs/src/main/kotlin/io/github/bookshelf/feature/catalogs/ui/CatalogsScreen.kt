@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.material3.MaterialTheme
@@ -39,8 +41,7 @@ import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
-import io.github.bookshelf.core.designsystem.paging.rememberEinkPagerState
-import io.github.bookshelf.core.designsystem.paging.statusLabel
+import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.catalogs.CatalogUi
@@ -51,12 +52,6 @@ import io.github.bookshelf.feature.catalogs.downloadsButtonLabel
 import io.github.bookshelf.feature.catalogs.entryCoverOf
 import io.github.bookshelf.feature.catalogs.DownloadUi
 import io.github.bookshelf.feature.catalogs.FeedEntryUi
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-
-/** Сколько каталогов, записей и загрузок помещается на «страницу». */
-private const val CATALOGS_PAGE_SIZE = 12
 
 /** Полная шкала прогресса: `progressPercent` приходит в процентах, `EinkProgress` ждёт 0..1. */
 private const val PERCENT_MAX = 100f
@@ -128,10 +123,12 @@ private fun CatalogsListScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val pager = rememberEinkPagerState(pageSize = CATALOGS_PAGE_SIZE, totalItems = state.catalogs.size)
     val dimens = LocalEinkDimens.current
-
-    LaunchedEffect(state.catalogs.size) { pager.updateTotalItems(state.catalogs.size) }
+    // Каталогов у человека единицы, и страницы тут не нужны: список прокручивается целиком.
+    // Прежнее постраничное листание работало только аппаратными клавишами, а кнопок на экране
+    // не было — на устройстве без таких клавиш вторая страница была недостижима вовсе.
+    val listState = rememberLazyListState()
+    val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
         title = "Каталоги OPDS",
@@ -144,8 +141,8 @@ private fun CatalogsListScreen(
         },
         onKeyAction = { action ->
             when (action) {
-                EinkAction.PREVIOUS_PAGE -> pager.previous()
-                EinkAction.NEXT_PAGE -> pager.next()
+                EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+                EinkAction.NEXT_PAGE -> scrollByPage(1)
                 EinkAction.MENU -> viewModel.onOpenAddForm()
                 EinkAction.BACK -> onBack()
                 else -> Unit
@@ -153,7 +150,7 @@ private fun CatalogsListScreen(
         },
         footer = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                StatusFooter(label = pager.statusLabel("каталогов"))
+                StatusFooter(label = catalogsStatusLabel(state.catalogs.size))
                 EinkButton(
                     text = "Добавить каталог",
                     onClick = viewModel::onOpenAddForm,
@@ -180,9 +177,8 @@ private fun CatalogsListScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                val visible = state.catalogs.drop(pager.offset).take(pager.pageSize)
-                LazyColumn(modifier = Modifier.fillMaxSize(), userScrollEnabled = false) {
-                    listItems(items = visible, key = { catalog -> catalog.id }) { catalog ->
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    listItems(items = state.catalogs, key = { catalog -> catalog.id }) { catalog ->
                         Column(modifier = Modifier.fillMaxWidth()) {
                             EinkListRow(
                                 title = catalog.title,
@@ -345,9 +341,8 @@ private fun FeedBrowserScreen(
     val dimens = LocalEinkDimens.current
     val feed = state.currentFeed
     val entries = feed?.entries.orEmpty()
-    val pager = rememberEinkPagerState(pageSize = CATALOGS_PAGE_SIZE, totalItems = entries.size)
-
-    LaunchedEffect(entries.size) { pager.updateTotalItems(entries.size) }
+    val entriesGridState = rememberLazyGridState()
+    val scrollEntries = rememberEinkGridPageScroller(entriesGridState)
 
     EinkScaffold(
         title = feed?.title ?: "Браузер каталога",
@@ -369,8 +364,10 @@ private fun FeedBrowserScreen(
         },
         onKeyAction = { action ->
             when (action) {
-                EinkAction.PREVIOUS_PAGE -> pager.previous()
-                EinkAction.NEXT_PAGE -> pager.next()
+                // Страниц у фида нет: список прокручивается целиком, и клавиши листают его,
+                // а не несуществующие страницы (pager тут оставался мёртвым состоянием).
+                EinkAction.PREVIOUS_PAGE -> scrollEntries(-1)
+                EinkAction.NEXT_PAGE -> scrollEntries(1)
                 EinkAction.SEARCH -> viewModel.onSearchInFeed()
                 EinkAction.MENU -> viewModel.onOpenDownloads()
                 EinkAction.BACK -> onBack()
@@ -451,6 +448,7 @@ private fun FeedBrowserScreen(
                 // следующая страница фида догружается сама (rel="next").
                 FeedContent(
                     entries = entries,
+                    gridState = entriesGridState,
                     columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
                     hasNextPage = feed?.hasNextPage == true,
                     isLoadingMore = state.isLoadingMore,
@@ -501,6 +499,7 @@ private fun LoadingRow(label: String) {
 @Composable
 private fun FeedContent(
     entries: List<FeedEntryUi>,
+    gridState: LazyGridState,
     columns: GridCells,
     hasNextPage: Boolean,
     isLoadingMore: Boolean,
@@ -508,7 +507,6 @@ private fun FeedContent(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val gridState = rememberLazyGridState()
 
     // Текучая догрузка: как только до конца списка осталось меньше экрана, просим следующую
     // страницу фида. Без этого фид длиннее одной страницы обрывался на первой.
@@ -742,6 +740,14 @@ private fun StatusFooter(label: String) {
             .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
     )
 }
+
+/**
+ * Подпись под списком каталогов.
+ *
+ * Страниц нет — список прокручивается, поэтому подпись только считает каталоги: «Стр. 1/2»
+ * обещала страницу, до которой нельзя было добраться пальцем.
+ */
+internal fun catalogsStatusLabel(count: Int): String = "каталогов: $count"
 
 /** Подпись состояния каталога в списке. */
 private fun catalogTrailing(catalog: CatalogUi): String = when {

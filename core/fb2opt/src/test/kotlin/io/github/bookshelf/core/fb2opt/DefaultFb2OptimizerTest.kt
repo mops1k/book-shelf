@@ -72,6 +72,20 @@ class DefaultFb2OptimizerTest {
     }
 
     @Test
+    fun `an identical picture is stored once in the whole book`() {
+        val picture = fixture("image-plain.jpg")
+        val source = bookWithTwoCopies(picture)
+
+        val result = optimizer.optimize("book.fb2", source)
+
+        val optimized = String(result.bytes!!, Charsets.UTF_8)
+        // Вторая копия выброшена, а ссылка на неё переведена на оставшуюся.
+        assertThat(optimized).doesNotContain("id=\"i_002.jpg\"")
+        assertThat(optimized).contains("l:href=\"#i_001.jpg\"")
+        assertThat(optimized).doesNotContain("l:href=\"#i_002.jpg\"")
+    }
+
+    @Test
     fun `an unknown file type is left untouched`() {
         val source = fixture("book-small.fb2")
 
@@ -94,6 +108,23 @@ class DefaultFb2OptimizerTest {
         val structure = checkNotNull(JpegParser.parse(this)) { "картинка не разбирается" }
         val decoded = checkNotNull(JpegEntropyTranscoder(structure).decode()) { "данные не читаются" }
         return decoded.blocks.map { blocks -> blocks.flatMap { block -> block.toList() } }
+    }
+
+    /** Книга, в которой одна и та же картинка лежит двумя блоками под разными идентификаторами. */
+    private fun bookWithTwoCopies(picture: ByteArray): ByteArray {
+        val base64 = java.util.Base64.getEncoder().encodeToString(picture)
+        val text = buildString {
+            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+            append("<FictionBook xmlns:l=\"http://www.w3.org/1999/xlink\">")
+            append("<body><section>")
+            append("<image l:href=\"#i_001.jpg\"/>")
+            append("<image l:href=\"#i_002.jpg\"/>")
+            append("</section></body>")
+            append("<binary id=\"i_001.jpg\" content-type=\"image/jpeg\">").append(base64).append("</binary>")
+            append("<binary id=\"i_002.jpg\" content-type=\"image/jpeg\">").append(base64).append("</binary>")
+            append("</FictionBook>")
+        }
+        return text.toByteArray(Charsets.UTF_8)
     }
 
     private fun zipOf(name: String, content: ByteArray): ByteArray {

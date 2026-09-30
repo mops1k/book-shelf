@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строки полки. Русский — основной язык, английский лежит в values-en с теми же ключами
+  (сквозное требование backlog: локализация ru/en).
+-->
+<resources>
+    <string name="library_title">Библиотека</string>
+    <string name="library_filters">Фильтры (%1$d)</string>
+    <string name="library_search">Поиск</string>
+    <string name="library_menu_collections">Полки</string>
+    <string name="library_menu_catalogs">Каталоги</string>
+    <string name="library_menu_settings">Настройки</string>
+
+    <string name="library_action_retry">Повторить</string>
+    <string name="library_action_back">← Назад</string>
+    <string name="library_action_cancel">Отмена</string>
+
+    <string name="library_view_grid">Сетка</string>
+    <string name="library_view_authors">Авторы</string>
+    <string name="library_view_series">Серии</string>
+    <string name="library_view_genres">Жанры</string>
+    <string name="library_without_series">Вне серий</string>
+
+    <string name="library_empty_filtered_title">Ничего не найдено</string>
+    <string name="library_empty_filtered_message">Книги в библиотеке есть, но ни одна не подходит под выбранные фильтры (активно фильтров: %1$d). Сбросьте фильтры или вернитесь на экран «Фильтры» и снимите часть условий.</string>
+    <string name="library_empty_filtered_action">Сбросить фильтры</string>
+    <string name="library_empty_no_books_title">Пока нет книг</string>
+    <string name="library_empty_no_books_message">Нажмите «Сканировать», чтобы найти книги в выбранной папке. Если папка ещё не добавлена — вернитесь в онбординг и выберите её.</string>
+    <string name="library_empty_no_books_action">Сканировать</string>
+
+    <string name="library_sort_header">Сортировка</string>
+    <string name="library_sort_selected">выбрано</string>
+    <string name="library_sort_hint">Порядок применяется сразу ко всей полке.</string>
+    <string name="library_sort_summary">Сортировка: %1$s · %2$s</string>
+    <string name="library_series_order_release">Порядок серии: по выпуску</string>
+    <string name="library_cover_description">Обложка: %1$s, %2$s</string>
+
+    <string name="library_sort_title">Название</string>
+    <string name="library_sort_author">Автор</string>
+    <string name="library_sort_series">Серия</string>
+    <string name="library_sort_added">Дата добавления</string>
+    <string name="library_sort_last_opened">Дата открытия</string>
+    <string name="library_sort_size">Размер</string>
+    <string name="library_sort_progress">Прогресс</string>
+    <string name="library_sort_year">Год</string>
+
+    <string name="library_sort_hint_title">По заглавию, без учёта «The» и «A»</string>
+    <string name="library_sort_hint_author">Сначала автор, потом заглавие</string>
+    <string name="library_sort_hint_series">По серии и номеру в ней</string>
+    <string name="library_sort_hint_added">Сначала добавленные последними</string>
+    <string name="library_sort_hint_last_opened">Сначала те, что открывали недавно</string>
+    <string name="library_sort_hint_size">По размеру файла</string>
+    <string name="library_sort_hint_progress">Сначала недопрочитанные</string>
+    <string name="library_sort_hint_year">По году издания</string>
+
+    <string name="library_grouping_none">без группировки</string>
+    <string name="library_grouping_series">по сериям</string>
+    <string name="library_grouping_author">по авторам</string>
+    <string name="library_grouping_folder">по папкам</string>
+    <string name="library_grouping_format">по форматам</string>
+
+    <string name="library_browse_authors">Авторы</string>
+    <string name="library_browse_series">Серии</string>
+    <string name="library_browse_genres">Жанры</string>
+    <string name="library_browse_genre">Жанр: %1$s</string>
+    <string name="library_browse_author">Автор: %1$s</string>
+    <string name="library_browse_authors_set">Авторы: %1$s</string>
+    <string name="library_browse_series_level">Серия: %1$s</string>
+
+    <string name="library_error_load">Не удалось загрузить полку</string>
+
+    <plurals name="library_book_count">
+        <item quantity="one">%1$d книга</item>
+        <item quantity="few">%1$d книги</item>
+        <item quantity="many">%1$d книг</item>
+        <item quantity="other">%1$d книг</item>
+    </plurals>
+</resources>

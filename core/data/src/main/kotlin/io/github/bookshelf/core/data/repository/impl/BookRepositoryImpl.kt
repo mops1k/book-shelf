@@ -7,7 +7,9 @@ import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.author.parseAuthors
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.reader.ReaderSession
+import io.github.bookshelf.core.data.repository.BookOptimizationBatch
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.fb2opt.Fb2Optimizer
 import io.github.bookshelf.core.storage.files.BookContentOpener
@@ -37,6 +39,10 @@ import io.github.bookshelf.core.database.relation.BookWithRelations
 import io.github.bookshelf.core.metadata.model.BookMetadata
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -86,6 +92,14 @@ class BookRepositoryImpl @Inject constructor(
     private val contentOpener: BookContentOpener,
     /** Оптимизация FB2 без потери данных. */
     private val fb2Optimizer: Fb2Optimizer,
+    /**
+     * Диспетчеры приложения.
+     *
+     * Нужны потому, что часть работы здесь — обычное блокирующее чтение файлов и счёт на процессоре.
+     * Вызывают эти методы из `viewModelScope` (это главный поток), поэтому без переключения
+     * интерфейс встаёт: 30.09.2026 оптимизация книги так и привела к ANR карточки.
+     */
+    private val dispatchers: AppDispatchers,
 ) : BookRepository {
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
@@ -196,32 +210,43 @@ class BookRepositoryImpl @Inject constructor(
         forExistingBook(bookId) { bookDao.deleteById(bookId) }
 
     override suspend fun deletePermanently(bookIds: List<String>): AppResult<DeletionResult> =
-        appRunCatching {
-            var deleted = 0
-            var failed = 0
-            for (bookId in bookIds) {
-                val book = bookDao.getById(bookId) ?: continue
-                when (fileRemover.delete(book.documentUri)) {
-                    is AppResult.Failure -> failed++
-                    is AppResult.Success -> {
-                        bookCleanupDao.deleteWithLinks(listOf(bookId))
-                        deleted++
+        // Удаление файлов идёт через SAF и блокирует поток: на списке из десятков книг это
+        // заметная пауза, поэтому работа уходит на фоновый диспетчер.
+        withContext(dispatchers.io) {
+            appRunCatching {
+                var deleted = 0
+                var failed = 0
+                for (bookId in bookIds) {
+                    val book = bookDao.getById(bookId) ?: continue
+                    when (fileRemover.delete(book.documentUri)) {
+                        is AppResult.Failure -> failed++
+                        is AppResult.Success -> {
+                            bookCleanupDao.deleteWithLinks(listOf(bookId))
+                            deleted++
+                        }
                     }
                 }
+                DeletionResult(deleted = deleted, failed = failed)
             }
-            DeletionResult(deleted = deleted, failed = failed)
         }
 
     /**
      * Оптимизация книги FB2: файл заменяется уменьшенным, если выигрыш есть.
      *
      * Порядок и причины:
-     * 1. читалка открыта — отказываемся: оптимизация тяжёлая и не должна конкурировать с чтением;
-     * 2. читаем файл целиком: он нужен и для оптимизации, и как страховка на случай сбоя записи;
-     * 3. заменяем содержимое документа в режиме усечения (переименование SAF не поддерживает);
-     * 4. запись не удалась — возвращаем исходные байты на место, иначе книга осталась бы битой.
+     * 1. книгу уже проверяли и файл с тех пор не менялся — не перечитываем её вовсе;
+     * 2. читалка открыта — отказываемся: оптимизация тяжёлая и не должна конкурировать с чтением;
+     * 3. читаем файл целиком: он нужен и для оптимизации, и как страховка на случай сбоя записи;
+     * 4. заменяем содержимое документа в режиме усечения (переименование SAF не поддерживает);
+     * 5. запись не удалась — возвращаем исходные байты на место, иначе книга осталась бы битой.
+     *
+     * Отметка проверки ставится и когда выигрыша не было: смысл её в том, что «эту версию файла
+     * смотреть больше нечего», а не в том, что файл стал меньше.
      */
-    override suspend fun optimizeBook(bookId: String): AppResult<BookOptimizationResult> {
+    override suspend fun optimizeBook(bookId: String): AppResult<BookOptimizationResult> =
+        withContext(dispatchers.io) { optimizeBookOnBackground(bookId) }
+
+    private suspend fun optimizeBookOnBackground(bookId: String): AppResult<BookOptimizationResult> {
         val entity = bookDao.getById(bookId)
             ?: return AppResult.failure(
                 AppError.NotFound(what = "book", message = "Книга $bookId не найдена"),
@@ -235,6 +260,17 @@ class BookRepositoryImpl @Inject constructor(
                 ),
             )
         }
+        if (entity.optimizedAt != null) {
+            return AppResult.success(
+                BookOptimizationResult(
+                    savedBytes = 0,
+                    beforeBytes = entity.sizeBytes.toInt(),
+                    afterBytes = entity.sizeBytes.toInt(),
+                    images = 0,
+                    alreadyOptimized = true,
+                ),
+            )
+        }
         if (readerSession.isActive()) {
             return AppResult.failure(
                 AppError.PermissionDenied(
@@ -244,10 +280,15 @@ class BookRepositoryImpl @Inject constructor(
         }
         val original = contentOpener.openStream(entity.documentUri)?.use { stream -> stream.readBytes() }
             ?: return AppResult.failure(AppError.Io(message = "Не удалось прочитать файл книги"))
+        val context = currentCoroutineContext()
         return try {
-            val optimization = fb2Optimizer.optimize(entity.fileName, original)
+            val optimization = fb2Optimizer.optimize(entity.fileName, original) { !context.isActive }
+            // Отменённый прогон ничего не записывает и ничего не помечает: книга остаётся такой,
+            // какой была, и её можно будет обработать в следующий раз.
+            context.ensureActive()
             val optimized = optimization.bytes
             if (!optimization.changed || optimized == null) {
+                markChecked(entity)
                 AppResult.success(
                     BookOptimizationResult(
                         savedBytes = 0,
@@ -263,6 +304,18 @@ class BookRepositoryImpl @Inject constructor(
                     contentOpener.replaceContent(entity.documentUri, original)
                     AppResult.failure(replaced.error)
                 } else {
+                    // Размер и время изменения записываются сразу: иначе скан увидел бы расхождение
+                    // с файлом, перечитал бы метаданные, сбросил обложку и снял отметку проверки —
+                    // а книга-то изменилась только нами. Чего провайдер не сообщает, то остаётся
+                    // прежним: выдуманное время заставило бы скан поверить в несуществующее.
+                    val facts = contentOpener.factsOf(entity.documentUri)
+                    bookDao.update(
+                        entity.copy(
+                            sizeBytes = facts?.sizeBytes ?: optimization.afterBytes.toLong(),
+                            lastModified = facts?.lastModified ?: entity.lastModified,
+                            optimizedAt = clock.nowMillis(),
+                        ),
+                    )
                     AppResult.success(
                         BookOptimizationResult(
                             savedBytes = optimization.savedBytes,
@@ -278,13 +331,114 @@ class BookRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun findDuplicates(): AppResult<DuplicateReport> = appRunCatching {
-        // Полный хеш файлов — самая тяжёлая работа в приложении, и она уступает читалке: открылась
-        // читалка — поиск останавливается и честно говорит об этом, а не молчит «дублей нет».
-        duplicateFinder.find(
-            books = bookDao.getAll().map { entity -> entity.toDomain(authors = emptyList()) },
-            shouldStop = { readerSession.isActive() },
+    /** Отметить книгу как проверенную: эту версию файла смотреть больше нечего. */
+    private suspend fun markChecked(entity: BookEntity) {
+        bookDao.update(entity.copy(optimizedAt = clock.nowMillis()))
+    }
+
+    /**
+     * Оптимизировать все книги FB2 и FB2.ZIP.
+     *
+     * Правила пакетной работы, которых нет у одиночной:
+     * 1. **Читалка главнее.** Открытая читалка не просто отказывает одной книге — прогон
+     *    останавливается целиком и помечается `stoppedByReader`: иначе человек увидел бы
+     *    «готово», хотя обработана половина.
+     * 2. **Сбой одной книги не срывает остальные.** Битый или недоступный файл попадает в
+     *    `failed`, и перебор продолжается: из-за одной книги отказывать во всей библиотеке нельзя.
+     * 3. **Отмена — отменой корутины.** Проверка `ensureActive()` в начале каждой итерации
+     *    гарантирует, что прогон остановится между книгами, а не в середине записи файла.
+     */
+    override suspend fun optimizeAllFb2(
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): AppResult<BookOptimizationBatch> = withContext(dispatchers.io) {
+        val optimizable = bookDao.getAll().filter { entity ->
+            entity.extension.lowercase() in OPTIMIZABLE_EXTENSIONS
+        }
+        // Книги, которые уже проверяли и файл которых не менялся, в работу не берутся: иначе
+        // повторное нажатие кнопки заново пересобирало бы всю библиотеку (жалоба Александра
+        // 30.09.2026). Отметка снимается сканом, когда файл действительно изменился.
+        val candidates = optimizable.filter { entity -> entity.optimizedAt == null }
+        val alreadyOptimized = optimizable.size - candidates.size
+        var optimized = 0
+        var skipped = 0
+        var failed = 0
+        var savedBytes = 0L
+        var stoppedByReader = false
+        var done = 0
+        onProgress(done, candidates.size)
+        var index = 0
+        // Цикл без `break`: остановка — это условие продолжения, и так видно, что после открытия
+        // читалки не обрабатывается ни одна следующая книга.
+        while (index < candidates.size && !stoppedByReader) {
+            // Отмена проверяется до чтения файла: прерывать запись на середине нельзя.
+            currentCoroutineContext().ensureActive()
+            if (readerSession.isActive()) {
+                stoppedByReader = true
+            } else {
+                val stop = when (val outcome = optimizeBook(candidates[index].id)) {
+                    is AppResult.Failure -> if (outcome.error is AppError.PermissionDenied) {
+                        true
+                    } else {
+                        failed++
+                        false
+                    }
+
+                    is AppResult.Success -> {
+                        val result = outcome.value
+                        if (result.changed) {
+                            optimized++
+                            savedBytes += result.savedBytes
+                        } else {
+                            skipped++
+                        }
+                        false
+                    }
+                }
+                if (stop) {
+                    stoppedByReader = true
+                } else {
+                    done++
+                    onProgress(done, candidates.size)
+                }
+            }
+            index++
+        }
+        AppResult.success(
+            BookOptimizationBatch(
+                total = candidates.size,
+                optimized = optimized,
+                skipped = skipped,
+                failed = failed,
+                savedBytes = savedBytes,
+                stoppedByReader = stoppedByReader,
+                alreadyOptimized = alreadyOptimized,
+            ),
         )
+    }
+
+    /**
+     * Книги с ошибкой разбора — одним запросом.
+     *
+     * Ограничение [PARSE_ERROR_LIMIT] осознанное: это список для человека, а не выгрузка. Причина
+     * читается из `books.parseError`, куда её кладёт разбор файла.
+     */
+    override suspend fun booksWithParseErrors(): AppResult<List<Book>> = withContext(dispatchers.io) {
+        appRunCatching {
+            bookDao.booksWithParseErrors(PARSE_ERROR_LIMIT)
+                .map { entity -> entity.toDomain(authors = parseAuthors(entity.authorsText)) }
+        }
+    }
+
+    override suspend fun findDuplicates(): AppResult<DuplicateReport> = withContext(dispatchers.io) {
+        appRunCatching {
+            // Полный хеш файлов — самая тяжёлая работа в приложении, и она уступает читалке:
+            // открылась читалка — поиск останавливается и честно говорит об этом, а не молчит
+            // «дублей нет». Идёт это на фоновом диспетчере: чтение файлов блокирующее.
+            duplicateFinder.find(
+                books = bookDao.getAll().map { entity -> entity.toDomain(authors = emptyList()) },
+                shouldStop = { readerSession.isActive() },
+            )
+        }
     }
 
     /**
@@ -432,6 +586,9 @@ private fun MetadataOverrideEntity?.orEmptyPatch(
     pageCount = patch.pageCount ?: this?.pageCount,
     updatedAt = updatedAt,
 )
+
+/** Сколько проблемных файлов показывать в отчёте: это список для человека, а не выгрузка. */
+private const val PARSE_ERROR_LIMIT = 200
 
 /** Расширения, которые оптимизируются: только формат FB2 (в том числе в архиве). */
 private val OPTIMIZABLE_EXTENSIONS = setOf("fb2", "fb2.zip")

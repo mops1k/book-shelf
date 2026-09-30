@@ -43,19 +43,32 @@ interface Fb2Optimizer {
      *
      * Ошибки не выходят наружу: непонятный или битый файл возвращается как «менять нечего» —
      * оптимизация не должна ломать библиотеку из-за одной странной книги.
+     *
+     * @param isCancelled спрашивается перед каждой картинкой: длинную книгу человек вправе
+     *   остановить, а не ждать её конца (на e-ink книга в 13 МБ считается около минуты). При
+     *   отмене возвращается «менять нечего» — файл не тронут, ничего не записано.
      */
-    fun optimize(fileName: String, content: ByteArray): Fb2Optimization
+    fun optimize(
+        fileName: String,
+        content: ByteArray,
+        isCancelled: () -> Boolean = { false },
+    ): Fb2Optimization
 }
 
 /**
  * Оптимизация FB2 и FB2.ZIP: минификация разметки, пересборка картинок, плотная упаковка архива.
  *
- * Порядок шагов и почему именно такой:
- * 1. разметка минифицируется ([Fb2XmlMinifier]) — комментарии и отступы не нужны читателю;
- * 2. каждая картинка внутри `<binary>` пересобирается без потери пикселей ([Fb2ImageOptimizer]);
- * 3. если книга была в архиве, он переупаковывается с максимальным сжатием.
+ * Порядок шагов и почему именно такой (один проход по книге):
+ * 1. находятся блоки картинок ([Fb2Binaries]) и отпечатки их содержимого: одинаковые остаются в
+ *    книге по одному разу, ссылки переводятся на оставшуюся копию ([Fb2BinaryDeduplicator]);
+ * 2. разметка между блоками минифицируется ([Fb2XmlMinifier]) и уходит в результат сразу;
+ * 3. каждая оставленная картинка пересобирается без потери пикселей ([Fb2ImageOptimizer]);
+ * 4. если книга была в архиве, он переупаковывается с максимальным сжатием.
  *
- * Работа идёт в памяти: оптимизацию запускает человек для одной книги, и он же видит прогресс.
+ * **Почему один проход, а не четыре.** Прежняя версия превращала книгу в строку и делала три её
+ * копии: исходную, минифицированную и пересобранную. На книге в 13,6 МБ это давало пик в 250 МБ
+ * при потолке кучи 256 МБ — на устройстве систему убивала процесс (проверено 30.09.2026). Теперь
+ * результат пишется в один байтовый буфер, а строка строится только для мелких частей.
  */
 @Singleton
 class DefaultFb2Optimizer @Inject constructor(
@@ -64,11 +77,17 @@ class DefaultFb2Optimizer @Inject constructor(
 
     private val minifier = Fb2XmlMinifier()
 
-    override fun optimize(fileName: String, content: ByteArray): Fb2Optimization {
+    private val deduplicator = Fb2BinaryDeduplicator()
+
+    override fun optimize(
+        fileName: String,
+        content: ByteArray,
+        isCancelled: () -> Boolean,
+    ): Fb2Optimization {
         val lower = fileName.lowercase()
         val result = when {
-            lower.endsWith(ZIP_EXTENSION) -> optimizeZip(content)
-            lower.endsWith(FB2_EXTENSION) -> optimizeXml(content)
+            lower.endsWith(ZIP_EXTENSION) -> optimizeZip(content, isCancelled)
+            lower.endsWith(FB2_EXTENSION) -> optimizeXml(content, isCancelled)
             else -> null
         }
         val before = content.size
@@ -84,58 +103,91 @@ class DefaultFb2Optimizer @Inject constructor(
     /** Сколько картинок пересобрано в последнем вызове (для отчёта человеку). */
     private var imagesOptimized: Int = 0
 
-    private fun optimizeXml(content: ByteArray): ByteArray? = runCatching {
-        val xml = String(content, Charsets.UTF_8)
+    /**
+     * Пересобрать книгу FB2 одним проходом.
+     *
+     * Разметка между картинками минифицируется по частям, и края каждой части описываются байтами
+     * соседей ([previousByte] и `nextByte`): иначе пробел на стыке обрабатывался бы не так, как
+     * внутри целого документа.
+     */
+    private fun optimizeXml(content: ByteArray, isCancelled: () -> Boolean): ByteArray? = runCatching {
         imagesOptimized = 0
-        val rewritten = replaceImages(minifier.minify(xml))
-        rewritten.toByteArray(Charsets.UTF_8)
+        val binaries = Fb2Binaries.scan(content)
+        val redirect = deduplicator.duplicateIds(content, binaries)
+        val out = ByteArrayOutputStream(content.size)
+        var last = 0
+        var lastByte = NO_BYTE
+        for (binary in binaries) {
+            // Отмена проверяется до очередной картинки: ждать конца книги человек не обязан.
+            if (isCancelled()) return null
+            lastByte = writeMarkup(out, content, last, binary.start, binary.start, lastByte, redirect)
+            last = binary.end
+            // Дубликат выброшен: его содержимое уже лежит в оставленной копии, а ссылки переведены.
+            if (binary.id != null && redirect.containsKey(binary.id)) continue
+            val block = optimizedBlock(content, binary)
+            out.write(block)
+            lastByte = block[block.size - 1].toInt() and BYTE_MASK
+        }
+        writeMarkup(out, content, last, content.size, NO_BYTE, lastByte, redirect)
+        out.toByteArray()
     }.getOrNull()
 
-    /**
-     * Пересобрать картинки внутри `<binary>`.
-     *
-     * Содержимое — base64, поэтому картинка декодируется, оптимизируется и кодируется обратно одной
-     * строкой: переносы строк в base64 ничего не значат, а дефлейту мешают.
-     */
-    private fun replaceImages(xml: String): String {
-        val matcher = BINARY.findAll(xml)
-        if (!matcher.any()) return xml
-        val out = StringBuilder(xml.length)
-        var last = 0
-        BINARY.findAll(xml).forEach { match ->
-            out.append(xml, last, match.range.first)
-            last = match.range.last + 1
-            val attributes = match.groupValues[1]
-            val contentType = CONTENT_TYPE.find(attributes)?.groupValues?.get(1).orEmpty()
-            val original = match.groupValues[2]
-            val decoded = runCatching {
-                Base64.getMimeDecoder().decode(original)
-            }.getOrNull()
-            val optimized = decoded?.let { images.optimize(it, contentType) }
-            if (optimized == null) {
-                out.append(match.value)
-            } else {
-                imagesOptimized += 1
-                out.append("<binary").append(attributes).append('>')
-                out.append(Base64.getEncoder().encodeToString(optimized))
-                out.append("</binary>")
-            }
-        }
-        out.append(xml, last, xml.length)
-        return out.toString()
+    /** Записать кусок разметки и вернуть его последний байт (нужен следующему куску). */
+    private fun writeMarkup(
+        out: ByteArrayOutputStream,
+        content: ByteArray,
+        from: Int,
+        to: Int,
+        nextByte: Int,
+        previousByte: Int,
+        redirect: Map<String, String>,
+    ): Int {
+        val minified = minifier.minify(
+            source = content,
+            from = from,
+            to = to,
+            previousByte = previousByte,
+            nextByte = nextByte,
+        )
+        val markup = deduplicator.rewriteReferences(minified, redirect)
+        out.write(markup)
+        return if (markup.isEmpty()) previousByte else markup[markup.size - 1].toInt() and BYTE_MASK
     }
 
-    private fun optimizeZip(content: ByteArray): ByteArray? = runCatching {
+    /**
+     * Блок картинки в результате.
+     *
+     * Содержимое — base64, поэтому картинка декодируется, оптимизируется и кодируется обратно одной
+     * строкой: переносы строк в base64 ничего не значат, а дефлейту мешают. Атрибуты копируются
+     * байт-в-байт: разбирать их в строку незачем, а испортить ими файл — легко.
+     */
+    private fun optimizedBlock(content: ByteArray, binary: Fb2Binary): ByteArray {
+        val payload = content.copyOfRange(binary.payloadStart, binary.payloadEnd)
+        val decoded = runCatching { Base64.getMimeDecoder().decode(payload) }.getOrNull()
+        val optimized = decoded?.let { images.optimize(it, binary.contentType) }
+        if (optimized == null) return content.copyOfRange(binary.start, binary.end)
+        imagesOptimized += 1
+        val out = ByteArrayOutputStream(binary.end - binary.start)
+        out.write(OPEN_BINARY)
+        out.write(content, binary.start + OPEN_BINARY.size, binary.payloadStart - 1 - binary.start - OPEN_BINARY.size)
+        out.write(GT_BYTE)
+        out.write(Base64.getEncoder().encode(optimized))
+        out.write(CLOSE_BINARY)
+        return out.toByteArray()
+    }
+
+    private fun optimizeZip(content: ByteArray, isCancelled: () -> Boolean): ByteArray? = runCatching {
         val out = ByteArrayOutputStream(content.size)
         ZipOutputStream(out).use { zip ->
             zip.setLevel(BEST_COMPRESSION)
             ZipInputStream(content.inputStream()).use { input ->
                 var entry = input.nextEntry
                 while (entry != null) {
+                    if (isCancelled()) return null
                     val name = entry.name
                     val raw = input.readBytes()
                     val optimized = if (name.lowercase().endsWith(FB2_EXTENSION)) {
-                        optimizeXml(raw) ?: raw
+                        optimizeXml(raw, isCancelled) ?: raw
                     } else {
                         raw
                     }
@@ -153,7 +205,13 @@ class DefaultFb2Optimizer @Inject constructor(
         const val FB2_EXTENSION = ".fb2"
         const val ZIP_EXTENSION = ".zip"
         const val BEST_COMPRESSION = 9
-        val BINARY = Regex("<binary([^>]*)>(.*?)</binary>", RegexOption.DOT_MATCHES_ALL)
-        val CONTENT_TYPE = Regex("content-type=\"([^\"]+)\"")
+        const val BYTE_MASK = 0xFF
+
+        /** «Байта нет»: начало документа. */
+        const val NO_BYTE = -1
+
+        val OPEN_BINARY = "<binary".toByteArray(Charsets.US_ASCII)
+        val CLOSE_BINARY = "</binary>".toByteArray(Charsets.US_ASCII)
+        val GT_BYTE = byteArrayOf('>'.code.toByte())
     }
 }

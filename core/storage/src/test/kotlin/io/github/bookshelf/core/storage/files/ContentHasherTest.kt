@@ -67,6 +67,7 @@ class ContentHasherTest {
         override fun openSeekableChannel(documentUri: String): FileChannel? = null
 
         override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
+        override fun factsOf(documentUri: String): DocumentFacts? = null
 
         override fun tempCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.Unknown(message = "файл не нужен"))

@@ -9,6 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import io.github.bookshelf.core.designsystem.R
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 
@@ -71,7 +73,7 @@ fun EinkConfirmRow(
                 )
             }
             EinkButton(
-                text = "Отмена",
+                text = stringResource(R.string.eink_action_cancel),
                 onClick = onCancel,
                 modifier = Modifier.weight(1f),
                 enabled = enabled,

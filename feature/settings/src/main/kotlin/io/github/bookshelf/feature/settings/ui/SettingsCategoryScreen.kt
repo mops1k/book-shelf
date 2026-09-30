@@ -30,6 +30,7 @@ import io.github.bookshelf.feature.settings.ui.category.StorageCategory
  * @param kind какую категорию показывать.
  * @param onBack возврат к списку настроек.
  * @param onOpenCatalogs переход в браузер каталогов OPDS (живёт в `feature:catalogs`).
+ * @param onOpenScan переход к экрану сканирования (живёт в `feature:scan`).
  * @param modifier внешний модификатор экрана.
  * @param viewModel состояние настроек; общее на все категории, поэтому передаётся один раз.
  */
@@ -38,6 +39,7 @@ fun SettingsCategoryScreen(
     kind: SettingsSectionKind,
     onBack: () -> Unit,
     onOpenCatalogs: () -> Unit,
+    onOpenScan: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -68,6 +70,7 @@ fun SettingsCategoryScreen(
                 viewModel = viewModel,
                 // Дубли — своя ViewModel: у общей уже 29 методов при пороге detekt 30.
                 duplicatesViewModel = hiltViewModel(),
+                onOpenScan = onOpenScan,
             )
             SettingsSectionKind.READERS -> ReadersCategory(state = state, viewModel = viewModel)
             SettingsSectionKind.OPDS -> OpdsCategory(
@@ -82,6 +85,9 @@ fun SettingsCategoryScreen(
                 // Выгрузка библиотеки — своя ViewModel: у общей уже девять зависимостей при
                 // пороге detekt десять.
                 exportViewModel = hiltViewModel(),
+                // Оптимизация всех книг — своя ViewModel по той же причине (у общей 29 методов
+                // при пороге detekt 30), и потому что у неё собственный долгий прогон с отменой.
+                optimizationViewModel = hiltViewModel(),
             )
             SettingsSectionKind.ABOUT -> AboutCategory(state = state, viewModel = viewModel)
         }

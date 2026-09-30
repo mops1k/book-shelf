@@ -8,10 +8,14 @@ import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.data.repository.BookOptimizationBatch
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.yield
 
 /**
  * Фейк репозитория книг для тестов экранов.
@@ -119,6 +123,65 @@ class FakeBookRepository(
         optimized += bookId
         return optimization
     }
+
+    /** Итог пакетной оптимизации; тесты подставляют свой. */
+    var optimizationBatch: AppResult<BookOptimizationBatch> = AppResult.success(
+        BookOptimizationBatch(
+            total = 0,
+            optimized = 0,
+            skipped = 0,
+            failed = 0,
+            savedBytes = 0,
+            stoppedByReader = false,
+        ),
+    )
+
+    /** Прогресс, который фейк сообщает во время пакетной оптимизации, в порядке сообщений. */
+    var batchProgress: List<Pair<Int, Int>> = emptyList()
+
+    /**
+     * Если задано — после каждого сообщения прогресса работа ждёт этот сигнал.
+     *
+     * Нужно тесту на остановку: без точки ожидания прогон успевал завершиться за один `runCurrent`,
+     * и проверить отмену было нечем.
+     */
+    var batchGate: CompletableDeferred<Unit>? = null
+
+    /** Сколько раз запускали пакетную оптимизацию: по этому видно, что второй запуск не начался. */
+    var batchRuns: Int = 0
+        private set
+
+    /** Отменяли ли пакетную оптимизацию: по этому видно, что экран действительно прервал работу. */
+    var batchCancelled: Boolean = false
+        private set
+
+    /**
+     * Пакетная оптимизация: сообщает заданный прогресс и отдаёт заданный итог.
+     *
+     * Между сообщениями стоит `yield()`: без точки приостановки отмена корутины не наблюдалась бы,
+     * и тест на кнопку «Остановить» проверял бы пустоту.
+     */
+    override suspend fun optimizeAllFb2(
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): AppResult<BookOptimizationBatch> {
+        batchRuns += 1
+        try {
+            for ((done, total) in batchProgress) {
+                onProgress(done, total)
+                yield()
+                batchGate?.await()
+            }
+        } catch (cancellation: CancellationException) {
+            batchCancelled = true
+            throw cancellation
+        }
+        return optimizationBatch
+    }
+
+    /** Что вернуть на [booksWithParseErrors]. */
+    var parseErrors: AppResult<List<Book>> = AppResult.success(emptyList())
+
+    override suspend fun booksWithParseErrors(): AppResult<List<Book>> = parseErrors
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(report)
 

@@ -115,4 +115,19 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+/**
+ * 3 → 4: отметка «оптимизацию этой книги проверяли».
+ *
+ * Аддитивная: добавляется один необязательный столбец. Он нужен пакетной оптимизации FB2, чтобы
+ * повторный запуск не перечитывал и не пересобирал книги, которые уже проверены: на 78 книгах это
+ * около часа работы впустую (замечание Александра 30.09.2026). Старые строки получают `NULL` —
+ * «ещё не проверяли», и первый прогон после обновления пройдёт по всем книгам один раз.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `books` ADD COLUMN `optimizedAt` INTEGER")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

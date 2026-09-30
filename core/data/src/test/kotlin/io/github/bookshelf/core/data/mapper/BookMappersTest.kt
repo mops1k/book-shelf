@@ -76,6 +76,25 @@ class BookMappersTest {
     }
 
     @Test
+    fun parse_state_and_reason_reach_the_domain_model() {
+        val book = bookToDomain(
+            id = "book-1",
+            title = "Битый.fb2",
+            authorsText = "",
+            extension = "fb2",
+            sizeBytes = 10L,
+            addedAt = 1L,
+            parseStateName = "FAILED",
+            parseError = "FB2 внутри архива превышает допустимый размер XML",
+        )
+
+        // Раньше этих полей в модели не было, и карточка книги рисовала баннер «Не удалось
+        // разобрать», который никто не заполнял.
+        assertThat(book.parseState).isEqualTo(ParseState.FAILED)
+        assertThat(book.parseError).contains("превышает допустимый размер")
+    }
+
+    @Test
     fun reading_status_is_mapped_by_name_with_safe_fallback() {
         assertThat(readingStatusFromName("READ")).isEqualTo(ReadingStatus.READ)
         assertThat(readingStatusFromName("READING")).isEqualTo(ReadingStatus.READING)

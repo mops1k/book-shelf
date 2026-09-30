@@ -31,6 +31,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +54,7 @@ import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.library.R
 import io.github.bookshelf.feature.library.BookCardUi
 import io.github.bookshelf.feature.library.BrowseLevel
 import io.github.bookshelf.feature.library.BrowseMode
@@ -98,26 +101,29 @@ fun LibraryScreen(
     var isPickingSort by remember { mutableStateOf(false) }
 
     EinkScaffold(
-        title = "Библиотека",
+        title = stringResource(R.string.library_title),
         modifier = modifier,
         // В шапке — только частые команды. Кнопки в шапке не переносятся на вторую строку:
         // каждый ряд шапки отнимает у сетки строку книг (docs/eink-ux.md §6.2), остальное — в меню.
         actions = {
-            EinkButton(text = "Фильтры (${state.activeFilters.activeCount})", onClick = onOpenFilters)
-            EinkButton(text = "Поиск", onClick = onOpenSearch)
+            EinkButton(
+                text = stringResource(R.string.library_filters, state.activeFilters.activeCount),
+                onClick = onOpenFilters,
+            )
+            EinkButton(text = stringResource(R.string.library_search), onClick = onOpenSearch)
         },
-        menuTitle = "Библиотека",
+        menuTitle = stringResource(R.string.library_title),
         menu = { close ->
             // Каталоги и настройки раньше были недостижимы из кода — из меню в них можно войти.
-            EinkMenuButton(text = "Полки") {
+            EinkMenuButton(text = stringResource(R.string.library_menu_collections)) {
                 onOpenCollections()
                 close()
             }
-            EinkMenuButton(text = "Каталоги") {
+            EinkMenuButton(text = stringResource(R.string.library_menu_catalogs)) {
                 onOpenCatalogs()
                 close()
             }
-            EinkMenuButton(text = "Настройки") {
+            EinkMenuButton(text = stringResource(R.string.library_menu_settings)) {
                 onOpenSettings()
                 close()
             }
@@ -146,7 +152,7 @@ fun LibraryScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.library_action_retry),
                 onAction = viewModel::onRefresh,
             )
         }
@@ -212,9 +218,6 @@ fun LibraryScreen(
 private const val CATEGORIES_HEADER_KEY = "browse:series"
 private const val WITHOUT_SERIES_HEADER_KEY = "browse:without-series"
 
-/** Подпись секции с книгами автора, не входящими ни в одну серию. */
-private const val WITHOUT_SERIES_TITLE = "Вне серий"
-
 /** Вид полки: книги плитками, обзор по авторам и обзор по сериям — одним рядом кнопок. */
 @Composable
 private fun LibraryControls(
@@ -234,7 +237,7 @@ private fun LibraryControls(
     ) {
         ShelfViewPreset.entries.forEach { candidate ->
             EinkChip(
-                label = presetLabel(candidate),
+                label = stringResource(presetLabelRes(candidate)),
                 selected = candidate == preset,
                 onClick = { onPick(candidate) },
             )
@@ -250,12 +253,12 @@ private fun viewPresetOf(browseMode: BrowseMode): ShelfViewPreset = when (browse
     BrowseMode.OFF -> ShelfViewPreset.GRID
 }
 
-/** Подпись вида полки — та же в настройках «вид по умолчанию». */
-private fun presetLabel(preset: ShelfViewPreset): String = when (preset) {
-    ShelfViewPreset.GRID -> "Сетка"
-    ShelfViewPreset.AUTHORS -> "Авторы"
-    ShelfViewPreset.SERIES -> "Серии"
-    ShelfViewPreset.GENRES -> "Жанры"
+/** Подпись вида полки — та же в настройках «вид по умолчанию». Возвращает ресурс, не текст. */
+private fun presetLabelRes(preset: ShelfViewPreset): Int = when (preset) {
+    ShelfViewPreset.GRID -> R.string.library_view_grid
+    ShelfViewPreset.AUTHORS -> R.string.library_view_authors
+    ShelfViewPreset.SERIES -> R.string.library_view_series
+    ShelfViewPreset.GENRES -> R.string.library_view_genres
 }
 
 /**
@@ -282,7 +285,10 @@ private fun AuthorBrowseContent(
     ) {
         if (categories.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }, key = CATEGORIES_HEADER_KEY) {
-                EinkSectionHeader(title = "Серии", count = categories.size)
+                EinkSectionHeader(
+                    title = stringResource(R.string.library_view_series),
+                    count = categories.size,
+                )
             }
         }
         categories.forEach { category ->
@@ -292,7 +298,10 @@ private fun AuthorBrowseContent(
         }
         if (books.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }, key = WITHOUT_SERIES_HEADER_KEY) {
-                EinkSectionHeader(title = WITHOUT_SERIES_TITLE, count = books.size)
+                EinkSectionHeader(
+                    title = stringResource(R.string.library_without_series),
+                    count = books.size,
+                )
             }
         }
         gridItems(items = books, key = { book -> book.id }) { book ->
@@ -336,10 +345,15 @@ private fun BrowseHeader(
         horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
         if (browse.canGoBack) {
-            EinkButton(text = "← Назад", onClick = onBack)
+            EinkButton(text = stringResource(R.string.library_action_back), onClick = onBack)
         }
+        val title = browse.title
         Text(
-            text = browse.title.orEmpty(),
+            // Без раскрытия массива: у подписи уровня либо нет аргумента, либо он один.
+            text = title?.let { spec ->
+                spec.arg?.let { arg -> stringResource(spec.titleRes, arg) }
+                    ?: stringResource(spec.titleRes)
+            }.orEmpty(),
             style = MaterialTheme.typography.titleMedium,
             color = colors.foreground,
             maxLines = 1,
@@ -415,20 +429,20 @@ private fun ColumnScope.LibraryContent(
             // в обоих случаях предлагалось сканирование, и при активном фильтре это сбивало
             // с толку: книги в библиотеке есть, их отсекает отбор.
             ShelfEmptyState.FILTERED_OUT -> EinkEmptyState(
-                title = "Ничего не найдено",
-                message = "Книги в библиотеке есть, но ни одна не подходит под выбранные фильтры " +
-                    "(активно фильтров: ${state.activeFilters.activeCount}). " +
-                    "Сбросьте фильтры или вернитесь на экран «Фильтры» и снимите часть условий.",
-                actionLabel = "Сбросить фильтры",
+                title = stringResource(R.string.library_empty_filtered_title),
+                message = stringResource(
+                    R.string.library_empty_filtered_message,
+                    state.activeFilters.activeCount,
+                ),
+                actionLabel = stringResource(R.string.library_empty_filtered_action),
                 onAction = onClearFilters,
                 modifier = Modifier.fillMaxSize(),
             )
 
             ShelfEmptyState.NO_BOOKS -> EinkEmptyState(
-                title = "Пока нет книг",
-                message = "Нажмите «Сканировать», чтобы найти книги в выбранной папке. " +
-                    "Если папка ещё не добавлена — вернитесь в онбординг и выберите её.",
-                actionLabel = "Сканировать",
+                title = stringResource(R.string.library_empty_no_books_title),
+                message = stringResource(R.string.library_empty_no_books_message),
+                actionLabel = stringResource(R.string.library_empty_no_books_action),
                 onAction = onOpenScan,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -460,24 +474,28 @@ private fun SortPicker(
     val colors = LocalEinkColors.current
 
     Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
-        EinkSectionHeader(title = "Сортировка")
+        EinkSectionHeader(title = stringResource(R.string.library_sort_header))
         SortOrder.entries.forEach { candidate ->
             EinkListRow(
-                title = sortLabel(candidate),
-                subtitle = sortHint(candidate),
-                trailing = if (candidate == current) "выбрано" else null,
+                title = stringResource(sortLabelRes(candidate)),
+                subtitle = stringResource(sortHintRes(candidate)),
+                trailing = if (candidate == current) {
+                    stringResource(R.string.library_sort_selected)
+                } else {
+                    null
+                },
                 onClick = { onPick(candidate) },
             )
         }
         EinkButton(
-            text = "Отмена",
+            text = stringResource(R.string.library_action_cancel),
             onClick = onClose,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = dimens.gutter),
         )
         Text(
-            text = "Порядок применяется сразу ко всей полке.",
+            text = stringResource(R.string.library_sort_hint),
             style = MaterialTheme.typography.labelMedium,
             color = colors.foreground,
             modifier = Modifier.padding(top = dimens.gutterSmall),
@@ -534,7 +552,11 @@ private fun BookGridItem(
             coverPath = book.coverPath,
             title = book.title,
             modifier = Modifier.fillMaxWidth(),
-            contentDescription = "Обложка: ${book.title}, ${book.authors}",
+            contentDescription = stringResource(
+                R.string.library_cover_description,
+                book.title,
+                book.authors,
+            ),
             formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
             statusBadge = book.readingStatus.badge(book.progressPercent),
         )
@@ -573,7 +595,7 @@ private fun LibraryFooter(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = bookCountLabel(state.total),
+            text = pluralStringResource(R.plurals.library_book_count, state.total, state.total),
             style = MaterialTheme.typography.labelMedium,
             color = colors.foreground,
         )
@@ -583,9 +605,13 @@ private fun LibraryFooter(
             // Внутри одной серии порядок не выбирается: книги идут по выпуску (номер в серии,
             // затем год издания), поэтому подпись «Сортировка: Автор» здесь была бы неправдой.
             text = if (state.seriesOrderByRelease) {
-                "Порядок серии: по выпуску"
+                stringResource(R.string.library_series_order_release)
             } else {
-                "Сортировка: ${sortLabel(state.sort)} · ${groupingLabel(state.grouping)}"
+                stringResource(
+                    R.string.library_sort_summary,
+                    stringResource(sortLabelRes(state.sort)),
+                    stringResource(groupingLabelRes(state.grouping)),
+                )
             },
             style = MaterialTheme.typography.labelMedium,
             color = colors.foreground,
@@ -594,51 +620,42 @@ private fun LibraryFooter(
     }
 }
 
-/** Подпись «книг» в нижней строке с правильным окончанием. */
-private fun bookCountLabel(total: Int): String {
-    val remainder = total % TEN
-    val word = when {
-        remainder == ONE -> "книга"
-        remainder in FEW_FROM..FEW_TO -> "книги"
-        else -> "книг"
-    }
-    return "$total $word"
+/**
+ * Подпись сортировки для нижней строки.
+ *
+ * Возвращается ресурс, а не готовый текст: сами слова живут в `res/values` (ru) и `values-en`,
+ * а выбор нужного варианта остаётся чистой функцией и проверяется без Compose. Счёт книг —
+ * через `<plurals>`: у русского три формы, и склеивать их в коде значило бы держать текст вне
+ * ресурсов.
+ */
+private fun sortLabelRes(sort: SortOrder): Int = when (sort) {
+    SortOrder.TITLE -> R.string.library_sort_title
+    SortOrder.AUTHOR -> R.string.library_sort_author
+    SortOrder.SERIES -> R.string.library_sort_series
+    SortOrder.ADDED_AT -> R.string.library_sort_added
+    SortOrder.LAST_OPENED -> R.string.library_sort_last_opened
+    SortOrder.SIZE -> R.string.library_sort_size
+    SortOrder.PROGRESS -> R.string.library_sort_progress
+    SortOrder.YEAR -> R.string.library_sort_year
 }
 
-private const val TEN = 10
-private const val ONE = 1
-private const val FEW_FROM = 2
-private const val FEW_TO = 4
-
-/** Подпись сортировки для нижней строки. */
-private fun sortLabel(sort: SortOrder): String = when (sort) {
-    SortOrder.TITLE -> "Название"
-    SortOrder.AUTHOR -> "Автор"
-    SortOrder.SERIES -> "Серия"
-    SortOrder.ADDED_AT -> "Дата добавления"
-    SortOrder.LAST_OPENED -> "Дата открытия"
-    SortOrder.SIZE -> "Размер"
-    SortOrder.PROGRESS -> "Прогресс"
-    SortOrder.YEAR -> "Год"
+/** Подпись группировки для нижней строки. Возвращает ресурс, не текст. */
+private fun groupingLabelRes(grouping: Grouping): Int = when (grouping) {
+    Grouping.NONE -> R.string.library_grouping_none
+    Grouping.SERIES -> R.string.library_grouping_series
+    Grouping.AUTHOR -> R.string.library_grouping_author
+    Grouping.FOLDER -> R.string.library_grouping_folder
+    Grouping.FORMAT -> R.string.library_grouping_format
 }
 
-/** Подпись группировки для нижней строки. */
-private fun groupingLabel(grouping: Grouping): String = when (grouping) {
-    Grouping.NONE -> "без группировки"
-    Grouping.SERIES -> "по сериям"
-    Grouping.AUTHOR -> "по авторам"
-    Grouping.FOLDER -> "по папкам"
-    Grouping.FORMAT -> "по форматам"
-}
-
-/** Пояснение к варианту сортировки — одной подписи «Год» мало, чтобы выбрать. */
-private fun sortHint(sort: SortOrder): String = when (sort) {
-    SortOrder.TITLE -> "По заглавию, без учёта «The» и «A»"
-    SortOrder.AUTHOR -> "Сначала автор, потом заглавие"
-    SortOrder.SERIES -> "По серии и номеру в ней"
-    SortOrder.ADDED_AT -> "Сначала добавленные последними"
-    SortOrder.LAST_OPENED -> "Сначала те, что открывали недавно"
-    SortOrder.SIZE -> "По размеру файла"
-    SortOrder.PROGRESS -> "Сначала недопрочитанные"
-    SortOrder.YEAR -> "По году издания"
+/** Пояснение к варианту сортировки. Возвращает ресурс, не текст. */
+private fun sortHintRes(sort: SortOrder): Int = when (sort) {
+    SortOrder.TITLE -> R.string.library_sort_hint_title
+    SortOrder.AUTHOR -> R.string.library_sort_hint_author
+    SortOrder.SERIES -> R.string.library_sort_hint_series
+    SortOrder.ADDED_AT -> R.string.library_sort_hint_added
+    SortOrder.LAST_OPENED -> R.string.library_sort_hint_last_opened
+    SortOrder.SIZE -> R.string.library_sort_hint_size
+    SortOrder.PROGRESS -> R.string.library_sort_hint_progress
+    SortOrder.YEAR -> R.string.library_sort_hint_year
 }

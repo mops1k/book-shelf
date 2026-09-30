@@ -31,10 +31,13 @@ object SettingsCategoryRoute {
  *
  * @param onBack возврат к списку настроек.
  * @param onOpenCatalogs переход в браузер каталогов OPDS.
+ * @param onOpenScan переход к экрану сканирования: его отчёт с проблемными файлами иначе
+ *   доступен только с пустой полки, то есть при живой библиотеке — никак.
  */
 fun NavGraphBuilder.settingsCategoryScreen(
     onBack: () -> Unit,
     onOpenCatalogs: () -> Unit,
+    onOpenScan: () -> Unit,
 ) {
     composable(
         route = SettingsCategoryRoute.route,
@@ -47,7 +50,12 @@ fun NavGraphBuilder.settingsCategoryScreen(
         if (kind == null) {
             onBack()
         } else {
-            SettingsCategoryScreen(kind = kind, onBack = onBack, onOpenCatalogs = onOpenCatalogs)
+            SettingsCategoryScreen(
+                kind = kind,
+                onBack = onBack,
+                onOpenCatalogs = onOpenCatalogs,
+                onOpenScan = onOpenScan,
+            )
         }
     }
 }

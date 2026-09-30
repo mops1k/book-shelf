@@ -75,7 +75,7 @@ class LibraryGenreBrowseTest {
         // Подпись — название жанра, а не код из метаданных.
         assertThat(browse.categories.map { it.label }).containsExactly("Космическая фантастика")
         assertThat(browse.categories.single().count).isEqualTo(43)
-        assertThat(browse.title).isEqualTo("Жанры")
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_genres))
     }
 
     @Test
@@ -99,7 +99,7 @@ class LibraryGenreBrowseTest {
         val browse = viewModel.uiState.value.browse
         assertThat(browse.level).isEqualTo(BrowseLevel.Genre(code = "sf_space", label = "Космическая фантастика"))
         assertThat(browse.categories.map { it.label }).containsExactly("Лем Станислав")
-        assertThat(browse.title).isEqualTo("Жанр: Космическая фантастика")
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_genre, "Космическая фантастика"))
         assertThat(browse.canGoBack).isTrue()
     }
 
@@ -128,7 +128,7 @@ class LibraryGenreBrowseTest {
         assertThat(books.pageQueries.last().bookQuery.authorSets).containsExactly(listOf("Лем Станислав"))
         // Серии спрошены вместе с кодом жанра — это и есть выбранное поведение.
         assertThat(filters.authorSetSeriesQueries.last()).isEqualTo(listOf("Лем Станислав") to "sf_space")
-        assertThat(browse.title).isEqualTo("Автор: Лем Станислав")
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_author, "Лем Станислав"))
     }
 
     @Test

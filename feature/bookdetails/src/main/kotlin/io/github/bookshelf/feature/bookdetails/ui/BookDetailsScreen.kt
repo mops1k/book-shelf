@@ -330,6 +330,11 @@ private fun ActionsBlock(
     val dimens = LocalEinkDimens.current
 
     Column(verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
+        // Результат оптимизации показывается отдельной строкой, а не плашкой ошибки: успех и сбой
+        // не должны выглядеть одинаково.
+        state.optimizationMessage?.let { message ->
+            EinkListRow(title = message, subtitle = "Оптимизация FB2 без потери данных")
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
@@ -365,6 +370,17 @@ private fun ActionsBlock(
                 text = "Показать в папке",
                 onClick = viewModel::onShowInFolder,
                 modifier = Modifier.weight(1f),
+            )
+        }
+
+        // Кнопка есть только у FB2 и FB2.ZIP: механизм оптимизации других форматов не касается,
+        // и кнопка-обманка здесь была бы хуже её отсутствия.
+        if (state.canOptimize) {
+            EinkButton(
+                text = if (state.isOptimizing) "Оптимизируем…" else "Оптимизировать",
+                onClick = viewModel::onOptimize,
+                enabled = !state.isOptimizing,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 

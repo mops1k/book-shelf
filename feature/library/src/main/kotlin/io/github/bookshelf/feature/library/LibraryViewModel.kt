@@ -613,21 +613,21 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    private fun browseTitle(mode: BrowseMode, level: BrowseLevel): String? = when {
+    private fun browseTitle(mode: BrowseMode, level: BrowseLevel): BrowseTitleUi? = when {
         mode == BrowseMode.OFF -> null
-        level == BrowseLevel.Root && mode == BrowseMode.AUTHORS -> "Авторы"
-        level == BrowseLevel.Root && mode == BrowseMode.GENRES -> "Жанры"
-        level == BrowseLevel.Root -> "Серии"
-        level is BrowseLevel.Genre -> "Жанр: ${level.label}"
-        level is BrowseLevel.Author -> "Автор: ${level.name}"
+        level == BrowseLevel.Root && mode == BrowseMode.AUTHORS -> BrowseTitleUi(R.string.library_browse_authors)
+        level == BrowseLevel.Root && mode == BrowseMode.GENRES -> BrowseTitleUi(R.string.library_browse_genres)
+        level == BrowseLevel.Root -> BrowseTitleUi(R.string.library_browse_series)
+        level is BrowseLevel.Genre -> BrowseTitleUi(R.string.library_browse_genre, level.label)
+        level is BrowseLevel.Author -> BrowseTitleUi(R.string.library_browse_author, level.name)
         // «Автор» для одного имени и «Авторы» для набора: подпись набора перечисляет людей
         // через запятую, и единственное число на ней читалось бы как ошибка.
         level is BrowseLevel.AuthorSet -> if (level.label.contains(',')) {
-            "Авторы: ${level.label}"
+            BrowseTitleUi(R.string.library_browse_authors_set, level.label)
         } else {
-            "Автор: ${level.label}"
+            BrowseTitleUi(R.string.library_browse_author, level.label)
         }
-        level is BrowseLevel.Series -> "Серия: ${level.name}"
+        level is BrowseLevel.Series -> BrowseTitleUi(R.string.library_browse_series_level, level.name)
         else -> null
     }
 

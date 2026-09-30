@@ -9,9 +9,6 @@ enum class ScanMode {
 
     /** Отчёт по завершённому сканированию и список проблемных файлов. */
     REPORT,
-
-    /** Группы дубликатов по `contentHash`. */
-    DUPLICATES,
 }
 
 /**
@@ -63,34 +60,15 @@ data class ScanReportUi(
     val problemFiles: List<ProblemFileUi> = emptyList(),
 )
 
-/** Одна копия книги внутри группы дубликатов. */
-data class DuplicateCopyUi(
-    /** `books.id`. */
-    val bookId: String,
-    /** Путь внутри источника. */
-    val path: String,
-    /** Размер файла подписью. */
-    val sizeLabel: String,
-    /** true — эту копию пользователь решил оставить. */
-    val isKeeper: Boolean = false,
-)
-
-/** Группа книг с одинаковым `contentHash` (docs/eink-ux.md §6.7). */
-data class DuplicateGroupUi(
-    /** Идентификатор группы. */
-    val id: String,
-    /** Название книги, общее для группы. */
-    val title: String,
-    /** Копии: файлы никогда не удаляются, только записи. */
-    val copies: List<DuplicateCopyUi> = emptyList(),
-)
-
 /**
  * Состояние экрана сканирования.
  *
- * На этапе каркаса заполнено значением по умолчанию: работа с `ScanRepository` появится
- * в Sprint 2, разрешение дубликатов — в Sprint 7. Проценты и «можно продолжить» считаются
- * чистыми функциями из [ScanProgressMath.kt].
+ * Проценты и «можно продолжить» считаются чистыми функциями из [ScanProgressMath.kt].
+ *
+ * Разрешения дубликатов здесь больше нет: список групп никто не заполнял, а кнопки отвечали
+ * «пока не поддерживается». Рабочий поиск дублей живёт в настройках — «Библиотека и сканирование»
+ * → «Проверить на дубли»; держать второй, мёртвый вход к той же функции незачем
+ * (docs/eink-ux.md §6.7).
  */
 data class ScanUiState(
     /** Какой экран модуля показан. */
@@ -99,8 +77,6 @@ data class ScanUiState(
     val progress: ScanProgressUi? = null,
     /** Отчёт последнего завершённого скана; `null` — отчёта нет. */
     val report: ScanReportUi? = null,
-    /** Группы дубликатов. */
-    val duplicates: List<DuplicateGroupUi> = emptyList(),
     /** Состояние прогона: идёт, пауза, завершён. Экран различает их по нему, а не по флагу. */
     val status: ScanStatus = ScanStatus.IDLE,
     /** Текст ошибки для `EinkErrorBanner`. */

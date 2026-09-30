@@ -112,6 +112,9 @@ class SearchViewModel @Inject constructor(
                                 total = results.size,
                                 isSearching = false,
                                 error = null,
+                                // Термин запоминается вместе с результатом: пустой раздел до
+                                // поиска и пустой после поиска — разные вещи, и путать их нельзя.
+                                searchedTerm = term,
                                 recentQueries = state.recentQueries.withRecent(term),
                             )
                         } else {
@@ -167,7 +170,7 @@ class SearchViewModel @Inject constructor(
         snippet = description?.take(SNIPPET_LENGTH),
         // Где нашлось совпадение: FTS этого не сообщает, а в строке результата видно, почему
         // книга попала в выдачу (подпись не выдумывается, если поля её не подтверждают).
-        matchedField = matchedFieldLabel(term),
+        matchedFieldRes = matchedFieldRes(term),
     )
 
     private fun List<String>.withRecent(term: String): List<String> =

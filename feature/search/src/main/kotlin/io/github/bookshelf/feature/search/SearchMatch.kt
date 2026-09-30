@@ -2,30 +2,27 @@ package io.github.bookshelf.feature.search
 
 import io.github.bookshelf.core.data.model.Book
 
-/** Подписи полей, где нашлось совпадение: словами, а не именами колонок. */
-private const val FIELD_TITLE = "название"
-private const val FIELD_AUTHOR = "автор"
-private const val FIELD_SERIES = "серия"
-private const val FIELD_FILE = "файл"
-private const val FIELD_DESCRIPTION = "аннотация"
 
 /**
- * Где нашлось совпадение: «название», «автор», «серия», «файл», «аннотация».
+ * Где нашлось совпадение: подпись поля как ресурс.
  *
  * FTS не сообщает, в каком поле совпал токен, а показать это полезно: в результатах видно, почему
  * книга попала в список. Сравнение по вхождению подстроки, а не по токенам FTS, — намеренно
  * консервативное: если ни одно поле не подтверждает совпадение (FTS нашёл по стеммингу,
  * например), подпись не выдумывается, а остаётся пустой.
+ *
+ * Возвращается ресурс, а не текст: слова живут в `res/values` (ru) и `values-en`, а выбор поля
+ * остаётся чистой функцией и проверяется без Compose.
  */
-fun Book.matchedFieldLabel(term: String): String? {
+fun Book.matchedFieldRes(term: String): Int? {
     val needle = term.trim()
     if (needle.isEmpty()) return null
     return when {
-        title.contains(needle, ignoreCase = true) -> FIELD_TITLE
-        authorsText.contains(needle, ignoreCase = true) -> FIELD_AUTHOR
-        seriesName?.contains(needle, ignoreCase = true) == true -> FIELD_SERIES
-        relativePath.contains(needle, ignoreCase = true) -> FIELD_FILE
-        description?.contains(needle, ignoreCase = true) == true -> FIELD_DESCRIPTION
+        title.contains(needle, ignoreCase = true) -> R.string.search_field_title
+        authorsText.contains(needle, ignoreCase = true) -> R.string.search_field_author
+        seriesName?.contains(needle, ignoreCase = true) == true -> R.string.search_field_series
+        relativePath.contains(needle, ignoreCase = true) -> R.string.search_field_file
+        description?.contains(needle, ignoreCase = true) == true -> R.string.search_field_description
         else -> null
     }
 }

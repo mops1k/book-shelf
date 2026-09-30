@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки онбординга. Русский — основной язык, английский в values-en с теми же ключами. -->
+<resources>
+    <string name="onboarding_default_source_name">Книги</string>
+    <string name="onboarding_title">Первый запуск</string>
+    <string name="onboarding_step">Шаг %1$d из %2$d</string>
+
+    <string name="onboarding_welcome_message">Приложение не читает книги само: оно собирает библиотеку и открывает книгу в вашей читалке. Полка, поиск и фильтры работают полностью офлайн.</string>
+
+    <string name="onboarding_sources_title">Шаг 2. Папки с книгами</string>
+    <string name="onboarding_sources_message">Выберите саму папку с книгами (например, «Books»), а не корень хранилища: на Android 11+ система не отдаёт приложению корень накопителя, корень SD-карты и папку «Download». Если книги лежат в «Download», перенесите их в другую папку или включите «Доступ ко всем файлам» в полной сборке.</string>
+    <string name="onboarding_sources_access_lost_message">Доступ к папке теряется, если её переместить или удалить. Тогда полка попросит указать папку заново, а уже найденные книги останутся в библиотеке.</string>
+    <string name="onboarding_action_add_folder">Добавить папку</string>
+    <string name="onboarding_sources_empty">Папки пока не добавлены — без источника собирать библиотеку нечего.</string>
+    <string name="onboarding_source_unavailable">Папка недоступна — выбрать заново</string>
+
+    <string name="onboarding_readers_title">Шаг 3. Читалка по умолчанию</string>
+    <string name="onboarding_readers_message">Книга открывается во внешней читалке. Выберите читалку по умолчанию — позже её можно сменить для каждого формата в настройках.</string>
+    <string name="onboarding_readers_empty">Установленных читалок не нашлось. Проверить их список можно позже в настройках — раздел «Читалки».</string>
+    <string name="onboarding_reader_default">по умолчанию</string>
+    <string name="onboarding_action_make_default">Сделать основной</string>
+    <string name="onboarding_action_check">Проверить</string>
+
+    <string name="onboarding_action_back">Назад</string>
+    <string name="onboarding_action_next">Далее</string>
+    <string name="onboarding_action_finish">Собрать библиотеку</string>
+</resources>

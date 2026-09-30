@@ -2,16 +2,13 @@ package io.github.bookshelf.core.fb2opt
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-import java.io.ByteArrayOutputStream
-import java.util.zip.Deflater
-import java.util.zip.Inflater
 
 /**
  * Оптимизация картинок внутри FB2 без потери данных (`Fb2ImageOptimizer`).
  *
- * Проверяется главное обещание: **пиксели не меняются**. Для JPEG это значит, что сжатые данные
- * после `SOS` остаются байт-в-байт (их не трогают — убираются только служебные сегменты), для PNG —
- * что распакованное содержимое `IDAT` совпадает с исходным.
+ * Проверяется главное обещание: **пиксели не меняются**. Для JPEG это значит, что коэффициенты
+ * дискретного косинусного преобразования остаются прежними (меняются только служебные сегменты и
+ * таблицы Хаффмана), для PNG — что совпадают сами пиксели, а сверяет их декодер JDK.
  *
  * Фикстуры настоящие: JPEG взяты из книги «Книга Уткина Мы тут жизнь живём» (с EXIF и без метаданных),
  * PNG — реальный снимок экрана устройства из `.dsh/shots/02-polki.png`.
@@ -73,8 +70,8 @@ class Fb2ImageOptimizerTest {
         val result = optimizer.optimize(source, "image/png")
 
         assertThat(result).isNotNull()
-        // Распакованное содержимое — это и есть пиксели: оно обязано совпасть.
-        assertThat(result!!.inflatedIdat()).isEqualTo(source.inflatedIdat())
+        // Пиксели сверяет декодер JDK, а не тот же код, что пересобирает строки PNG.
+        assertThat(PngTestSupport.pixelsDigest(result!!)).isEqualTo(PngTestSupport.pixelsDigest(source))
         assertThat(result.size).isAtMost(source.size)
     }
 
@@ -99,31 +96,6 @@ class Fb2ImageOptimizerTest {
         val structure = checkNotNull(JpegParser.parse(this)) { "картинка не разбирается" }
         val decoded = checkNotNull(JpegEntropyTranscoder(structure).decode()) { "данные не читаются" }
         return decoded.blocks.map { blocks -> blocks.flatMap { block -> block.toList() } }
-    }
-
-    private fun ByteArray.inflatedIdat(): ByteArray {
-        var index = 8
-        val deflated = ByteArrayOutputStream()
-        while (index + 8 <= size) {
-            val length = ((this[index].toInt() and 0xFF) shl 24) or
-                ((this[index + 1].toInt() and 0xFF) shl 16) or
-                ((this[index + 2].toInt() and 0xFF) shl 8) or
-                (this[index + 3].toInt() and 0xFF)
-            val kind = String(this, index + 4, 4, Charsets.ISO_8859_1)
-            if (kind == "IDAT") deflated.write(this, index + 8, length)
-            index += 12 + length
-        }
-        val inflater = Inflater()
-        inflater.setInput(deflated.toByteArray())
-        val out = ByteArrayOutputStream()
-        val buffer = ByteArray(64 * 1024)
-        while (!inflater.finished()) {
-            val read = inflater.inflate(buffer)
-            if (read <= 0) break
-            out.write(buffer, 0, read)
-        }
-        inflater.end()
-        return out.toByteArray()
     }
 
     /**
@@ -182,7 +154,4 @@ class Fb2ImageOptimizerTest {
         javaClass.getResourceAsStream("/$name"),
     ) { "нет фикстуры $name" }.use { stream -> stream.readBytes() }
 
-    private companion object {
-        const val SOS = 0xDA
-    }
 }

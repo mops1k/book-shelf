@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
@@ -74,6 +75,7 @@ class SyncReadingProgressTest {
             .allowMainThreadQueries()
             .build()
         repository = BookRepositoryImpl(
+            dispatchers = TestAppDispatchers(),
             bookDao = database.bookDao(),
             overrideDao = database.metadataOverrideDao(),
             readingProgressDao = database.readingProgressDao(),

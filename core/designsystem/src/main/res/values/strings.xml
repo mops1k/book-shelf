@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строки каркаса экранов и общих компонентов. Русский — основной язык, английский в values-en
+  с теми же ключами.
+-->
+<resources>
+    <string name="eink_action_back">← Назад</string>
+    <string name="eink_action_cancel">Отмена</string>
+    <string name="eink_action_close">Закрыть</string>
+    <string name="eink_action_more">Ещё</string>
+    <string name="eink_menu_title">Действия</string>
+</resources>

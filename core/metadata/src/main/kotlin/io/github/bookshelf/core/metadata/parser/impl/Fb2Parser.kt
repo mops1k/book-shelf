@@ -38,7 +38,18 @@ import org.xmlpull.v1.XmlPullParser
  * `windows-1251`. Метаданные всегда берутся из файла, поэтому [MetadataOrigin.EMBEDDED] —
  * правильный источник даже при отсутствии части необязательных полей.
  */
-class Fb2Parser : BookMetadataParser {
+class Fb2Parser(
+    /**
+     * Предел размера XML, который разбирается целиком.
+     *
+     * Предел нужен: без него архив-бомба распаковывается в память целиком, а [ZipLimits] проверяет
+     * только заявленный размер записи. 16 МБ оказалось мало для настоящих книг: «Книга Уткина
+     * Мы тут жизнь живём» с полки устройства — XML 19 465 467 Б, и предел отказывал ей в разборе,
+     * книга навсегда оставалась `FAILED` (найдено на устройстве 30.09.2026). 32 МБ покрывают такие
+     * книги с запасом; пик памяти проверен на устройстве (см. `docs/TESTING.md`).
+     */
+    private val maxXmlBytes: Int = MAX_XML_BYTES,
+) : BookMetadataParser {
 
     override val id: String = ID
 
@@ -75,7 +86,7 @@ class Fb2Parser : BookMetadataParser {
     }
 
     private fun parsePlainFb2(file: File, checkActive: () -> Unit): ParseResult {
-        val bytes = readFile(file, MAX_XML_BYTES.toLong(), checkActive)
+        val bytes = readFile(file, maxXmlBytes.toLong(), checkActive)
         if (bytes.isEmpty()) throw Fb2Failure("Пустой FB2-файл")
         return parseXml(bytes, checkActive)
     }
@@ -85,7 +96,7 @@ class Fb2Parser : BookMetadataParser {
         try {
             val entry = archive.entries.firstOrNull { !it.isDirectory && it.name.hasFb2Extension() }
                 ?: throw Fb2Failure("В FB2.ZIP не найден файл с расширением fb2")
-            val bytes = archive.read(entry, MAX_XML_BYTES, checkActive)
+            val bytes = archive.read(entry, maxXmlBytes, checkActive)
                 ?: throw Fb2Failure("FB2 внутри архива превышает допустимый размер XML")
             return parseXml(bytes, checkActive)
         } finally {
@@ -535,7 +546,7 @@ class Fb2Parser : BookMetadataParser {
         const val DEFAULT_COVER_MIME = "application/octet-stream"
         const val XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
         const val MAX_COVER_BYTES = 2 * 1_024 * 1_024
-        const val MAX_XML_BYTES = 16 * 1_024 * 1_024
+        const val MAX_XML_BYTES = 32 * 1_024 * 1_024
         const val MAGIC_PREFIX_SIZE = 256L
         const val CHARSET_PREFIX_SIZE = 4_096
         const val MAX_TEXT_CAPTURE = 4 * 1_024 * 1_024

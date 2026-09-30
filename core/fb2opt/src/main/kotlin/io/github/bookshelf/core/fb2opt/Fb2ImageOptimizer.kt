@@ -1,8 +1,6 @@
 package io.github.bookshelf.core.fb2opt
 
 import java.io.ByteArrayOutputStream
-import java.util.zip.Deflater
-import java.util.zip.Inflater
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,11 +8,11 @@ import javax.inject.Singleton
  * Оптимизация картинок внутри FB2 **без потери данных**.
  *
  * Что делается и почему это не портит картинку:
- * * **JPEG** — убираются только служебные сегменты (`COM` и `APP1`/Exif). Сжатые данные после `SOS`
- *   копируются байт-в-байт, то есть пиксели те же. Метаданные (дата съёмки, GPS) при этом теряются —
- *   это и есть смысл шага;
- * * **PNG** — содержимое `IDAT` распаковывается и сжимается плотнее (уровень 9). Распакованные
- *   байты — это и есть пиксели, они совпадают до последнего байта.
+ * * **JPEG** — убираются только служебные сегменты (`COM` и `APP1`/Exif), а сжатые данные после
+ *   `SOS` пережимаются таблицами Хаффмана, посчитанными по самой картинке. Коэффициенты
+ *   дискретного косинусного преобразования при этом те же — пиксели не меняются;
+ * * **PNG** — пересобирается `IDAT` ([PngImageOptimizer]): строки заново фильтруются и сжимаются,
+ *   а результат проверяется сравнением самих пикселей.
  *
  * Чего НЕ делаем осознанно:
  * * не снимаем EXIF, если в нём есть **ориентация**: убрав её, мы перевернули бы картинку в читалке;
@@ -27,6 +25,7 @@ import javax.inject.Singleton
 @Singleton
 class Fb2ImageOptimizer @Inject constructor(
     private val entropy: JpegEntropyOptimizer,
+    private val png: PngImageOptimizer = PngImageOptimizer(),
 ) {
 
     /**
@@ -48,7 +47,7 @@ class Fb2ImageOptimizer @Inject constructor(
             ),
         )
 
-        PNG_TYPE -> optimizePng(bytes)
+        PNG_TYPE -> png.optimize(bytes)
         else -> null
     }
 
@@ -92,53 +91,6 @@ class Fb2ImageOptimizer @Inject constructor(
         return null
     }
 
-    private fun optimizePng(bytes: ByteArray): ByteArray? {
-        if (bytes.size < PNG_SIGNATURE.size || !bytes.startsWith(PNG_SIGNATURE)) return null
-        val chunks = mutableListOf<PngChunk>()
-        val deflated = ByteArrayOutputStream()
-        var index = PNG_SIGNATURE.size
-        while (index + CHUNK_HEADER_SIZE <= bytes.size) {
-            val length = readInt(bytes, index)
-            if (length < 0 || index + CHUNK_HEADER_SIZE + length > bytes.size) return null
-            val type = String(bytes, index + PNG_TYPE_OFFSET, INT_SIZE, Charsets.ISO_8859_1)
-            val data = bytes.copyOfRange(index + PNG_DATA_OFFSET, index + PNG_DATA_OFFSET + length)
-            if (type == IDAT) deflated.write(data) else chunks += PngChunk(type, data)
-            index += CHUNK_HEADER_SIZE + length
-        }
-        if (deflated.size() == 0) return null
-        val raw = inflate(deflated.toByteArray()) ?: return null
-        val repacked = deflate(raw)
-        val out = ByteArrayOutputStream(bytes.size)
-        out.write(PNG_SIGNATURE)
-        var idatWritten = false
-        for (chunk in chunks) {
-            if (chunk.type == IEND && !idatWritten) {
-                writeChunks(out, repacked)
-                idatWritten = true
-            }
-            out.writeChunk(chunk)
-        }
-        if (!idatWritten) writeChunks(out, repacked)
-        val result = out.toByteArray()
-        // Проверка перед выдачей: распакованное содержимое обязано совпасть — это и есть пиксели.
-        return if (result.size < bytes.size && result.inflatedIdatEquals(raw)) result else null
-    }
-
-    private fun ByteArray.inflatedIdatEquals(expected: ByteArray): Boolean {
-        val deflated = ByteArrayOutputStream()
-        var index = PNG_SIGNATURE.size
-        while (index + CHUNK_HEADER_SIZE <= size) {
-            val length = readInt(this, index)
-            if (length < 0 || index + CHUNK_HEADER_SIZE + length > size) return false
-            if (String(this, index + PNG_TYPE_OFFSET, INT_SIZE, Charsets.ISO_8859_1) == IDAT) {
-                deflated.write(this, index + PNG_DATA_OFFSET, length)
-            }
-            index += CHUNK_HEADER_SIZE + length
-        }
-        val actual = inflate(deflated.toByteArray()) ?: return false
-        return actual.contentEquals(expected)
-    }
-
     /** Конец сегмента JPEG: заголовок с длиной плюс сама длина. */
     private fun segmentEnd(bytes: ByteArray, start: Int): Int? {
         if (start + SEGMENT_LENGTH_FIELD + 1 >= bytes.size) return null
@@ -166,109 +118,23 @@ class Fb2ImageOptimizer @Inject constructor(
         return orientation != ORIENTATION_NORMAL
     }
 
-    private fun readInt(bytes: ByteArray, at: Int): Int =
-        ((bytes[at].toInt() and BYTE_MASK) shl FOURTH_BYTE_SHIFT) or
-            ((bytes[at + SECOND_BYTE].toInt() and BYTE_MASK) shl THIRD_BYTE_SHIFT) or
-            ((bytes[at + THIRD_BYTE].toInt() and BYTE_MASK) shl SECOND_BYTE_SHIFT) or
-            (bytes[at + FOURTH_BYTE].toInt() and BYTE_MASK)
-
-    private fun inflate(data: ByteArray): ByteArray? = runCatching {
-        val inflater = Inflater()
-        inflater.setInput(data)
-        val out = ByteArrayOutputStream(data.size * INFLATED_SIZE_FACTOR)
-        val buffer = ByteArray(INFLATE_BUFFER)
-        while (!inflater.finished()) {
-            val read = inflater.inflate(buffer)
-            if (read <= 0) break
-            out.write(buffer, 0, read)
-        }
-        inflater.end()
-        out.toByteArray()
-    }.getOrNull()?.takeIf { it.isNotEmpty() }
-
-    private fun deflate(raw: ByteArray): ByteArray {
-        val deflater = Deflater(Deflater.BEST_COMPRESSION)
-        deflater.setInput(raw)
-        deflater.finish()
-        val out = ByteArrayOutputStream(raw.size / 2)
-        val buffer = ByteArray(INFLATE_BUFFER)
-        while (!deflater.finished()) {
-            val written = deflater.deflate(buffer)
-            out.write(buffer, 0, written)
-        }
-        deflater.end()
-        return out.toByteArray()
-    }
-
-    private fun writeChunks(out: ByteArrayOutputStream, data: ByteArray) {
-        var offset = 0
-        while (offset < data.size) {
-            val size = minOf(IDAT_CHUNK_SIZE, data.size - offset)
-            out.writeChunk(PngChunk(IDAT, data.copyOfRange(offset, offset + size)))
-            offset += size
-        }
-    }
-
-    private fun ByteArrayOutputStream.writeChunk(chunk: PngChunk) {
-        writeInt(chunk.data.size)
-        write(chunk.type.toByteArray(Charsets.ISO_8859_1))
-        write(chunk.data)
-        // CRC пересчитывается по содержимому: чужие значения после переупаковки уже неверны.
-        write(crc32(chunk.type.toByteArray(Charsets.ISO_8859_1), chunk.data))
-    }
-
-    private fun crc32(type: ByteArray, data: ByteArray): ByteArray {
-        val crc = java.util.zip.CRC32()
-        crc.update(type)
-        crc.update(data)
-        val out = ByteArrayOutputStream(INT_SIZE)
-        out.writeInt(crc.value.toInt())
-        return out.toByteArray()
-    }
-
-    /** Записать число четырьмя байтами от старшего: так устроены длина чанка и CRC в PNG. */
-    private fun ByteArrayOutputStream.writeInt(value: Int) {
-        write((value ushr FOURTH_BYTE_SHIFT) and BYTE_MASK)
-        write((value ushr THIRD_BYTE_SHIFT) and BYTE_MASK)
-        write((value ushr SECOND_BYTE_SHIFT) and BYTE_MASK)
-        write(value and BYTE_MASK)
-    }
-
     private fun ByteArray.startsWith(prefix: ByteArray): Boolean {
         if (size < prefix.size) return false
         for (index in prefix.indices) if (this[index] != prefix[index]) return false
         return true
     }
 
-    private data class PngChunk(val type: String, val data: ByteArray)
-
     private companion object {
         const val BYTE_MASK = 0xFF
-        const val SECOND_BYTE = 1
-        const val THIRD_BYTE = 2
-        const val FOURTH_BYTE = 3
         const val SECOND_BYTE_SHIFT = 8
-        const val THIRD_BYTE_SHIFT = 16
-        const val FOURTH_BYTE_SHIFT = 24
 
         /** В сегменте JPEG длина записана двумя байтами сразу после маркера. */
         const val SEGMENT_LENGTH_FIELD = 2
 
-        /** В чанке PNG: длина (4 байта) + тип (4 байта) перед содержимым. */
-        const val PNG_TYPE_OFFSET = 4
-        const val PNG_DATA_OFFSET = 8
-
-        /** Размер полей в чанке и в записи EXIF. */
-        const val INT_SIZE = 4
         const val ORIENTATION_NORMAL = 1
-
-        /** Оценка запаса при распаковке: сжатое изображение обычно вчетверо меньше исходного. */
-        const val INFLATED_SIZE_FACTOR = 4
 
         const val JPEG_TYPE = "image/jpeg"
         const val PNG_TYPE = "image/png"
-        const val IDAT = "IDAT"
-        const val IEND = "IEND"
 
         const val MARKER_PREFIX: Byte = 0xFF.toByte()
         const val SOS = 0xDA
@@ -276,18 +142,12 @@ class Fb2ImageOptimizer @Inject constructor(
         const val COM = 0xFE
         const val APP1 = 0xE1
 
-        const val CHUNK_HEADER_SIZE = 12
-        const val IDAT_CHUNK_SIZE = 8192
-        const val INFLATE_BUFFER = 64 * 1024
         const val TIFF_HEADER_SIZE = 8
 
         /** Маркер JPEG занимает два байта: `FF` и код. */
         const val MARKER_LENGTH = 2
 
         val SOI = byteArrayOf(0xFF.toByte(), 0xD8.toByte())
-        val PNG_SIGNATURE = byteArrayOf(
-            0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        )
         const val EXIF_HEADER = "Exif\u0000\u0000"
     }
 }

@@ -79,6 +79,27 @@ class BookFileChangeTest {
         assertThat(updated.parseError).isNull()
     }
 
+    @Test
+    fun `a changed file clears the optimization mark`() {
+        val checked = book(parseState = ParseState.OK, parseError = null, coverPath = null)
+            .copy(optimizedAt = 5_000L)
+
+        val updated = checked.afterFileChange(
+            documentUri = "content://tree/primary%3ABooks/document/primary%3ABooks%2Fnew.fb2",
+            relativePath = "Автор/new.fb2",
+            fileName = "new.fb2",
+            extension = "fb2",
+            mimeType = null,
+            sizeBytes = 2048L,
+            lastModified = 999L,
+            now = 1000L,
+        )
+
+        // Отметка относится к конкретной версии файла: у другой версии проверка ничего не значит,
+        // иначе оптимизация молча пропустила бы книгу, которую подменили.
+        assertThat(updated.optimizedAt).isNull()
+    }
+
     private fun book(parseState: ParseState, parseError: String?, coverPath: String?) = BookEntity(
         id = "doc:book",
         sourceId = "source-1",

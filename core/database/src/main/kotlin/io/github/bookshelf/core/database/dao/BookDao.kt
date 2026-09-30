@@ -68,15 +68,6 @@ interface BookDao {
     @Query("DELETE FROM books WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    /**
-     * Удалить все записи библиотеки — команда «Пересканировать».
-     *
-     * Удаляются только строки таблицы: файлы на устройстве остаются нетронутыми, и следующий
-     * скан заново их найдёт. Именно поэтому команда безопасна — в отличие от удаления файлов.
-     */
-    @Query("DELETE FROM books")
-    suspend fun deleteAll()
-
     /** Наблюдать книгу по id — карточка книги. */
     @Query("SELECT * FROM books WHERE id = :id")
     fun observeById(id: String): Flow<BookEntity?>
@@ -194,4 +185,13 @@ interface BookDao {
     )
     suspend fun idsWithoutTags(): List<String>
 
+    /**
+     * Книги, файлы которых не разобрались.
+     *
+     * Нужны отчёту сканирования: раздел «Проблемные файлы» показывает причину отказа, а не только
+     * их число. Ограничение по количеству — чтобы битая библиотека не вытащила тысячи строк в
+     * список на e-ink.
+     */
+    @Query("SELECT * FROM books WHERE parseState = 'FAILED' ORDER BY title LIMIT :limit")
+    suspend fun booksWithParseErrors(limit: Int): List<BookEntity>
 }

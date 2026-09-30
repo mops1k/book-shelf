@@ -54,6 +54,7 @@ internal fun LazyListScope.sourcesSection(
     onAddFolder: () -> Unit,
     onRemoveSource: (String) -> Unit,
     onRescanAll: () -> Unit,
+    onOpenScan: () -> Unit,
 ) {
     item(key = "header-sources") {
         EinkSectionHeader(title = "Где искать книги", count = sources.size)
@@ -80,6 +81,15 @@ internal fun LazyListScope.sourcesSection(
     }
     item(key = "source-rescan") {
         SourceRescanRow(isRescanning = isRescanning, onRescan = onRescanAll)
+    }
+    item(key = "source-scan-screen") {
+        // Экран сканирования (ход и отчёт с проблемными файлами) открывался только с пустой
+        // полки: при живой библиотеке входа к нему не было вовсе.
+        EinkListRow(
+            title = "Ход и отчёт сканирования",
+            subtitle = "Сколько добавлено и обновлено, что не разобралось и почему",
+            onClick = onOpenScan,
+        )
     }
 }
 

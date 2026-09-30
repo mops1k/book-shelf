@@ -14,3 +14,10 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+// Тесты модуля идут с тем же потолком кучи, что и приложение на устройстве (256 МБ): оптимизация
+// книги в 13 МБ обязана укладываться в него, иначе на e-ink-читалке система убивает процесс.
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "256m"
+    testLogging { showStandardStreams = true }
+}

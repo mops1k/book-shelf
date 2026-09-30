@@ -58,6 +58,8 @@ fun BookEntity.toDomain(authors: List<String>): Book = bookToDomain(
     lastOpenedAt = lastOpenedAt,
     // Прогресс чтения живёт в отдельной таблице reading_progress, а не в books.
     progressPercent = null,
+    parseStateName = parseState.name,
+    parseError = parseError,
 )
 
 /**
@@ -95,6 +97,8 @@ internal fun bookToDomain(
     isMissing: Boolean = false,
     lastOpenedAt: Long? = null,
     progressPercent: Float? = null,
+    parseStateName: String = ParseState.PENDING.name,
+    parseError: String? = null,
 ): Book = Book(
     id = id,
     title = title,
@@ -121,6 +125,8 @@ internal fun bookToDomain(
     addedAt = addedAt,
     lastOpenedAt = lastOpenedAt,
     progressPercent = progressPercent,
+    parseState = parseStateFromName(parseStateName),
+    parseError = parseError,
 )
 
 /** Статус чтения из имени entity-значения; неизвестное → [ReadingStatus.UNREAD]. */

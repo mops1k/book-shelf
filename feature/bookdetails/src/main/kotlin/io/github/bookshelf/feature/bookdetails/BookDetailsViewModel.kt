@@ -12,6 +12,7 @@ import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.common.app.FolderOpener
+import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
@@ -219,6 +220,49 @@ class BookDetailsViewModel @Inject constructor(
         runBookCommand { bookRepository.setFavorite(bookId, favorite) }
     }
 
+    /**
+     * Оптимизировать файл книги без потери данных.
+     *
+     * Работа тяжёлая (файл читается целиком, картинки пересобираются), поэтому она идёт в
+     * [viewModelScope], а кнопка на это время блокируется. Успех показывается отдельным
+     * сообщением, а не плашкой ошибки: «оптимизировано» и «не удалось» не должны выглядеть одинаково.
+     */
+    fun onOptimize() {
+        if (_uiState.value.isOptimizing) return
+        _uiState.update { it.copy(isOptimizing = true, optimizationMessage = null, error = null) }
+        viewModelScope.launch {
+            try {
+                val outcome = bookRepository.optimizeBook(bookId)
+                val failure = outcome.errorOrNull()
+                val result = outcome.getOrNull()
+                _uiState.update { state ->
+                    when {
+                        failure != null -> state.copy(
+                            isOptimizing = false,
+                            error = failure.message ?: "Оптимизировать книгу не удалось",
+                        )
+
+                        result != null -> state.copy(
+                            isOptimizing = false,
+                            optimizationMessage = optimizationReport(result),
+                        )
+
+                        else -> state.copy(isOptimizing = false)
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: SQLException) {
+                _uiState.update {
+                    it.copy(
+                        isOptimizing = false,
+                        error = error.message ?: "Оптимизировать книгу не удалось",
+                    )
+                }
+            }
+        }
+    }
+
     /** Переключить статус «прочитано» и дождаться обновления наблюдаемой книги. */
     fun onToggleRead() {
         val targetStatus = if (_uiState.value.readingStatus == ReadingStatus.READ) {
@@ -364,9 +408,34 @@ private fun BookDetailsUiState.withBook(book: Book, sourceName: String): BookDet
     coverPath = book.coverPath,
     readingStatus = book.readingStatus,
     isFavorite = book.favorite,
+    parseError = book.parseError,
+    canOptimize = book.extension.lowercase() in OPTIMIZABLE_EXTENSIONS,
     isLoading = false,
     error = null,
 )
+
+/**
+ * Расширения, которые оптимизируются: только формат FB2, в том числе в архиве.
+ *
+ * Список продублирован рядом с экраном: карточка не должна зависеть от `:core:fb2opt` ради двух
+ * строк, а `BookRepository.optimizeBook` всё равно отвергнет всё остальное — здесь решается лишь
+ * то, показывать ли кнопку.
+ */
+private val OPTIMIZABLE_EXTENSIONS = setOf("fb2", "fb2.zip")
+
+/**
+ * Отчёт об оптимизации словами.
+ *
+ * Размеры называются до и после, а не только экономия: «сэкономлено 2,2 МБ» без исходного размера
+ * ничего не говорит о том, была ли книга большой. Отсутствие выигрыша — тоже результат, и он
+ * формулируется как «заменять нечего», а не как пустая строка.
+ */
+private fun optimizationReport(result: BookOptimizationResult): String = when {
+    result.alreadyOptimized -> "Уже оптимизирована — эту версию файла проверяли"
+    result.changed -> "Сэкономлено ${formatSize(result.savedBytes.toLong())} " +
+        "(было ${formatSize(result.beforeBytes.toLong())}, стало ${formatSize(result.afterBytes.toLong())})"
+    else -> "Файл уже оптимален — заменять нечего"
+}
 
 private fun Book.seriesLabel(): String? = seriesName?.let { name ->
     seriesIndex?.let { index ->

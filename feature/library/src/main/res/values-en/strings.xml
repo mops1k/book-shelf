@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_title">Shelf</string>
+    <string name="library_filters">Filters (%1$d)</string>
+    <string name="library_search">Search</string>
+    <string name="library_menu_collections">Collections</string>
+    <string name="library_menu_catalogs">Catalogs</string>
+    <string name="library_menu_settings">Settings</string>
+
+    <string name="library_action_retry">Retry</string>
+    <string name="library_action_back">← Back</string>
+    <string name="library_action_cancel">Cancel</string>
+
+    <string name="library_view_grid">Grid</string>
+    <string name="library_view_authors">Authors</string>
+    <string name="library_view_series">Series</string>
+    <string name="library_view_genres">Genres</string>
+    <string name="library_without_series">Outside series</string>
+
+    <string name="library_empty_filtered_title">Nothing found</string>
+    <string name="library_empty_filtered_message">There are books in the library, but none matches the selected filters (active filters: %1$d). Clear the filters or go back to the Filters screen and drop some conditions.</string>
+    <string name="library_empty_filtered_action">Clear filters</string>
+    <string name="library_empty_no_books_title">No books yet</string>
+    <string name="library_empty_no_books_message">Tap Scan to find books in the selected folder. If the folder is not added yet, go back to onboarding and choose it.</string>
+    <string name="library_empty_no_books_action">Scan</string>
+
+    <string name="library_sort_header">Sorting</string>
+    <string name="library_sort_selected">selected</string>
+    <string name="library_sort_hint">The order is applied to the whole shelf at once.</string>
+    <string name="library_sort_summary">Sorting: %1$s · %2$s</string>
+    <string name="library_series_order_release">Series order: by release</string>
+    <string name="library_cover_description">Cover: %1$s, %2$s</string>
+
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_author">Author</string>
+    <string name="library_sort_series">Series</string>
+    <string name="library_sort_added">Date added</string>
+    <string name="library_sort_last_opened">Date opened</string>
+    <string name="library_sort_size">Size</string>
+    <string name="library_sort_progress">Progress</string>
+    <string name="library_sort_year">Year</string>
+
+    <string name="library_sort_hint_title">By title, ignoring «The» and «A»</string>
+    <string name="library_sort_hint_author">Author first, then title</string>
+    <string name="library_sort_hint_series">By series and the number in it</string>
+    <string name="library_sort_hint_added">Recently added first</string>
+    <string name="library_sort_hint_last_opened">Recently opened first</string>
+    <string name="library_sort_hint_size">By file size</string>
+    <string name="library_sort_hint_progress">Least finished first</string>
+    <string name="library_sort_hint_year">By year of publication</string>
+
+    <string name="library_grouping_none">no grouping</string>
+    <string name="library_grouping_series">by series</string>
+    <string name="library_grouping_author">by author</string>
+    <string name="library_grouping_folder">by folder</string>
+    <string name="library_grouping_format">by format</string>
+
+    <string name="library_browse_authors">Authors</string>
+    <string name="library_browse_series">Series</string>
+    <string name="library_browse_genres">Genres</string>
+    <string name="library_browse_genre">Genre: %1$s</string>
+    <string name="library_browse_author">Author: %1$s</string>
+    <string name="library_browse_authors_set">Authors: %1$s</string>
+    <string name="library_browse_series_level">Series: %1$s</string>
+
+    <string name="library_error_load">Failed to load the shelf</string>
+
+    <plurals name="library_book_count">
+        <item quantity="one">%1$d book</item>
+        <item quantity="other">%1$d books</item>
+    </plurals>
+</resources>

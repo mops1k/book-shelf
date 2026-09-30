@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
@@ -85,6 +86,7 @@ class BookRepositoryTest {
             .allowMainThreadQueries()
             .build()
         repository = BookRepositoryImpl(
+            dispatchers = TestAppDispatchers(),
             bookDao = database.bookDao(),
             overrideDao = database.metadataOverrideDao(),
             readingProgressDao = database.readingProgressDao(),
