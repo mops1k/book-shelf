@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.bookdetails.BookDetailsUiState
 import io.github.bookshelf.feature.bookdetails.BookDetailsViewModel
 import io.github.bookshelf.feature.bookdetails.filePathLabel
+import io.github.bookshelf.feature.bookdetails.R
 
 /** Ширина обложки в карточке. */
 private val COVER_WIDTH = 160.dp
@@ -68,7 +70,7 @@ fun BookDetailsScreen(
     }
 
     EinkScaffold(
-        title = state.title.ifEmpty { "Карточка книги" },
+        title = state.title.ifEmpty { stringResource(R.string.book_title) },
         subtitle = state.authors.ifEmpty { null },
         modifier = modifier,
         onBack = onBack,
@@ -83,7 +85,7 @@ fun BookDetailsScreen(
         footer = {
             Row(modifier = Modifier.fillMaxWidth().padding(dimens.gutter)) {
                 EinkButton(
-                    text = "Читать",
+                    text = stringResource(R.string.book_action_read),
                     onClick = { onRead(bookId) },
                     primary = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -102,7 +104,7 @@ fun BookDetailsScreen(
             if (error != null) {
                 EinkErrorBanner(
                     message = error,
-                    actionLabel = "Повторить",
+                    actionLabel = stringResource(R.string.book_action_retry),
                     onAction = viewModel::onRefreshMetadata,
                 )
             }
@@ -121,8 +123,8 @@ fun BookDetailsScreen(
             val parseError = state.parseError
             if (parseError != null) {
                 EinkErrorBanner(
-                    message = "Не удалось разобрать: $parseError",
-                    actionLabel = "Заполнить вручную",
+                    message = stringResource(R.string.book_parse_error, parseError),
+                    actionLabel = stringResource(R.string.book_action_fill_manually),
                     onAction = { onEditMetadata(bookId) },
                 )
             }
@@ -166,24 +168,28 @@ private fun CollectionPicker(
     onClose: () -> Unit,
 ) {
     Column {
-        EinkSectionHeader(title = "В какую полку", count = state.collections.size)
+        EinkSectionHeader(title = stringResource(R.string.book_collections_title), count = state.collections.size)
         if (state.collections.isEmpty()) {
             EinkEmptyState(
-                title = "Полок пока нет",
-                message = "Создайте полку на экране «Полки», потом вернитесь сюда.",
+                title = stringResource(R.string.book_collections_empty_title),
+                message = stringResource(R.string.book_collections_empty_message),
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
             state.collections.forEach { collection ->
                 EinkListRow(
                     title = collection.name,
-                    trailing = if (collection.containsBook) "уже там" else "добавить",
+                    trailing = if (collection.containsBook) {
+                        stringResource(R.string.book_collection_present)
+                    } else {
+                        stringResource(R.string.book_collection_add)
+                    },
                     onClick = { onPick(collection.id) },
                 )
             }
         }
         EinkButton(
-            text = "Отмена",
+            text = stringResource(R.string.book_action_cancel),
             onClick = onClose,
             modifier = Modifier
                 .fillMaxWidth()
@@ -206,7 +212,11 @@ private fun BookHeader(state: BookDetailsUiState) {
             coverPath = state.coverPath,
             title = state.title,
             modifier = Modifier.width(COVER_WIDTH),
-            contentDescription = "Обложка: ${state.title}, ${state.authors}",
+            contentDescription = stringResource(
+                R.string.book_cover_description,
+                state.title,
+                state.authors,
+            ),
         )
         Column(
             modifier = Modifier.weight(1f),
@@ -229,7 +239,7 @@ private fun BookHeader(state: BookDetailsUiState) {
             )
             if (state.isFavorite) {
                 Text(
-                    text = "В избранном",
+                    text = stringResource(R.string.book_favorite_yes),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.foreground,
                 )
@@ -251,27 +261,27 @@ private fun MetadataRows(
         // Так же сделано в карточке записи каталога OPDS.
         if (state.authors.isNotBlank()) {
             MetadataRow(
-                label = "Автор: ${state.authors}",
+                label = stringResource(R.string.book_author_line, state.authors),
                 value = null,
-                subtitle = "Нажмите, чтобы открыть его книги и серии",
+                subtitle = stringResource(R.string.book_author_hint),
                 onClick = onOpenAuthor,
             )
         }
         state.series?.let {
             MetadataRow(
-                label = "Серия: $it",
+                label = stringResource(R.string.book_series_line, it),
                 value = null,
-                subtitle = "Нажмите, чтобы открыть книги серии",
+                subtitle = stringResource(R.string.book_series_hint),
                 onClick = onOpenSeries,
             )
         }
-        state.publishedYear?.let { MetadataRow(label = "Год", value = it.toString()) }
-        state.language?.let { MetadataRow(label = "Язык", value = it) }
-        state.publisher?.let { MetadataRow(label = "Издательство", value = it) }
+        state.publishedYear?.let { MetadataRow(label = stringResource(R.string.book_year), value = it.toString()) }
+        state.language?.let { MetadataRow(label = stringResource(R.string.book_language), value = it) }
+        state.publisher?.let { MetadataRow(label = stringResource(R.string.book_publisher), value = it) }
         state.isbn?.let { MetadataRow(label = "ISBN", value = it) }
-        state.pageCount?.let { MetadataRow(label = "Страниц", value = it.toString()) }
-        state.sizeLabel?.let { MetadataRow(label = "Размер", value = it) }
-        state.addedAtLabel?.let { MetadataRow(label = "Добавлена", value = it) }
+        state.pageCount?.let { MetadataRow(label = stringResource(R.string.book_pages), value = it.toString()) }
+        state.sizeLabel?.let { MetadataRow(label = stringResource(R.string.book_size), value = it) }
+        state.addedAtLabel?.let { MetadataRow(label = stringResource(R.string.book_added), value = it) }
     }
 }
 
@@ -298,9 +308,9 @@ private fun DescriptionBlock(description: String?) {
     val dimens = LocalEinkDimens.current
 
     Column(verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-        EinkSectionHeader(title = "Аннотация")
+        EinkSectionHeader(title = stringResource(R.string.edit_field_description_hint))
         Text(
-            text = description ?: "Аннотация не найдена в файле — её можно заполнить вручную.",
+            text = description ?: stringResource(R.string.book_description_missing),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.foreground,
         )
@@ -312,10 +322,10 @@ private fun DescriptionBlock(description: String?) {
 private fun FileBlock(state: BookDetailsUiState) {
     val path = filePathLabel(sourceName = state.sourceName, relativePath = state.relativePath)
     Column {
-        EinkSectionHeader(title = "Файл")
+        EinkSectionHeader(title = stringResource(R.string.book_file))
         // Строки «Документ» больше нет: там показывался внутренний SAF-адрес файла
         // (`content://…%2F…`) — приложению он нужен, пользователю ничего не говорит.
-        EinkListRow(title = "Путь", subtitle = path.ifEmpty { null })
+        EinkListRow(title = stringResource(R.string.book_path), subtitle = path.ifEmpty { null })
     }
 }
 
@@ -333,19 +343,27 @@ private fun ActionsBlock(
         // Результат оптимизации показывается отдельной строкой, а не плашкой ошибки: успех и сбой
         // не должны выглядеть одинаково.
         state.optimizationMessage?.let { message ->
-            EinkListRow(title = message, subtitle = "Оптимизация FB2 без потери данных")
+            EinkListRow(title = message, subtitle = stringResource(R.string.book_optimization_hint))
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
         ) {
             EinkButton(
-                text = if (state.isFavorite) "Убрать из избранного" else "В избранное",
+                text = if (state.isFavorite) {
+                    stringResource(R.string.book_favorite_remove)
+                } else {
+                    stringResource(R.string.book_favorite_no)
+                },
                 onClick = viewModel::onToggleFavorite,
                 modifier = Modifier.weight(1f),
             )
             EinkButton(
-                text = if (state.readingStatus == ReadingStatus.READ) "Снять «прочитано»" else "Прочитано",
+                text = if (state.readingStatus == ReadingStatus.READ) {
+                    stringResource(R.string.book_mark_unread)
+                } else {
+                    stringResource(R.string.book_mark_read)
+                },
                 onClick = viewModel::onToggleRead,
                 modifier = Modifier.weight(1f),
             )
@@ -354,20 +372,28 @@ private fun ActionsBlock(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
         ) {
-            EinkButton(text = "В полку", onClick = onOpenCollections, modifier = Modifier.weight(1f))
-            EinkButton(text = "Изменить", onClick = onEditMetadata, modifier = Modifier.weight(1f))
+            EinkButton(
+                text = stringResource(R.string.book_add_to_collection),
+                onClick = onOpenCollections,
+                modifier = Modifier.weight(1f),
+            )
+            EinkButton(
+                text = stringResource(R.string.book_action_edit),
+                onClick = onEditMetadata,
+                modifier = Modifier.weight(1f),
+            )
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
         ) {
             EinkButton(
-                text = "Обновить из файла",
+                text = stringResource(R.string.book_action_refresh),
                 onClick = viewModel::onRefreshMetadata,
                 modifier = Modifier.weight(1f),
             )
             EinkButton(
-                text = "Показать в папке",
+                text = stringResource(R.string.book_action_show_in_folder),
                 onClick = viewModel::onShowInFolder,
                 modifier = Modifier.weight(1f),
             )
@@ -377,7 +403,11 @@ private fun ActionsBlock(
         // и кнопка-обманка здесь была бы хуже её отсутствия.
         if (state.canOptimize) {
             EinkButton(
-                text = if (state.isOptimizing) "Оптимизируем…" else "Оптимизировать",
+                text = if (state.isOptimizing) {
+                    stringResource(R.string.book_action_optimizing)
+                } else {
+                    stringResource(R.string.book_action_optimize)
+                },
                 onClick = viewModel::onOptimize,
                 enabled = !state.isOptimizing,
                 modifier = Modifier.fillMaxWidth(),
@@ -388,16 +418,19 @@ private fun ActionsBlock(
         // карточки, и рядом с повседневными кнопками ему не место.
         if (state.isConfirmingDelete) {
             EinkConfirmRow(
-                question = "Удалить книгу и файл с устройства? Вернуть её можно будет только " +
-                    "копированием файла заново.",
-                confirmLabel = if (state.isDeleting) "Удаляем…" else "Удалить",
+                question = stringResource(R.string.book_delete_confirm),
+                confirmLabel = if (state.isDeleting) {
+                    stringResource(R.string.book_action_deleting)
+                } else {
+                    stringResource(R.string.book_action_delete)
+                },
                 onConfirm = viewModel::onDeletePermanently,
                 onCancel = viewModel::onCancelDelete,
                 enabled = !state.isDeleting,
             )
         } else {
             EinkButton(
-                text = "Удалить навсегда",
+                text = stringResource(R.string.book_action_delete_forever),
                 onClick = viewModel::onAskDelete,
                 modifier = Modifier.fillMaxWidth(),
             )

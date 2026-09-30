@@ -3,6 +3,7 @@ package io.github.bookshelf.feature.scan
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.ScanStatus
 import org.junit.Test
+import io.github.bookshelf.core.designsystem.text.AppText
 
 /**
  * Кнопки, подписи и состояние экрана сканирования.
@@ -19,16 +20,20 @@ class ScanControlsTest {
         val zero = ScanProgressUi(filesSeen = 58, filesTotal = 0)
         val estimate = ScanProgressUi(filesSeen = 58, filesTotal = 72)
 
-        assertThat(scanProgressCaption(unknown)).isEqualTo("Просмотрено файлов: 58")
+        // Тексты живут в ресурсах (ru/en), поэтому тест фиксирует ресурс и аргументы.
+        assertThat(scanProgressCaption(unknown))
+            .isEqualTo(AppText(R.string.scan_caption_seen, 58))
         // Ноль — это «оценки нет», а не «файлов ноль»: раньше здесь стояло «58 из 0».
-        assertThat(scanProgressCaption(zero)).isEqualTo("Просмотрено файлов: 58")
+        assertThat(scanProgressCaption(zero))
+            .isEqualTo(AppText(R.string.scan_caption_seen, 58))
         // Оценка по прошлому прогону показывается с тильдой — это ориентир, а не точное число.
-        assertThat(scanProgressCaption(estimate)).isEqualTo("Просмотрено 58 из ~72")
+        assertThat(scanProgressCaption(estimate))
+            .isEqualTo(AppText(R.string.scan_caption_seen_total, 58, 72))
     }
 
     @Test
     fun `caption without progress says the scan has not started`() {
-        assertThat(scanProgressCaption(null)).isEqualTo("Сканирование ещё не запускалось")
+        assertThat(scanProgressCaption(null)).isEqualTo(AppText(R.string.scan_caption_none))
     }
 
     @Test
@@ -82,9 +87,9 @@ class ScanControlsTest {
 
     @Test
     fun `status labels name the run state in human words`() {
-        assertThat(scanStatusLabel(ScanStatus.RUNNING)).isEqualTo("Идёт сканирование")
-        assertThat(scanStatusLabel(ScanStatus.PAUSED)).isEqualTo("Пауза — найденное сохранено")
-        assertThat(scanStatusLabel(ScanStatus.FINISHED)).isEqualTo("Скан завершён")
+        assertThat(scanStatusLabel(ScanStatus.RUNNING)).isEqualTo(R.string.scan_status_running)
+        assertThat(scanStatusLabel(ScanStatus.PAUSED)).isEqualTo(R.string.scan_status_paused)
+        assertThat(scanStatusLabel(ScanStatus.FINISHED)).isEqualTo(R.string.scan_status_finished)
     }
 
     @Test

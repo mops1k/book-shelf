@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки модуля. Русский — основной язык, английский в values-en. -->
+<resources>
+    <string name="collections_title">Полки</string>
+    <string name="collections_subtitle">Ручные и умные подборки</string>
+    <string name="collections_action_create">Создать</string>
+    <string name="collections_action_create_collection">Создать полку</string>
+    <string name="collections_action_retry">Повторить</string>
+    <string name="collections_action_rename">Переименовать</string>
+    <string name="collections_action_rules">Правила</string>
+    <string name="collections_action_delete">Удалить</string>
+    <string name="collections_action_close">Закрыть</string>
+    <string name="collections_action_save">Сохранить</string>
+    <string name="collections_action_cancel">Отмена</string>
+    <string name="collections_action_add">добавить</string>
+    <string name="collections_empty_title">Полок пока нет</string>
+    <string name="collections_empty_message">Ручная полка — это список книг, который вы собираете сами. Умная полка считает состав по правилам (жанр, автор, серия, статус чтения, избранное) — и обновляется сама, когда книги добавляются.</string>
+    <string name="collections_save_filter">Сохранить текущий фильтр как полку</string>
+    <string name="collections_auto_header">Доступные автополки</string>
+    <string name="collections_rename_title">Новое название</string>
+    <string name="collections_kind_smart">Умная полка · %1$s</string>
+    <string name="collections_kind_smart_empty">Умная полка · правила не заданы</string>
+    <string name="collections_kind_manual">Ручная полка</string>
+    <string name="collections_content_title">Полка</string>
+    <string name="collections_content_empty_title">Полка пуста</string>
+    <string name="collections_content_empty_message">Под правила этой полки пока не подошла ни одна книга. Измените правила или добавьте книги в библиотеку.</string>
+    <string name="collections_content_empty_manual">Добавьте книги через «В полку» в карточке книги.</string>
+    <string name="collections_cover_description">Обложка: %1$s, %2$s</string>
+    <string name="collections_count">полок: %1$d · умных: %2$d</string>
+    <plurals name="collections_book_count">
+        <item quantity="one">%1$d книга</item>
+        <item quantity="few">%1$d книги</item>
+        <item quantity="many">%1$d книг</item>
+        <item quantity="other">%1$d книг</item>
+    </plurals>
+</resources>

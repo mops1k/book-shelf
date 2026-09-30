@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,6 +33,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.collections.CollectionContentViewModel
 import io.github.bookshelf.feature.collections.CollectionItemUi
+import io.github.bookshelf.feature.collections.R
 
 /**
  * Содержимое полки: какие книги на ней лежат.
@@ -59,7 +62,7 @@ fun CollectionContentScreen(
     val scrollByPage = rememberEinkGridPageScroller(gridState)
 
     EinkScaffold(
-        title = state.name.ifEmpty { "Полка" },
+        title = state.name.ifEmpty { stringResource(R.string.collections_content_title) },
         subtitle = state.subtitle,
         modifier = modifier,
         onBack = onBack,
@@ -86,19 +89,18 @@ fun CollectionContentScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.collections_action_retry),
                 onAction = viewModel::onRefresh,
             )
         }
 
         if (state.books.isEmpty() && !state.isLoading) {
             EinkEmptyState(
-                title = "Полка пуста",
+                title = stringResource(R.string.collections_content_empty_title),
                 message = if (state.isSmart) {
-                    "Под правила этой полки пока не подошла ни одна книга. " +
-                        "Измените правила или добавьте книги в библиотеку."
+                    stringResource(R.string.collections_content_empty_message)
                 } else {
-                    "Добавьте книги через «В полку» в карточке книги."
+                    stringResource(R.string.collections_content_empty_manual)
                 },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -136,7 +138,11 @@ private fun ShelfBookItem(
             coverPath = book.coverPath,
             title = book.title,
             modifier = Modifier.fillMaxWidth(),
-            contentDescription = "Обложка: ${book.title}, ${book.authors}",
+            contentDescription = stringResource(
+                R.string.collections_cover_description,
+                book.title,
+                book.authors,
+            ),
             // Формат — в углу обложки, статус — полосой внизу: отдельная строка под плиткой
             // отнимала у полки целый ряд книг (docs/eink-ux.md §6.2).
             formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
@@ -162,16 +168,9 @@ private fun ShelfBookItem(
 }
 
 
-/** Подпись числа книг в подвале. */
-private fun bookCountLabel(count: Int): String = when (count % DECIMAL_BASE) {
-    1 -> "$count книга"
-    in FEW_FORM_MIN..FEW_FORM_MAX -> "$count книги"
-    else -> "$count книг"
-}
+/** Подпись числа книг в подвале: формы слова выбирает система по `<plurals>`. */
+@Composable
+private fun bookCountLabel(count: Int): String =
+    pluralStringResource(R.plurals.collections_book_count, count, count)
 
-/** База десятичной системы: остаток от деления даёт последнюю цифру числа. */
-private const val DECIMAL_BASE = 10
 
-/** Форма «книги» — для чисел, оканчивающихся на 2–4. */
-private const val FEW_FORM_MIN = 2
-private const val FEW_FORM_MAX = 4

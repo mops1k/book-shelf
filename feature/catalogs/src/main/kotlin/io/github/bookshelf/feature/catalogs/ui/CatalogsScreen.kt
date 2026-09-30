@@ -54,7 +54,8 @@ import io.github.bookshelf.feature.catalogs.entryCoverOf
 import io.github.bookshelf.feature.catalogs.DownloadUi
 import io.github.bookshelf.feature.catalogs.FeedEntryUi
 import io.github.bookshelf.feature.catalogs.R
-import io.github.bookshelf.feature.catalogs.resolve
+import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.resolve
 
 /** Полная шкала прогресса: `progressPercent` приходит в процентах, `EinkProgress` ждёт 0..1. */
 private const val PERCENT_MAX = 100f

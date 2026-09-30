@@ -28,7 +28,8 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.catalogs.EntryDetailsUiState
 import io.github.bookshelf.feature.catalogs.EntryDetailsViewModel
 import io.github.bookshelf.feature.catalogs.R
-import io.github.bookshelf.feature.catalogs.resolve
+import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.resolve
 
 /** Подпись, когда каталог не сообщил описание книги. */
 private val NO_SUMMARY_TEXT_RES = R.string.catalogs_entry_no_description

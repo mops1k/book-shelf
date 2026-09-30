@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_title">Scanning</string>
+    <string name="scan_action_refresh">Refresh</string>
+    <string name="scan_action_scan">Scan</string>
+    <string name="scan_action_pause">Pause</string>
+    <string name="scan_action_resume">Resume</string>
+    <string name="scan_action_report">To the report</string>
+    <string name="scan_action_shelf">To the shelf</string>
+    <string name="scan_action_to_scan">To scanning</string>
+    <string name="scan_idle_title">Scanning has not started yet</string>
+    <string name="scan_idle_message">Tap «Scan» — the app walks the folder tree and finds books. What was found is saved, and an interrupted scan continues from the same place.</string>
+    <string name="scan_row_files_seen">Files seen</string>
+    <string name="scan_row_added">Added</string>
+    <string name="scan_row_updated">Updated</string>
+    <string name="scan_row_removed">Missing</string>
+    <string name="scan_row_failed">Not parsed</string>
+    <string name="scan_report_title">Scan report</string>
+    <string name="scan_report_empty_title">No report yet</string>
+    <string name="scan_report_empty_message">The scan summary will appear here: how much was added, updated, went missing and failed to parse, plus the list of problem files with the reason.</string>
+    <string name="scan_report_problems">Problem files</string>
+    <string name="scan_report_no_problems">No problem files.</string>
+    <string name="scan_status_idle">Scan not started</string>
+    <string name="scan_status_running">Scanning</string>
+    <string name="scan_status_paused">Paused — what was found is saved</string>
+    <string name="scan_status_cancelled">Scan stopped</string>
+    <string name="scan_status_finished">Scan finished</string>
+    <string name="scan_status_failed">Scan interrupted by an error</string>
+    <string name="scan_caption_none">Scanning has not started yet</string>
+    <string name="scan_caption_seen">Files seen: %1$d</string>
+    <string name="scan_caption_seen_total">Seen %1$d of ~%2$d</string>
+    <string name="scan_status_detail">%1$s · added %2$d, errors %3$d</string>
+</resources>

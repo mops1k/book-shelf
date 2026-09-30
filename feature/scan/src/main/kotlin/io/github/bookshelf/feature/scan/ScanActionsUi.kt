@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.scan
 
 import io.github.bookshelf.core.data.model.ScanStatus
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.feature.scan.R
 
 /**
  * Что показывает и предлагает экран сканирования.
@@ -43,14 +45,19 @@ fun scanActionsOf(status: ScanStatus): ScanActionsUi = when (status) {
  */
 fun canOpenReport(report: ScanReportUi?, isRunning: Boolean): Boolean = report != null && !isRunning
 
-/** Подпись состояния прогона для строки под заголовком. */
-fun scanStatusLabel(status: ScanStatus): String = when (status) {
-    ScanStatus.IDLE -> "Скан не запущен"
-    ScanStatus.RUNNING -> "Идёт сканирование"
-    ScanStatus.PAUSED -> "Пауза — найденное сохранено"
-    ScanStatus.CANCELLED -> "Скан остановлен"
-    ScanStatus.FINISHED -> "Скан завершён"
-    ScanStatus.FAILED -> "Скан прерван ошибкой"
+/**
+ * Подпись состояния прогона для строки под заголовком.
+ *
+ * Возвращается ресурс, а не текст: слова живут в `res/values` (ru) и `values-en`, а выбор подписи
+ * остаётся чистой функцией и проверяется без Compose.
+ */
+fun scanStatusLabel(status: ScanStatus): Int = when (status) {
+    ScanStatus.IDLE -> R.string.scan_status_idle
+    ScanStatus.RUNNING -> R.string.scan_status_running
+    ScanStatus.PAUSED -> R.string.scan_status_paused
+    ScanStatus.CANCELLED -> R.string.scan_status_cancelled
+    ScanStatus.FINISHED -> R.string.scan_status_finished
+    ScanStatus.FAILED -> R.string.scan_status_failed
 }
 
 /**
@@ -60,12 +67,12 @@ fun scanStatusLabel(status: ScanStatus): String = when (status) {
  * прошлому прогону (`sources.documentCount`), а не посчитанное заранее число файлов. Раньше на
  * этом месте стояло «58 из 0» — цифра, которой не существует.
  */
-fun scanProgressCaption(progress: ScanProgressUi?): String {
-    if (progress == null) return "Сканирование ещё не запускалось"
+fun scanProgressCaption(progress: ScanProgressUi?): AppText {
+    if (progress == null) return AppText(R.string.scan_caption_none)
     val total = progress.filesTotal
     return if (total != null && total > 0) {
-        "Просмотрено ${progress.filesSeen} из ~$total"
+        AppText(R.string.scan_caption_seen_total, progress.filesSeen, total)
     } else {
-        "Просмотрено файлов: ${progress.filesSeen}"
+        AppText(R.string.scan_caption_seen, progress.filesSeen)
     }
 }

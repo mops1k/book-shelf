@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="collections_title">Collections</string>
+    <string name="collections_subtitle">Manual and smart selections</string>
+    <string name="collections_action_create">Create</string>
+    <string name="collections_action_create_collection">Create a collection</string>
+    <string name="collections_action_retry">Retry</string>
+    <string name="collections_action_rename">Rename</string>
+    <string name="collections_action_rules">Rules</string>
+    <string name="collections_action_delete">Delete</string>
+    <string name="collections_action_close">Close</string>
+    <string name="collections_action_save">Save</string>
+    <string name="collections_action_cancel">Cancel</string>
+    <string name="collections_action_add">add</string>
+    <string name="collections_empty_title">No collections yet</string>
+    <string name="collections_empty_message">A manual collection is a list of books you build yourself. A smart collection counts its contents by rules (genre, author, series, reading status, favourites) — and updates itself as books are added.</string>
+    <string name="collections_save_filter">Save the current filter as a collection</string>
+    <string name="collections_auto_header">Available auto-collections</string>
+    <string name="collections_rename_title">New name</string>
+    <string name="collections_kind_smart">Smart collection · %1$s</string>
+    <string name="collections_kind_smart_empty">Smart collection · no rules set</string>
+    <string name="collections_kind_manual">Manual collection</string>
+    <string name="collections_content_title">Collection</string>
+    <string name="collections_content_empty_title">The collection is empty</string>
+    <string name="collections_content_empty_message">No book matches the rules of this collection yet. Change the rules or add books to the library.</string>
+    <string name="collections_content_empty_manual">Add books with «Add to a collection» in the book card.</string>
+    <string name="collections_cover_description">Cover: %1$s, %2$s</string>
+    <string name="collections_count">collections: %1$d · smart: %2$d</string>
+    <plurals name="collections_book_count">
+        <item quantity="one">%1$d book</item>
+        <item quantity="other">%1$d books</item>
+    </plurals>
+</resources>

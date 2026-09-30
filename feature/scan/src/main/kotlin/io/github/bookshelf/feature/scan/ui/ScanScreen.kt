@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
@@ -36,6 +37,8 @@ import io.github.bookshelf.feature.scan.ScanViewModel
 import io.github.bookshelf.feature.scan.scanProgressCaption
 import io.github.bookshelf.feature.scan.scanProgressFraction
 import io.github.bookshelf.feature.scan.scanStatusLabel
+import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.feature.scan.R
 
 /**
  * Сканирование: прогресс, отчёт и дубликаты (docs/eink-ux.md §6.6–6.7).
@@ -86,7 +89,7 @@ private fun ProgressScreen(
     val progress = state.progress
 
     EinkScaffold(
-        title = "Сканирование",
+        title = stringResource(R.string.scan_title),
         subtitle = progress?.sourceName?.ifEmpty { null },
         modifier = modifier,
         onBack = onBack,
@@ -103,31 +106,53 @@ private fun ProgressScreen(
     ) {
         val error = state.error
         if (error != null) {
-            EinkErrorBanner(message = error, actionLabel = "Обновить", onAction = viewModel::onRefresh)
+            EinkErrorBanner(
+                message = error,
+                actionLabel = stringResource(R.string.scan_action_refresh),
+                onAction = viewModel::onRefresh,
+            )
         }
 
         if (progress == null) {
             EinkEmptyState(
-                title = "Сканирование ещё не запускалось",
-                message = "Нажмите «Сканировать» — приложение пройдёт по дереву папки и найдёт книги. " +
-                    "Найденное сохраняется, прерванный скан продолжится с того же места.",
-                actionLabel = "Сканировать",
+                title = stringResource(R.string.scan_idle_title),
+                message = stringResource(R.string.scan_idle_message),
+                actionLabel = stringResource(R.string.scan_action_scan),
                 onAction = viewModel::onStartScan,
                 modifier = Modifier.weight(1f),
             )
         } else {
             EinkProgress(
-                caption = scanProgressCaption(progress),
+                caption = scanProgressCaption(progress).resolve(),
                 progress = scanProgressFraction(progress.filesSeen, progress.filesTotal),
-                detail = "${scanStatusLabel(state.status)} · добавлено ${progress.added}, " +
-                    "ошибок ${progress.failed}",
+                detail = stringResource(
+                    R.string.scan_status_detail,
+                    stringResource(scanStatusLabel(state.status)),
+                    progress.added,
+                    progress.failed,
+                ),
             )
             Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
-                EinkListRow(title = "Просмотрено файлов", trailing = progress.filesSeen.toString())
-                EinkListRow(title = "Добавлено", trailing = progress.added.toString())
-                EinkListRow(title = "Обновлено", trailing = progress.updated.toString())
-                EinkListRow(title = "Пропало", trailing = progress.removed.toString())
-                EinkListRow(title = "Не разобрано", trailing = progress.failed.toString())
+                EinkListRow(
+                    title = stringResource(R.string.scan_row_files_seen),
+                    trailing = progress.filesSeen.toString(),
+                )
+                EinkListRow(
+                    title = stringResource(R.string.scan_row_added),
+                    trailing = progress.added.toString(),
+                )
+                EinkListRow(
+                    title = stringResource(R.string.scan_row_updated),
+                    trailing = progress.updated.toString(),
+                )
+                EinkListRow(
+                    title = stringResource(R.string.scan_row_removed),
+                    trailing = progress.removed.toString(),
+                )
+                EinkListRow(
+                    title = stringResource(R.string.scan_row_failed),
+                    trailing = progress.failed.toString(),
+                )
             }
             // Кнопки по состоянию прогона: во время скана — «Пауза», на паузе — «Продолжить».
             // «К полке» есть всегда: скан идёт в фоне, и держать пользователя на этом экране
@@ -140,14 +165,14 @@ private fun ProgressScreen(
             ) {
                 if (state.actions.canPause) {
                     EinkButton(
-                        text = "Пауза",
+                        text = stringResource(R.string.scan_action_pause),
                         onClick = viewModel::onPause,
                         modifier = Modifier.weight(1f),
                     )
                 }
                 if (state.actions.canResume) {
                     EinkButton(
-                        text = "Продолжить",
+                        text = stringResource(R.string.scan_action_resume),
                         onClick = viewModel::onResume,
                         primary = true,
                         modifier = Modifier.weight(1f),
@@ -155,14 +180,14 @@ private fun ProgressScreen(
                 }
                 if (canOpenReport(state.report, state.actions.canPause)) {
                     EinkButton(
-                        text = "К отчёту",
+                        text = stringResource(R.string.scan_action_report),
                         onClick = viewModel::onShowReport,
                         modifier = Modifier.weight(1f),
                     )
                 }
                 if (state.actions.canOpenLibrary) {
                     EinkButton(
-                        text = "К полке",
+                        text = stringResource(R.string.scan_action_shelf),
                         onClick = viewModel::onOpenLibrary,
                         primary = !state.actions.canPause && !state.actions.canResume,
                         modifier = Modifier.weight(1f),
@@ -189,7 +214,7 @@ private fun ReportScreen(
     val scrollProblems = rememberEinkListPageScroller(problemListState)
 
     EinkScaffold(
-        title = "Отчёт сканирования",
+        title = stringResource(R.string.scan_report_title),
         subtitle = report?.durationLabel,
         modifier = modifier,
         onBack = onBack,
@@ -209,10 +234,9 @@ private fun ReportScreen(
     ) {
         if (report == null) {
             EinkEmptyState(
-                title = "Отчёта пока нет",
-                message = "Здесь появится итог скана: сколько добавлено, обновлено, пропало и не разобрано, " +
-                    "и список проблемных файлов с причиной ошибки.",
-                actionLabel = "К сканированию",
+                title = stringResource(R.string.scan_report_empty_title),
+                message = stringResource(R.string.scan_report_empty_message),
+                actionLabel = stringResource(R.string.scan_action_to_scan),
                 onAction = viewModel::onShowProgress,
                 modifier = Modifier.weight(1f),
             )
@@ -222,16 +246,19 @@ private fun ReportScreen(
                     .fillMaxSize()
                     .padding(horizontal = dimens.gutter),
             ) {
-                EinkListRow(title = "Добавлено", trailing = report.added.toString())
-                EinkListRow(title = "Обновлено", trailing = report.updated.toString())
-                EinkListRow(title = "Пропало", trailing = report.removed.toString())
-                EinkListRow(title = "Не разобрано", trailing = report.failed.toString())
+                EinkListRow(title = stringResource(R.string.scan_row_added), trailing = report.added.toString())
+                EinkListRow(title = stringResource(R.string.scan_row_updated), trailing = report.updated.toString())
+                EinkListRow(title = stringResource(R.string.scan_row_removed), trailing = report.removed.toString())
+                EinkListRow(title = stringResource(R.string.scan_row_failed), trailing = report.failed.toString())
 
-                EinkSectionHeader(title = "Проблемные файлы", count = report.problemFiles.size)
+                EinkSectionHeader(
+                    title = stringResource(R.string.scan_report_problems),
+                    count = report.problemFiles.size,
+                )
 
                 if (report.problemFiles.isEmpty()) {
                     Text(
-                        text = "Проблемных файлов нет.",
+                        text = stringResource(R.string.scan_report_no_problems),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.foreground,
                     )

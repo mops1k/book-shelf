@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkCheckbox
@@ -23,6 +24,7 @@ import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.bookdetails.BookMetadataEditViewModel
+import io.github.bookshelf.feature.bookdetails.R
 
 /**
  * Правка метаданных книги (docs/eink-ux.md §6.4).
@@ -49,8 +51,8 @@ fun BookMetadataEditScreen(
     val dimens = LocalEinkDimens.current
 
     EinkScaffold(
-        title = "Правка метаданных",
-        subtitle = "Пустое поле убирает значение",
+        title = stringResource(R.string.edit_title),
+        subtitle = stringResource(R.string.edit_subtitle),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action -> if (action == EinkAction.OPEN) viewModel.onSave() },
@@ -62,13 +64,21 @@ fun BookMetadataEditScreen(
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
                 EinkButton(
-                    text = if (state.isSaving) "Сохраняем…" else "Сохранить",
+                    text = if (state.isSaving) {
+                        stringResource(R.string.edit_action_saving)
+                    } else {
+                        stringResource(R.string.edit_action_save)
+                    },
                     onClick = viewModel::onSave,
                     enabled = state.canSave,
                     primary = true,
                     modifier = Modifier.weight(1f),
                 )
-                EinkButton(text = "Отмена", onClick = onBack, modifier = Modifier.weight(1f))
+                EinkButton(
+                    text = stringResource(R.string.book_action_cancel),
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f),
+                )
             }
         },
     ) {
@@ -92,43 +102,43 @@ fun BookMetadataEditScreen(
             EinkTextField(
                 value = state.title,
                 onValueChange = viewModel::onTitleChange,
-                label = "Название",
-                placeholder = "Название книги",
+                label = stringResource(R.string.edit_field_title),
+                placeholder = stringResource(R.string.edit_field_title_hint),
                 enabled = !state.isSaving,
             )
             EinkTextField(
                 value = state.authors,
                 onValueChange = viewModel::onAuthorsChange,
-                label = "Авторы",
-                placeholder = "Иванов, Петров",
+                label = stringResource(R.string.edit_field_authors),
+                placeholder = stringResource(R.string.edit_field_authors_hint),
                 enabled = !state.isSaving,
             )
             EinkTextField(
                 value = state.series,
                 onValueChange = viewModel::onSeriesChange,
-                label = "Серия",
-                placeholder = "Серия книги",
+                label = stringResource(R.string.edit_field_series),
+                placeholder = stringResource(R.string.edit_field_series_hint),
                 enabled = !state.isSaving,
             )
             EinkTextField(
                 value = state.seriesIndex,
                 onValueChange = viewModel::onSeriesIndexChange,
-                label = "Номер в серии",
-                placeholder = "3 или 3.5",
+                label = stringResource(R.string.edit_field_series_index),
+                placeholder = stringResource(R.string.edit_field_series_index_hint),
                 enabled = !state.isSaving,
             )
             EinkTextField(
                 value = state.description,
                 onValueChange = viewModel::onDescriptionChange,
-                label = "Описание",
-                placeholder = "Аннотация",
+                label = stringResource(R.string.edit_field_description),
+                placeholder = stringResource(R.string.edit_field_description_hint),
                 singleLine = false,
                 enabled = !state.isSaving,
             )
             EinkCheckbox(
                 checked = state.writeToFile,
                 onCheckedChange = viewModel::onWriteToFileChange,
-                label = "Записать правку в файл книги (FB2 и EPUB) — тогда она переживёт перенос",
+                label = stringResource(R.string.edit_write_to_file),
                 enabled = !state.isSaving,
             )
         }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,6 +37,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.collections.CollectionUi
 import io.github.bookshelf.feature.collections.CollectionsUiState
 import io.github.bookshelf.feature.collections.CollectionsViewModel
+import io.github.bookshelf.feature.collections.R
 
 /**
  * Ширина кнопки «⋯» относительно строки полки.
@@ -74,11 +76,16 @@ fun CollectionsScreen(
     val scrollByPage = rememberEinkListPageScroller(listState)
 
     EinkScaffold(
-        title = "Полки",
-        subtitle = "Ручные и умные подборки",
+        title = stringResource(R.string.collections_title),
+        subtitle = stringResource(R.string.collections_subtitle),
         modifier = modifier,
         onBack = onBack,
-        actions = { EinkButton(text = "Создать", onClick = viewModel::onCreate) },
+        actions = {
+            EinkButton(
+                text = stringResource(R.string.collections_action_create),
+                onClick = viewModel::onCreate,
+            )
+        },
         onKeyAction = { action ->
             when (action) {
                 EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
@@ -102,16 +109,18 @@ fun CollectionsScreen(
     ) {
         val error = state.error
         if (error != null) {
-            EinkErrorBanner(message = error, actionLabel = "Повторить", onAction = viewModel::onRefresh)
+            EinkErrorBanner(
+                message = error,
+                actionLabel = stringResource(R.string.collections_action_retry),
+                onAction = viewModel::onRefresh,
+            )
         }
 
         if (state.collections.isEmpty() && state.presets.isEmpty()) {
             EinkEmptyState(
-                title = "Полок пока нет",
-                message = "Ручная полка — это список книг, который вы собираете сами. Умная полка " +
-                    "считает состав по правилам (жанр, автор, серия, статус чтения, избранное) — " +
-                    "и обновляется сама, когда книги добавляются.",
-                actionLabel = "Создать полку",
+                title = stringResource(R.string.collections_empty_title),
+                message = stringResource(R.string.collections_empty_message),
+                actionLabel = stringResource(R.string.collections_action_create_collection),
                 onAction = viewModel::onCreate,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -140,7 +149,7 @@ fun CollectionsScreen(
 
                 item(key = "save-filter") {
                     EinkButton(
-                        text = "Сохранить текущий фильтр как полку",
+                        text = stringResource(R.string.collections_save_filter),
                         onClick = viewModel::onSaveCurrentFilter,
                         enabled = state.canSaveCurrentFilter,
                         modifier = Modifier.padding(
@@ -152,13 +161,16 @@ fun CollectionsScreen(
 
                 if (state.presets.isNotEmpty()) {
                     item(key = "presets-header") {
-                        EinkSectionHeader(title = "Доступные автополки", count = state.presets.size)
+                        EinkSectionHeader(
+                            title = stringResource(R.string.collections_auto_header),
+                            count = state.presets.size,
+                        )
                     }
                     items(items = state.presets, key = { preset -> "preset:${preset.id}" }) { preset ->
                         EinkListRow(
                             title = preset.title,
                             subtitle = preset.hint,
-                            trailing = "добавить",
+                            trailing = stringResource(R.string.collections_action_add),
                             onClick = { viewModel.onAddPreset(preset.id) },
                         )
                     }
@@ -249,13 +261,19 @@ private fun ShelfActions(
             .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall / 2),
         horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
-        EinkButton(text = "Переименовать", onClick = { viewModel.onStartRename(collection) })
+        EinkButton(
+            text = stringResource(R.string.collections_action_rename),
+            onClick = { viewModel.onStartRename(collection) },
+        )
         // Правила есть только у умной полки: у ручной состав задают добавленные книги, а не условия.
         if (collection.isSmart) {
-            EinkButton(text = "Правила", onClick = onEditRules)
+            EinkButton(text = stringResource(R.string.collections_action_rules), onClick = onEditRules)
         }
-        EinkButton(text = "Удалить", onClick = { viewModel.onDelete(collection.id) })
-        EinkButton(text = "Закрыть", onClick = onClose)
+        EinkButton(
+            text = stringResource(R.string.collections_action_delete),
+            onClick = { viewModel.onDelete(collection.id) },
+        )
+        EinkButton(text = stringResource(R.string.collections_action_close), onClick = onClose)
     }
 }
 
@@ -276,29 +294,35 @@ private fun RenameRow(
         EinkTextField(
             value = state.renameDraft,
             onValueChange = viewModel::onRenameDraftChanged,
-            label = "Новое название",
+            label = stringResource(R.string.collections_rename_title),
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-            EinkButton(text = "Сохранить", onClick = viewModel::onCommitRename, primary = true)
-            EinkButton(text = "Отмена", onClick = viewModel::onCancelRename)
+            EinkButton(
+                text = stringResource(R.string.collections_action_save),
+                onClick = viewModel::onCommitRename,
+                primary = true,
+            )
+            EinkButton(text = stringResource(R.string.collections_action_cancel), onClick = viewModel::onCancelRename)
         }
     }
 }
 
 
 /** Подпись под названием полки: ручная она или умная и по каким правилам. */
+@Composable
 private fun collectionSubtitle(collection: CollectionUi): String = when {
     collection.isSmart && collection.rulesSummary != null ->
-        "Умная полка · ${collection.rulesSummary}"
+        stringResource(R.string.collections_kind_smart, collection.rulesSummary)
 
-    collection.isSmart -> "Умная полка · правила не заданы"
-    else -> "Ручная полка"
+    collection.isSmart -> stringResource(R.string.collections_kind_smart_empty)
+    else -> stringResource(R.string.collections_kind_manual)
 }
 
 /** Подвал: сколько всего полок и сколько из них умных. */
+@Composable
 private fun shelfCountLabel(state: CollectionsUiState): String {
     val total = state.collections.size
     val smart = state.collections.count { collection -> collection.isSmart }
-    return "полок: $total · умных: $smart"
+    return stringResource(R.string.collections_count, total, smart)
 }

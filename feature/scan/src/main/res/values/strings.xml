@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки модуля. Русский — основной язык, английский в values-en. -->
+<resources>
+    <string name="scan_title">Сканирование</string>
+    <string name="scan_action_refresh">Обновить</string>
+    <string name="scan_action_scan">Сканировать</string>
+    <string name="scan_action_pause">Пауза</string>
+    <string name="scan_action_resume">Продолжить</string>
+    <string name="scan_action_report">К отчёту</string>
+    <string name="scan_action_shelf">К полке</string>
+    <string name="scan_action_to_scan">К сканированию</string>
+    <string name="scan_idle_title">Сканирование ещё не запускалось</string>
+    <string name="scan_idle_message">Нажмите «Сканировать» — приложение пройдёт по дереву папки и найдёт книги. Найденное сохраняется, прерванный скан продолжится с того же места.</string>
+    <string name="scan_row_files_seen">Просмотрено файлов</string>
+    <string name="scan_row_added">Добавлено</string>
+    <string name="scan_row_updated">Обновлено</string>
+    <string name="scan_row_removed">Пропало</string>
+    <string name="scan_row_failed">Не разобрано</string>
+    <string name="scan_report_title">Отчёт сканирования</string>
+    <string name="scan_report_empty_title">Отчёта пока нет</string>
+    <string name="scan_report_empty_message">Здесь появится итог скана: сколько добавлено, обновлено, пропало и не разобрано, и список проблемных файлов с причиной ошибки.</string>
+    <string name="scan_report_problems">Проблемные файлы</string>
+    <string name="scan_report_no_problems">Проблемных файлов нет.</string>
+    <string name="scan_status_idle">Скан не запущен</string>
+    <string name="scan_status_running">Идёт сканирование</string>
+    <string name="scan_status_paused">Пауза — найденное сохранено</string>
+    <string name="scan_status_cancelled">Скан остановлен</string>
+    <string name="scan_status_finished">Скан завершён</string>
+    <string name="scan_status_failed">Скан прерван ошибкой</string>
+    <string name="scan_caption_none">Сканирование ещё не запускалось</string>
+    <string name="scan_caption_seen">Просмотрено файлов: %1$d</string>
+    <string name="scan_caption_seen_total">Просмотрено %1$d из ~%2$d</string>
+    <string name="scan_status_detail">%1$s · добавлено %2$d, ошибок %3$d</string>
+</resources>
