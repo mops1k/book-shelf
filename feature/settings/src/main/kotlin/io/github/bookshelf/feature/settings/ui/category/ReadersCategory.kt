@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
@@ -18,6 +19,7 @@ import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Читалки»: чем открываются книги.
@@ -41,9 +43,8 @@ internal fun ReadersCategory(
         if (readers.isEmpty()) {
             item(key = "readers-empty") {
                 EinkEmptyState(
-                    title = "Читалка не найдена",
-                    message = "Установите FBReader — приложение открывает книги в ней. " +
-                        "В другую программу книга отправлена не будет.",
+                    title = stringResource(R.string.settings_readers_missing_title),
+                    message = stringResource(R.string.settings_readers_missing_message),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -52,7 +53,11 @@ internal fun ReadersCategory(
                 EinkListRow(
                     title = reader.name,
                     subtitle = reader.packageName,
-                    trailing = if (reader.isDefault) "по умолчанию" else "выбрать",
+                    trailing = if (reader.isDefault) {
+                        stringResource(R.string.settings_reader_default)
+                    } else {
+                        stringResource(R.string.settings_reader_choose)
+                    },
                     onClick = { viewModel.onSetDefaultReader(reader.id) },
                 )
             }
@@ -76,13 +81,12 @@ private fun LazyListScope.progressItems(
     viewModel: SettingsViewModel,
 ) {
     item(key = "progress-header") {
-        EinkSectionHeader(title = "Прогресс чтения")
+        EinkSectionHeader(title = stringResource(R.string.settings_readers_progress_header))
     }
     item(key = "progress-switch") {
         ToggleRow(
-            title = "Синхронизировать прогресс с читалкой",
-            subtitle = "Читает позицию из FBReader и показывает процент на полке. Работает, пока " +
-                "читалка открыта или свёрнута, а не выгружена системой",
+            title = stringResource(R.string.settings_readers_sync),
+            subtitle = stringResource(R.string.settings_readers_sync_hint),
             enabled = state.settings.isFbReaderProgressEnabled,
             onToggle = { enabled ->
                 viewModel.onReaderProgress(ReaderProgressAction.SetEnabled(enabled))
@@ -91,9 +95,8 @@ private fun LazyListScope.progressItems(
     }
     item(key = "progress-temp-export") {
         ToggleRow(
-            title = "Временный экспорт книги",
-            subtitle = "Копия файла для читалки, которая не открывает книгу по ссылке. " +
-                "Копии занимают место и удаляются через сутки",
+            title = stringResource(R.string.settings_readers_temp_export),
+            subtitle = stringResource(R.string.settings_readers_temp_export_hint),
             enabled = state.settings.isTempExportEnabled,
             onToggle = { enabled ->
                 viewModel.onReaderProgress(ReaderProgressAction.SetTempExport(enabled))
@@ -102,11 +105,11 @@ private fun LazyListScope.progressItems(
     }
     item(key = "progress-check") {
         EinkListRow(
-            title = "Проверить связь с читалкой",
+            title = stringResource(R.string.settings_readers_check),
             subtitle = when {
-                state.isCheckingReaderApi -> "Проверяем…"
+                state.isCheckingReaderApi -> stringResource(R.string.settings_readers_checking)
                 else -> state.readerApiStatus
-                    ?: "Узнать, отвечает ли API читалки и какая книга в ней открыта"
+                    ?: stringResource(R.string.settings_readers_check_hint)
             },
             onClick = { viewModel.onReaderProgress(ReaderProgressAction.CheckApi) },
         )
@@ -114,14 +117,14 @@ private fun LazyListScope.progressItems(
     if (state.settings.isFbReaderProgressEnabled) {
         item(key = "progress-interval") {
             ValueChoiceRow(
-                title = "Как часто проверять",
+                title = stringResource(R.string.settings_readers_interval),
                 options = ProgressSyncInterval.CHOICES_MINUTES,
                 selected = state.settings.progressSyncIntervalMinutes,
-                label = { minutes -> "$minutes мин" },
+                labelRes = { R.string.settings_reader_interval_minutes },
                 onPick = { minutes ->
                     viewModel.onReaderProgress(ReaderProgressAction.SetInterval(minutes))
                 },
-                subtitle = "Реже — меньше расход батареи, чаще — свежее процент на полке",
+                subtitle = stringResource(R.string.settings_readers_interval_hint),
             )
         }
     }

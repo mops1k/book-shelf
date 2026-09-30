@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkListRow
@@ -15,6 +16,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «О приложении и диагностика».
@@ -40,53 +42,60 @@ internal fun AboutCategory(
     ) {
         item(key = "about-version") {
             EinkListRow(
-                title = "Версия",
-                subtitle = "Версия приложения, как её видит система",
+                title = stringResource(R.string.settings_about_version),
+                subtitle = stringResource(R.string.settings_about_version_hint),
                 trailing = appVersion(context),
             )
         }
         item(key = "about-eink-header") {
-            EinkSectionHeader(title = "Диагностика e-ink")
+            EinkSectionHeader(title = stringResource(R.string.settings_about_diagnostics))
         }
         item(key = "about-eink-vendor") {
             EinkListRow(
-                title = "Вендор",
-                subtitle = "От вендора зависит, какие команды обновления экрана доступны",
+                title = stringResource(R.string.settings_about_vendor),
+                subtitle = stringResource(R.string.settings_about_vendor_hint),
                 trailing = diagnostics.vendorLabel,
             )
         }
         item(key = "about-eink-screen") {
             EinkListRow(
-                title = "Экран",
-                subtitle = "Что за экран у устройства: бумага бывает чёрно-белой и цветной",
+                title = stringResource(R.string.settings_about_screen),
+                subtitle = stringResource(R.string.settings_about_screen_hint),
                 trailing = diagnostics.screenLabel,
             )
         }
         item(key = "about-eink-commands") {
             EinkListRow(
-                title = "Команды вендора",
-                subtitle = "Режим обновления, интервал полного кадра и подсветка: их даёт только " +
-                    "вендорский контроллер",
-                trailing = if (diagnostics.hasVendorCommands) "доступны" else "недоступны",
+                title = stringResource(R.string.settings_about_vendor_commands),
+                subtitle = stringResource(R.string.settings_about_vendor_commands_hint),
+                trailing = if (diagnostics.hasVendorCommands) {
+                    stringResource(R.string.settings_about_available)
+                } else {
+                    stringResource(R.string.settings_about_unavailable)
+                },
             )
         }
         item(key = "about-eink-fast") {
             EinkListRow(
-                title = "Быстрый режим обновления",
-                subtitle = "Мгновенная перерисовка без призраков прежнего кадра",
-                trailing = if (diagnostics.supportsFastMode) "доступен" else "нет",
+                title = stringResource(R.string.settings_about_fast_mode),
+                subtitle = stringResource(R.string.settings_about_fast_mode_hint),
+                trailing = if (diagnostics.supportsFastMode) {
+                    stringResource(R.string.settings_about_available_short)
+                } else {
+                    stringResource(R.string.settings_about_no)
+                },
             )
         }
         item(key = "about-refresh") {
             EinkListRow(
-                title = "Обновить диагностику",
-                subtitle = "Перечитать данные вендора: они читаются один раз при запуске",
+                title = stringResource(R.string.settings_about_refresh_diagnostics),
+                subtitle = stringResource(R.string.settings_about_refresh_diagnostics_hint),
                 onClick = viewModel::onRefreshDiagnostics,
             )
         }
         item(key = "about-permissions") {
             EinkButton(
-                text = "Разрешения приложения в системе",
+                text = stringResource(R.string.settings_permission_app_info),
                 onClick = { context.openAppInfoSettings() },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -107,5 +116,5 @@ private fun appVersion(context: Context): String {
     val version = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName
     }.getOrNull()
-    return version?.takeIf { it.isNotBlank() } ?: "неизвестно"
+    return version?.takeIf { it.isNotBlank() } ?: context.getString(R.string.settings_about_unknown)
 }

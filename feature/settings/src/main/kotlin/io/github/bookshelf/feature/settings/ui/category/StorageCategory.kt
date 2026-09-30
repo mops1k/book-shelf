@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,6 +26,7 @@ import io.github.bookshelf.feature.settings.ui.ToggleRow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Хранилище и кэш».
@@ -64,23 +66,23 @@ internal fun StorageCategory(
     ) {
         item(key = "storage-cover-cache") {
             EinkListRow(
-                title = "Очистить кэш обложек",
+                title = stringResource(R.string.settings_storage_clear_covers),
                 subtitle = when {
-                    state.isClearingCoverCache -> "Очищаем…"
+                    state.isClearingCoverCache -> stringResource(R.string.settings_storage_clearing)
                     else -> state.coverCacheMessage
-                        ?: "Пересобрать кэш заново: обложки скачаются при следующем скане"
+                        ?: stringResource(R.string.settings_storage_clear_covers_hint)
                 },
                 onClick = viewModel::onClearCoverCache,
             )
         }
         item(key = "storage-export") {
             EinkListRow(
-                title = "Экспорт библиотеки",
+                title = stringResource(R.string.settings_storage_export),
                 subtitle = when {
-                    exportState.isExporting -> "Выгружаем…"
+                    exportState.isExporting -> stringResource(R.string.settings_storage_exporting)
                     exportState.error != null -> exportState.error.orEmpty()
                     else -> exportState.message
-                        ?: "JSON со списком книг, полками и прогрессом чтения"
+                        ?: stringResource(R.string.settings_storage_export_hint)
                 },
                 onClick = {
                     // Имя файла предлагает приложение, а место выбирает человек: диалог SAF отдаёт
@@ -92,32 +94,34 @@ internal fun StorageCategory(
         fb2OptimizationRows(state = optimizationState, viewModel = optimizationViewModel)
         item(key = "storage-backup-auto") {
             ToggleRow(
-                title = "Ежедневный бэкап базы",
-                subtitle = "Копия в папке библиотеки: переживает удаление приложения. " +
-                    "Сканер книг копии не видит",
+                title = stringResource(R.string.settings_storage_backup),
+                subtitle = stringResource(R.string.settings_storage_backup_hint),
                 enabled = backupState.isAutoEnabled,
                 onToggle = backupViewModel::onSetAutoEnabled,
             )
         }
         item(key = "storage-backup-now") {
             EinkListRow(
-                title = "Сделать бэкап сейчас",
+                title = stringResource(R.string.settings_storage_backup_now),
                 subtitle = when {
-                    backupState.isWorking -> "Работаем…"
+                    backupState.isWorking -> stringResource(R.string.settings_working)
                     backupState.selected == null -> backupState.message
-                        ?: "Копия базы в папке библиотеки"
-                    else -> "Сначала ответьте на вопрос у выбранной копии"
+                        ?: stringResource(R.string.settings_storage_backup_now_hint)
+                    else -> stringResource(R.string.settings_storage_answer_first)
                 },
                 onClick = backupViewModel::onCreateBackup,
             )
         }
         item(key = "storage-backup-restore") {
             EinkListRow(
-                title = "Восстановить из бэкапа",
+                title = stringResource(R.string.settings_storage_restore),
                 subtitle = when {
                     backupState.backups.isEmpty() ->
-                        "Копий пока нет — их делает ежедневный бэкап или кнопка выше"
-                    else -> "Доступно копий: ${backupState.backups.size}"
+                        stringResource(R.string.settings_storage_no_backups)
+                    else -> stringResource(
+                        R.string.settings_backups_available,
+                        backupState.backups.size,
+                    )
                 },
                 onClick = backupViewModel::onLoadBackups,
             )
@@ -129,7 +133,11 @@ internal fun StorageCategory(
             val selected = backupState.selected?.documentUri == entry.documentUri
             EinkListRow(
                 title = formatBackupMoment(entry.createdAt),
-                subtitle = entry.fileName + (entry.sizeBytes?.let { size -> " · $size байт" } ?: ""),
+                subtitle = entry.fileName + (
+                    entry.sizeBytes
+                        ?.let { size -> stringResource(R.string.settings_backup_size, size) }
+                        ?: ""
+                    ),
                 hasDivider = !selected,
                 onClick = { backupViewModel.onSelect(entry) },
             )
@@ -137,11 +145,17 @@ internal fun StorageCategory(
             // а не две, и видно, к чему относится каждое нажатие.
             if (selected) {
                 EinkConfirmRow(
-                    question = "Копия от ${formatBackupMoment(entry.createdAt)}: восстановить " +
-                        "библиотеку или удалить копию?",
-                    confirmLabel = if (backupState.isWorking) "Работаем…" else "Восстановить",
+                    question = stringResource(
+                        R.string.settings_backup_restore_confirm,
+                        formatBackupMoment(entry.createdAt),
+                    ),
+                    confirmLabel = if (backupState.isWorking) {
+                        stringResource(R.string.settings_working)
+                    } else {
+                        stringResource(R.string.settings_storage_restore_action)
+                    },
                     onConfirm = backupViewModel::onConfirmRestore,
-                    destructiveLabel = "Удалить",
+                    destructiveLabel = stringResource(R.string.settings_action_delete),
                     onDestructive = backupViewModel::onDeleteSelected,
                     onCancel = backupViewModel::onCancelSelection,
                     enabled = !backupState.isWorking,
@@ -164,16 +178,20 @@ private fun LazyListScope.fb2OptimizationRows(
     item(key = "storage-optimize-fb2") {
         EinkListRow(
             title = when {
-                state.isStopping -> "Останавливаем…"
-                state.isRunning -> "Остановить оптимизацию"
-                else -> "Оптимизировать все книги FB2"
+                state.isStopping -> stringResource(R.string.settings_storage_optimize_stopping)
+                state.isRunning -> stringResource(R.string.settings_storage_optimize_stop)
+                else -> stringResource(R.string.settings_storage_optimize_all)
             },
             subtitle = when {
-                state.isRunning -> "Обработано ${state.done} из ${state.total}"
+                state.isRunning -> stringResource(
+                    R.string.settings_optimize_progress,
+                    state.done,
+                    state.total,
+                )
                 state.error != null -> state.error.orEmpty()
-                else -> state.message ?: OPTIMIZATION_HINT
+                else -> state.message ?: stringResource(OPTIMIZATION_HINT_RES)
             },
-            trailing = if (state.isRunning) "идёт…" else null,
+            trailing = if (state.isRunning) stringResource(R.string.settings_in_progress) else null,
             onClick = {
                 // Одна строка на запуск и остановку: на e-ink лишняя кнопка дороже слова,
                 // которое прямо говорит, что произойдёт по касанию.
@@ -184,9 +202,9 @@ private fun LazyListScope.fb2OptimizationRows(
     if (state.isRunning) {
         item(key = "storage-optimize-progress") {
             EinkProgress(
-                caption = "Оптимизируем книги без потери данных",
+                caption = stringResource(R.string.settings_storage_optimize_hint),
                 progress = if (state.total == 0) 0f else state.done.toFloat() / state.total,
-                detail = "Обработано ${state.done} из ${state.total}",
+                detail = stringResource(R.string.settings_optimize_progress, state.done, state.total),
             )
         }
     }
@@ -211,5 +229,4 @@ private const val EXPORT_MIME_TYPE = "application/json"
  * что файл книги при этом меняется на устройстве. Молчаливая оптимизация, которая переписывает
  * файлы, была бы неприятным сюрпризом.
  */
-private const val OPTIMIZATION_HINT =
-    "Без потери данных: разметка, картинки и архив. Файл заменяется только если стал меньше"
+private val OPTIMIZATION_HINT_RES = R.string.settings_storage_optimize_note

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.opds.download.DOWNLOAD_FILE_NAME_TEMPLATES
@@ -14,6 +15,7 @@ import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.CategoryPending
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Каталоги OPDS».
@@ -44,46 +46,42 @@ internal fun OpdsCategory(
     ) {
         item(key = "opds-catalogs") {
             EinkListRow(
-                title = "Открыть каталоги OPDS",
-                subtitle = "Список каталогов, добавление по адресу и загрузки",
+                title = stringResource(R.string.settings_opds_open),
+                subtitle = stringResource(R.string.settings_opds_open_hint),
                 onClick = onOpenCatalogs,
             )
         }
 
         item(key = "opds-file-name") {
             ValueChoiceRow(
-                title = "Куда и под каким именем сохранять",
+                title = stringResource(R.string.settings_opds_template),
                 options = DOWNLOAD_FILE_NAME_TEMPLATES,
                 selected = settings.downloadFileNameTemplate,
-                label = { template -> DOWNLOAD_FILE_NAME_TEMPLATE_LABELS[template] ?: template },
+                labelRes = { template ->
+                    DOWNLOAD_FILE_NAME_TEMPLATE_LABELS[template] ?: R.string.settings_opds_template_raw
+                },
                 onPick = viewModel::onSetDownloadFileNameTemplate,
-                subtitle = "Папки задаются через «/»: книги раскладываются по авторам и сериям " +
-                    "внутри папки библиотеки",
+                subtitle = stringResource(R.string.settings_opds_template_hint),
             )
         }
 
         item(key = "opds-feed-cache") {
             ValueChoiceRow(
-                title = "Кэш каталогов",
+                title = stringResource(R.string.settings_opds_cache),
                 options = FEED_CACHE_CHOICES_MINUTES,
                 selected = settings.feedCacheMaxAgeMinutes,
-                label = ::feedCacheLabel,
+                labelRes = { R.string.settings_opds_cache_minutes },
                 onPick = viewModel::onSetFeedCacheMaxAgeMinutes,
-                subtitle = "Как долго открытый каталог берётся из памяти, не обращаясь к сети",
+                subtitle = stringResource(R.string.settings_opds_cache_hint),
             )
         }
 
         item(key = "opds-note") {
             CategoryPending(
-                "Папка загрузок отдельно не настраивается: книги скачиваются в папку библиотеки, " +
-                    "а подпапки задаёт шаблон пути выше.",
+                stringResource(R.string.settings_opds_download_note),
             )
         }
     }
 }
 
 /** Возраст кэша по-человечески: «5 мин», но «1 ч» вместо «60 мин». */
-private fun feedCacheLabel(minutes: Int): String =
-    if (minutes >= MINUTES_PER_HOUR) "${minutes / MINUTES_PER_HOUR} ч" else "$minutes мин"
-
-private const val MINUTES_PER_HOUR = 60

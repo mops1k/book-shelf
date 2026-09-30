@@ -19,9 +19,9 @@ internal val FEED_CACHE_CHOICES_MINUTES: List<Int> = listOf(5, 15, 60)
  * подпись без самого шаблона означала бы чип, который ничего не сохраняет, а шаблон без подписи —
  * вариант, который пользователь не видит.
  */
-internal val DOWNLOAD_FILE_NAME_TEMPLATE_LABELS: Map<String, String> = mapOf(
-    DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE to "Автор — название",
-    "{author}/{title}.{ext}" to "Автор / название",
-    "{author}/{series}/{title}.{ext}" to "Автор / серия / название",
-    "{title}.{ext}" to "Только название",
+internal val DOWNLOAD_FILE_NAME_TEMPLATE_LABELS: Map<String, Int> = mapOf(
+    DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE to R.string.settings_opds_template_author_title,
+    "{author}/{title}.{ext}" to R.string.settings_opds_template_author_title_plain,
+    "{author}/{series}/{title}.{ext}" to R.string.settings_opds_template_author_series_title,
+    "{title}.{ext}" to R.string.settings_opds_template_title_only,
 )

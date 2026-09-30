@@ -5,12 +5,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
+import io.github.bookshelf.feature.settings.ui.ChoiceOption
 import io.github.bookshelf.feature.settings.ui.ChoiceRow
+import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
 import io.github.bookshelf.feature.settings.ui.ToggleRow
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Внешний вид»: тема, плотность, масштаб шрифта и инверсия обложек.
@@ -39,40 +44,41 @@ internal fun AppearanceCategory(
             // Варианты берутся из `ThemeMode`, как у выбора вида полки: список и подпись текущего
             // значения не могут разойтись, потому что строятся одной функцией.
             ChoiceRow(
-                title = "Тема",
-                options = ThemeMode.entries.map(::themeLabel),
-                selected = themeLabel(settings.themeMode),
-                onPick = { label ->
-                    viewModel.onSetThemeMode(ThemeMode.entries.first { themeLabel(it) == label })
+                title = stringResource(R.string.settings_appearance_theme),
+                options = ThemeMode.entries.map { mode ->
+                    ChoiceOption(id = mode.name, labelRes = themeLabelRes(mode))
                 },
-                subtitle = "«Системная» следует за настройкой Android",
+                selected = settings.themeMode.name,
+                onPick = { id -> viewModel.onSetThemeMode(ThemeMode.valueOf(id)) },
+                subtitle = stringResource(R.string.settings_appearance_theme_hint),
             )
         }
         item(key = "appearance-density") {
             ChoiceRow(
-                title = "Плотность",
-                options = DENSITY_OPTIONS,
-                selected = settings.densityLabel,
+                title = stringResource(R.string.settings_appearance_density),
+                options = EinkDensityLike.entries.map { density ->
+                    ChoiceOption(id = density.name, labelRes = densityLabelRes(density))
+                },
+                selected = settings.density.name,
                 onPick = viewModel::onSetDensity,
-                subtitle = "Сколько строк и книг помещается на экран",
+                subtitle = stringResource(R.string.settings_appearance_density_hint),
             )
         }
         item(key = "appearance-font-scale") {
-            ChoiceRow(
-                title = "Масштаб шрифта",
-                options = FONT_SCALE_OPTIONS,
-                // Число отделяем от знака процента: подпись читается человеком, а в настройку
-                // уходит то же значение, что принимает `onSetFontScale`.
-                selected = "${settings.fontScalePercent} %",
-                onPick = { label ->
-                    label.substringBefore(' ').toIntOrNull()?.let(viewModel::onSetFontScale)
-                },
+            // Значение — само число процентов: подпись «130 %» собирается из ресурса, а в настройку
+            // уходит то же число, что принимает `onSetFontScale`.
+            ValueChoiceRow(
+                title = stringResource(R.string.settings_appearance_font_scale),
+                options = FONT_SCALE_CHOICES,
+                selected = settings.fontScalePercent,
+                labelRes = { R.string.settings_font_scale_percent },
+                onPick = viewModel::onSetFontScale,
             )
         }
         item(key = "appearance-invert-covers") {
             ToggleRow(
-                title = "Инвертировать обложки",
-                subtitle = "Для тёмных обложек на e-ink: цвета становятся негативом",
+                title = stringResource(R.string.settings_appearance_invert_covers),
+                subtitle = stringResource(R.string.settings_appearance_invert_covers_hint),
                 enabled = settings.invertCovers,
                 onToggle = viewModel::onSetInvertCovers,
             )
@@ -80,15 +86,19 @@ internal fun AppearanceCategory(
     }
 }
 
-/** Название темы по-русски; живёт рядом с выбором, чтобы подпись и вариант не разъехались. */
-private fun themeLabel(mode: ThemeMode): String = when (mode) {
-    ThemeMode.LIGHT -> "Светлая"
-    ThemeMode.DARK -> "Тёмная"
-    ThemeMode.SYSTEM -> "Системная"
+/** Название темы; живёт рядом с выбором, чтобы подпись и вариант не разъехались. Ресурс. */
+private fun themeLabelRes(mode: ThemeMode): Int = when (mode) {
+    ThemeMode.LIGHT -> R.string.settings_theme_light
+    ThemeMode.DARK -> R.string.settings_theme_dark
+    ThemeMode.SYSTEM -> R.string.settings_theme_system
 }
 
-/** Подписи плотности — ровно те слова, которые разбирает `SettingsViewModel.onSetDensity`. */
-private val DENSITY_OPTIONS = listOf("Крупный", "Обычный", "Плотный")
+/** Подпись плотности. Ресурс: значение настройки — имя перечисления, а не слово. */
+private fun densityLabelRes(density: EinkDensityLike): Int = when (density) {
+    EinkDensityLike.LARGE -> R.string.settings_density_large
+    EinkDensityLike.NORMAL -> R.string.settings_density_normal
+    EinkDensityLike.COMPACT -> R.string.settings_density_compact
+}
 
 /** Допустимые проценты из docs/eink-ux.md §2.2: другие значения маппинг не знает. */
-private val FONT_SCALE_OPTIONS = listOf("100 %", "115 %", "130 %", "150 %")
+private val FONT_SCALE_CHOICES = listOf(100, 115, 130, 150)

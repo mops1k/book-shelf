@@ -3,6 +3,7 @@ package io.github.bookshelf.feature.settings.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
@@ -18,6 +19,7 @@ import io.github.bookshelf.feature.settings.ui.category.LibraryScanCategory
 import io.github.bookshelf.feature.settings.ui.category.OpdsCategory
 import io.github.bookshelf.feature.settings.ui.category.ReadersCategory
 import io.github.bookshelf.feature.settings.ui.category.StorageCategory
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Экран одной категории настроек (docs/eink-ux.md §6.8).
@@ -44,11 +46,11 @@ fun SettingsCategoryScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val title = defaultSettingsSections().first { section -> section.kind == kind }.title
+    val title = stringResource(defaultSettingsSections().first { section -> section.kind == kind }.titleRes)
 
     EinkScaffold(
         title = title,
-        subtitle = "Применяется сразу",
+        subtitle = stringResource(R.string.settings_subtitle_applied),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action -> if (action == EinkAction.BACK) onBack() },
@@ -57,7 +59,7 @@ fun SettingsCategoryScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.settings_action_retry),
                 onAction = viewModel::onRefreshDiagnostics,
             )
         }

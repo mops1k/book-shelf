@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.settings
 
 import io.github.bookshelf.core.datastore.model.Grouping
+import io.github.bookshelf.core.datastore.model.EinkDensityLike
+import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.SettingsKeys
@@ -34,10 +36,10 @@ enum class SettingsSectionKind {
 data class SettingsSectionUi(
     /** К какому разделу ведёт строка. */
     val kind: SettingsSectionKind,
-    /** Название раздела. */
-    val title: String,
-    /** Короткая подпись того, что внутри. */
-    val summary: String,
+    /** Название раздела. Ресурс, не текст: строки живут в `res/values` (ru) и `values-en`. */
+    val titleRes: Int,
+    /** Короткая подпись того, что внутри. Ресурс, не текст. */
+    val summaryRes: Int,
 )
 
 /** Читалка в списке настроек (UI-модель, а не полный профиль). */
@@ -81,10 +83,10 @@ data class SourceItemUi(
 data class PermissionItemUi(
     /** Системное имя разрешения. */
     val permission: String,
-    /** Что разрешение разрешает — по-русски, без системных терминов. */
-    val title: String,
-    /** Зачем оно именно нам. */
-    val subtitle: String,
+    /** Что разрешение разрешает — словами, без системных терминов. Ресурс, не текст. */
+    val titleRes: Int,
+    /** Зачем оно именно нам. Ресурс, не текст. */
+    val subtitleRes: Int,
     /** Выдано ли оно сейчас. */
     val isGranted: Boolean,
 )
@@ -118,9 +120,8 @@ data class EinkDiagnosticsUi(
  */
 data class AppSettingsUi(
     /** Плотность интерфейса: Крупный / Обычный / Плотный. */
-    val densityLabel: String = "Крупный",
-    /** Режим отображения полки по умолчанию. */
-    val viewModeLabel: String = "Сетка",
+    /** Плотность: значение настройки, а не её подпись. */
+    val density: EinkDensityLike = EinkDensityLike.LARGE,
     /** Вид полки по умолчанию: сетка/список/компактно либо обзор по авторам/сериям. */
     val viewPreset: ShelfViewPreset = ShelfViewPreset.GRID,
     /**
@@ -141,7 +142,8 @@ data class AppSettingsUi(
     /** Засечный шрифт для заголовков книг. */
     val serifTitles: Boolean = false,
     /** Режим обновления экрана: Авто / Полный / Быстрый. */
-    val refreshModeLabel: String = "Авто",
+    /** Режим обновления экрана: значение настройки, а не её подпись. */
+    val refreshMode: RefreshModeLike = RefreshModeLike.AUTO,
     /** Полный refresh при смене экрана. */
     val fullRefreshOnScreenChange: Boolean = true,
     /** Полный refresh при открытии и закрытии диалога. */
@@ -171,8 +173,6 @@ data class AppSettingsUi(
     val scanDepthLimit: Int = 8,
     /** Пропускать скрытые папки (`.*`). */
     val skipHiddenFolders: Boolean = true,
-    /** Приоритет метаданных: встроенные / имя файла. */
-    val metadataPriorityLabel: String = "Встроенные",
     /** Всегда спрашивать читалку, а не открывать по умолчанию. */
     val askReaderAlways: Boolean = false,
     /** Лимит дискового кэша обложек, МБ: 100 / 200 / 500 (`CoverCleanupWorker`). */
@@ -237,37 +237,37 @@ data class SettingsUiState(
 fun defaultSettingsSections(): List<SettingsSectionUi> = listOf(
     SettingsSectionUi(
         kind = SettingsSectionKind.APPEARANCE,
-        title = "Внешний вид",
-        summary = "Тема, плотность, масштаб шрифта и инверсия обложек",
+        titleRes = R.string.settings_section_appearance,
+        summaryRes = R.string.settings_section_appearance_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.EINK_SCREEN,
-        title = "Экран (e-ink)",
-        summary = "Режим обновления, события полного кадра, подсветка и клавиши",
+        titleRes = R.string.settings_section_eink,
+        summaryRes = R.string.settings_section_eink_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.LIBRARY_SCAN,
-        title = "Библиотека и сканирование",
-        summary = "Вид и порядок полки, лимиты диска, папки-источники и разрешения",
+        titleRes = R.string.settings_section_library,
+        summaryRes = R.string.settings_section_library_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.READERS,
-        title = "Читалки",
-        summary = "Установленные читалки и читалка по умолчанию",
+        titleRes = R.string.settings_section_readers,
+        summaryRes = R.string.settings_section_readers_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.OPDS,
-        title = "Каталоги OPDS",
-        summary = "Переход к каталогам: список, добавление по адресу, загрузки",
+        titleRes = R.string.settings_section_opds,
+        summaryRes = R.string.settings_section_opds_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.STORAGE,
-        title = "Хранилище и кэш",
-        summary = "Очистка кэша обложек и экспорт библиотеки",
+        titleRes = R.string.settings_section_storage,
+        summaryRes = R.string.settings_section_storage_summary,
     ),
     SettingsSectionUi(
         kind = SettingsSectionKind.ABOUT,
-        title = "О приложении и диагностика",
-        summary = "Версия, диагностика e-ink и системные разрешения",
+        titleRes = R.string.settings_section_about,
+        summaryRes = R.string.settings_section_about_summary,
     ),
 )

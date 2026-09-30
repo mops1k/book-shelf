@@ -6,12 +6,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.CategoryPending
+import io.github.bookshelf.feature.settings.ui.ChoiceOption
 import io.github.bookshelf.feature.settings.ui.ChoiceRow
+import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
 import io.github.bookshelf.feature.settings.ui.ToggleRow
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Экран (e-ink)»: режим обновления, события полного кадра, подсветка и клавиши.
@@ -44,9 +49,7 @@ internal fun EinkCategory(
                 .padding(horizontal = dimens.gutter),
         ) {
             CategoryPending(
-                "Управление обновлением экрана недоступно: приложение не нашло вендорский контроллер " +
-                    "e-ink на этом устройстве. Здесь появятся режим обновления, события полного кадра, " +
-                    "интервал полного обновления и подсветка — как только устройство их поддержит.",
+                stringResource(R.string.settings_eink_unavailable),
             )
         }
         return
@@ -59,68 +62,68 @@ internal fun EinkCategory(
     ) {
         item(key = "eink-refresh-mode") {
             ChoiceRow(
-                title = "Режим обновления экрана",
-                options = REFRESH_MODE_OPTIONS,
-                selected = settings.refreshModeLabel,
+                title = stringResource(R.string.settings_eink_refresh_mode),
+                options = RefreshModeLike.entries.map { mode ->
+                    ChoiceOption(id = mode.name, labelRes = refreshModeLabelRes(mode))
+                },
+                selected = settings.refreshMode.name,
                 onPick = viewModel::onSetRefreshMode,
-                subtitle = "«Быстрый» ускоряет перерисовку, но оставляет следы прежнего кадра",
+                subtitle = stringResource(R.string.settings_eink_refresh_mode_hint),
             )
         }
         item(key = "eink-refresh-screen") {
             ToggleRow(
-                title = "Полный кадр при смене экрана",
-                subtitle = "Самый заметный источник «призраков»: остатки предыдущего экрана",
+                title = stringResource(R.string.settings_eink_full_on_screen),
+                subtitle = stringResource(R.string.settings_eink_full_on_screen_hint),
                 enabled = settings.fullRefreshOnScreenChange,
                 onToggle = viewModel::onSetRefreshOnScreenChange,
             )
         }
         item(key = "eink-refresh-dialog") {
             ToggleRow(
-                title = "Полный кадр при открытии диалога",
-                subtitle = "Диалог ложится поверх списка: без полного кадра его края «грязнятся»",
+                title = stringResource(R.string.settings_eink_full_on_dialog),
+                subtitle = stringResource(R.string.settings_eink_full_on_dialog_hint),
                 enabled = settings.fullRefreshOnDialog,
                 onToggle = viewModel::onSetRefreshOnDialog,
             )
         }
         item(key = "eink-refresh-page") {
             ToggleRow(
-                title = "Полный кадр при листании",
-                subtitle = "Текст без остатков предыдущей страницы, но листание заметно медленнее",
+                title = stringResource(R.string.settings_eink_full_on_page),
+                subtitle = stringResource(R.string.settings_eink_full_on_page_hint),
                 enabled = settings.fullRefreshOnPage,
                 onToggle = viewModel::onSetFullRefreshOnPage,
             )
         }
         item(key = "eink-volume-keys") {
             ToggleRow(
-                title = "Клавиши громкости листают страницы",
-                subtitle = "Для устройств без кнопок Page Up/Down: выключено — клавиши снова меняют громкость",
+                title = stringResource(R.string.settings_eink_volume_keys),
+                subtitle = stringResource(R.string.settings_eink_volume_keys_hint),
                 enabled = settings.volumeKeysAsPageTurn,
                 onToggle = viewModel::onSetVolumeKeysAsPageTurn,
             )
         }
         item(key = "eink-gc-interval") {
-            ChoiceRow(
-                title = "Интервал полного обновления",
-                options = GC_INTERVAL_OPTIONS,
-                selected = settings.gcInterval.toString(),
-                onPick = { label ->
-                    label.toIntOrNull()?.let(viewModel::onSetGcInterval)
-                },
-                subtitle = "Полный кадр каждые N частичных обновлений: реже — меньше мигания, чаще — чище экран",
+            ValueChoiceRow(
+                title = stringResource(R.string.settings_eink_gc_interval),
+                options = GC_INTERVAL_CHOICES,
+                selected = settings.gcInterval,
+                labelRes = { R.string.settings_number_plain },
+                onPick = viewModel::onSetGcInterval,
+                subtitle = stringResource(R.string.settings_eink_gc_interval_hint),
             )
         }
         // Подсветку показываем только там, где ею можно управлять: `supportsFrontLight`
         // выставляется по `EinkController.frontLight()`, и на устройстве без подсветки строки нет.
         if (state.diagnostics.supportsFrontLight) {
             item(key = "eink-front-light") {
-                ChoiceRow(
-                    title = "Подсветка",
-                    options = FRONT_LIGHT_OPTIONS,
-                    selected = settings.frontLightLevel?.toString().orEmpty(),
-                    onPick = { label ->
-                        label.toIntOrNull()?.let(viewModel::onSetFrontLight)
-                    },
-                    subtitle = "Яркость подсветки экрана, если устройство ей управляет",
+                ValueChoiceRow(
+                    title = stringResource(R.string.settings_eink_backlight),
+                    options = FRONT_LIGHT_CHOICES,
+                    selected = settings.frontLightLevel ?: FRONT_LIGHT_CHOICES.first(),
+                    labelRes = { R.string.settings_number_plain },
+                    onPick = viewModel::onSetFrontLight,
+                    subtitle = stringResource(R.string.settings_eink_backlight_hint),
                 )
             }
         }
@@ -128,14 +131,19 @@ internal fun EinkCategory(
 }
 
 /** Подписи режима — ровно те слова, которые разбирает `SettingsViewModel.onSetRefreshMode`. */
-private val REFRESH_MODE_OPTIONS = listOf("Авто", "Полный", "Быстрый")
+/** Подпись режима обновления. Ресурс: значение настройки — имя перечисления. */
+private fun refreshModeLabelRes(mode: RefreshModeLike): Int = when (mode) {
+    RefreshModeLike.AUTO -> R.string.settings_eink_mode_auto
+    RefreshModeLike.FULL -> R.string.settings_eink_mode_full
+    RefreshModeLike.FAST -> R.string.settings_eink_mode_fast
+}
 
 /**
  * Значения интервала GC: шаг в пять обновлений покрывает и «почти каждый кадр», и «редко».
  *
  * Диапазон шире (любое число от 1) — это осознанно: список даёт быстрый выбор, а не ограничение.
  */
-private val GC_INTERVAL_OPTIONS = listOf("5", "10", "20", "50")
+private val GC_INTERVAL_CHOICES = listOf(5, 10, 20, 50)
 
 /** Уровни подсветки: пять шагов от выключенной до максимальной. */
-private val FRONT_LIGHT_OPTIONS = listOf("0", "25", "50", "75", "100")
+private val FRONT_LIGHT_CHOICES = listOf(0, 25, 50, 75, 100)

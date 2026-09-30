@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.datastore.model.Grouping
@@ -39,6 +40,7 @@ import io.github.bookshelf.feature.settings.ui.displayNameOfTree
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
 import io.github.bookshelf.feature.settings.ui.permissionsOf
 import io.github.bookshelf.feature.settings.ui.sourcesSection
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Категория «Библиотека и скан»: вид и порядок полки, лимиты диска, папки-источники и разрешения.
@@ -104,19 +106,19 @@ internal fun LibraryScanCategory(
 
         item(key = "default-sort") {
             ValueChoiceRow(
-                title = "Сортировка по умолчанию",
+                title = stringResource(R.string.settings_library_sort),
                 options = SortOrder.entries,
                 selected = state.settings.sortOrder,
-                label = ::sortOrderLabel,
+                labelRes = ::sortOrderLabelRes,
                 onPick = viewModel::onSetDefaultSortOrder,
-                subtitle = "Чем открывается полка. На самой полке порядок можно сменить на время",
+                subtitle = stringResource(R.string.settings_library_sort_hint),
             )
         }
 
         item(key = "default-sort-descending") {
             ToggleRow(
-                title = "Обратный порядок",
-                subtitle = "От новых к старым, от больших файлов к маленьким — наоборот к выбранной сортировке",
+                title = stringResource(R.string.settings_library_descending),
+                subtitle = stringResource(R.string.settings_library_descending_hint),
                 enabled = state.settings.sortDescending,
                 onToggle = viewModel::onSetDefaultSortDescending,
             )
@@ -124,12 +126,12 @@ internal fun LibraryScanCategory(
 
         item(key = "default-grouping") {
             ValueChoiceRow(
-                title = "Группировка по умолчанию",
+                title = stringResource(R.string.settings_library_grouping),
                 options = Grouping.entries,
                 selected = state.settings.grouping,
-                label = ::groupingLabel,
+                labelRes = ::groupingLabelRes,
                 onPick = viewModel::onSetDefaultGrouping,
-                subtitle = "Книги одного автора, серии, папки или формата собираются рядом",
+                subtitle = stringResource(R.string.settings_library_grouping_hint),
             )
         }
 
@@ -162,20 +164,24 @@ internal fun LibraryScanCategory(
         )
 
         item(key = "header-permissions") {
-            EinkSectionHeader(title = "Разрешения", count = permissions.size)
+            EinkSectionHeader(title = stringResource(R.string.settings_permissions_header), count = permissions.size)
         }
         items(items = permissions, key = { item -> item.permission }) { item ->
             EinkListRow(
-                title = item.title,
-                subtitle = item.subtitle,
-                trailing = if (item.isGranted) "выдано" else "запросить",
+                title = stringResource(item.titleRes),
+                subtitle = stringResource(item.subtitleRes),
+                trailing = if (item.isGranted) {
+                    stringResource(R.string.settings_permission_granted)
+                } else {
+                    stringResource(R.string.settings_permission_request)
+                },
                 onClick = { permissionRequest.launch(item.permission) },
             )
         }
         item(key = "permissions-appinfo") {
             EinkListRow(
-                title = "Разрешения приложения в системе",
-                subtitle = "Открыть системную страницу: там же отзываются выданные права",
+                title = stringResource(R.string.settings_permission_app_info),
+                subtitle = stringResource(R.string.settings_permission_app_info_hint),
                 onClick = { context.openAppInfoSettings() },
             )
         }
@@ -200,29 +206,28 @@ private fun LazyListScope.diskLimitsSection(
     onPick: (DiskLimitAction) -> Unit,
 ) {
     item(key = "header-library-limits") {
-        EinkSectionHeader(title = "Лимиты диска")
+        EinkSectionHeader(title = stringResource(R.string.settings_disk_limits))
     }
 
     item(key = "cover-cache-limit") {
         ValueChoiceRow(
-            title = "Лимит кэша обложек",
+            title = stringResource(R.string.settings_cover_cache_limit),
             options = COVER_CACHE_LIMIT_CHOICES_MB,
             selected = state.settings.coverCacheLimitMb,
-            label = ::megabytesLabel,
+            labelRes = { R.string.settings_megabytes },
             onPick = { limitMb -> onPick(DiskLimitAction.SetCoverCacheMb(limitMb)) },
-            subtitle = "Больше лимит — дольше живут обложки, больше места на диске",
+            subtitle = stringResource(R.string.settings_cover_cache_limit_hint),
         )
     }
 
     item(key = "temp-copy-limit") {
         ValueChoiceRow(
-            title = "Лимит временной копии",
+            title = stringResource(R.string.settings_temp_copy_limit),
             options = TEMP_COPY_LIMIT_CHOICES_MB,
             selected = state.settings.tempCopyLimitMb,
-            label = ::megabytesLabel,
+            labelRes = { R.string.settings_megabytes },
             onPick = { limitMb -> onPick(DiskLimitAction.SetTempCopyMb(limitMb)) },
-            subtitle = "Копия нужна книге из облака: больше лимит — откроются крупные файлы, " +
-                "но и места уйдёт больше",
+            subtitle = stringResource(R.string.settings_temp_copy_limit_hint),
         )
     }
 }
@@ -238,13 +243,12 @@ private fun LazyListScope.fileChangeSection(
     onKeepToggle: (Boolean) -> Unit,
 ) {
     item(key = "file-change-header") {
-        EinkSectionHeader(title = "Замена файлов книг")
+        EinkSectionHeader(title = stringResource(R.string.settings_file_change_header))
     }
     item(key = "file-change-keep") {
         ToggleRow(
-            title = "Сохранять данные при смене файла",
-            subtitle = "Оценка, статус чтения, полки и прогресс книги остаются, если файл заменили. " +
-                "Выключено — заменённый файл считается новой книгой, и эти данные стираются",
+            title = stringResource(R.string.settings_file_change_keep),
+            subtitle = stringResource(R.string.settings_file_change_keep_hint),
             enabled = state.settings.isKeepMetadataOnFileChange,
             onToggle = onKeepToggle,
         )
@@ -260,17 +264,17 @@ private fun LazyListScope.duplicatesSection(
     onCancelBroken: () -> Unit,
 ) {
     item(key = "duplicates-header") {
-        EinkSectionHeader(title = "Дубли книг")
+        EinkSectionHeader(title = stringResource(R.string.settings_duplicates_header))
     }
     item(key = "duplicates-check") {
         val busy = state.isChecking || state.isDeleting
         EinkListRow(
-            title = "Проверить на дубли",
+            title = stringResource(R.string.settings_duplicates_check),
             subtitle = when {
-                state.isChecking -> "Сравниваем содержимое книг…"
-                state.isDeleting -> "Удаляем…"
+                state.isChecking -> stringResource(R.string.settings_duplicates_comparing)
+                state.isDeleting -> stringResource(R.string.settings_duplicates_removing)
                 else -> state.message
-                    ?: "Сравнение по содержимому файлов: одинаковые книги можно удалить"
+                    ?: stringResource(R.string.settings_duplicates_hint)
             },
             onClick = { if (!busy) onCheck() },
         )
@@ -278,9 +282,8 @@ private fun LazyListScope.duplicatesSection(
     if (state.isConfirming) {
         item(key = "duplicates-confirm") {
             EinkConfirmRow(
-                question = "Удалить лишние копии (${state.toRemove.size} шт.)? " +
-                    "Останется по одной — та, что разложена по папкам.",
-                confirmLabel = "Удалить",
+                question = stringResource(R.string.settings_duplicates_remove_confirm, state.toRemove.size),
+                confirmLabel = stringResource(R.string.settings_action_delete),
                 onConfirm = onConfirmDelete,
                 onCancel = onCancelDelete,
                 enabled = !state.isDeleting,
@@ -290,9 +293,8 @@ private fun LazyListScope.duplicatesSection(
     if (state.isConfirmingBroken) {
         item(key = "broken-confirm") {
             EinkConfirmRow(
-                question = "Удалить битые файлы (${state.broken.size} шт.)? " +
-                    "Они не читаются и открыть их нельзя.",
-                confirmLabel = "Удалить",
+                question = stringResource(R.string.settings_broken_remove_confirm, state.broken.size),
+                confirmLabel = stringResource(R.string.settings_action_delete),
                 onConfirm = onConfirmBroken,
                 onCancel = onCancelBroken,
                 enabled = !state.isDeleting,
@@ -302,7 +304,6 @@ private fun LazyListScope.duplicatesSection(
 }
 
 /** Мегабайты чипом: «200 МБ». */
-private fun megabytesLabel(megabytes: Int): String = "$megabytes МБ"
 
 /**
  * Подписи сортировки — те же слова, что в строке сортировки на полке.
@@ -311,22 +312,22 @@ private fun megabytesLabel(megabytes: Int): String = "$megabytes МБ"
  * строк, а состав вариантов задаёт перечисление настроек — новый вариант обязан появиться здесь
  * сразу, иначе настройку нельзя будет выставить.
  */
-private fun sortOrderLabel(order: SortOrder): String = when (order) {
-    SortOrder.TITLE -> "Название"
-    SortOrder.AUTHOR -> "Автор"
-    SortOrder.SERIES -> "Серия"
-    SortOrder.ADDED_AT -> "Дата добавления"
-    SortOrder.LAST_OPENED -> "Дата открытия"
-    SortOrder.SIZE -> "Размер"
-    SortOrder.PROGRESS -> "Прогресс"
-    SortOrder.YEAR -> "Год"
+private fun sortOrderLabelRes(order: SortOrder): Int = when (order) {
+    SortOrder.TITLE -> R.string.settings_sort_title
+    SortOrder.AUTHOR -> R.string.settings_sort_author
+    SortOrder.SERIES -> R.string.settings_sort_series
+    SortOrder.ADDED_AT -> R.string.settings_sort_added
+    SortOrder.LAST_OPENED -> R.string.settings_sort_last_opened
+    SortOrder.SIZE -> R.string.settings_sort_size
+    SortOrder.PROGRESS -> R.string.settings_sort_progress
+    SortOrder.YEAR -> R.string.settings_sort_year
 }
 
 /** Подписи группировки для чипов: на полке те же варианты, но строчными буквами в подвале. */
-private fun groupingLabel(grouping: Grouping): String = when (grouping) {
-    Grouping.NONE -> "Без группировки"
-    Grouping.SERIES -> "По сериям"
-    Grouping.AUTHOR -> "По авторам"
-    Grouping.FOLDER -> "По папкам"
-    Grouping.FORMAT -> "По форматам"
+private fun groupingLabelRes(grouping: Grouping): Int = when (grouping) {
+    Grouping.NONE -> R.string.settings_grouping_none
+    Grouping.SERIES -> R.string.settings_grouping_series
+    Grouping.AUTHOR -> R.string.settings_grouping_author
+    Grouping.FOLDER -> R.string.settings_grouping_folder
+    Grouping.FORMAT -> R.string.settings_grouping_format
 }

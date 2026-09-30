@@ -602,18 +602,10 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
-    densityLabel = when (settings.appearance.density) {
-        EinkDensityLike.LARGE -> "Крупный"
-        EinkDensityLike.NORMAL -> "Обычный"
-        EinkDensityLike.COMPACT -> "Плотный"
-    },
+    density = settings.appearance.density,
     showCovers = !settings.appearance.textOnlyMode,
     fontScalePercent = settings.appearance.fontScale,
-    refreshModeLabel = when (settings.eink.refreshMode) {
-        RefreshModeLike.AUTO -> "Авто"
-        RefreshModeLike.FULL -> "Полный"
-        RefreshModeLike.FAST -> "Быстрый"
-    },
+    refreshMode = settings.eink.refreshMode,
     fullRefreshOnScreenChange = settings.eink.refreshOnScreenChange,
     fullRefreshOnDialog = settings.eink.refreshOnDialog,
     fullRefreshOnPage = settings.eink.refreshOnPageChange,

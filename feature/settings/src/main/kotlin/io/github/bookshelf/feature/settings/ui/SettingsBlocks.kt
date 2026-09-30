@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkChip
@@ -33,6 +34,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.feature.settings.PermissionItemUi
 import io.github.bookshelf.feature.settings.SourceItemUi
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Общие блоки экранов настроек.
@@ -57,12 +59,14 @@ internal fun LazyListScope.sourcesSection(
     onOpenScan: () -> Unit,
 ) {
     item(key = "header-sources") {
-        EinkSectionHeader(title = "Где искать книги", count = sources.size)
+        EinkSectionHeader(title = stringResource(R.string.settings_sources_header), count = sources.size)
     }
     items(items = sources, key = { source -> source.id }) { source ->
         SourceRow(
             name = source.displayName,
-            booksLabel = source.booksCount?.let { "$it книг" } ?: "ещё не сканировалось",
+            booksLabel = source.booksCount
+                ?.let { count -> stringResource(R.string.settings_sources_books, count) }
+                ?: stringResource(R.string.settings_sources_never_scanned),
             hasWriteAccess = source.hasWriteAccess,
             onRemove = { onRemoveSource(source.id) },
         )
@@ -72,7 +76,7 @@ internal fun LazyListScope.sourcesSection(
         // недоступны — этот код выполняется при построении списка, а не при отрисовке.
         val dimens = LocalEinkDimens.current
         EinkButton(
-            text = "Добавить папку",
+            text = stringResource(R.string.settings_action_add_folder),
             onClick = onAddFolder,
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,8 +90,8 @@ internal fun LazyListScope.sourcesSection(
         // Экран сканирования (ход и отчёт с проблемными файлами) открывался только с пустой
         // полки: при живой библиотеке входа к нему не было вовсе.
         EinkListRow(
-            title = "Ход и отчёт сканирования",
-            subtitle = "Сколько добавлено и обновлено, что не разобралось и почему",
+            title = stringResource(R.string.settings_sources_scan_report),
+            subtitle = stringResource(R.string.settings_sources_scan_report_hint),
             onClick = onOpenScan,
         )
     }
@@ -97,10 +101,9 @@ internal fun LazyListScope.sourcesSection(
 @Composable
 internal fun SourceRescanRow(isRescanning: Boolean, onRescan: () -> Unit) {
     EinkListRow(
-        title = "Пересканировать все папки",
-        subtitle = "Забыть разобранное и найти книги заново. Обычно не нужно: библиотека " +
-            "обновляется сама при возврате в приложение и раз в 15 минут",
-        trailing = if (isRescanning) "идёт…" else null,
+        title = stringResource(R.string.settings_sources_rescan),
+        subtitle = stringResource(R.string.settings_sources_rescan_hint),
+        trailing = if (isRescanning) stringResource(R.string.settings_in_progress) else null,
         onClick = { if (!isRescanning) onRescan() },
     )
 }
@@ -128,11 +131,11 @@ internal fun SourceRow(
             subtitle = if (hasWriteAccess) {
                 booksLabel
             } else {
-                "нет права записи — выберите папку заново"
+                stringResource(R.string.settings_source_no_write)
             },
             modifier = Modifier.weight(1f),
         )
-        EinkButton(text = "Убрать", onClick = onRemove)
+        EinkButton(text = stringResource(R.string.settings_source_remove), onClick = onRemove)
     }
 }
 
@@ -147,10 +150,23 @@ internal fun SourceRow(
  * мешали книгам, поэтому там выбор уехал в отдельный экран; в настройках вариант обязан быть
  * виден целиком, и перенос на следующую строку читается лучше обрезанного края экрана.
  */
+/**
+ * Один вариант выбора: устойчивый идентификатор и ресурс подписи.
+ *
+ * Идентификатор отделён от подписи намеренно: подпись переводится (ru/en), а значение обязано
+ * оставаться неизменным — иначе английский интерфейс сломал бы сохранение настроек
+ * (`onSetDensity(«Compact»)` не разбирается). [labelArg] нужен подписям с числом («130 %», «500 МБ»).
+ */
+data class ChoiceOption(
+    val id: String,
+    val labelRes: Int,
+    val labelArg: Any? = null,
+)
+
 @Composable
 internal fun ChoiceRow(
     title: String,
-    options: List<String>,
+    options: List<ChoiceOption>,
     selected: String,
     onPick: (String) -> Unit,
     subtitle: String? = null,
@@ -179,9 +195,11 @@ internal fun ChoiceRow(
         ) {
             options.forEach { option ->
                 EinkChip(
-                    label = option,
-                    selected = option == selected,
-                    onClick = { onPick(option) },
+                    label = option.labelArg
+                        ?.let { arg -> stringResource(option.labelRes, arg) }
+                        ?: stringResource(option.labelRes),
+                    selected = option.id == selected,
+                    onClick = { onPick(option.id) },
                 )
             }
         }
@@ -201,16 +219,19 @@ internal fun <T> ValueChoiceRow(
     title: String,
     options: List<T>,
     selected: T,
-    label: (T) -> String,
+    labelRes: (T) -> Int,
     onPick: (T) -> Unit,
     subtitle: String? = null,
 ) {
     ChoiceRow(
         title = title,
-        options = options.map(label),
-        selected = label(selected),
+        options = options.map { option ->
+            // Значение само подставляется в подпись: «500 МБ», «2 мин», «130 %» — без отдельных списков.
+            ChoiceOption(id = option.toString(), labelRes = labelRes(option), labelArg = option)
+        },
+        selected = selected.toString(),
         subtitle = subtitle,
-        onPick = { picked -> options.firstOrNull { label(it) == picked }?.let(onPick) },
+        onPick = { id -> options.firstOrNull { it.toString() == id }?.let(onPick) },
     )
 }
 
@@ -231,7 +252,11 @@ internal fun ToggleRow(
     EinkListRow(
         title = title,
         subtitle = subtitle,
-        trailing = if (enabled) "включено" else "выключено",
+        trailing = if (enabled) {
+            stringResource(R.string.settings_toggle_on)
+        } else {
+            stringResource(R.string.settings_toggle_off)
+        },
         onClick = { onToggle(!enabled) },
     )
 }
@@ -246,7 +271,7 @@ internal fun ToggleRow(
 internal fun CategoryPending(message: String) {
     val dimens = LocalEinkDimens.current
     EinkEmptyState(
-        title = "Раздел наполняется",
+        title = stringResource(R.string.settings_pending_section),
         message = message,
         modifier = Modifier
             .fillMaxWidth()
@@ -265,8 +290,8 @@ internal fun permissionsOf(context: Context): List<PermissionItemUi> = buildList
     add(
         PermissionItemUi(
             permission = Manifest.permission.POST_NOTIFICATIONS,
-            title = "Уведомления",
-            subtitle = "Показывать ход сканирования, когда приложение свёрнуто",
+            titleRes = R.string.settings_permission_notifications,
+            subtitleRes = R.string.settings_permission_notifications_hint,
             isGranted = context.isGranted(Manifest.permission.POST_NOTIFICATIONS),
         ),
     )
@@ -274,16 +299,16 @@ internal fun permissionsOf(context: Context): List<PermissionItemUi> = buildList
         add(
             PermissionItemUi(
                 permission = Manifest.permission.READ_EXTERNAL_STORAGE,
-                title = "Чтение файлов",
-                subtitle = "Искать книги в памяти телефона без выбора папки",
+                titleRes = R.string.settings_permission_read,
+                subtitleRes = R.string.settings_permission_read_hint,
                 isGranted = context.isGranted(Manifest.permission.READ_EXTERNAL_STORAGE),
             ),
         )
         add(
             PermissionItemUi(
                 permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                title = "Запись файлов",
-                subtitle = "Сохранять загруженные книги в память телефона",
+                titleRes = R.string.settings_permission_write,
+                subtitleRes = R.string.settings_permission_write_hint,
                 isGranted = context.isGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE),
             ),
         )
@@ -316,7 +341,7 @@ internal fun Context.displayNameOfTree(uri: Uri): String {
         DocumentsContract.getTreeDocumentId(uri).substringAfterLast(':')
     }.getOrNull()
     if (!fromDocuments.isNullOrBlank()) return fromDocuments
-    return uri.lastPathSegment?.substringAfterLast('/') ?: "Папка"
+    return uri.lastPathSegment?.substringAfterLast('/') ?: getString(R.string.settings_default_source_name)
 }
 
 /**
@@ -331,18 +356,20 @@ internal fun ViewPresetChooser(
     onPick: (ShelfViewPreset) -> Unit,
 ) {
     ChoiceRow(
-        title = "Вид полки по умолчанию",
-        options = ShelfViewPreset.entries.map(::presetLabel),
-        selected = presetLabel(preset),
-        onPick = { label -> onPick(ShelfViewPreset.entries.first { presetLabel(it) == label }) },
+        title = stringResource(R.string.settings_view_header),
+        options = ShelfViewPreset.entries.map { option ->
+            ChoiceOption(id = option.name, labelRes = presetLabelRes(option))
+        },
+        selected = preset.name,
+        onPick = { id -> onPick(ShelfViewPreset.valueOf(id)) },
     )
 }
 
-/** Подпись вида полки — та же, что на кнопках в строке видов полки. */
-internal fun presetLabel(preset: ShelfViewPreset): String = when (preset) {
-    ShelfViewPreset.GRID -> "Сетка"
-    ShelfViewPreset.AUTHORS -> "Авторы"
-    ShelfViewPreset.SERIES -> "Серии"
-    ShelfViewPreset.GENRES -> "Жанры"
+/** Подпись вида полки — та же, что на кнопках в строке видов полки. Ресурс, не текст. */
+internal fun presetLabelRes(preset: ShelfViewPreset): Int = when (preset) {
+    ShelfViewPreset.GRID -> R.string.settings_view_grid
+    ShelfViewPreset.AUTHORS -> R.string.settings_view_authors
+    ShelfViewPreset.SERIES -> R.string.settings_view_series
+    ShelfViewPreset.GENRES -> R.string.settings_view_genres
 }
 

@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
@@ -25,6 +26,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.SettingsSectionKind
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Настройки (docs/eink-ux.md §6.8): список категорий и сброс к умолчаниям.
@@ -48,8 +50,8 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     EinkScaffold(
-        title = "Настройки",
-        subtitle = "Применяется сразу",
+        title = stringResource(R.string.settings_title),
+        subtitle = stringResource(R.string.settings_subtitle_applied),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action -> if (action == EinkAction.BACK) onBack() },
@@ -59,7 +61,7 @@ fun SettingsScreen(
         if (error != null) {
             EinkErrorBanner(
                 message = error,
-                actionLabel = "Повторить",
+                actionLabel = stringResource(R.string.settings_action_retry),
                 onAction = viewModel::onRefreshDiagnostics,
             )
         }
@@ -71,8 +73,8 @@ fun SettingsScreen(
         ) {
             items(items = state.sections, key = { section -> section.kind.name }) { section ->
                 EinkListRow(
-                    title = section.title,
-                    subtitle = section.summary,
+                    title = stringResource(section.titleRes),
+                    subtitle = stringResource(section.summaryRes),
                     onClick = { onOpenCategory(section.kind) },
                 )
             }
@@ -110,20 +112,24 @@ private fun ResetFooter(
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
                 EinkButton(
-                    text = "Сбросить",
+                    text = stringResource(R.string.settings_action_reset),
                     onClick = viewModel::onResetToDefaults,
                     modifier = Modifier.weight(1f),
                     primary = true,
                 )
                 EinkButton(
-                    text = "Отмена",
+                    text = stringResource(R.string.settings_action_cancel),
                     onClick = { viewModel.onSetResetConfirmation(false) },
                     modifier = Modifier.weight(1f),
                 )
             }
         } else {
             EinkButton(
-                text = if (state.isResetting) "Сбрасываем…" else "Сбросить по умолчанию",
+                text = if (state.isResetting) {
+                    stringResource(R.string.settings_resetting)
+                } else {
+                    stringResource(R.string.settings_action_reset_defaults)
+                },
                 onClick = { viewModel.onSetResetConfirmation(true) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !state.isResetting,
@@ -131,7 +137,7 @@ private fun ResetFooter(
         }
 
         Text(
-            text = "Сбрасываются только настройки. Папки, каталоги, книги и загрузки остаются.",
+            text = stringResource(R.string.settings_reset_note),
             style = MaterialTheme.typography.labelMedium,
             color = LocalEinkColors.current.foreground,
             modifier = Modifier.fillMaxWidth(),

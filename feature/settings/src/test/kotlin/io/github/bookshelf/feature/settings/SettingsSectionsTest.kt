@@ -35,17 +35,18 @@ class SettingsSectionsTest {
 
     @Test
     fun `titles and summaries are the approved ones`() {
-        val pairs = defaultSettingsSections().map { section -> section.title to section.summary }
+        // Тексты живут в `res/values` (ru) и `values-en`, поэтому тест фиксирует выбранные
+        // ресурсы: подмена подписи на чужой ресурс обязана упасть так же, как падала на тексте.
+        val pairs = defaultSettingsSections().map { section -> section.titleRes to section.summaryRes }
 
         assertThat(pairs).containsExactly(
-            "Внешний вид" to "Тема, плотность, масштаб шрифта и инверсия обложек",
-            "Экран (e-ink)" to "Режим обновления, события полного кадра, подсветка и клавиши",
-            "Библиотека и сканирование" to
-                "Вид и порядок полки, лимиты диска, папки-источники и разрешения",
-            "Читалки" to "Установленные читалки и читалка по умолчанию",
-            "Каталоги OPDS" to "Переход к каталогам: список, добавление по адресу, загрузки",
-            "Хранилище и кэш" to "Очистка кэша обложек и экспорт библиотеки",
-            "О приложении и диагностика" to "Версия, диагностика e-ink и системные разрешения",
+            R.string.settings_section_appearance to R.string.settings_section_appearance_summary,
+            R.string.settings_section_eink to R.string.settings_section_eink_summary,
+            R.string.settings_section_library to R.string.settings_section_library_summary,
+            R.string.settings_section_readers to R.string.settings_section_readers_summary,
+            R.string.settings_section_opds to R.string.settings_section_opds_summary,
+            R.string.settings_section_storage to R.string.settings_section_storage_summary,
+            R.string.settings_section_about to R.string.settings_section_about_summary,
         ).inOrder()
     }
 
