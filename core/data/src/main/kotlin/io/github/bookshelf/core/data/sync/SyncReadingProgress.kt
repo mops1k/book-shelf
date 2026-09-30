@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.data.sync
 
+import android.util.Log
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.error.getOrNull
@@ -74,8 +75,17 @@ class SyncReadingProgress @Inject constructor(
             val open = api.currentBook() ?: return@appRunCatching ProgressSyncOutcome.NoBookOpen
             val snapshot = progressSource.progressFor(open.path).getOrNull()
                 ?: return@appRunCatching ProgressSyncOutcome.NoBookOpen
+            // Сначала как есть: для книги без архива читалка отдаёт ровно наш адрес. Затем —
+            // приведённый вид: книгу в архиве она называет адресом внутри архива (`zip-entry://`),
+            // и по такому адресу книга раньше не находилась вовсе (`BookUnknown`).
             val book = books.findByDocumentUri(open.path).getOrNull()
-                ?: return@appRunCatching ProgressSyncOutcome.BookUnknown
+                ?: books.findByDocumentUri(ReaderBookPath.toDocumentUri(open.path)).getOrNull()
+                ?: run {
+                    // Адрес читалки в журнале обязателен: без него непонятно, почему книга не нашлась
+                    // (адрес копии, другое кодирование), и это не отлаживается снаружи.
+                    Log.w("BookShelf", "прогресс: книга не найдена по адресу читалки: ${open.path}")
+                    return@appRunCatching ProgressSyncOutcome.BookUnknown
+                }
             books.saveReadingProgress(
                 bookId = book.id,
                 // Читалка говорит процентами, таблица хранит долю.

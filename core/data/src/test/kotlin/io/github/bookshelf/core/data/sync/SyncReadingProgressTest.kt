@@ -137,6 +137,21 @@ class SyncReadingProgressTest {
     }
 
     @Test
+    fun `progress of a book inside an archive is stored too`() = runBlocking {
+        settings.enabled = true
+        // Настоящий адрес из журнала устройства: читалка называет книгу в архиве через zip-entry,
+        // и раньше прогресс по таким книгам терялся (в журнале было BookUnknown).
+        givenBook(documentUri = fixture("document-uri.txt"))
+        reader.open = openBook(path = fixture("zip-entry-path.txt"))
+        progress.snapshot = snapshot(percent = 42f)
+
+        val outcome = sync().syncNow().getOrNull()
+
+        assertThat(outcome).isEqualTo(ProgressSyncOutcome.Saved(bookId = BOOK_ID, percentPercent = 42f))
+        assertThat(savedProgress()?.percent).isWithin(0.0001f).of(0.42f)
+    }
+
+    @Test
     fun `reader that cannot give progress leaves the library untouched`() = runBlocking {
         settings.enabled = true
         givenBook(documentUri = DOCUMENT_URI)
@@ -237,6 +252,15 @@ class SyncReadingProgressTest {
             ),
         )
     }
+
+    /**
+     * Настоящие строки с устройства (Bigme HiBreak, 30.09.2026): путь, которым читалка назвала книгу
+     * в архиве, и наш `books.documentUri` для той же книги. Держим их файлами, а не константами в
+     * коде: они длиннее допустимой длины строки, а подделывать их нельзя — на них и держится фикс.
+     */
+    private fun fixture(name: String): String = checkNotNull(
+        javaClass.getResourceAsStream("/reader-paths/$name"),
+    ) { "нет фикстуры $name" }.bufferedReader().use { reader -> reader.readText() }.trim()
 
     private suspend fun savedProgress() = database.readingProgressDao().getByBook(BOOK_ID)
 

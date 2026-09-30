@@ -9,6 +9,8 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.testing.FakeAppClock
+import io.github.bookshelf.core.database.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.common.reader.ReaderSession
@@ -45,6 +47,7 @@ class ReaderOpenBookTest {
     private val export = FakeReaderExport()
     private val discovery = FakeReaderDiscovery()
     private val session = FakeReaderSession()
+    private val clock = FakeAppClock()
 
     @Before
     fun setUp() {
@@ -151,17 +154,58 @@ class ReaderOpenBookTest {
         assertThat(session.opened).isEqualTo(listOf(BOOK_ID))
     }
 
+    @Test
+    fun `a successful launch marks the book as being read`() = runBlocking {
+        givenBook()
+
+        repository().openBook(BOOK_ID)
+
+        // Требование Александра: статус меняется при открытии из полки, независимо от того,
+        // есть ли у нас интеграция с читалкой и подхватился ли прогресс.
+        val book = database.bookDao().getById(BOOK_ID)
+        assertThat(book?.readingStatus).isEqualTo(ReadingStatus.READING)
+        // Дата открытия — по ней полка сортирует «Дата открытия» и собирает полку «Читаю».
+        assertThat(book?.lastOpenedAt).isNotNull()
+    }
+
+    @Test
+    fun `a finished book keeps its status when opened again`() = runBlocking {
+        givenBook(status = ReadingStatus.READ)
+
+        repository().openBook(BOOK_ID)
+
+        val book = database.bookDao().getById(BOOK_ID)
+        // Человек мог открыть законченную книгу, чтобы перечитать главу: «прочитано» не сбрасываем.
+        assertThat(book?.readingStatus).isEqualTo(ReadingStatus.READ)
+        assertThat(book?.lastOpenedAt).isNotNull()
+    }
+
+    @Test
+    fun `a refused launch does not change the status`() = runBlocking {
+        givenBook()
+        launcher.refuseUris = setOf(DOCUMENT_URI)
+        export.error = AppError.PermissionDenied(message = "Временный экспорт выключен")
+
+        repository().openBook(BOOK_ID)
+
+        val book = database.bookDao().getById(BOOK_ID)
+        // Книга не открылась — «читаю» было бы неправдой.
+        assertThat(book?.readingStatus).isEqualTo(ReadingStatus.UNREAD)
+        assertThat(book?.lastOpenedAt).isNull()
+    }
+
     private fun repository() = ReaderRepositoryImpl(
         discovery = discovery,
         launcher = launcher,
         export = export,
         session = session,
+        clock = clock,
         profileDao = database.readerProfileDao(),
         bookDao = database.bookDao(),
         formatDefaultDao = database.formatDefaultDao(),
     )
 
-    private suspend fun givenBook() {
+    private suspend fun givenBook(status: ReadingStatus = ReadingStatus.UNREAD) {
         database.bookDao().insert(
             BookEntity(
                 id = BOOK_ID,
@@ -179,6 +223,7 @@ class ReaderOpenBookTest {
                 addedAt = 1_000L,
                 updatedAt = 1_000L,
                 lastSeenAt = 1_000L,
+                readingStatus = status,
             ),
         )
     }

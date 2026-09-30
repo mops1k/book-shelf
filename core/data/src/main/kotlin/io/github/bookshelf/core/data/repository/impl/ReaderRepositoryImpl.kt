@@ -11,7 +11,9 @@ import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.common.reader.ReaderSession
+import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.database.dao.FormatDefaultDao
+import io.github.bookshelf.core.database.model.ReadingStatus
 import io.github.bookshelf.core.database.dao.ReaderProfileDao
 import io.github.bookshelf.core.database.entity.FormatDefaultEntity
 import io.github.bookshelf.core.database.entity.ReaderProfileEntity
@@ -51,6 +53,7 @@ class ReaderRepositoryImpl @Inject constructor(
     private val bookDao: BookDao,
     private val formatDefaultDao: FormatDefaultDao,
     private val session: ReaderSession,
+    private val clock: AppClock,
 ) : ReaderRepository {
 
     /**
@@ -129,7 +132,7 @@ class ReaderRepositoryImpl @Inject constructor(
         val direct = launcher.launch(request)
         // Отказ читалки — не тупик: есть один запасной ход, временная копия файла.
         if (direct.isSuccess) {
-            session.markOpened(book.id)
+            markOpened(book.id)
             return direct
         }
         return launchExportedCopy(book.id, book.documentUri, request)
@@ -156,10 +159,42 @@ class ReaderRepositoryImpl @Inject constructor(
                 exported.errorOrNull() ?: AppError.Unknown(message = "Копия книги не подготовлена"),
             )
         val launched = launcher.launch(request.copy(documentUri = exportedUri))
-        // Сессию отмечаем только по факту запуска: читалка, которая не открылась, чтением не стала,
+        // Отмечаем только по факту запуска: читалка, которая не открылась, чтением не стала,
         // и запрещать фоновую работу после отказа было бы вредно.
-        if (launched.isSuccess) session.markOpened(bookId)
+        if (launched.isSuccess) markOpened(bookId)
         return launched
+    }
+
+    /**
+     * Книгу открыли: она читается прямо сейчас.
+     *
+     * Требование Александра (30.09.2026): статус меняется при открытии из полки **независимо** от
+     * интеграции с читалкой. Раньше «читаю» появлялось только из синхронизации прогресса, а она
+     * работает лишь когда читалка отдала позицию и книгу удалось опознать, — без этого книга
+     * оставалась «не прочитано», хотя её открыли.
+     *
+     * Уже выставленный статус не переписываем: «прочитано» синхронизация и открытие сбрасывать не
+     * должны — человек мог открыть законченную книгу, чтобы перечитать главу. Дата открытия при
+     * этом обновляется всегда: по ней полка сортирует «Дата открытия» и собирает полку «Читаю».
+     *
+     * Отдельного запроса в DAO нет намеренно: строку читаем существующим `getById` и пишем
+     * существующим `update`, а не заводим третий метод на два поля (порог detekt по числу функций
+     * в `BookDao` уже на пределе).
+     */
+    private suspend fun markOpened(bookId: String) {
+        val current = bookDao.getById(bookId) ?: return
+        bookDao.update(
+            current.copy(
+                lastOpenedAt = clock.nowMillis(),
+                readingStatus = if (current.readingStatus == ReadingStatus.UNREAD) {
+                    ReadingStatus.READING
+                } else {
+                    current.readingStatus
+                },
+            ),
+        )
+        // Сессия чтения — та же причина: пока читалка открыта, тяжёлые работы уступают ей дорогу.
+        session.markOpened(bookId)
     }
 
     /**
