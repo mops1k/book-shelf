@@ -65,6 +65,14 @@ object SettingsKeys {
     val TEMP_COPY_LIMIT_MB: Preferences.Key<Int> = intPreferencesKey("library.temp_copy_limit_mb")
     val COVER_CACHE_LIMIT_MB: Preferences.Key<Int> = intPreferencesKey("library.cover_cache_limit_mb")
 
+    /**
+     * Показывать съёмный носитель (карту памяти, флешку) отдельной полкой.
+     *
+     * Умолчание — включено: требование Александра (01.10.2026) — вставил карту с книгами, и полка
+     * появилась сама; вынул — исчезла вместе с книгами носителя.
+     */
+    val SHOW_REMOVABLE_SHELF: Preferences.Key<Boolean> = booleanPreferencesKey("library.show_removable_shelf")
+
     // --- Читалки ---
     /** JSON-объект `format -> profileId` (Preferences не умеет `Map`). */
     val DEFAULT_READER_BY_FORMAT: Preferences.Key<String> = stringPreferencesKey("reader.default_by_format")
@@ -134,6 +142,7 @@ object SettingsKeys {
         const val METADATA_PARALLELISM = 2
         const val TEMP_COPY_LIMIT_MB = 100
         const val COVER_CACHE_LIMIT_MB = 200
+        const val SHOW_REMOVABLE_SHELF = true
 
         const val ENABLE_FBREADER_PROGRESS = false
 

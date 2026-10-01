@@ -26,6 +26,14 @@
     <string name="collections_content_empty_manual">Add books with «Add to a collection» in the book card.</string>
     <string name="collections_cover_description">Cover: %1$s, %2$s</string>
     <string name="collections_count">collections: %1$d · smart: %2$d</string>
+    <!-- Removable storage shelf: a memory card or a USB drive. The row title is the volume label. -->
+    <string name="collections_card_title">Memory card</string>
+    <string name="collections_card_kind">Removable storage</string>
+    <string name="collections_card_needs_access">Access to the storage folder is needed</string>
+    <string name="collections_card_grant">Grant access</string>
+    <string name="collections_card_error_denied">Access to the storage folder was not granted</string>
+    <string name="collections_card_error_foreign_folder">The chosen folder is not on this storage</string>
+    <string name="collections_card_error_failed">Could not get access to the removable storage</string>
     <plurals name="collections_book_count">
         <item quantity="one">%1$d book</item>
         <item quantity="other">%1$d books</item>

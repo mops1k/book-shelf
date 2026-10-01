@@ -27,6 +27,14 @@
     <string name="collections_content_empty_manual">Добавьте книги через «В полку» в карточке книги.</string>
     <string name="collections_cover_description">Обложка: %1$s, %2$s</string>
     <string name="collections_count">полок: %1$d · умных: %2$d</string>
+    <!-- Полка съёмного носителя: карта памяти или флешка. Название строки — метка тома от системы. -->
+    <string name="collections_card_title">Карта памяти</string>
+    <string name="collections_card_kind">Съёмный носитель</string>
+    <string name="collections_card_needs_access">Нужен доступ к папке носителя</string>
+    <string name="collections_card_grant">Дать доступ</string>
+    <string name="collections_card_error_denied">Доступ к папке носителя не выдан</string>
+    <string name="collections_card_error_foreign_folder">Выбранная папка не на этом носителе</string>
+    <string name="collections_card_error_failed">Не удалось получить доступ к носителю</string>
     <plurals name="collections_book_count">
         <item quantity="one">%1$d книга</item>
         <item quantity="few">%1$d книги</item>

@@ -376,6 +376,9 @@ class SyncReadingProgressTest {
         override suspend fun addSafSource(uri: String, displayName: String): AppResult<Source> =
             AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
+        override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> =
+            AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
+
         override suspend fun removeSource(sourceId: String): AppResult<Unit> =
             AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 

@@ -3,6 +3,7 @@ package io.github.bookshelf.core.testing.fake
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.model.Source
+import io.github.bookshelf.core.data.model.SourceKind
 import io.github.bookshelf.core.data.repository.SourceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -45,6 +46,21 @@ class FakeSourceRepository(
         )
         sources = sources + source
         return AppResult.success(source)
+    }
+
+    /** Адреса источников, зарегистрированных с уже имеющимся доступом (полка носителя). */
+    val grantedSources: MutableList<String> = mutableListOf()
+
+    override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> {
+        grantedSources += uri
+        return AppResult.success(
+            Source(
+                id = "granted-${grantedSources.size}",
+                uri = uri,
+                displayName = displayName,
+                kind = SourceKind.SAF_TREE,
+            ),
+        )
     }
 
     override suspend fun removeSource(sourceId: String): AppResult<Unit> {

@@ -133,6 +133,8 @@ data class AppSettingsUi(
     val sortOrder: SortOrder = SortOrder.TITLE,
     /** Обратный порядок для сортировки по умолчанию. */
     val sortDescending: Boolean = false,
+    /** Полка съёмного носителя: карта памяти или флешка отдельной полкой в списке полок. */
+    val showRemovableShelf: Boolean = true,
     /** Группировка полки по умолчанию: заголовки-разделители внутри списка. */
     val grouping: Grouping = Grouping.NONE,
     /** Показывать обложки на полке. */

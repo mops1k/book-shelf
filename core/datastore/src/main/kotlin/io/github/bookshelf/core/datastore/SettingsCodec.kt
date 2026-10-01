@@ -88,6 +88,7 @@ internal object SettingsCodec {
             target[SettingsKeys.SCAN_SCHEDULE] = scanSchedule.name
             target[SettingsKeys.MISSING_CLEANUP_DAYS] = missingCleanupDays
             target[SettingsKeys.METADATA_PARALLELISM] = metadataParallelism
+            target[SettingsKeys.SHOW_REMOVABLE_SHELF] = showRemovableShelf
             target[SettingsKeys.TEMP_COPY_LIMIT_MB] = tempCopyLimitMb
             target[SettingsKeys.COVER_CACHE_LIMIT_MB] = coverCacheLimitMb
         }
@@ -180,6 +181,8 @@ internal object SettingsCodec {
             SettingsKeys.Defaults.GROUPING,
         ),
         showMissing = preferences[SettingsKeys.SHOW_MISSING] ?: SettingsKeys.Defaults.SHOW_MISSING,
+        showRemovableShelf = preferences[SettingsKeys.SHOW_REMOVABLE_SHELF]
+            ?: SettingsKeys.Defaults.SHOW_REMOVABLE_SHELF,
         autoScanOnStart = preferences[SettingsKeys.AUTO_SCAN_ON_START]
             ?: SettingsKeys.Defaults.AUTO_SCAN_ON_START,
         scanSchedule = enumNameOrDefault(

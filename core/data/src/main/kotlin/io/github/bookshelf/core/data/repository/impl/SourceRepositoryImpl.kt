@@ -104,6 +104,27 @@ class SourceRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> {
+        if (uri.isBlank()) {
+            return AppResult.failure(
+                AppError.InvalidArgument(what = "treeUri", message = "URI папки не может быть пустым"),
+            )
+        }
+        // Право не запрашивается намеренно: у приложения уже есть доступ ко всем файлам, а
+        // `takePersistablePermission` на адрес, который человек не выбирал, вернул бы отказ (30.09.2026).
+        val entity = SourceEntity(
+            id = UUID.randomUUID().toString(),
+            uri = uri,
+            displayName = displayName,
+            kind = io.github.bookshelf.core.database.model.SourceKind.SAF_TREE,
+        )
+        return appRunCatching {
+            sourceDao.insert(entity)
+            scanScheduler.enqueueScan(entity.id)
+            entity.toDomain(documentCount = 0)
+        }
+    }
+
     override suspend fun hasWriteAccess(sourceId: String): Boolean {
         val source = sourceDao.getById(sourceId) ?: return false
         return safTreeReader.hasWritePermission(source.uri)

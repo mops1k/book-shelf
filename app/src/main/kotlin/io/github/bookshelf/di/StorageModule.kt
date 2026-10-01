@@ -73,6 +73,52 @@ object StorageModule {
         WorkManager.getInstance(context),
     )
 
+    /**
+     * Монитор съёмных носителей.
+     *
+     * Читает тома системы и слушает события медиа: на них строится появление и исчезновение полки
+     * «Карта памяти» (требование Александра 01.10.2026).
+     */
+    @Provides
+    @Singleton
+    fun provideRemovableVolumeMonitor(
+        @ApplicationContext context: Context,
+    ): io.github.bookshelf.core.storage.volume.RemovableVolumeMonitor =
+        io.github.bookshelf.core.storage.volume.AndroidRemovableVolumeMonitor(context)
+
+    /**
+     * Доступ ко всем файлам.
+     *
+     * API 30+ — `MANAGE_EXTERNAL_STORAGE`; на 24–29 ему соответствует разрешение на чтение памяти.
+     * От ответа зависит, спросят ли человека о доступе к носителю (решение «сначала прямой путь»).
+     */
+    @Provides
+    fun provideAllFilesAccess(
+        @ApplicationContext context: Context,
+    ): io.github.bookshelf.core.common.permission.AllFilesAccess =
+        io.github.bookshelf.core.common.permission.AllFilesAccess {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                android.os.Environment.isExternalStorageManager()
+            } else {
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+        }
+
+        /**
+     * Полка съёмного носителя: интерфейс связывается с реализацией здесь.
+     *
+     * `@Provides`, а не `@Binds`: модуль объектный, абстрактных методов в нём нет — так же связаны
+     * остальные порты этого модуля.
+     */
+    @Provides
+    @Singleton
+    fun provideRemovableShelfRepository(
+        implementation: io.github.bookshelf.core.data.removable.RemovableShelfRepositoryImpl,
+    ): io.github.bookshelf.core.data.removable.RemovableShelfRepository = implementation
+
     @Provides
     @Singleton
     fun provideSafTreeWriter(@ApplicationContext context: Context): SafTreeWriter =

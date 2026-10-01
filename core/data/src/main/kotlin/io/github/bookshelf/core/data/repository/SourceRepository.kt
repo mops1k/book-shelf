@@ -21,6 +21,15 @@ interface SourceRepository {
     /** Добавить папку SAF: `takePersistableUriPermission` + запись в `sources` + первичный скан. */
     suspend fun addSafSource(uri: String, displayName: String): AppResult<Source>
 
+    /**
+     * Добавить источник, доступ к которому уже есть: разрешение не запрашивается.
+     *
+     * Нужно съёмному носителю: с доступом ко всем файлам система уже пускает в дерево тома, и
+     * спрашивать человека было бы лишним вопросом (решение Александра 01.10.2026 — «сначала прямой
+     * путь, иначе SAF»). Без такого доступа источник заводит [addSafSource] после выбора папки.
+     */
+    suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source>
+
     /** Убрать источник из библиотеки (книги помечаются пропавшими, но не удаляются). */
     suspend fun removeSource(sourceId: String): AppResult<Unit>
 

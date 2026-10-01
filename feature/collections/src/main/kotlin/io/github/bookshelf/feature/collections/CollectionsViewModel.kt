@@ -12,8 +12,12 @@ import io.github.bookshelf.core.data.model.Collection
 import io.github.bookshelf.core.data.model.CollectionType
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.model.SmartRules
+import io.github.bookshelf.core.data.removable.RemovableShelf
+import io.github.bookshelf.core.data.removable.RemovableShelfRepository
+import io.github.bookshelf.core.data.removable.volumeTreeUri
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.storage.volume.RemovableVolume
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +60,13 @@ class CollectionsViewModel @Inject constructor(
      * условий, что у фильтра, и второй способ их собирать разошёлся бы с первым.
      */
     private val filterSelection: FilterSelection,
+    /**
+     * Полка съёмного носителя: карты памяти и флешки (требование Александра 01.10.2026).
+     *
+     * Отдельно от [collectionRepository]: полка носителя не лежит в базе полок — она появляется
+     * вместе с носителем и исчезает вместе с ним.
+     */
+    private val removableShelfRepository: RemovableShelfRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CollectionsUiState())
@@ -66,9 +77,18 @@ class CollectionsViewModel @Inject constructor(
     /** Текущая подписка на полки: [onRefresh] перезапускает её, а не заводит вторую. */
     private var collectionsJob: Job? = null
 
+    /**
+     * Носитель, к которому относятся действия экрана.
+     *
+     * Хранится, а не берётся из состояния: в состоянии для экрана лежит только то, что он
+     * показывает (метка, число книг), а `RemovableVolume` нужен лишь вызовам репозитория.
+     */
+    private var cardVolume: RemovableVolume? = null
+
     init {
         observeCollections()
         observeFilterSelection()
+        observeRemovableShelf()
     }
 
     /** Выделить полку — цель действия «Открыть» с D-pad и аппаратных кнопок. */
@@ -229,7 +249,60 @@ class CollectionsViewModel @Inject constructor(
      * перезапуск подписки, которая ранее упала.
      */
     fun onRefresh() {
+        // «Повторить» в баннере относится и к отказу доступа к носителю: повтор — это новое действие.
+        _uiState.update { it.copy(cardError = null) }
         observeCollections()
+    }
+
+    /**
+     * Дать доступ к носителю: сначала прямой путь, иначе — системный выбор папки.
+     *
+     * Порядок утверждён Александром 01.10.2026. С доступом ко всем файлам источник заводит сам
+     * репозиторий, и человек ничего не видит. Без него репозиторий отказывает
+     * [AppError.PermissionDenied] — это не ошибка, а просьба открыть выбор папки на корне носителя.
+     */
+    fun onGrantCardAccess() {
+        val volume = cardVolume ?: return
+        viewModelScope.launch {
+            removableShelfRepository.ensureSource(volume).fold(
+                onSuccess = { _uiState.update { it.copy(cardAccessRequest = null, cardError = null) } },
+                onFailure = { error -> onCardAccessFailure(volume, error) },
+            )
+        }
+    }
+
+    /**
+     * Человек ответил на системный выбор папки.
+     *
+     * [treeUri] `null` — выбор закрыт без папки: это не ошибка, строка носителя просто продолжает
+     * предлагать доступ. Папку проверяет репозиторий: он знает, что относится к этому носителю.
+     */
+    fun onCardTreePicked(treeUri: String?) {
+        val volume = cardVolume ?: return
+        _uiState.update { it.copy(cardAccessRequest = null) }
+        if (treeUri == null) return
+        viewModelScope.launch {
+            removableShelfRepository.grantTreeAccess(volume, treeUri).fold(
+                onSuccess = { _uiState.update { it.copy(cardError = null) } },
+                onFailure = { error -> _uiState.update { it.copy(cardError = error) } },
+            )
+        }
+    }
+
+    /**
+     * Отказ доступа: просьба выбрать папку или честная ошибка на экране.
+     *
+     * Разделение по типу обязательно: «нет доступа ко всем файлам» — обычный ход событий, о котором
+     * человеку сообщают не текстом, а открытым диалогом системы, а всё остальное — действительно
+     * ошибка (нет права на выбранную папку, отказ провайдера, сбой базы).
+     */
+    private fun onCardAccessFailure(volume: RemovableVolume, error: AppError) {
+        if (error is AppError.PermissionDenied) {
+            // Пикер открывается на дереве носителя: искать карту в списке мест вручную — работа.
+            _uiState.update { it.copy(cardAccessRequest = volumeTreeUri(volume.uuid), cardError = null) }
+        } else {
+            _uiState.update { it.copy(cardError = error) }
+        }
     }
 
     /**
@@ -258,6 +331,31 @@ class CollectionsViewModel @Inject constructor(
                             .map { preset -> preset.toUi() },
                         isLoading = false,
                     )
+                }
+        }
+    }
+
+    /**
+     * Подписаться на полку съёмного носителя.
+     *
+     * Носитель вставили — строка появится; вынули или выключили настройку — исчезнет: состав
+     * решает репозиторий, экран показывает то, что пришло. Отказ потока не гасит список полок:
+     * без полки носителя экран остаётся рабочим, поэтому в состояние кладётся тип ошибки, а текст
+     * выберет экран.
+     */
+    private fun observeRemovableShelf() {
+        viewModelScope.launch {
+            removableShelfRepository.observeShelf()
+                .catch { throwable ->
+                    cardVolume = null
+                    _uiState.update {
+                        it.copy(removableShelf = null, cardError = throwable.toAppError())
+                    }
+                }
+                .collect { shelf ->
+                    cardVolume = shelf?.volume
+                    // Успешно заведённый источник приходит сюда же: строка перестаёт просить доступ.
+                    _uiState.update { it.copy(removableShelf = shelf?.toUi(), cardError = null) }
                 }
         }
     }
@@ -321,6 +419,18 @@ class CollectionsViewModel @Inject constructor(
             ?.takeIf { !it.isEmpty }
             ?.describe(maxParts = ROW_RULES_PARTS),
         previewCovers = previewCovers,
+    )
+
+    /**
+     * Полка носителя для экрана.
+     *
+     * Метка тома — данные системы, а не переводимый текст: пустую метку экран заменяет названием
+     * по умолчанию («Карта памяти»), поэтому сюда попадает как есть.
+     */
+    private fun RemovableShelf.toUi(): RemovableShelfUi = RemovableShelfUi(
+        label = volume.label,
+        bookCount = bookCount,
+        needsAccess = needsAccess,
     )
 
     /** Имя подборки, собранной из текущего фильтра: по нему видно, что внутри. */

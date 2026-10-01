@@ -104,6 +104,17 @@ internal fun LibraryScanCategory(
             ViewPresetChooser(preset = state.settings.viewPreset, onPick = viewModel::onSetViewPreset)
         }
 
+        item(key = "library-removable-shelf") {
+            ToggleRow(
+                title = stringResource(R.string.settings_library_removable_shelf),
+                subtitle = stringResource(R.string.settings_library_removable_shelf_hint),
+                enabled = state.settings.showRemovableShelf,
+                onToggle = { enabled ->
+                    viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetShowRemovableShelf(enabled))
+                },
+            )
+        }
+
         item(key = "default-sort") {
             ValueChoiceRow(
                 title = stringResource(R.string.settings_library_sort),

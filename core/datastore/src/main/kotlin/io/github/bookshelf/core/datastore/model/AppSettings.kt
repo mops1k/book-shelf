@@ -68,6 +68,8 @@ data class LibrarySettings(
     val missingCleanupDays: Int = SettingsKeys.Defaults.MISSING_CLEANUP_DAYS,
     val metadataParallelism: Int = SettingsKeys.Defaults.METADATA_PARALLELISM,
     val tempCopyLimitMb: Int = SettingsKeys.Defaults.TEMP_COPY_LIMIT_MB,
+    /** Полка съёмного носителя в списке полок (карта памяти, флешка). */
+    val showRemovableShelf: Boolean = SettingsKeys.Defaults.SHOW_REMOVABLE_SHELF,
     /**
      * Лимит дискового кэша обложек, МБ (docs/architecture.md §5).
      *

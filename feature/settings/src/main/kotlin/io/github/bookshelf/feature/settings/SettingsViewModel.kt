@@ -310,6 +310,9 @@ class SettingsViewModel @Inject constructor(
                 is LibraryBehaviourAction.SetScanOnStart ->
                     settings.copy(library = settings.library.copy(autoScanOnStart = action.enabled))
 
+                is LibraryBehaviourAction.SetShowRemovableShelf ->
+                    settings.copy(library = settings.library.copy(showRemovableShelf = action.enabled))
+
                 is LibraryBehaviourAction.SetKeepMetadataOnFileChange -> settings.copy(
                     advanced = settings.advanced.copy(
                         keepMetadataOnFileChange = action.enabled,
@@ -618,6 +621,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     viewPreset = settings.library.viewPreset,
     sortOrder = settings.library.sortOrder,
     sortDescending = settings.library.sortDescending,
+    showRemovableShelf = settings.library.showRemovableShelf,
     grouping = settings.library.grouping,
     coverCacheLimitMb = settings.library.coverCacheLimitMb,
     tempCopyLimitMb = settings.library.tempCopyLimitMb,
@@ -868,6 +872,9 @@ sealed interface LibraryBehaviourAction {
      * интерфейсе говорит это прямо.
      */
     data class SetKeepMetadataOnFileChange(val enabled: Boolean) : LibraryBehaviourAction
+
+    /** Показывать съёмный носитель отдельной полкой: карта памяти или флешка. */
+    data class SetShowRemovableShelf(val enabled: Boolean) : LibraryBehaviourAction
 }
 
 sealed interface DiskLimitAction {

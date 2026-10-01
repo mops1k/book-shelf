@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.collections.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,13 +17,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
@@ -37,6 +42,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.collections.CollectionUi
 import io.github.bookshelf.feature.collections.CollectionsUiState
 import io.github.bookshelf.feature.collections.CollectionsViewModel
+import io.github.bookshelf.feature.collections.RemovableShelfUi
 import io.github.bookshelf.feature.collections.R
 
 /**
@@ -54,12 +60,19 @@ private const val PREVIEW_COVERS = 3
 /** Ширина мини-обложки в строке полки: высота получается из пропорции обложки. */
 private val PREVIEW_COVER_WIDTH = 34.dp
 
+/** Ключ строки полки носителя: она одна и не приходит из базы полок. */
+private const val REMOVABLE_SHELF_KEY = "removable-shelf"
+
 /**
  * Полки: ручные и умные (docs/eink-ux.md §6.3).
  *
  * Строка полки открывает её содержимое; «⋯» — переименование, удаление и правка правил. Ниже —
  * «Доступные автополки» (готовые правила в одно касание) и сохранение текущего фильтра полки
  * как умной полки: набор условий у фильтра и у умной полки один и тот же.
+ *
+ * Первой в списке — полка съёмного носителя, пока он вставлен и настройка включена. Её строку
+ * нельзя переименовать или удалить (состав задаёт носитель), а единственное действие — «Дать
+ * доступ»: без него система не покажет приложению книги на карте (требование 01.10.2026).
  */
 @Composable
 fun CollectionsScreen(
@@ -74,6 +87,12 @@ fun CollectionsScreen(
     val dimens = LocalEinkDimens.current
     val listState = rememberLazyListState()
     val scrollByPage = rememberEinkListPageScroller(listState)
+
+    // Папку носителя выбирает система: приложению её адрес неизвестен.
+    CardAccessPicker(
+        request = state.cardAccessRequest,
+        onPicked = viewModel::onCardTreePicked,
+    )
 
     EinkScaffold(
         title = stringResource(R.string.collections_title),
@@ -107,7 +126,7 @@ fun CollectionsScreen(
             )
         },
     ) {
-        val error = state.error
+        val error = state.error ?: state.cardError?.let { failure -> cardErrorText(failure) }
         if (error != null) {
             EinkErrorBanner(
                 message = error,
@@ -116,7 +135,7 @@ fun CollectionsScreen(
             )
         }
 
-        if (state.collections.isEmpty() && state.presets.isEmpty()) {
+        if (state.collections.isEmpty() && state.presets.isEmpty() && state.removableShelf == null) {
             EinkEmptyState(
                 title = stringResource(R.string.collections_empty_title),
                 message = stringResource(R.string.collections_empty_message),
@@ -126,6 +145,14 @@ fun CollectionsScreen(
             )
         } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                // Полка носителя — первой: её появление и исчезновение и есть ответ на «вставил карту».
+                val card = state.removableShelf
+                if (card != null) {
+                    item(key = REMOVABLE_SHELF_KEY) {
+                        CardShelfRow(shelf = card, onGrantAccess = viewModel::onGrantCardAccess)
+                    }
+                }
+
                 items(items = state.collections, key = { collection -> collection.id }) { collection ->
                     if (collection.id == state.renamingId) {
                         RenameRow(state = state, viewModel = viewModel)
@@ -178,6 +205,56 @@ fun CollectionsScreen(
             }
         }
     }
+}
+
+/**
+ * Системный выбор папки носителя.
+ *
+ * Отдельная функция, а не строки в теле экрана: это запуск чужого экрана по запросу ViewModel, а не
+ * отрисовка, и внутри `CollectionsScreen` они упирались в порог длины функции (detekt LongMethod).
+ * С какого места открывать выбор, решает [folderPickerIntent]; нужен ли он вообще — решает
+ * ViewModel (`cardAccessRequest`), поэтому `null` означает «ничего не открывать».
+ */
+@Composable
+private fun CardAccessPicker(request: String?, onPicked: (String?) -> Unit) {
+    val context = LocalContext.current
+    val folderPicker = rememberLauncherForActivityResult(
+        // Своё действие, а не готовый контракт `OpenDocumentTree`: платформенный интент тома
+        // (см. `folderPickerIntent`) контракт подставить не даёт.
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        // Отменённый выбор приходит без данных: это не ошибка, а решение человека.
+        onPicked(result.data?.data?.toString())
+    }
+    LaunchedEffect(request) {
+        request?.let { treeUri -> folderPicker.launch(folderPickerIntent(context, treeUri)) }
+    }
+}
+
+/**
+ * Строка полки съёмного носителя.
+ *
+ * Это полка, а не элемент настроек: вставили карту с книгами — строка в списке; вынули — её нет.
+ * Переименовать или удалить её нельзя (состав задаёт носитель), поэтому единственное действие —
+ * дать доступ, пока источника нет. Касание всей строки делает то же, что кнопка: на e-ink целиться
+ * в маленькую кнопку неудобно.
+ */
+@Composable
+private fun CardShelfRow(shelf: RemovableShelfUi, onGrantAccess: () -> Unit) {
+    EinkListRow(
+        title = shelf.label.ifBlank { stringResource(R.string.collections_card_title) },
+        subtitle = stringResource(
+            if (shelf.needsAccess) R.string.collections_card_needs_access else R.string.collections_card_kind,
+        ),
+        // Число книг — подпись, а не действие: пока доступа нет, книг и не может быть.
+        trailing = if (shelf.needsAccess) null else shelf.bookCount.toString(),
+        onClick = if (shelf.needsAccess) onGrantAccess else null,
+        trailingContent = if (shelf.needsAccess) {
+            { EinkButton(text = stringResource(R.string.collections_card_grant), onClick = onGrantAccess) }
+        } else {
+            null
+        },
+    )
 }
 
 /** Строка полки: открывается касанием, правка — маленькой кнопкой рядом. */
@@ -317,6 +394,19 @@ private fun collectionSubtitle(collection: CollectionUi): String = when {
 
     collection.isSmart -> stringResource(R.string.collections_kind_smart_empty)
     else -> stringResource(R.string.collections_kind_manual)
+}
+
+/**
+ * Текст отказа доступа к носителю.
+ *
+ * Тип ошибки превращается в ресурс здесь, а не в ViewModel: готовая строка из ViewModel не
+ * переводится (правило локализации), а экран знает, как ошибка выглядит для человека.
+ */
+@Composable
+private fun cardErrorText(error: AppError): String = when (error) {
+    is AppError.InvalidArgument -> stringResource(R.string.collections_card_error_foreign_folder)
+    is AppError.PermissionDenied -> stringResource(R.string.collections_card_error_denied)
+    else -> stringResource(R.string.collections_card_error_failed)
 }
 
 /** Подвал: сколько всего полок и сколько из них умных. */

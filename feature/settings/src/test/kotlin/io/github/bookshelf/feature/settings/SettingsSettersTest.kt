@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.settings
 
 import android.view.View
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.covers.CoverCache
 import io.github.bookshelf.core.covers.CoverCache.CoverKind
@@ -157,6 +158,7 @@ class SettingsSettersTest {
         viewModel.onSetVolumeKeysAsPageTurn(true)
         viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetScanOnStart(true))
         viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetKeepMetadataOnFileChange(false))
+        viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetShowRemovableShelf(false))
         viewModel.onSetDiskLimit(DiskLimitAction.SetCoverCacheMb(500))
         viewModel.onSetDiskLimit(DiskLimitAction.SetTempCopyMb(50))
         advanceUntilIdle()
@@ -164,6 +166,8 @@ class SettingsSettersTest {
         val state = settings.last()
         // Данные книги при замене файла: выключено — значит, заменённый файл считается новой книгой.
         assertThat(state.advanced.keepMetadataOnFileChange).isFalse()
+        // Полка съёмного носителя: выключена — карта памяти отдельной полкой не показывается.
+        assertThat(state.library.showRemovableShelf).isFalse()
         assertThat(state.eink.refreshOnScreenChange).isFalse()
         assertThat(state.eink.refreshOnDialog).isFalse()
         assertThat(state.eink.refreshOnPageChange).isFalse()
@@ -338,6 +342,9 @@ class SettingsSettersTest {
             AppResult.success(
             Source(id = "s", uri = uri, displayName = displayName, kind = SourceKind.SAF_TREE),
         )
+
+        override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> =
+                AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
         override suspend fun removeSource(sourceId: String): AppResult<Unit> = AppResult.success(Unit)
 
