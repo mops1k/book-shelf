@@ -3,6 +3,7 @@ package io.github.bookshelf.core.data.repository
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.data.model.BookCopy
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
@@ -82,6 +83,22 @@ interface BookRepository {
 
     /** Найти книги с одинаковым содержимым и файлы, которые не читаются (нулевой размер). */
     suspend fun findDuplicates(): AppResult<DuplicateReport>
+
+    /**
+     * Файлы-копии книг, найденные сканом.
+     *
+     * Копии книгой не считаются (см. [BookCopy]), поэтому у них нет своего места на полке: список
+     * нужен, чтобы показать занятое место и дать убрать файл.
+     */
+    fun copies(): Flow<List<BookCopy>>
+
+    /**
+     * Убрать файлы копий с устройства.
+     *
+     * Отказ провайдера не отменяет попытку для остальных и **не** убирает связь: файл на диске, и в
+     * списке он должен остаться видимым, чтобы попробовать снова.
+     */
+    suspend fun removeCopies(copyUris: List<String>): AppResult<DeletionResult>
 
     /**
      * Книги, файлы которых не разобрались: имя и причина отказа.

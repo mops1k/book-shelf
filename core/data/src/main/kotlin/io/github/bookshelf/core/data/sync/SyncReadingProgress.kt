@@ -6,6 +6,7 @@ import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ReadingProgressOrigins
 import io.github.bookshelf.core.datastore.SettingsRepository
@@ -61,6 +62,14 @@ class SyncReadingProgress @Inject constructor(
     private val progressSource: ReadingProgressSource,
     private val books: BookRepository,
     private val settings: SettingsRepository,
+    /**
+     * Связи «файл-копия → книга».
+     *
+     * Нужны потому, что читалка читает свою копию (созданную внутри нашей библиотеки) и называет
+     * книгу её адресом: без разбора через копии прогресс записывался копии, а книга пользователя
+     * оставалась без прогресса — и полка показывала процент не у той книги (дефект 01.10.2026).
+     */
+    private val copies: BookCopyDao,
 ) {
 
     /** Прочитать прогресс открытой книги и сохранить его. Исключений наружу не выходит. */
@@ -80,6 +89,7 @@ class SyncReadingProgress @Inject constructor(
             // и по такому адресу книга раньше не находилась вовсе (`BookUnknown`).
             val book = books.findByDocumentUri(open.path).getOrNull()
                 ?: books.findByDocumentUri(ReaderBookPath.toDocumentUri(open.path)).getOrNull()
+                ?: originalOfCopy(open.path)
                 ?: run {
                     // Адрес читалки в журнале обязателен: без него непонятно, почему книга не нашлась
                     // (адрес копии, другое кодирование), и это не отлаживается снаружи.
@@ -109,6 +119,21 @@ class SyncReadingProgress @Inject constructor(
      * Уже выставленный статус не трогаем: «прочитано» синхронизация сбрасывать не должна — человек
      * мог открыть законченную книгу, чтобы перечитать главу.
      */
+    /**
+     * Книга, копией которой является адрес читалки.
+     *
+     * Читалка читает свою копию и называет книгу её адресом: у копии строки в `books` нет — она
+     * живёт связью в `book_copies`, — поэтому по адресу копии находится оригинал, и прогресс
+     * записывается ему. Адрес проверяется в том же порядке, что и для книг: как есть, затем в
+     * приведённом виде (читалка может назвать файл внутри архива).
+     */
+    private suspend fun originalOfCopy(path: String): Book? {
+        val copy = copies.findByUri(path)
+            ?: copies.findByUri(ReaderBookPath.toDocumentUri(path))
+            ?: return null
+        return books.getById(copy.bookId).getOrNull()
+    }
+
     private suspend fun markAsReadingIfFresh(book: Book) {
         if (book.readingStatus != ReadingStatus.UNREAD) return
         books.markRead(book.id, ReadingStatus.READING)

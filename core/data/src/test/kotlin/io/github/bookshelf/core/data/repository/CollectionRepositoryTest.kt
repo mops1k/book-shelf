@@ -262,6 +262,9 @@ class CollectionRepositoryTest {
 
         override suspend fun getBooks(collectionId: String) = refs.filter { it.collectionId == collectionId }
 
+        override suspend fun collectionIdsOfBook(bookId: String) =
+            refs.filter { it.bookId == bookId }.map { ref -> ref.collectionId }
+
         override fun getBooksFlow(collectionId: String): Flow<List<CollectionBookCrossRef>> =
             MutableStateFlow(refs.filter { it.collectionId == collectionId })
     }

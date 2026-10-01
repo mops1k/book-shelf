@@ -217,6 +217,7 @@ class BookOptimizationTest {
         clock = FakeAppClock(),
         authorWriter = BookAuthorWriter(database.authorDao()),
         bookCleanupDao = database.bookCleanupDao(),
+            bookCopyDao = database.bookCopyDao(),
         contentOpener = opener,
         fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
     )

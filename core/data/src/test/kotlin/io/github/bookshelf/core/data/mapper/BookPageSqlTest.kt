@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.LibraryQuery
+import io.github.bookshelf.core.data.model.SortOrder
 import org.junit.Test
 
 /**
@@ -15,6 +16,40 @@ import org.junit.Test
  * `tags.id` (`tag:sf_space`), а в колонку подставлялся код жанра (`sf_space`).
  */
 class BookPageSqlTest {
+
+    @Test
+    fun `books never opened go last in either direction`() {
+        val ascending = BookPageSql.select(
+            LibraryQuery(sort = SortOrder.LAST_OPENED, descending = false),
+        )
+        val descending = BookPageSql.select(
+            LibraryQuery(sort = SortOrder.LAST_OPENED, descending = true),
+        )
+
+        // В SQLite `NULL` при возрастании идёт первым, поэтому «никогда не открывали» занимало
+        // первые места: на устройстве 01.10.2026 из 92 книг дата открытия была только у двух.
+        assertThat(ascending.sql.substringAfter("ORDER BY"))
+            .startsWith(" books.lastOpenedAt IS NULL, books.lastOpenedAt ASC")
+        assertThat(descending.sql.substringAfter("ORDER BY"))
+            .startsWith(" books.lastOpenedAt IS NULL, books.lastOpenedAt DESC")
+    }
+
+    @Test
+    fun `books without progress go last in either direction`() {
+        val ascending = BookPageSql.select(
+            LibraryQuery(sort = SortOrder.PROGRESS, descending = false),
+        )
+        val descending = BookPageSql.select(
+            LibraryQuery(sort = SortOrder.PROGRESS, descending = true),
+        )
+
+        // Прогресса нет — `COALESCE` даёт ноль: такой ноль обязан уходить в конец в обоих
+        // направлениях, иначе «по прогрессу» открывалось бы списком непрочитанного.
+        assertThat(ascending.sql.substringAfter("ORDER BY"))
+            .startsWith(" COALESCE(progress.percent, 0) = 0, COALESCE(progress.percent, 0) ASC")
+        assertThat(descending.sql.substringAfter("ORDER BY"))
+            .startsWith(" COALESCE(progress.percent, 0) = 0, COALESCE(progress.percent, 0) DESC")
+    }
 
     @Test
     fun `tag filter matches by tag name, not by the id column`() {

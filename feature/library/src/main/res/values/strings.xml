@@ -47,10 +47,10 @@
     <string name="library_sort_hint_title">По заглавию, без учёта «The» и «A»</string>
     <string name="library_sort_hint_author">Сначала автор, потом заглавие</string>
     <string name="library_sort_hint_series">По серии и номеру в ней</string>
-    <string name="library_sort_hint_added">Сначала добавленные последними</string>
-    <string name="library_sort_hint_last_opened">Сначала те, что открывали недавно</string>
+    <string name="library_sort_hint_added">По дате добавления в библиотеку</string>
+    <string name="library_sort_hint_last_opened">По дате последнего открытия; книги без неё — в конце</string>
     <string name="library_sort_hint_size">По размеру файла</string>
-    <string name="library_sort_hint_progress">Сначала недопрочитанные</string>
+    <string name="library_sort_hint_progress">По проценту прочитанного; книги без прогресса — в конце</string>
     <string name="library_sort_hint_year">По году издания</string>
 
     <string name="library_grouping_none">без группировки</string>
@@ -75,4 +75,12 @@
         <item quantity="many">%1$d книг</item>
         <item quantity="other">%1$d книг</item>
     </plurals>
+    <string name="library_sort_direction_header">Направление</string>
+    <string name="library_sort_ascending">По возрастанию</string>
+    <string name="library_sort_ascending_hint">Сначала меньшие значения: старые даты, маленькие файлы, начало алфавита</string>
+    <string name="library_sort_descending">По убыванию</string>
+    <string name="library_sort_descending_hint">Сначала большие значения: свежие даты, большие файлы, конец алфавита</string>
+    <string name="library_sort_direction_back">Назад к выбору поля</string>
+    <string name="library_sort_arrow_down">↓</string>
+    <string name="library_sort_arrow_up">↑</string>
 </resources>

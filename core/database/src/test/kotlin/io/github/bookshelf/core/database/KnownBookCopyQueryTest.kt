@@ -13,15 +13,15 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Поиск копии уже известной книги по имени файла и размеру.
+ * Книги того же размера — единственные, чьё содержимое может совпасть с новым файлом.
  *
- * Зачем запрос: FBReader, открывая книгу из нашего приложения, копирует файл в `Books/<дата>/`
- * внутри нашей библиотеки (его настройка «Куда сохранять загруженные книги» указывает на ту же
- * папку, что мы сканируем). Копия — тот же файл, поэтому у неё совпадают имя и размер; заводить на
- * неё вторую книгу нельзя — 30.09.2026 так появился дубль в полке.
+ * Зачем запрос: решать «это копия известной книги?» дешевле всего по размеру, а содержимое читать
+ * только для совпавших. Так полное чтение файлов не случается там, где совпадения быть не может
+ * (уникальный размер), а порядок книг задаёт, какая из одинаковых считается оригиналом: самая
+ * ранняя по дате добавления, при равенстве — с меньшим путём (решение Александра 01.10.2026).
  *
- * Проверяются границы: совпало и имя, и размер — копия; отличается размер — другая книга;
- * отличается имя — другая книга. Без этого «защита от копий» прятала бы настоящие новые книги.
+ * Пустые файлы исключены: у них нет содержимого, и сравнивать их нельзя (нулевой размер совпадает
+ * у всех битых книг сразу).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [24])
@@ -43,82 +43,66 @@ class KnownBookCopyQueryTest {
     }
 
     @Test
-    fun `a file with the same name and size as a known book is found`() = runBlocking {
-        database.sourceDao().insert(BookDaoTestFixtures.source(id = "src-1"))
-        database.bookDao().insert(
-            BookDaoTestFixtures.book(
-                id = "doc:original",
-                sourceId = "src-1",
-                title = "Предыстория. Книга 4",
-                extension = "fb2.zip",
-                sizeBytes = 588_846L,
-            ),
-        )
+    fun `only books of the same size are returned`() = runBlocking<Unit> {
+        givenBook(id = "doc:same", size = 514_015L)
+        givenBook(id = "doc:other", size = 588_846L)
 
-        val copies = database.bookDao()
-            .countByFileNameAndSize(COPY_NAME, 588_846L, excludeId = "doc:copy")
+        val candidates = database.bookCopyDao().findBooksBySize(514_015L)
 
-        assertThat(copies).isEqualTo(1)
+        assertThat(candidates.map { book -> book.id }).containsExactly("doc:same")
     }
 
     @Test
-    fun `a file of another size is not a copy`() = runBlocking {
-        database.sourceDao().insert(BookDaoTestFixtures.source(id = "src-1"))
-        database.bookDao().insert(
-            BookDaoTestFixtures.book(
-                id = "doc:original",
-                sourceId = "src-1",
-                title = "Предыстория. Книга 4",
-                extension = "fb2.zip",
-                sizeBytes = 588_846L,
-            ),
+    fun `the earliest book comes first`() = runBlocking<Unit> {
+        givenBook(id = "doc:copy", size = 514_015L, addedAt = 2_000L, path = "2026-09-30/Книга.fb2.zip")
+        givenBook(
+            id = "doc:original",
+            size = 514_015L,
+            addedAt = 1_000L,
+            path = "Тармашев/Древний/Книга.fb2.zip",
         )
 
-        val copies = database.bookDao()
-            .countByFileNameAndSize(COPY_NAME, 588_847L, excludeId = "doc:copy")
+        val candidates = database.bookCopyDao().findBooksBySize(514_015L)
 
-        assertThat(copies).isEqualTo(0)
+        // Первый в списке становится оригиналом: копия читалки добавлена позже книги пользователя.
+        assertThat(candidates.first().id).isEqualTo("doc:original")
     }
 
     @Test
-    fun `a file with another name is not a copy`() = runBlocking {
-        database.sourceDao().insert(BookDaoTestFixtures.source(id = "src-1"))
-        database.bookDao().insert(
-            BookDaoTestFixtures.book(
-                id = "doc:original",
-                sourceId = "src-1",
-                title = "Предыстория. Книга 4",
-                extension = "fb2.zip",
-                sizeBytes = 588_846L,
-            ),
-        )
+    fun `empty files are never candidates`() = runBlocking<Unit> {
+        givenBook(id = "doc:broken", size = 0L)
 
-        val copies = database.bookDao()
-            .countByFileNameAndSize("Другая книга.fb2.zip", 588_846L, excludeId = "doc:copy")
-
-        assertThat(copies).isEqualTo(0)
+        assertThat(database.bookCopyDao().findBooksBySize(0L)).isEmpty()
     }
 
     @Test
-    fun `the book being written is not counted as its own copy`() = runBlocking {
-        database.sourceDao().insert(BookDaoTestFixtures.source(id = "src-1"))
-        database.bookDao().insert(
-            BookDaoTestFixtures.book(
-                id = "doc:same",
-                sourceId = "src-1",
-                title = "Предыстория. Книга 4",
-                extension = "fb2.zip",
-                sizeBytes = 588_846L,
-            ),
+    fun `a remembered fingerprint is written to the book`() = runBlocking<Unit> {
+        givenBook(id = "doc:original", size = 514_015L)
+
+        database.bookCopyDao().rememberContentHash("doc:original", "hash-1")
+
+        assertThat(database.bookDao().getById("doc:original")?.contentHash).isEqualTo("hash-1")
+    }
+
+    private suspend fun givenBook(
+        id: String,
+        size: Long,
+        addedAt: Long = 1_000L,
+        path: String? = null,
+    ) {
+        database.sourceDao().insert(BookDaoTestFixtures.source(id = SOURCE_ID))
+        val book = BookDaoTestFixtures.book(
+            id = id,
+            sourceId = SOURCE_ID,
+            sizeBytes = size,
+            addedAt = addedAt,
         )
-
-        val copies = database.bookDao()
-            .countByFileNameAndSize(COPY_NAME, 588_846L, excludeId = "doc:same")
-
-        assertThat(copies).isEqualTo(0)
+        database.bookDao().insert(
+            path?.let { book.copy(relativePath = it, fileName = it.substringAfterLast('/')) } ?: book,
+        )
     }
 
     private companion object {
-        const val COPY_NAME = "Предыстория. Книга 4.fb2.zip"
+        const val SOURCE_ID = "src-1"
     }
 }

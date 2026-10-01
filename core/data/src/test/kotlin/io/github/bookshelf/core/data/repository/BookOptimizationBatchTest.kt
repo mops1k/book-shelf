@@ -223,6 +223,7 @@ class BookOptimizationBatchTest {
         clock = FakeAppClock(),
         authorWriter = BookAuthorWriter(database.authorDao()),
         bookCleanupDao = database.bookCleanupDao(),
+            bookCopyDao = database.bookCopyDao(),
         contentOpener = opener,
         fb2Optimizer = optimizer(),
     )

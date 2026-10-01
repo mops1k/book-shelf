@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.settings
 
 import io.github.bookshelf.core.datastore.model.BYTES_PER_MEGABYTE
+import io.github.bookshelf.feature.settings.R
 
 /**
  * Варианты лимитов диска из раздела «Библиотека и скан», МБ.
@@ -26,8 +27,29 @@ internal fun freedBytesLabel(bytes: Long): String {
     val safe = bytes.coerceAtLeast(0L)
     if (safe < BYTES_PER_KILOBYTE) return "$safe Б"
     if (safe < BYTES_PER_MEGABYTE) return "${safe / BYTES_PER_KILOBYTE} КБ"
-    val tenthsOfMegabyte = safe * TENTHS_PER_UNIT / BYTES_PER_MEGABYTE
-    return "${tenthsOfMegabyte / TENTHS_PER_UNIT},${tenthsOfMegabyte % TENTHS_PER_UNIT} МБ"
+    return "${tenthsOfMegabyte(safe)} МБ"
+}
+
+/**
+ * Размер словами по правилу локализации: число считает эта функция, единицу даёт ресурс.
+ *
+ * Числовая часть общая с [freedBytesLabel] — иначе две копии округления разошлись бы в подписях
+ * (1024 вместо 1000, запятая против точки). [freedBytesLabel] остаётся, пока сообщения настроек не
+ * переведены целиком: там текст склеивается в строку вне экрана.
+ */
+internal fun freedBytesText(bytes: Long): SettingsText {
+    val safe = bytes.coerceAtLeast(0L)
+    return when {
+        safe < BYTES_PER_KILOBYTE -> SettingsText(R.string.settings_freed_bytes, safe)
+        safe < BYTES_PER_MEGABYTE -> SettingsText(R.string.settings_freed_kb, safe / BYTES_PER_KILOBYTE)
+        else -> SettingsText(R.string.settings_freed_mb, tenthsOfMegabyte(safe))
+    }
+}
+
+/** Десятые доли мегабайта с запятой: «12,4» — так объём читается по-русски. */
+private fun tenthsOfMegabyte(safeBytes: Long): String {
+    val tenths = safeBytes * TENTHS_PER_UNIT / BYTES_PER_MEGABYTE
+    return "${tenths / TENTHS_PER_UNIT},${tenths % TENTHS_PER_UNIT}"
 }
 
 /** 1 КБ — 1024 байта: так объём считает файловая система. */

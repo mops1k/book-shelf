@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.database.migration.MIGRATION_1_2
 import io.github.bookshelf.core.database.migration.MIGRATION_2_3
 import io.github.bookshelf.core.database.migration.MIGRATION_3_4
+import io.github.bookshelf.core.database.migration.MIGRATION_4_5
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -166,6 +167,56 @@ class BookshelfDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate_4_to_5_creates_book_copies_table_that_can_be_written() {
+        givenVersion4WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 5, true, MIGRATION_4_5).use { db ->
+            // Книга пользователя осталась на месте: миграция только добавляет таблицу.
+            assertThat(db.stringOf("SELECT title FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo("Война и мир")
+            // Таблица копий существует и записывается: без неё копия, созданная читалкой, снова
+            // стала бы второй книгой в полке (92 вместо 91, дефект 01.10.2026).
+            db.execSQL(
+                INSERT_COPY_SQL,
+                arrayOf<Any>(COPY_URI, BOOK_ID, COPY_SOURCE_ID, COPY_SIZE, 1000L, "hash-1"),
+            )
+            assertThat(db.stringOf("SELECT bookId FROM book_copies WHERE copyDocumentUri = ?", COPY_URI))
+                .isEqualTo(BOOK_ID)
+        }
+    }
+
+    @Test
+    fun migrate_4_to_5_removes_the_copy_mapping_with_its_book() {
+        givenVersion4WithBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 5, true, MIGRATION_4_5).use { db ->
+            // Внешний ключ объявлен с ON DELETE CASCADE: связь с удалённой книгой смысла не имеет.
+            // Сам каскад здесь не срабатывает (в `MigrationTestHelper` выключен `PRAGMA
+            // foreign_keys`) — поведение каскада проверяется на настоящей базе Room в
+            // `BookCopyCascadeTest`; здесь проверяется, что внешний ключ объявлен в схеме.
+            val foreignKeys = db.query("PRAGMA foreign_key_list(book_copies)").use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        // Колонки прагмы: 2 — таблица, 3 — столбец ребёнка, 4 — столбец родителя,
+                        // 6 — действие при удалении.
+                        add(Triple(cursor.getString(2), cursor.getString(3), cursor.getString(6)))
+                    }
+                }
+            }
+
+            assertThat(foreignKeys).containsExactly(Triple("books", "bookId", "CASCADE"))
+        }
+    }
+
+    /** Книга, записанная в схеме 4 — до появления таблицы копий. */
+    private fun givenVersion4WithBook() {
+        helper.createDatabase(TEST_DB, 4).apply {
+            execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
+            close()
+        }
+    }
+
     private fun givenVersion1WithBook() {
         helper.createDatabase(TEST_DB, 1).apply {
             execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
@@ -247,6 +298,13 @@ class BookshelfDatabaseMigrationTest {
         }
 
     private companion object {
+        const val COPY_URI = "content://com.android.externalstorage.documents/document/copy"
+        const val COPY_SIZE = 514_015L
+        const val COPY_SOURCE_ID = "source-1"
+        const val INSERT_COPY_SQL =
+            "INSERT INTO book_copies (copyDocumentUri, bookId, sourceId, sizeBytes, lastModified, " +
+                "contentHash) VALUES (?, ?, ?, ?, ?, ?)"
+
         const val TEST_DB = "migration-test.db"
         const val BOOK_ID = "book-1"
         const val DOWNLOAD_ID = "download-1"

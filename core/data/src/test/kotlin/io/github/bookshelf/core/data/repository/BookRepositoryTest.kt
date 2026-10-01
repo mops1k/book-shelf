@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.common.testing.FakeAppClock
@@ -31,6 +32,7 @@ import io.github.bookshelf.core.database.entity.AuthorEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
 import io.github.bookshelf.core.database.entity.BookTagCrossRef
+import io.github.bookshelf.core.database.entity.BookCopyEntity
 import io.github.bookshelf.core.database.entity.CollectionBookCrossRef
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
@@ -98,6 +100,7 @@ class BookRepositoryTest {
             clock = FakeAppClock(),
             authorWriter = BookAuthorWriter(database.authorDao()),
             bookCleanupDao = database.bookCleanupDao(),
+            bookCopyDao = database.bookCopyDao(),
             contentOpener = FakeBookContentOpener(),
             fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
         )
@@ -422,6 +425,99 @@ class BookRepositoryTest {
     }
 
     @Test
+    fun copies_are_listed_with_the_title_of_their_book() = runBlocking<Unit> {
+        givenLibrary()
+        givenCopy(bookId = "war", copyUri = COPY_URI)
+
+        val copies = repository.copies().first()
+
+        assertThat(copies.map { copy -> copy.copyDocumentUri }).containsExactly(COPY_URI)
+        assertThat(copies.first().bookTitle).isEqualTo("Война и мир")
+        assertThat(copies.first().sizeBytes).isEqualTo(100L)
+    }
+
+    @Test
+    fun deleting_a_copy_removes_the_file_and_its_link() = runBlocking<Unit> {
+        givenLibrary()
+        givenCopy(bookId = "war", copyUri = COPY_URI)
+
+        val result = repository.removeCopies(listOf(COPY_URI)).getOrNull()
+
+        assertThat(result?.deleted).isEqualTo(1)
+        assertThat(files.deleted).contains(COPY_URI)
+        assertThat(database.bookCopyDao().findByUri(COPY_URI)).isNull()
+    }
+
+    @Test
+    fun a_refused_copy_keeps_its_link_so_it_can_be_retried() = runBlocking<Unit> {
+        givenLibrary()
+        givenCopy(bookId = "war", copyUri = COPY_URI)
+        files.refuse = AppError.PermissionDenied(message = "нет доступа к папке")
+
+        val result = repository.removeCopies(listOf(COPY_URI)).getOrNull()
+
+        assertThat(result?.failed).isEqualTo(1)
+        // Связь остаётся: файл на диске, и в списке копий он должен быть виден для повтора.
+        assertThat(database.bookCopyDao().findByUri(COPY_URI)).isNotNull()
+    }
+
+    @Test
+    fun delete_permanently_removes_copies_of_the_book_from_the_device() = runBlocking<Unit> {
+        givenLibrary()
+        // Копия, созданная читалкой внутри библиотеки: тот же файл под другим адресом.
+        givenCopy(bookId = "war", copyUri = COPY_URI)
+
+        val deleted = repository.deletePermanently(listOf("war")).getOrNull()
+
+        assertThat(deleted?.deleted).isEqualTo(1)
+        assertThat(files.deleted).contains(COPY_URI)
+        assertThat(database.bookCopyDao().findByUri(COPY_URI)).isNull()
+    }
+
+    @Test
+    fun sorting_by_last_opened_puts_recent_books_first_and_never_opened_last() = runBlocking<Unit> {
+        givenLibrary()
+        givenOpenedAt("war", 1_000L)
+        givenOpenedAt("anna", 5_000L)
+
+        val descending = repository.observePage(
+            LibraryQuery(sort = SortOrder.LAST_OPENED, descending = true),
+        ).first()
+        val ascending = repository.observePage(
+            LibraryQuery(sort = SortOrder.LAST_OPENED, descending = false),
+        ).first()
+
+        // Свежие сверху при убывании и в обратном порядке при возрастании...
+        assertThat(descending.items.take(2).map { it.id }).containsExactly("anna", "war").inOrder()
+        assertThat(ascending.items.take(2).map { it.id }).containsExactly("war", "anna").inOrder()
+        // ...но книги, которые не открывали, не первые ни при каком направлении (дефект 01.10.2026).
+        assertThat(descending.items.last().lastOpenedAt).isNull()
+        assertThat(ascending.items.last().lastOpenedAt).isNull()
+    }
+
+    @Test
+    fun sorting_by_progress_puts_read_books_first_and_unread_last() = runBlocking<Unit> {
+        givenLibrary()
+        givenProgress("war", 0.5f)
+        givenProgress("anna", 0.2f)
+
+        val descending = repository.observePage(
+            LibraryQuery(sort = SortOrder.PROGRESS, descending = true),
+        ).first()
+        val ascending = repository.observePage(
+            LibraryQuery(sort = SortOrder.PROGRESS, descending = false),
+        ).first()
+
+        // «По прогрессу» открывается книгами, которые читают: убывание — самые прочитанные, а
+        // возрастание — те, что читать начали и продвинулись меньше.
+        assertThat(descending.items.take(2).map { it.id }).containsExactly("war", "anna").inOrder()
+        assertThat(ascending.items.take(2).map { it.id }).containsExactly("anna", "war").inOrder()
+        // Книги без прогресса — в конце в обоих направлениях.
+        assertThat(descending.items.drop(2).map { it.progressPercent }).containsExactly(null, null, null)
+        assertThat(ascending.items.drop(2).map { it.progressPercent }).containsExactly(null, null, null)
+    }
+
+    @Test
     fun update_metadata_with_empty_values_clears_them_everywhere() = runBlocking<Unit> {
         givenLibrary()
 
@@ -587,6 +683,24 @@ class BookRepositoryTest {
                 cursor.moveToFirst()
                 cursor.getInt(0)
             }
+
+    /** Отметить книгу открытой: так же, как это делает открытие из полки. */
+    private suspend fun givenOpenedAt(bookId: String, at: Long) {
+        val book = checkNotNull(database.bookDao().getById(bookId))
+        database.bookDao().update(book.copy(lastOpenedAt = at))
+    }
+
+    /** Прогресс чтения книги: доля, а не проценты — так его хранит таблица. */
+    private suspend fun givenProgress(bookId: String, percent: Float) {
+        database.readingProgressDao().upsert(
+            ReadingProgressEntity(
+                bookId = bookId,
+                percent = percent,
+                updatedAt = 2_000L,
+                source = "FBREADER_AIDL",
+            ),
+        )
+    }
 
     private suspend fun givenLibrary() {
         database.sourceDao().insert(
@@ -754,7 +868,25 @@ class BookRepositoryTest {
     )
 
 
+    /** Копия, созданная читалкой: тот же файл под другим адресом. */
+    private suspend fun givenCopy(bookId: String, copyUri: String) {
+        database.bookCopyDao().upsert(
+            BookCopyEntity(
+                copyDocumentUri = copyUri,
+                bookId = bookId,
+                sourceId = "source-1",
+                sizeBytes = 100L,
+                lastModified = 100L,
+                contentHash = "hash-1",
+            ),
+        )
+    }
+
     private companion object {
+        const val COPY_URI =
+            "content://com.android.externalstorage.documents/tree/primary%3ABooks/document/" +
+                "primary%3ABooks%2F2026-09-30%2Fbook.fb2.zip"
+
         const val SOURCE_ID = "source-1"
 
         // Ключ автора — значение books.authorsText: нормализованные authors/book_authors

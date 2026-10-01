@@ -130,4 +130,35 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+/**
+ * Таблица связей «файл-копия → книга».
+ *
+ * Аддитивная: существующие таблицы не меняются, поэтому у пользователя с уже установленной версией
+ * библиотека, прогресс и полки остаются как были. Нужна потому, что читалка кладёт байт-в-байт
+ * копию книги внутрь нашей библиотеки, и без этой связи копия заводилась второй книгой в полке
+ * (92 вместо 91, дефект 01.10.2026).
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `book_copies` (" +
+                "`copyDocumentUri` TEXT NOT NULL, " +
+                "`bookId` TEXT NOT NULL, " +
+                "`sourceId` TEXT NOT NULL, " +
+                "`sizeBytes` INTEGER NOT NULL, " +
+                "`lastModified` INTEGER NOT NULL, " +
+                "`contentHash` TEXT, " +
+                "PRIMARY KEY(`copyDocumentUri`), " +
+                "FOREIGN KEY(`bookId`) REFERENCES `books`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_book_copies_bookId` ON `book_copies` (`bookId`)")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_book_copies_sourceId` ON `book_copies` (`sourceId`)",
+        )
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> =
+    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

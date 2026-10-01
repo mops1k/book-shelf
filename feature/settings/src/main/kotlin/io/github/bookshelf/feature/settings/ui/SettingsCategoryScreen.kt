@@ -90,6 +90,7 @@ fun SettingsCategoryScreen(
                 // Оптимизация всех книг — своя ViewModel по той же причине (у общей 29 методов
                 // при пороге detekt 30), и потому что у неё собственный долгий прогон с отменой.
                 optimizationViewModel = hiltViewModel(),
+                copiesViewModel = hiltViewModel(),
             )
             SettingsSectionKind.ABOUT -> AboutCategory(state = state, viewModel = viewModel)
         }

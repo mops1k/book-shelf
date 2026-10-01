@@ -89,6 +89,13 @@ data class LibraryUiState(
     val pageSize: Int = DEFAULT_PAGE_SIZE,
     /** Порядок сортировки — доменный enum, чтобы не дублировать его в UI. */
     val sort: SortOrder = SortOrder.AUTHOR,
+    /**
+     * Направление порядка.
+     *
+     * Живёт в состоянии, а не только в запросе: второй шаг выбора сортировки показывает, какое
+     * направление действует, и его нужно нарисовать.
+     */
+    val descending: Boolean = false,
     /** Группировка с заголовками-разделителями. */
     val grouping: Grouping = Grouping.NONE,
     /** Чипы активных фильтров над полкой. */

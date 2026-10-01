@@ -204,4 +204,14 @@
     <string name="settings_io_error">input/output error</string>
     <string name="settings_export_report">Exported books: %1$d, collections: %2$d</string>
     <string name="settings_export_failed">Failed to export the library</string>
+    <string name="settings_copies_header">Book copies on the device</string>
+    <string name="settings_copies_hint">Files that duplicate library books — for example, copies made by the reader. Such a copy is not a book and is not shown on the shelf.</string>
+    <string name="settings_copies_action">Remove copies from the device</string>
+    <string name="settings_copies_confirm">Remove the book copies from the device? The files will be deleted permanently. Library books and reading progress stay.</string>
+    <string name="settings_copies_removed">Copies removed: %1$d</string>
+    <string name="settings_copies_partly_removed">Copies removed: %1$d, failed: %2$d</string>
+    <string name="settings_copies_failed">Failed to remove the copies</string>
+    <string name="settings_copies_total">Used: %1$s</string>
+    <string name="settings_library_removable_shelf">Show the memory card as a shelf</string>
+    <string name="settings_library_removable_shelf_hint">Insert a card or a USB drive with books — a shelf for the medium appears in the collections; remove it — the shelf disappears together with its books. The books are not deleted: bring the medium back and you will see them again</string>
 </resources>

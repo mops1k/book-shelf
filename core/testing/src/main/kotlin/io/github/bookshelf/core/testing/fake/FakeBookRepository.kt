@@ -185,6 +185,30 @@ class FakeBookRepository(
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(report)
 
+    /** Копии, найденные сканом: тест кладёт сюда то, что должен увидеть экран «Копии книг». */
+    var copies: List<io.github.bookshelf.core.data.model.BookCopy> = emptyList()
+
+    override fun copies(): Flow<List<io.github.bookshelf.core.data.model.BookCopy>> = flowOf(copies)
+
+    /** Сколько копий «удалено»: проверяет экран, не трогая файловую систему. */
+    var copiesRemoved: Int = 0
+
+    /** Сколько копий «не удалось убрать»: так проверяется честный отчёт о частичном отказе. */
+    var copiesFailed: Int = 0
+
+    /** Отказ всей операции: экран обязан показать ошибку, а не «убрано 0». */
+    var copiesError: io.github.bookshelf.core.common.error.AppError? = null
+
+    override suspend fun removeCopies(
+        copyUris: List<String>,
+    ): AppResult<DeletionResult> {
+        copiesError?.let { error -> return AppResult.failure(error) }
+        copiesRemoved += copyUris.size - copiesFailed
+        return AppResult.success(
+            DeletionResult(deleted = copyUris.size - copiesFailed, failed = copiesFailed),
+        )
+    }
+
     override suspend fun rescanAll(): AppResult<Unit> {
         rescanCalls += 1
         return AppResult.success(Unit)

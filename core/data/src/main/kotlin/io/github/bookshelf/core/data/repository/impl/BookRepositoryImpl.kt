@@ -23,12 +23,14 @@ import io.github.bookshelf.core.common.error.isSuccess
 import io.github.bookshelf.core.data.mapper.BookPageSql
 import io.github.bookshelf.core.data.mapper.toDomain
 import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.data.model.BookCopy
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.paging.PageResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.database.dao.BookCleanupDao
+import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.ReadingProgressDao
@@ -88,6 +90,14 @@ class BookRepositoryImpl @Inject constructor(
      * обложек оставались сиротами: на устройстве нашлись 19 строк `book_tags` от 9 удалённых книг.
      */
     private val bookCleanupDao: BookCleanupDao,
+    /**
+     * Связи «файл-копия → книга».
+     *
+     * Нужны удалению: копия — тот же файл, и когда книгу убирают с устройства, её копии обязаны
+     * уйти вместе с ней, иначе на диске навсегда остаётся файл, который никому не принадлежит
+     * (решение Александра 01.10.2026). Прогресс при этом не теряется: он у книги, которую удаляют.
+     */
+    private val bookCopyDao: BookCopyDao,
     /** Доступ к содержимому книги: чтение и безопасная замена файла. */
     private val contentOpener: BookContentOpener,
     /** Оптимизация FB2 без потери данных. */
@@ -221,6 +231,9 @@ class BookRepositoryImpl @Inject constructor(
                     when (fileRemover.delete(book.documentUri)) {
                         is AppResult.Failure -> failed++
                         is AppResult.Success -> {
+                            // Копии удаляются до строки книги: после `deleteWithLinks` связь
+                            // снимется каскадом, и найти их будет уже нечем.
+                            deleteCopiesOf(bookId)
                             bookCleanupDao.deleteWithLinks(listOf(bookId))
                             deleted++
                         }
@@ -229,6 +242,20 @@ class BookRepositoryImpl @Inject constructor(
                 DeletionResult(deleted = deleted, failed = failed)
             }
         }
+
+    /**
+     * Убрать с устройства файлы-копии книги и их связи.
+     *
+     * Отказ провайдера не отменяет удаление книги: связь снимет каскад, а файл останется на диске —
+     * и следующий скан заведёт по нему книгу заново. Это честнее, чем скрывать файл навсегда: если
+     * удалить не дали, человек должен увидеть книгу, а не невидимый мусор.
+     */
+    private suspend fun deleteCopiesOf(bookId: String) {
+        bookCopyDao.getByBookId(bookId).forEach { copy ->
+            fileRemover.delete(copy.copyDocumentUri)
+            bookCopyDao.deleteByUri(copy.copyDocumentUri)
+        }
+    }
 
     /**
      * Оптимизация книги FB2: файл заменяется уменьшенным, если выигрыш есть.
@@ -428,6 +455,36 @@ class BookRepositoryImpl @Inject constructor(
                 .map { entity -> entity.toDomain(authors = parseAuthors(entity.authorsText)) }
         }
     }
+
+    override fun copies(): Flow<List<BookCopy>> = bookCopyDao.observeAllWithTitles().map { rows ->
+        rows.map { row ->
+            BookCopy(
+                copyDocumentUri = row.copyDocumentUri,
+                bookId = row.bookId,
+                bookTitle = row.title,
+                sizeBytes = row.sizeBytes,
+            )
+        }
+    }
+
+    override suspend fun removeCopies(copyUris: List<String>): AppResult<DeletionResult> =
+        withContext(dispatchers.io) {
+            appRunCatching {
+                var deleted = 0
+                var failed = 0
+                for (uri in copyUris) {
+                    if (bookCopyDao.findByUri(uri) == null) continue
+                    when (fileRemover.delete(uri)) {
+                        is AppResult.Failure -> failed++
+                        is AppResult.Success -> {
+                            bookCopyDao.deleteByUri(uri)
+                            deleted++
+                        }
+                    }
+                }
+                DeletionResult(deleted = deleted, failed = failed)
+            }
+        }
 
     override suspend fun findDuplicates(): AppResult<DuplicateReport> = withContext(dispatchers.io) {
         appRunCatching {

@@ -205,4 +205,14 @@
     <string name="settings_io_error">ошибка ввода-вывода</string>
     <string name="settings_export_report">Экспортировано книг: %1$d, полок: %2$d</string>
     <string name="settings_export_failed">Не удалось выгрузить библиотеку</string>
+    <string name="settings_copies_header">Копии книг на устройстве</string>
+    <string name="settings_copies_hint">Файлы, которые повторяют книги библиотеки — например, копии, созданные читалкой. Книгой такая копия не считается и на полке не показывается.</string>
+    <string name="settings_copies_action">Убрать копии с устройства</string>
+    <string name="settings_copies_confirm">Убрать копии книг с устройства? Файлы будут удалены безвозвратно. Книги библиотеки и прогресс чтения останутся.</string>
+    <string name="settings_copies_removed">Копий удалено: %1$d</string>
+    <string name="settings_copies_partly_removed">Копий удалено: %1$d, не удалось: %2$d</string>
+    <string name="settings_copies_failed">Не удалось убрать копии</string>
+    <string name="settings_copies_total">Занято: %1$s</string>
+    <string name="settings_library_removable_shelf">Показывать карту памяти как полку</string>
+    <string name="settings_library_removable_shelf_hint">Вставили карту или флешку с книгами — в полках появится полка носителя; вынули — она исчезнет вместе с книгами. Книги не удаляются: вернув носитель, вы увидите их снова</string>
 </resources>

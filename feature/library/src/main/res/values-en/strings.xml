@@ -43,10 +43,10 @@
     <string name="library_sort_hint_title">By title, ignoring «The» and «A»</string>
     <string name="library_sort_hint_author">Author first, then title</string>
     <string name="library_sort_hint_series">By series and the number in it</string>
-    <string name="library_sort_hint_added">Recently added first</string>
-    <string name="library_sort_hint_last_opened">Recently opened first</string>
+    <string name="library_sort_hint_added">By the date added to the library</string>
+    <string name="library_sort_hint_last_opened">By the last open date; books without one go last</string>
     <string name="library_sort_hint_size">By file size</string>
-    <string name="library_sort_hint_progress">Least finished first</string>
+    <string name="library_sort_hint_progress">By the reading percentage; books without progress go last</string>
     <string name="library_sort_hint_year">By year of publication</string>
 
     <string name="library_grouping_none">no grouping</string>
@@ -69,4 +69,12 @@
         <item quantity="one">%1$d book</item>
         <item quantity="other">%1$d books</item>
     </plurals>
+    <string name="library_sort_direction_header">Direction</string>
+    <string name="library_sort_ascending">Ascending</string>
+    <string name="library_sort_ascending_hint">Smaller values first: older dates, smaller files, the start of the alphabet</string>
+    <string name="library_sort_descending">Descending</string>
+    <string name="library_sort_descending_hint">Larger values first: recent dates, larger files, the end of the alphabet</string>
+    <string name="library_sort_direction_back">Back to the field</string>
+    <string name="library_sort_arrow_down">↓</string>
+    <string name="library_sort_arrow_up">↑</string>
 </resources>

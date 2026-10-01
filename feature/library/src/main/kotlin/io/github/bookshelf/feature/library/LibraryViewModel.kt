@@ -160,6 +160,19 @@ class LibraryViewModel @Inject constructor(
         observePage(query)
     }
 
+    /**
+     * Смена направления порядка — второй шаг выбора сортировки.
+     *
+     * Как и выбор поля, это порядок «на время»: настройка `library.sortDescending` остаётся
+     * умолчанием для открытия полки, и полка её не переписывает. Иначе выбор направления на полке
+     * молча менял бы настройку, а «Обратный порядок» в настройках терял бы смысл.
+     */
+    fun onSetSortDirection(descending: Boolean) {
+        query = query.copy(descending = descending, page = 0)
+        _uiState.update { it.copy(descending = descending, page = 0) }
+        observePage(query)
+    }
+
     /** Смена группировки: запрос к БД начинается с первой страницы. */
     fun onSetGrouping(grouping: Grouping) {
         query = query.copy(grouping = grouping, page = 0)
@@ -188,7 +201,14 @@ class LibraryViewModel @Inject constructor(
             grouping = defaults.grouping,
             page = 0,
         )
-        _uiState.update { it.copy(sort = defaults.sort, grouping = defaults.grouping, page = 0) }
+        _uiState.update {
+            it.copy(
+                sort = defaults.sort,
+                descending = defaults.descending,
+                grouping = defaults.grouping,
+                page = 0,
+            )
+        }
         observePage(query)
     }
 

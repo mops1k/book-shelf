@@ -385,6 +385,13 @@ class LibraryBrowseTest {
         )
 
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+        override fun copies(): Flow<List<io.github.bookshelf.core.data.model.BookCopy>> =
+            flowOf(emptyList())
+
+        override suspend fun removeCopies(
+            copyUris: List<String>,
+        ): AppResult<io.github.bookshelf.core.data.repository.DeletionResult> =
+            AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
         /** Отчёт сканирования в тестах полки не собирается. */
         override suspend fun booksWithParseErrors(): AppResult<List<Book>> = AppResult.success(emptyList())

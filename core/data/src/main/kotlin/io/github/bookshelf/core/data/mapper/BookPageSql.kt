@@ -163,10 +163,28 @@ internal object BookPageSql {
             // NULL в начале строки сортировки выглядит как «книги без серии» в самом верху;
             // для группировки это раздражает, поэтому пустое значение уходит в конец.
             groupingColumn?.let { add("$it COLLATE NOCASE $direction") }
+            // «Значения нет» — отдельный первый ключ, и он всегда возрастающий: иначе книги, которые
+            // не открывали или не читали, занимали бы первые места при возрастании (в SQLite `NULL`
+            // идёт первым). На устройстве 01.10.2026 так и было: из 92 книг дата открытия была у двух.
+            missingLastKey(query.sort)?.let { add(it) }
             add(sortColumn(query.sort, direction))
             add("books.id ASC")
         }
         return "ORDER BY " + parts.joinToString(", ")
+    }
+
+    /**
+     * Ключ «у книги нет значения»: `0` — значение есть, `1` — нет.
+     *
+     * Стоит первым и не меняет направление вместе с сортировкой: книги без даты открытия и без
+     * прогресса обязаны быть в конце и при возрастании, и при убывании. Для прогресса «нет
+     * значения» — это ноль (`COALESCE`), в том числе явный ноль в базе: книга, которую открыли,
+     * но не прочитали, стоит рядом с непрочитанными, а не среди читаемых.
+     */
+    private fun missingLastKey(sort: SortOrder): String? = when (sort) {
+        SortOrder.LAST_OPENED -> "books.lastOpenedAt IS NULL"
+        SortOrder.PROGRESS -> "COALESCE(progress.percent, 0) = 0"
+        else -> null
     }
 
     private fun sortColumn(sort: SortOrder, direction: String): String = when (sort) {

@@ -38,6 +38,15 @@ interface CollectionDao {
     suspend fun removeBook(collectionId: String, bookId: String)
 
     /** Убрать книгу со всех полок: заменённый файл — уже не та книга, которую добавляли. */
+    /**
+     * Полки, в которых есть книга.
+     *
+     * Нужно переносу данных при слиянии копии с книгой: копия могла лежать в полках, и книга должна
+     * попасть туда же, иначе полка человека опустеет (дефект 01.10.2026).
+     */
+    @Query("SELECT collectionId FROM collection_books WHERE bookId = :bookId")
+    suspend fun collectionIdsOfBook(bookId: String): List<String>
+
     @Query("DELETE FROM collection_books WHERE bookId = :bookId")
     suspend fun removeBookFromAll(bookId: String)
 

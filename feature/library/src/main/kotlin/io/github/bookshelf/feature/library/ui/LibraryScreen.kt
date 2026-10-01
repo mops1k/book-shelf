@@ -96,9 +96,9 @@ fun LibraryScreen(
     val rootCategories = state.browse.showsCategories &&
         (state.browse.level == BrowseLevel.Root || state.browse.level is BrowseLevel.Genre)
     val scrollByPage = rememberPageScroller(gridState, listState) { rootCategories }
-    // Флаг lives только на время экрана: выбор сортировки не состояние ViewModel, и хранить
-    // его там незачем — как и отменять его нечем.
-    var isPickingSort by remember { mutableStateOf(false) }
+    // Шаг выбора живёт только на время экрана: сам порядок хранит ViewModel, а «на каком мы шаге»
+    // — состояние экрана, и хранить его в ViewModel незачем.
+    var sortStep by remember { mutableStateOf(SortStep.Hidden) }
 
     EinkScaffold(
         title = stringResource(R.string.library_title),
@@ -146,7 +146,7 @@ fun LibraryScreen(
                 else -> Unit
             }
         },
-        footer = { LibraryFooter(state = state, onPickSort = { isPickingSort = true }) },
+        footer = { LibraryFooter(state = state, onPickSort = { sortStep = SortStep.Field }) },
     ) {
         val error = state.error
         if (error != null) {
@@ -163,14 +163,26 @@ fun LibraryScreen(
         }
         // Строка видов видна всегда — она же выход из обзора: без неё в корне «Авторов» не было
         // бы ни кнопки «Серии», ни способа вернуться к книгам (docs/eink-ux.md §6.2).
-        if (isPickingSort) {
+        if (sortStep == SortStep.Field) {
             SortPicker(
                 current = state.sort,
                 onPick = { candidate ->
                     viewModel.onSetSort(candidate)
-                    isPickingSort = false
+                    // Второй шаг, а не закрытие: направление — часть решения «как смотреть полку»,
+                    // и без него подпись «Сначала те, что открывали недавно» оставалась обещанием.
+                    sortStep = SortStep.Direction
                 },
-                onClose = { isPickingSort = false },
+                onClose = { sortStep = SortStep.Hidden },
+            )
+        } else if (sortStep == SortStep.Direction) {
+            SortDirectionPicker(
+                descending = state.descending,
+                onPick = { descending ->
+                    viewModel.onSetSortDirection(descending)
+                    sortStep = SortStep.Hidden
+                },
+                onBack = { sortStep = SortStep.Field },
+                onClose = { sortStep = SortStep.Hidden },
             )
         } else if (state.browse.showsViewSwitch) {
             // Строка видов живёт только на корне обзора: зашли в жанр, автора или серию — кнопок
@@ -504,6 +516,75 @@ private fun SortPicker(
 }
 
 /**
+ * Второй шаг выбора сортировки: направление.
+ *
+ * Вынесен отдельным шагом, а не строкой внутри первого: на e-ink список из восьми полей занимает
+ * экран целиком, и направление в нём терялось. Отдельный шаг ещё и показывает текущий порядок,
+ * поэтому выбор не приходится угадывать.
+ */
+@Composable
+private fun SortDirectionPicker(
+    descending: Boolean,
+    onPick: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    val colors = LocalEinkColors.current
+
+    Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
+        EinkSectionHeader(title = stringResource(R.string.library_sort_direction_header))
+        listOf(false to R.string.library_sort_ascending, true to R.string.library_sort_descending)
+            .forEach { (value, labelRes) ->
+                EinkListRow(
+                    title = stringResource(labelRes),
+                    subtitle = stringResource(
+                        if (value) {
+                            R.string.library_sort_descending_hint
+                        } else {
+                            R.string.library_sort_ascending_hint
+                        },
+                    ),
+                    trailing = if (value == descending) {
+                        stringResource(R.string.library_sort_selected)
+                    } else {
+                        null
+                    },
+                    onClick = { onPick(value) },
+                )
+            }
+        EinkButton(
+            text = stringResource(R.string.library_sort_direction_back),
+            onClick = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = dimens.gutter),
+        )
+        EinkButton(
+            text = stringResource(R.string.library_action_cancel),
+            onClick = onClose,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = dimens.gutterSmall),
+        )
+        Text(
+            text = stringResource(R.string.library_sort_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.foreground,
+            modifier = Modifier.padding(top = dimens.gutterSmall),
+        )
+    }
+}
+
+/**
+ * Шаг выбора сортировки: поле или направление.
+ *
+ * Состояние экрана, а не ViewModel: порядок хранит запрос полки, а «на каком шаге остановился
+ * человек» к данным отношения не имеет.
+ */
+private enum class SortStep { Hidden, Field, Direction }
+
+/**
  * Книги полки плитками с обложками.
  *
  * Прокрутка включена: список один и длинный, а постраничная нарезка с выключенной прокруткой
@@ -609,7 +690,14 @@ private fun LibraryFooter(
             } else {
                 stringResource(
                     R.string.library_sort_summary,
-                    stringResource(sortLabelRes(state.sort)),
+                    stringResource(sortLabelRes(state.sort)) + " " +
+                        stringResource(
+                            if (state.descending) {
+                                R.string.library_sort_arrow_down
+                            } else {
+                                R.string.library_sort_arrow_up
+                            },
+                        ),
                     stringResource(groupingLabelRes(state.grouping)),
                 )
             },

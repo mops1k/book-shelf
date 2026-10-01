@@ -15,15 +15,22 @@ import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.sync.afterFileChange
 import io.github.bookshelf.core.data.sync.booksToDelete
 import io.github.bookshelf.core.data.sync.shouldRetryScan
+import io.github.bookshelf.core.data.duplicates.BookCopyDetector
+import io.github.bookshelf.core.data.duplicates.KnownBookFile
+import io.github.bookshelf.core.covers.CoverCache
+import io.github.bookshelf.core.data.sync.BookUserDataMover
+import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.ScanRunDao
 import io.github.bookshelf.core.database.dao.SourceDao
+import io.github.bookshelf.core.database.entity.BookCopyEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.ScanRunEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.model.ScanRunStatus
 import io.github.bookshelf.core.storage.saf.DocumentEntry
 import io.github.bookshelf.core.storage.saf.SafTreeReader
+import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.storage.saf.bookIdOfDocumentId
 import io.github.bookshelf.core.storage.saf.SourceRef
 import io.github.bookshelf.core.storage.scan.BookFileFilter
@@ -66,6 +73,14 @@ class ScanSourceWorker @AssistedInject constructor(
     private val bookDao: BookDao,
     /** Удаление книг вместе со связями: с автосинхронизацией оно происходит при каждом проходе. */
     private val bookCleanupDao: io.github.bookshelf.core.database.dao.BookCleanupDao,
+    /** Связи «файл-копия → книга»: копии, созданные не нами, книгой не считаются. */
+    private val bookCopyDao: BookCopyDao,
+    /** Распознавание копии: решает содержимое, а не имя файла. */
+    private val copyDetector: BookCopyDetector,
+    /** Перенос данных человека с копии на книгу: прогресс, статус, полки не должны пропасть. */
+    private val userDataMover: BookUserDataMover,
+    /** Удаление файлов копий, когда книга исчезла: файл, оставшийся навсегда, — тот же дефект. */
+    private val treeWriter: SafTreeWriter,
     private val treeReader: SafTreeReader,
     private val treeWalker: TreeWalker,
     private val metadataScheduler: io.github.bookshelf.core.data.sync.MetadataScheduler,
@@ -79,6 +94,14 @@ class ScanSourceWorker @AssistedInject constructor(
 
     /** Идентификаторы книг, встреченных в текущем проходе. */
     private val seenIds = mutableSetOf<String>()
+
+    /**
+     * Адреса копий, встреченных в текущем проходе.
+     *
+     * Отдельно от [seenIds]: у копии нет строки в `books`, и по книгам её не увидеть. Нужно, чтобы
+     * после полного прохода убрать связи, файлов которых больше нет.
+     */
+    private val seenCopyUris = mutableSetOf<String>()
     private var filesSeen = 0
     private var added = 0
     private var updated = 0
@@ -120,6 +143,7 @@ class ScanSourceWorker @AssistedInject constructor(
 
                 is ScanOutcome.Completed -> {
                     deleteMissing(sourceId, resumed)
+                    forgetUnseenCopies(sourceId, resumed)
                     val finishedAt = clock.nowMillis()
                     scanRunDao.finish(
                         id = run.id,
@@ -234,21 +258,69 @@ class ScanSourceWorker @AssistedInject constructor(
         val existing = bookDao.getById(bookIdOf(entry))
             ?: bookDao.findByDocumentUri(treeReader.documentUri(source.uri, entry.documentId))
         val id = existing?.id ?: bookIdOf(entry)
-        // Копия уже известной книги книгой не считается. Так ведёт себя FBReader: открывая книгу из
-        // нашего приложения, он копирует файл в `Books/<дата>/` внутри нашей библиотеки (его
-        // настройка «Куда сохранять загруженные книги» указывает на ту же папку, что мы сканируем),
-        // и в полке появлялась вторая такая же книга (30.09.2026). Совпали имя и размер — это тот же
-        // файл, поэтому заводить его заново нельзя; сравнение дешёвое, без чтения содержимого.
+        // Копия уже известной книги книгой не считается. Так ведёт себя FBReader: он копирует файл
+        // в `Books/<дата>/` внутри нашей библиотеки (его настройка «Куда сохранять книги» указывает
+        // на ту же папку, что мы сканируем), и в полке появлялась вторая такая же книга
+        // (30.09–01.10.2026, 92 вместо 91). Решает содержимое, а не имя: копию читалка называет по
+        // названию книги — `Предыстория. Книга 1.fb2.zip` вместо `… [=Истоки].fb2.zip`, — поэтому
+        // прежнее правило «совпали имя файла и размер» её не поймало.
+        val candidateUri = treeReader.documentUri(source.uri, entry.documentId)
         val entrySize = entry.sizeBytes
-        val copyOfKnownBook = existing == null && entrySize != null &&
-            bookDao.countByFileNameAndSize(
-                fileName = entry.displayName,
-                sizeBytes = entrySize,
-                excludeId = id,
-            ) > 0
-        if (copyOfKnownBook) {
-            Log.w("BookShelf", "копия книги пропущена: ${entry.displayName}")
-            return
+        if (entrySize != null && entrySize > 0L) {
+            val knownCopy = bookCopyDao.findByUri(candidateUri)
+            if (knownCopy != null && knownCopy.sizeBytes == entrySize &&
+                knownCopy.lastModified == entry.lastModified
+            ) {
+                // Раньше уже распознали: содержимое то же, читать файл заново незачем. Строку книги
+                // (состояние до этого исправления) убираем: копия книгой не считается.
+                seenCopyUris += candidateUri
+                existing?.let { copy -> dropCopy(copy, knownCopy.bookId) }
+                return
+            }
+            if (knownCopy != null) {
+                // Файл изменился — возможно, это уже другая книга: решаем заново.
+                bookCopyDao.deleteByUri(candidateUri)
+            }
+            // Сравниваем только с теми книгами, которые идут РАНЬШЕ в порядке оригинала: иначе
+            // настоящая книга была бы объявлена копией более поздней (порядок задаёт запрос:
+            // дата добавления, затем путь).
+            val sameSize = bookCopyDao.findBooksBySize(entrySize)
+            val candidates = existing?.let { me -> sameSize.takeWhile { book -> book.id != me.id } }
+                ?: sameSize
+            if (candidates.isNotEmpty()) {
+                copyDetector.findOriginal(
+                    candidateUri = candidateUri,
+                    candidateSize = entrySize,
+                    known = candidates.map { book ->
+                        KnownBookFile(
+                            id = book.id,
+                            documentUri = book.documentUri,
+                            sizeBytes = book.sizeBytes,
+                            contentHash = book.contentHash,
+                        )
+                    },
+                    remember = { bookId, hash -> bookCopyDao.rememberContentHash(bookId, hash) },
+                )?.let { match ->
+                    existing?.let { copy -> dropCopy(copy, match.originalBookId) }
+                    bookCopyDao.upsert(
+                        BookCopyEntity(
+                            copyDocumentUri = candidateUri,
+                            bookId = match.originalBookId,
+                            sourceId = source.id,
+                            sizeBytes = entrySize,
+                            lastModified = entry.lastModified ?: 0L,
+                            contentHash = match.contentHash,
+                        ),
+                    )
+                    seenCopyUris += candidateUri
+                    Log.w(
+                        "BookShelf",
+                        "копия книги не заведена второй книгой: ${entry.displayName} → " +
+                            match.originalBookId,
+                    )
+                    return
+                }
+            }
         }
         seenIds += id
         if (existing == null) {
@@ -301,6 +373,20 @@ class ScanSourceWorker @AssistedInject constructor(
         filesSeen++
     }
 
+    /**
+     * Убрать строку книги, которая оказалась копией файла, и перенести её данные оригиналу.
+     *
+     * Так подчищается состояние до этого исправления: 30.09–01.10.2026 копия уже успела стать
+     * отдельной книгой в полке (92 книги вместо 91), и её прогресс принадлежал ей, а не книге
+     * человека. Данные переносятся до удаления строки: после удаления связей уже не найти.
+     */
+    private suspend fun dropCopy(copy: BookEntity, originalId: String) {
+        userDataMover.move(fromBookId = copy.id, toBookId = originalId)
+        bookCleanupDao.deleteWithLinks(listOf(copy.id))
+        coverCache.invalidate(copy.id)
+        Log.w("BookShelf", "копия «${copy.fileName}» слита с книгой $originalId")
+    }
+
     private fun newBook(source: SourceEntity, id: String, entry: DocumentEntry): BookEntity {
         val now = clock.nowMillis()
         // До разбора метаданных заголовок берётся из имени файла: полка не должна быть пустой,
@@ -348,11 +434,35 @@ class ScanSourceWorker @AssistedInject constructor(
             filesSeen = filesSeen,
             resumed = resumed,
         )
+        // Копии удаляемой книги уходят с диска: иначе на устройстве навсегда остался бы файл,
+        // который никому не принадлежит, а следующий скан завёл бы по нему книгу заново
+        // (решение Александра 01.10.2026). Файл удаляется до строки: после удаления книги связь
+        // снимется каскадом, и найти копии будет уже нечем.
+        val copies = gone.flatMap { id -> bookCopyDao.getByBookId(id) }
+        copies.forEach { copy ->
+            treeWriter.delete(copy.copyDocumentUri).errorOrNull()?.let { error ->
+                // Провайдер отказал — честно сказать в журнал. Такой файл снова станет книгой:
+                // скрывать его навсегда нельзя, иначе он останется невидимым мусором.
+                Log.w("BookShelf", "копия ${copy.copyDocumentUri} не удалена: ${error.message}")
+            }
+        }
         gone.chunked(MARK_BATCH).forEach { batch ->
             if (batch.isEmpty()) return@forEach
             bookCleanupDao.deleteWithLinks(batch)
             batch.forEach { id -> coverCache.invalidate(id) }
         }
+    }
+
+    /**
+     * Убрать связи с копиями, которых больше нет в источнике.
+     *
+     * Полный проход увидел все файлы дерева: если копии среди них не было, её файл удалили, и связь
+     * с книгой стала мусором. Возобновлённый проход видит только хвост дерева, поэтому по нему
+     * ничего не удаляется — по той же причине, что и для книг ([booksToDelete]).
+     */
+    private suspend fun forgetUnseenCopies(sourceId: String, resumed: Boolean) {
+        if (resumed) return
+        bookCopyDao.deleteBySourceExcept(sourceId, seenCopyUris.toList())
     }
 
     private suspend fun resumeOrCreateRun(sourceId: String): ScanRunEntity {

@@ -26,6 +26,7 @@ import io.github.bookshelf.core.data.repository.ReadingProgressOrigins
 import io.github.bookshelf.core.data.author.BookAuthorWriter
 import io.github.bookshelf.core.data.repository.impl.BookRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
+import io.github.bookshelf.core.database.entity.BookCopyEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.model.ReadingStatus
 import io.github.bookshelf.core.datastore.SettingsRepository
@@ -87,6 +88,7 @@ class SyncReadingProgressTest {
             clock = FakeAppClock().apply { setTo(1_000L) },
             authorWriter = BookAuthorWriter(database.authorDao()),
             bookCleanupDao = database.bookCleanupDao(),
+            bookCopyDao = database.bookCopyDao(),
             contentOpener = FakeBookContentOpener(),
             fb2Optimizer = DefaultFb2Optimizer(Fb2ImageOptimizer(JpegEntropyOptimizer())),
         )
@@ -142,6 +144,32 @@ class SyncReadingProgressTest {
         // Книгу открыли в самой читалке, у нас её нет: записывать некуда и нечего.
         assertThat(outcome).isEqualTo(ProgressSyncOutcome.BookUnknown)
         assertThat(savedProgress()).isNull()
+    }
+
+    @Test
+    fun `progress of a copy is stored for the original book`() = runBlocking {
+        settings.enabled = true
+        givenBook(documentUri = DOCUMENT_URI)
+        // Так выглядит копия, которую создала читалка: файл внутри нашей библиотеки, названный по
+        // названию книги. Прогресс, записанный на копию, на полке был бы виден у копии, а книга
+        // пользователя оставалась бы без прогресса (дефект 01.10.2026).
+        database.bookCopyDao().upsert(
+            BookCopyEntity(
+                copyDocumentUri = COPY_URI,
+                bookId = BOOK_ID,
+                sourceId = "source-1",
+                sizeBytes = 1_000L,
+                lastModified = 1_000L,
+                contentHash = "hash-1",
+            ),
+        )
+        reader.open = openBook(path = COPY_URI)
+        progress.snapshot = snapshot(percent = 25f)
+
+        val outcome = sync().syncNow().getOrNull()
+
+        assertThat(outcome).isEqualTo(ProgressSyncOutcome.Saved(bookId = BOOK_ID, percentPercent = 25f))
+        assertThat(savedProgress()?.percent).isWithin(0.0001f).of(0.25f)
     }
 
     @Test
@@ -233,6 +261,7 @@ class SyncReadingProgressTest {
         progressSource = progress,
         books = repository,
         settings = settings,
+        copies = database.bookCopyDao(),
     )
 
     private suspend fun givenBook(
@@ -401,6 +430,11 @@ class SyncReadingProgressTest {
         const val BOOK_ID = "book-1"
         const val DOCUMENT_URI =
             "content://com.android.externalstorage.documents/tree/primary%3ABooks/document/primary%3ABooks%2Fbook.fb2"
+
+        /** Адрес копии, созданной читалкой: папка-дата и имя по названию книги. */
+        const val COPY_URI =
+            "content://com.android.externalstorage.documents/tree/primary%3ABooks/document/" +
+                "primary%3ABooks%2F2026-09-30%2Fbook.fb2.zip"
 
     }
 }

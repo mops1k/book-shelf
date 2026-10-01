@@ -49,22 +49,6 @@ class FakeBookDao(
     override suspend fun insert(book: BookEntity) = notUsed("insert")
     override suspend fun upsertAll(books: List<BookEntity>) = notUsed("upsertAll")
     override suspend fun update(book: BookEntity) = notUsed("update")
-    /**
-     * Поиск копии книги.
-     *
-     * Отвечает по [byIdFlow] — единственной книге, которую фейк знает: тесты полок о копиях не
-     * спрашивают, а если спросят, поведение должно быть предсказуемым, а не падать.
-     */
-    override suspend fun countByFileNameAndSize(
-        fileName: String,
-        sizeBytes: Long,
-        excludeId: String,
-    ): Int {
-        val book = byIdFlow.firstOrNull() ?: return 0
-        val same = book.fileName == fileName && book.sizeBytes == sizeBytes && book.id != excludeId
-        return if (same) 1 else 0
-    }
-
     /** Книги с ошибкой разбора: тест кладёт сюда то, что должен увидеть отчёт сканирования. */
     var parseErrors: List<BookEntity> = emptyList()
 

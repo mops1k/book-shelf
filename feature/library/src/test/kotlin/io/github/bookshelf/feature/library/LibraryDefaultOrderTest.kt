@@ -126,6 +126,28 @@ class LibraryDefaultOrderTest {
         assertThat(viewModel.uiState.value.grouping).isEqualTo(Grouping.AUTHOR)
     }
 
+    @Test
+    fun `direction chosen on the shelf applies at once and is not written to the settings`() =
+        runTest(dispatcher) {
+            val settingsFlow = MutableStateFlow(appSettings())
+            val settings = FakeSettingsRepository(settingsFlow)
+            val viewModel = viewModel(settings)
+            advanceUntilIdle()
+            viewModel.onSetSort(SortOrder.LAST_OPENED)
+            advanceUntilIdle()
+
+            viewModel.onSetSortDirection(descending = false)
+            advanceUntilIdle()
+
+            // Направление — порядок «на время», как и выбор поля: запрос меняется сразу...
+            assertThat(repository.queries.last().sort).isEqualTo(SortOrder.LAST_OPENED)
+            assertThat(repository.queries.last().descending).isFalse()
+            assertThat(viewModel.uiState.value.descending).isFalse()
+            // ...а умолчание в настройках остаётся прежним: иначе выбор на полке переписывал бы
+            // настройку, и «Обратный порядок» терял бы смысл.
+            assertThat(settings.updateCalls).isEqualTo(0)
+        }
+
     private fun viewModel(settings: SettingsRepository): LibraryViewModel = LibraryViewModel(
         bookRepository = repository,
         settingsRepository = settings,
@@ -177,6 +199,13 @@ class LibraryDefaultOrderTest {
         )
 
         override suspend fun findDuplicates(): AppResult<DuplicateReport> = AppResult.success(DuplicateReport())
+        override fun copies(): Flow<List<io.github.bookshelf.core.data.model.BookCopy>> =
+            flowOf(emptyList())
+
+        override suspend fun removeCopies(
+            copyUris: List<String>,
+        ): AppResult<io.github.bookshelf.core.data.repository.DeletionResult> =
+            AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
         /** Отчёт сканирования в тестах полки не собирается. */
         override suspend fun booksWithParseErrors(): AppResult<List<Book>> = AppResult.success(emptyList())
@@ -203,6 +232,12 @@ class LibraryDefaultOrderTest {
 
         override suspend fun resetToDefaults() = Unit
         override suspend fun current(): AppSettings = AppSettings()
-        override suspend fun update(transform: (AppSettings) -> AppSettings) = Unit
+        /** Сколько раз настройки пытались изменить: полка не должна писать умолчания. */
+        var updateCalls: Int = 0
+            private set
+
+        override suspend fun update(transform: (AppSettings) -> AppSettings) {
+            updateCalls += 1
+        }
     }
 }

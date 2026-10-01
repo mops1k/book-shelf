@@ -13,10 +13,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkConfirmRow
+import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkProgress
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.BookOptimizationUiState
+import io.github.bookshelf.feature.settings.BookCopiesUiState
+import io.github.bookshelf.feature.settings.BookCopiesViewModel
 import io.github.bookshelf.feature.settings.BookOptimizationViewModel
 import io.github.bookshelf.feature.settings.DatabaseBackupViewModel
 import io.github.bookshelf.feature.settings.LibraryExportViewModel
@@ -27,6 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import io.github.bookshelf.feature.settings.R
+import io.github.bookshelf.core.designsystem.text.resolve
 
 /**
  * Категория «Хранилище и кэш».
@@ -44,6 +48,67 @@ import io.github.bookshelf.feature.settings.R
  * У каждой копии одна строка: касание раскрывает под ней три действия — «Восстановить», «Удалить»
  * и «Отмена» (требование Александра, 29.09.2026: удаление не должно занимать отдельную строку).
  */
+/**
+ * Блок «Копии книг на устройстве».
+ *
+ * Отдельной функцией, потому что `StorageCategory` уже длинная, а блок самостоятельный: он либо
+ * пуст (копий нет — и места на экране не занимает), либо показывает список, сумму и удаление с
+ * подтверждением.
+ */
+private fun LazyListScope.storageCopiesSection(
+    state: BookCopiesUiState,
+    viewModel: BookCopiesViewModel,
+) {
+    item(key = "storage-copies-header") {
+            EinkSectionHeader(
+                title = stringResource(R.string.settings_copies_header),
+                count = state.copies.size,
+            )
+        }
+        if (!state.isEmpty) {
+            item(key = "storage-copies-hint") {
+                EinkListRow(
+                    title = stringResource(
+                        R.string.settings_copies_total,
+                        state.totalLabel?.resolve().orEmpty(),
+                    ),
+                    subtitle = stringResource(R.string.settings_copies_hint),
+                )
+            }
+            items(items = state.copies, key = { copy -> copy.copyDocumentUri }) { copy ->
+                EinkListRow(
+                    title = copy.title,
+                    subtitle = copy.sizeLabel.resolve(),
+                )
+            }
+            if (state.isConfirming) {
+                item(key = "storage-copies-confirm") {
+                    EinkConfirmRow(
+                        question = stringResource(R.string.settings_copies_confirm),
+                        confirmLabel = stringResource(R.string.settings_action_delete),
+                        onConfirm = viewModel::onConfirmRemove,
+                        onCancel = viewModel::onCancelRemove,
+                        enabled = !state.isWorking,
+                    )
+                }
+            } else {
+                item(key = "storage-copies-remove") {
+                    EinkListRow(
+                        title = stringResource(
+                            if (state.isWorking) {
+                                R.string.settings_working
+                            } else {
+                                R.string.settings_copies_action
+                            },
+                        ),
+                        subtitle = state.message?.resolve() ?: state.error?.resolve(),
+                        onClick = viewModel::onAskRemove,
+                    )
+                }
+            }
+        }
+}
+
 @Composable
 internal fun StorageCategory(
     state: SettingsUiState,
@@ -51,10 +116,12 @@ internal fun StorageCategory(
     backupViewModel: DatabaseBackupViewModel,
     exportViewModel: LibraryExportViewModel,
     optimizationViewModel: BookOptimizationViewModel,
+    copiesViewModel: BookCopiesViewModel,
 ) {
     val backupState by backupViewModel.uiState.collectAsStateWithLifecycle()
     val exportState by exportViewModel.uiState.collectAsStateWithLifecycle()
     val optimizationState by optimizationViewModel.uiState.collectAsStateWithLifecycle()
+    val copiesState by copiesViewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE),
@@ -75,6 +142,7 @@ internal fun StorageCategory(
                 onClick = viewModel::onClearCoverCache,
             )
         }
+        storageCopiesSection(state = copiesState, viewModel = copiesViewModel)
         item(key = "storage-export") {
             EinkListRow(
                 title = stringResource(R.string.settings_storage_export),

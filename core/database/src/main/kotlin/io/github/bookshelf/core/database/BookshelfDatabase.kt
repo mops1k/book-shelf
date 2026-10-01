@@ -6,6 +6,7 @@ import androidx.room.TypeConverters
 import io.github.bookshelf.core.database.convert.Converters
 import io.github.bookshelf.core.database.dao.AuthorDao
 import io.github.bookshelf.core.database.dao.BookCleanupDao
+import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.database.dao.BookDao
 import io.github.bookshelf.core.database.dao.BookReaderOverrideDao
 import io.github.bookshelf.core.database.dao.BookmarkDao
@@ -25,6 +26,7 @@ import io.github.bookshelf.core.database.dao.MetadataOverrideDao
 import io.github.bookshelf.core.database.dao.TagDao
 import io.github.bookshelf.core.database.entity.AuthorEntity
 import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
+import io.github.bookshelf.core.database.entity.BookCopyEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.BookFtsEntity
 import io.github.bookshelf.core.database.entity.BookReaderOverrideEntity
@@ -58,6 +60,7 @@ import io.github.bookshelf.core.database.entity.TagEntity
 @Database(
     entities = [
         BookEntity::class,
+        BookCopyEntity::class,
         BookFtsEntity::class,
         AuthorEntity::class,
         BookAuthorCrossRef::class,
@@ -78,7 +81,7 @@ import io.github.bookshelf.core.database.entity.TagEntity
         OpdsFeedCacheEntity::class,
         MetadataOverrideEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -88,6 +91,9 @@ abstract class BookshelfDatabase : RoomDatabase() {
 
     /** Удаление книг вместе со связями: отдельный DAO, чтобы не раздувать [BookDao]. */
     abstract fun bookCleanupDao(): BookCleanupDao
+
+    /** Файлы-копии книг, созданные не нами: книгой копия не считается (см. [BookCopyEntity]). */
+    abstract fun bookCopyDao(): BookCopyDao
 
     abstract fun sourceDao(): SourceDao
 
