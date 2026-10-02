@@ -9,6 +9,9 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.error.errorOrNull
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.log.AndroidAppLogger
+import io.github.bookshelf.core.common.log.AppLogger
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
@@ -78,6 +81,13 @@ interface SafTreeReader {
  */
 class AndroidSafTreeReader(
     private val contentResolver: ContentResolver,
+    /**
+     * Журнал обхода.
+     *
+     * По умолчанию — боевой: класс создаётся и вне DI (инструментальные тесты) и при отладке
+     * скана, где подмена логгера не нужна. Явная передача остаётся возможной.
+     */
+    private val logger: AppLogger = AndroidAppLogger(),
 ) : SafTreeReader {
 
     override suspend fun children(treeUri: String, parentDocumentId: String): AppResult<List<DocumentEntry>> {
@@ -86,8 +96,8 @@ class AndroidSafTreeReader(
         val result = appRunCatching {
             contentResolver.query(childrenUri, CHILD_COLUMNS, null, null, null)?.use { cursor ->
                 val entries = readEntries(cursor)
-                android.util.Log.i(
-                    "BookShelf",
+                logger.i(
+                    APP_LOG_TAG,
                     "SAF $parentDocumentId: провайдер вернул ${entries.size}, " +
                         "из них папок ${entries.count { it.isDirectory }}, " +
                         "файлов ${entries.count { !it.isDirectory }}",
@@ -95,7 +105,7 @@ class AndroidSafTreeReader(
                 entries
             }.orEmpty().also { empty ->
                 if (empty.isEmpty()) {
-                    android.util.Log.i("BookShelf", "SAF $parentDocumentId: провайдер вернул пусто")
+                    logger.i(APP_LOG_TAG, "SAF $parentDocumentId: провайдер вернул пусто")
                 }
             }
         }
@@ -143,8 +153,8 @@ class AndroidSafTreeReader(
      * искать вне приложения.
      */
     private fun logPersistedModes(treeUri: String) {
-        android.util.Log.i(
-            "BookShelf",
+        logger.i(
+            APP_LOG_TAG,
             "SAF $treeUri: права папки — чтение=${hasPersistedPermission(treeUri)}, " +
                 "запись=${hasWritePermission(treeUri)}",
         )

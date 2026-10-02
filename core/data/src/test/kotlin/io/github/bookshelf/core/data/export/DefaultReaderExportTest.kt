@@ -15,7 +15,7 @@ import io.github.bookshelf.core.storage.files.BookContentOpener
 import io.github.bookshelf.core.storage.files.DocumentFacts
 import java.io.File
 import java.io.InputStream
-import java.nio.channels.FileChannel
+import io.github.bookshelf.core.common.io.SeekableFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -49,7 +49,7 @@ class DefaultReaderExportTest {
         settings.tempExportEnabled = false
         val export = export(temporaryFolder.newFolder("export"))
 
-        val result = runBlocking { export.exportedReaderUri(DOCUMENT_URI) }
+        val result = runBlocking { export.exportedReaderUri(DOCUMENT_URI, EXTENSION) }
 
         assertThat(result.getOrNull()).isNull()
         assertThat(result.errorOrNull()?.message).contains("Временный экспорт")
@@ -62,7 +62,7 @@ class DefaultReaderExportTest {
         val export = export(temporaryFolder.newFolder("export"))
         opener.path = "/tmp/export/книга.fb2"
 
-        val uri = export.exportedReaderUri(DOCUMENT_URI).getOrNull()
+        val uri = export.exportedReaderUri(DOCUMENT_URI, EXTENSION).getOrNull()
 
         assertThat(opener.lastDocumentUri).isEqualTo(DOCUMENT_URI)
         // Адрес обязан приходить из фабрики: только она знает authority FileProvider, по которому
@@ -71,12 +71,25 @@ class DefaultReaderExportTest {
     }
 
     @Test
+    fun `the extension of the book reaches the copy`() = runBlocking {
+        settings.tempExportEnabled = true
+        val export = export(temporaryFolder.newFolder("export"))
+
+        export.exportedReaderUri(DOCUMENT_URI, EXTENSION)
+
+        // ДЕФЕКТ (отчёт Александра 01.10.2026): экспорт терял расширение книги, копия называлась
+        // голым UUID, и читалка открывала свою последнюю книгу вместо выбранной. Расширение знает
+        // вызывающий (оно есть в `LaunchRequest`), значит обязан передать его дальше.
+        assertThat(opener.lastExtension).isEqualTo(EXTENSION)
+    }
+
+    @Test
     fun `copy failure is surfaced with its own reason`() = runBlocking {
         settings.tempExportEnabled = true
         opener.error = AppError.InvalidArgument(what = "bookSize", message = "Файл слишком большой")
         val export = export(temporaryFolder.newFolder("export"))
 
-        val result = export.exportedReaderUri(DOCUMENT_URI)
+        val result = export.exportedReaderUri(DOCUMENT_URI, EXTENSION)
 
         assertThat(result.errorOrNull()?.message).contains("слишком большой")
     }
@@ -89,7 +102,7 @@ class DefaultReaderExportTest {
         val fresh = File(exportDir, "свежая-копия").apply { writeText("книга") }
         val export = export(exportDir)
 
-        export.exportedReaderUri(DOCUMENT_URI)
+        export.exportedReaderUri(DOCUMENT_URI, EXTENSION)
 
         // Копии книг — это мегабайты: без уборки каталог растёт, пока не кончится место.
         assertThat(old.exists()).isFalse()
@@ -110,10 +123,11 @@ class DefaultReaderExportTest {
         var error: AppError? = null
         var calls: Int = 0
         var lastDocumentUri: String? = null
+        var lastExtension: String? = null
 
         override fun openStream(documentUri: String): InputStream? = null
 
-        override fun openSeekableChannel(documentUri: String): FileChannel? = null
+        override fun openSeekableChannel(documentUri: String): SeekableFile? = null
 
         override fun sizeOf(documentUri: String): Long? = null
         override fun factsOf(documentUri: String): DocumentFacts? = null
@@ -124,9 +138,10 @@ class DefaultReaderExportTest {
         override fun tempCopy(documentUri: String): AppResult<String> =
             AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 
-        override fun exportCopy(documentUri: String): AppResult<String> {
+        override fun exportCopy(documentUri: String, extension: String): AppResult<String> {
             calls++
             lastDocumentUri = documentUri
+            lastExtension = extension
             val failure = error
             val target = path
             return when {
@@ -154,6 +169,6 @@ class DefaultReaderExportTest {
 
     private companion object {
         const val DOCUMENT_URI = "content://documents/tree/books/document/book.fb2"
-
+        const val EXTENSION = "fb2"
     }
 }

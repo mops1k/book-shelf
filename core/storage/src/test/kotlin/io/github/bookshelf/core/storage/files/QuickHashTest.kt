@@ -6,7 +6,7 @@ import io.github.bookshelf.core.common.error.AppResult
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.nio.channels.FileChannel
+import io.github.bookshelf.core.common.io.SeekableFile
 import java.security.MessageDigest
 
 /** Проверка ключа изменений: метаданные и только первый префикс файла влияют на хеш. */
@@ -54,7 +54,7 @@ class QuickHashTest {
 
         override fun openStream(documentUri: String): InputStream? = streamFactory()
 
-        override fun openSeekableChannel(documentUri: String): FileChannel? = null
+        override fun openSeekableChannel(documentUri: String): SeekableFile? = null
 
         override fun sizeOf(documentUri: String): Long? = null
         override fun factsOf(documentUri: String): DocumentFacts? = null
@@ -66,7 +66,7 @@ class QuickHashTest {
         override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
             AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
 
-        override fun exportCopy(documentUri: String): AppResult<String> =
+        override fun exportCopy(documentUri: String, extension: String): AppResult<String> =
             AppResult.failure(AppError.NotFound("export"))
     }
 

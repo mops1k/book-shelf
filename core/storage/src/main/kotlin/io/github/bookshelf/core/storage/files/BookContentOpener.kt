@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
+import io.github.bookshelf.core.common.io.SeekableFile
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -41,7 +42,7 @@ interface BookContentOpener {
     fun openStream(documentUri: String): InputStream?
 
     /** Seekable-канал либо `null`, если источник не seekable (облако/pipe). */
-    fun openSeekableChannel(documentUri: String): FileChannel?
+    fun openSeekableChannel(documentUri: String): SeekableFile?
 
     /** Размер в байтах, если провайдер его сообщает; `null`, если колонка `SIZE` пуста. */
     fun sizeOf(documentUri: String): Long?
@@ -75,8 +76,13 @@ interface BookContentOpener {
      *
      * Тот же лимит (`library.tempCopyLimitMb`): это тоже запись на диск, и человек управляет ею
      * одной настройкой.
+     *
+     * @param extension расширение книги (`epub`, `fb2.zip`). Попадает в имя копии: читалка,
+     *   которая определяет формат по имени файла, иначе файл не опознаёт и открывает свою
+     *   последнюю книгу вместо выбранной. Значение приходит из имени чужого файла, поэтому
+     *   в имя попадают только буквы, цифры и точки (`..` и разделители пути отбрасываются).
      */
-    fun exportCopy(documentUri: String): AppResult<String>
+    fun exportCopy(documentUri: String, extension: String): AppResult<String>
 
     /**
      * Записать новое содержимое в **существующий** документ.
@@ -119,13 +125,15 @@ class DefaultBookContentOpener(
      * возвращают pipe, где `position` бросает исключение, поэтому не-seekable — это `null`,
      * а вызывающий делает временную копию.
      *
-     * Дескриптор намеренно НЕ закрывается здесь: `ParcelFileDescriptor` и канал из его
-     * `fileDescriptor` — это один и тот же открытый файл. Закрыть PFD в `use` означало бы
-     * вернуть вызывающему уже мёртвый канал. Владение дескриптором переходит к вызывающему.
+     * Владение дескриптором переходит к вызывающему вместе с каналом: возвращается [SeekableFile],
+     * который закрывает и канал, и `ParcelFileDescriptor`. Держать дескриптор рядом обязательно:
+     * его финализатор закрыл бы файл под живым каналом, когда ссылка на дескриптор потеряна
+     * (находка аудита 28.09.2026).
      */
-    override fun openSeekableChannel(documentUri: String): FileChannel? = runCatching {
-        resolver.openFileDescriptor(Uri.parse(documentUri), "r")
-            ?.let { descriptor -> FileInputStream(descriptor.fileDescriptor).channel }
+    override fun openSeekableChannel(documentUri: String): SeekableFile? = runCatching {
+        resolver.openFileDescriptor(Uri.parse(documentUri), "r")?.let { descriptor ->
+            SeekableFile(FileInputStream(descriptor.fileDescriptor).channel, descriptor)
+        }
     }.getOrNull()
 
     /**
@@ -182,8 +190,13 @@ class DefaultBookContentOpener(
     override fun tempCopy(documentUri: String): AppResult<String> =
         copyInto(directory = importDir, purpose = "временной копии", documentUri = documentUri)
 
-    override fun exportCopy(documentUri: String): AppResult<String> =
-        copyInto(directory = exportDir, purpose = "экспорта", documentUri = documentUri)
+    override fun exportCopy(documentUri: String, extension: String): AppResult<String> =
+        copyInto(
+            directory = exportDir,
+            purpose = "экспорта",
+            documentUri = documentUri,
+            extension = extension,
+        )
 
     /**
      * Замена содержимого документа.
@@ -201,8 +214,16 @@ class DefaultBookContentOpener(
         }
     }
 
-    /** Общая часть обеих копий: отличаются только каталогом и словом в сообщении об ошибке. */
-    private fun copyInto(directory: File, purpose: String, documentUri: String): AppResult<String> {
+    /**
+     * Общая часть обеих копий: отличаются только каталогом, словом в сообщении об ошибке и
+     * расширением в имени файла (оно нужно только копии для читалки).
+     */
+    private fun copyInto(
+        directory: File,
+        purpose: String,
+        documentUri: String,
+        extension: String? = null,
+    ): AppResult<String> {
         val maxTempCopyBytes = tempCopyLimitBytes()
         val declaredSize = sizeOf(documentUri)
         if (declaredSize != null && declaredSize > maxTempCopyBytes) {
@@ -216,7 +237,7 @@ class DefaultBookContentOpener(
 
         // Запись идёт во временный файл с последующим переименованием: читатель, который
         // увидит полуготовую копию, попытается её распарсить и упадёт на битом формате.
-        val name = UUID.randomUUID().toString()
+        val name = copyName(id = UUID.randomUUID().toString(), extension = extension)
         val temp = File(directory, "$name$TEMP_SUFFIX")
         val target = File(directory, name)
         return runCatching {
@@ -248,6 +269,32 @@ class DefaultBookContentOpener(
         const val WRITE_TRUNCATE = "wt"
 
         private const val TEMP_SUFFIX = ".tmp"
+
+        /** Сколько частей расширения попадает в имя копии: `fb2`, `fb2.zip`. */
+        private const val MAX_EXTENSION_PARTS = 2
+
+        /** Предел длины одной части: настоящее расширение короче, а чужой мусор — длиннее. */
+        private const val MAX_EXTENSION_PART = 8
+
+        /**
+         * Имя файла копии: уникальный id плюс расширение книги.
+         *
+         * Расширение приходит из чужого имени файла, поэтому в имя попадают только буквы и цифры,
+         * разделённые точками, — и не больше двух последних частей по [MAX_EXTENSION_PART]
+         * символов. Так `../fb2/../../secret` превращается в `fb2.secret`, а не в путь наружу,
+         * и в имени не остаётся `..`. Пустое расширение не добавляет точку вовсе.
+         */
+        internal fun copyName(id: String, extension: String?): String {
+            val suffix = extension
+                ?.lowercase()
+                ?.split('.', '/', '\\')
+                ?.filter { part -> part.length in 1..MAX_EXTENSION_PART && part.all(Char::isLetterOrDigit) }
+                ?.takeLast(MAX_EXTENSION_PARTS)
+                ?.joinToString(".")
+                .orEmpty()
+            return if (suffix.isEmpty()) id else "$id.$suffix"
+        }
+
         private val SIZE_PROJECTION = arrayOf(OpenableColumns.SIZE)
 
         /** Размер и время изменения: время объявлено у `DocumentsProvider`, а не у `OpenableColumns`. */

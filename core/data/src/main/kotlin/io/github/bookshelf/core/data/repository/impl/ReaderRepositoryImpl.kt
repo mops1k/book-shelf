@@ -153,7 +153,7 @@ class ReaderRepositoryImpl @Inject constructor(
         documentUri: String,
         request: LaunchRequest,
     ): AppResult<Unit> {
-        val exported = export.exportedReaderUri(documentUri)
+        val exported = export.exportedReaderUri(documentUri, request.extension)
         val exportedUri = exported.getOrNull()
             ?: return AppResult.failure(
                 exported.errorOrNull() ?: AppError.Unknown(message = "Копия книги не подготовлена"),

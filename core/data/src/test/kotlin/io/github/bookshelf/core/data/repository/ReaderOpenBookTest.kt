@@ -257,7 +257,7 @@ class ReaderOpenBookTest {
         var calls: Int = 0
         var lastDocumentUri: String? = null
 
-        override suspend fun exportedReaderUri(documentUri: String): AppResult<Uri> {
+        override suspend fun exportedReaderUri(documentUri: String, extension: String): AppResult<Uri> {
             calls++
             lastDocumentUri = documentUri
             val failure = error

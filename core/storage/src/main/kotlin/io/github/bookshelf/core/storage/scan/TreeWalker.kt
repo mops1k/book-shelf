@@ -79,24 +79,14 @@ open class DefaultTreeWalker(
         options: ScanOptions,
         onBatch: suspend (batch: List<DocumentEntry>, resumeFrom: ScanCursor) -> Unit,
     ): AppResult<ScanCursor?> {
-        val pending = ArrayDeque<ScanCursor.Item>()
-        if (cursor == null) {
-            val rootId = DocumentsContract.getTreeDocumentId(Uri.parse(source.treeUri))
-            pending.add(ScanCursor.Item(rootId, depth = 0))
-        } else {
-            pending.addAll(cursor.queue)
-        }
+        val pending = initialQueue(source = source, cursor = cursor)
         if (pending.isEmpty()) return AppResult.success(null)
 
         val excludedGlobs = (options.excludeGlobs + source.excludeGlobs).distinct()
-        val extensions = options.extensions
-            .map { it.trim().lowercase().removePrefix(".") }
-            .toSet()
-        val batch = mutableListOf<DocumentEntry>()
-        val nextQueue = mutableListOf<ScanCursor.Item>()
-        var lastDocumentId = cursor?.documentId.orEmpty()
-        var firstFolder = true
+        val extensions = normalizedExtensions(options.extensions)
+        val state = WalkState(lastDocumentId = cursor?.documentId.orEmpty())
         val resumeMarker = cursor?.documentId
+        var firstFolder = true
 
         while (pending.isNotEmpty()) {
             checkCancellation()
@@ -105,52 +95,95 @@ open class DefaultTreeWalker(
                 is AppResult.Success -> result.value
                 is AppResult.Failure -> return result
             }
-            var childIndex = 0
-
-            if (firstFolder && resumeMarker != null) {
-                val markerIndex = children.indexOfFirst { entry: DocumentEntry ->
-                    entry.documentId == resumeMarker
-                }
-                childIndex = if (markerIndex >= 0) markerIndex + 1 else 0
-            }
+            val startIndex = if (firstFolder) resumeIndex(children, resumeMarker) else 0
             firstFolder = false
-
-            while (childIndex < children.size) {
-                checkCancellation()
-                val entry = children[childIndex++]
-                lastDocumentId = entry.documentId
-                if (entry.isHidden(options.excludeHidden) || entry.isExcluded(excludedGlobs)) continue
-
-                if (entry.isDirectory) {
-                    if (source.recursive && current.depth < options.maxDepth) {
-                        nextQueue += ScanCursor.Item(entry.documentId, current.depth + 1)
-                    }
-                } else if (entry.isBook(extensions)) {
-                    batch += entry
-                    if (batch.size == BATCH_SIZE) {
-                        return emitBatchAndCursor(
-                            batch = batch,
-                            current = current,
-                            childIndex = childIndex,
-                            children = children,
-                            pending = pending,
-                            nextQueue = nextQueue,
-                            lastDocumentId = lastDocumentId,
-                            onBatch = onBatch,
-                        )
-                    }
-                }
+            val fullAt = walkFolder(
+                state = state,
+                folder = current,
+                children = children,
+                startIndex = startIndex,
+                source = source,
+                options = options,
+                extensions = extensions,
+                excludedGlobs = excludedGlobs,
+            )
+            if (fullAt != null) {
+                return emitBatchAndCursor(
+                    batch = state.batch,
+                    current = current,
+                    childIndex = fullAt,
+                    children = children,
+                    pending = pending,
+                    nextQueue = state.nextQueue,
+                    lastDocumentId = state.lastDocumentId,
+                    onBatch = onBatch,
+                )
             }
         }
 
-        if (batch.isNotEmpty()) {
-            val resumeFrom = ScanCursor(lastDocumentId, nextQueue)
-            onBatch(batch.toList(), resumeFrom)
+        if (state.batch.isNotEmpty()) {
+            onBatch(state.batch.toList(), ScanCursor(state.lastDocumentId, state.nextQueue))
         }
-        return if (nextQueue.isEmpty()) AppResult.success(null) else AppResult.success(
-            ScanCursor(lastDocumentId, nextQueue),
-        )
+        return if (state.nextQueue.isEmpty()) {
+            AppResult.success(null)
+        } else {
+            AppResult.success(ScanCursor(state.lastDocumentId, state.nextQueue))
+        }
     }
+
+    /**
+     * Обход детей одной папки: папки кладутся в очередь, книги — в батч.
+     *
+     * Возвращает индекс, на котором батч набрался целиком (нужен для курсора возобновления),
+     * или `null`, если папка просмотрена до конца. Вынесено из `walkInternal`: три уровня
+     * вложенности внутри цикла давали порог `NestedBlockDepth`, а разбор одного элемента
+     * читается отдельно от обхода дерева.
+     */
+    private fun walkFolder(
+        state: WalkState,
+        folder: ScanCursor.Item,
+        children: List<DocumentEntry>,
+        startIndex: Int,
+        source: SourceRef,
+        options: ScanOptions,
+        extensions: Set<String>,
+        excludedGlobs: List<String>,
+    ): Int? {
+        var childIndex = startIndex
+        while (childIndex < children.size) {
+            val entry = children[childIndex++]
+            state.lastDocumentId = entry.documentId
+            if (entry.isHidden(options.excludeHidden) || entry.isExcluded(excludedGlobs)) continue
+            if (entry.isDirectory) {
+                if (source.recursive && folder.depth < options.maxDepth) {
+                    state.nextQueue += ScanCursor.Item(entry.documentId, folder.depth + 1)
+                }
+            } else if (entry.isBook(extensions)) {
+                state.batch += entry
+                if (state.batch.size == BATCH_SIZE) return childIndex
+            }
+        }
+        return null
+    }
+
+    /**
+     * С какого ребёнка продолжать возобновлённый обход.
+     *
+     * Маркер — `documentId`, с которого прошлый прогон остановился: он мог исчезнуть (файл
+     * переименовали или удалили), тогда обход начинается с начала папки.
+     */
+    private fun resumeIndex(children: List<DocumentEntry>, resumeMarker: String?): Int {
+        if (resumeMarker == null) return 0
+        val markerIndex = children.indexOfFirst { entry -> entry.documentId == resumeMarker }
+        return if (markerIndex >= 0) markerIndex + 1 else 0
+    }
+
+    /** Накопители обхода: батч книг, очередь подкаталогов и последний увиденный документ. */
+    private class WalkState(
+        val batch: MutableList<DocumentEntry> = mutableListOf(),
+        val nextQueue: MutableList<ScanCursor.Item> = mutableListOf(),
+        var lastDocumentId: String,
+    )
 
     private suspend fun emitBatchAndCursor(
         batch: MutableList<DocumentEntry>,
@@ -197,3 +230,25 @@ open class DefaultTreeWalker(
         const val BATCH_SIZE = 100
     }
 }
+
+
+/**
+ * Начальная очередь обхода: корень дерева или продолжение с сохранённого курсора.
+ *
+ * Вынесено из `walkInternal` отдельной функцией: та перевалила за предел длины detekt, а выбор
+ * начала обхода — цельный кусок, который читается отдельно от самого цикла.
+ */
+private fun initialQueue(source: SourceRef, cursor: ScanCursor?): ArrayDeque<ScanCursor.Item> {
+    val pending = ArrayDeque<ScanCursor.Item>()
+    if (cursor == null) {
+        val rootId = DocumentsContract.getTreeDocumentId(Uri.parse(source.treeUri))
+        pending.add(ScanCursor.Item(rootId, depth = 0))
+    } else {
+        pending.addAll(cursor.queue)
+    }
+    return pending
+}
+
+/** Расширения книг в сравнимом виде: без точки и в нижнем регистре. */
+private fun normalizedExtensions(extensions: Collection<String>): Set<String> =
+    extensions.map { it.trim().lowercase().removePrefix(".") }.toSet()

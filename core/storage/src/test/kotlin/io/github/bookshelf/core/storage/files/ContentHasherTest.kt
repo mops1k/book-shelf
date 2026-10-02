@@ -5,7 +5,7 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.nio.channels.FileChannel
+import io.github.bookshelf.core.common.io.SeekableFile
 import org.junit.Test
 
 /**
@@ -64,7 +64,7 @@ class ContentHasherTest {
         override fun openStream(documentUri: String): InputStream? =
             bytes?.let { content -> ByteArrayInputStream(content) }
 
-        override fun openSeekableChannel(documentUri: String): FileChannel? = null
+        override fun openSeekableChannel(documentUri: String): SeekableFile? = null
 
         override fun sizeOf(documentUri: String): Long? = bytes?.size?.toLong()
         override fun factsOf(documentUri: String): DocumentFacts? = null
@@ -76,7 +76,7 @@ class ContentHasherTest {
         override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> =
             AppResult.failure(AppError.Unknown(message = "замена в этом тесте не нужна"))
 
-        override fun exportCopy(documentUri: String): AppResult<String> =
+        override fun exportCopy(documentUri: String, extension: String): AppResult<String> =
             AppResult.failure(AppError.Unknown(message = "не используется"))
     }
 }

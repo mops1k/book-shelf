@@ -88,13 +88,45 @@ class BookContentOpenerTest {
         val exportDir = temporaryFolder.newFolder("export")
         val opener = DefaultBookContentOpener(resolver, importDir, exportDir)
 
-        val path = opener.exportCopy(URI).getOrNull()
+        val path = opener.exportCopy(URI, "epub").getOrNull()
 
         // Копия для читалки обязана лежать в каталоге, открытом через FileProvider: иначе
         // другая программа её просто не увидит, и «запасной путь» окажется пустым.
         assertThat(path).isNotNull()
         assertThat(java.io.File(path!!).parentFile).isEqualTo(exportDir)
         assertThat(importDir.listFiles().orEmpty()).isEmpty()
+    }
+
+    @Test
+    fun export_copy_keeps_the_book_extension() {
+        val resolver = mockk<ContentResolver>()
+        every { resolver.openInputStream(Uri.parse(URI)) } returns ByteArrayInputStream("книга".toByteArray())
+        val exportDir = temporaryFolder.newFolder("export")
+        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"), exportDir)
+
+        val path = opener.exportCopy(URI, "fb2").getOrNull()
+
+        // ДЕФЕКТ (отчёт Александра 01.10.2026: «нажимал читать на одной книге, а открывалась
+        // другая»): копия называлась голым UUID. Читалка, которая определяет формат по имени
+        // файла, такой файл не опознаёт и открывает свою последнюю книгу вместо выбранной.
+        assertThat(java.io.File(path!!).name).endsWith(".fb2")
+    }
+
+    @Test
+    fun export_copy_does_not_take_a_directory_from_the_extension() {
+        val resolver = mockk<ContentResolver>()
+        every { resolver.openInputStream(Uri.parse(URI)) } returns ByteArrayInputStream("книга".toByteArray())
+        val exportDir = temporaryFolder.newFolder("export")
+        val opener = DefaultBookContentOpener(resolver, temporaryFolder.newFolder("import"), exportDir)
+
+        val path = opener.exportCopy(URI, "../fb2/../../secret").getOrNull()
+
+        // Расширение приходит из имени чужого файла: разделитель пути в имени копии означал бы
+        // запись за пределами каталога экспорта, а «..» — подмену файла снаружи.
+        val copy = java.io.File(path!!)
+        assertThat(copy.parentFile).isEqualTo(exportDir)
+        assertThat(copy.name).doesNotContain("/")
+        assertThat(copy.name).doesNotContain("..")
     }
 
     @Test
@@ -110,7 +142,7 @@ class BookContentOpenerTest {
             temporaryFolder.newFolder("export"),
         )
 
-        val result = opener.exportCopy(URI)
+        val result = opener.exportCopy(URI, "epub")
 
         assertThat(result.getOrNull()).isNull()
         assertThat(result.errorOrNull()).isInstanceOf(AppError.InvalidArgument::class.java)
@@ -191,12 +223,17 @@ class BookContentOpenerTest {
             exportDir = temporaryFolder.newFolder("export"),
         )
 
-        val channel = opener.openSeekableChannel(URI)!!
+        val handle = opener.openSeekableChannel(URI)!!
         val buffer = ByteBuffer.allocate(3)
-        channel.read(buffer)
+        handle.channel.read(buffer)
 
         assertThat(buffer.array()).isEqualTo(byteArrayOf(7, 8, 9))
-        channel.close()
+
+        handle.close()
+
+        // Дескриптор освобождается вместе с каналом: иначе он оставался бы открытым до сборки мусора.
+        assertThat(handle.channel.isOpen).isFalse()
+        assertThat(descriptor.fileDescriptor.valid()).isFalse()
     }
 
     private companion object {

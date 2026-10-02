@@ -23,8 +23,12 @@ interface ReaderExport {
      * `Failure` означает, что запасного пути нет: экспорт выключен в настройках, файл больше лимита
      * копии или доступ к нему пропал. Причина попадает в текст ошибки — человек должен понять,
      * что именно случилось.
+     *
+     * @param extension расширение книги из [LaunchRequest]: попадает в имя копии. Без него
+     *   читалка, которая определяет формат по имени файла, открывает свою последнюю книгу вместо
+     *   выбранной (дефект из отчёта Александра 01.10.2026).
      */
-    suspend fun exportedReaderUri(documentUri: String): AppResult<Uri>
+    suspend fun exportedReaderUri(documentUri: String, extension: String): AppResult<Uri>
 }
 
 /**

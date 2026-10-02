@@ -34,7 +34,7 @@ class DefaultReaderExport @Inject constructor(
     private val clock: AppClock,
 ) : ReaderExport {
 
-    override suspend fun exportedReaderUri(documentUri: String): AppResult<Uri> {
+    override suspend fun exportedReaderUri(documentUri: String, extension: String): AppResult<Uri> {
         if (!settings.current().reader.tempExportEnabled) {
             return AppResult.failure(
                 AppError.PermissionDenied(
@@ -43,7 +43,7 @@ class DefaultReaderExport @Inject constructor(
             )
         }
         pruneOldExports()
-        val copy = opener.exportCopy(documentUri)
+        val copy = opener.exportCopy(documentUri, extension)
         val path = copy.getOrNull()
             ?: return AppResult.failure(
                 copy.errorOrNull() ?: AppError.Unknown(message = "Копия книги не подготовлена"),

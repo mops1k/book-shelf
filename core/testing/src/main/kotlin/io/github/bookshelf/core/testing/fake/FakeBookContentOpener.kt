@@ -2,11 +2,11 @@ package io.github.bookshelf.core.testing.fake
 
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.io.SeekableFile
 import io.github.bookshelf.core.storage.files.BookContentOpener
 import io.github.bookshelf.core.storage.files.DocumentFacts
 import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.nio.channels.FileChannel
 
 /**
  * Фейк доступа к содержимому книги для тестов.
@@ -40,7 +40,7 @@ class FakeBookContentOpener : BookContentOpener {
         return files[documentUri]?.let { bytes -> ByteArrayInputStream(bytes) }
     }
 
-    override fun openSeekableChannel(documentUri: String): FileChannel? = null
+    override fun openSeekableChannel(documentUri: String): SeekableFile? = null
 
     override fun sizeOf(documentUri: String): Long? = files[documentUri]?.size?.toLong()
 
@@ -59,7 +59,7 @@ class FakeBookContentOpener : BookContentOpener {
     override fun tempCopy(documentUri: String): AppResult<String> =
         AppResult.failure(AppError.Unknown(message = "временная копия в тесте не нужна"))
 
-    override fun exportCopy(documentUri: String): AppResult<String> =
+    override fun exportCopy(documentUri: String, extension: String): AppResult<String> =
         AppResult.failure(AppError.Unknown(message = "экспорт в тесте не нужен"))
 
     override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> {
