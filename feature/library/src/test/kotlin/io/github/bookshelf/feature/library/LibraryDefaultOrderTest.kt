@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.flags.FeatureFlags
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.model.Book
@@ -86,6 +88,25 @@ class LibraryDefaultOrderTest {
     }
 
     @Test
+    fun `the catalogs entry follows the build flag`() = runTest(dispatcher) {
+        // В сборке без OPDS (`ENABLE_OPDS = false`, ADR-006) входа в каталоги быть не должно:
+        // кнопка, ведущая в незарегистрированный маршрут, хуже отсутствующей кнопки.
+        val withoutOpds = viewModel(
+            FakeSettingsRepository(flowOf(appSettings())),
+            featureFlags = FakeFeatureFlags(opdsEnabled = false),
+        )
+        advanceUntilIdle()
+        assertThat(withoutOpds.uiState.value.catalogsEnabled).isFalse()
+
+        val withOpds = viewModel(
+            FakeSettingsRepository(flowOf(appSettings())),
+            featureFlags = FakeFeatureFlags(opdsEnabled = true),
+        )
+        advanceUntilIdle()
+        assertThat(withOpds.uiState.value.catalogsEnabled).isTrue()
+    }
+
+    @Test
     fun `documented defaults are applied without change`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeSettingsRepository(flowOf(appSettings())))
         advanceUntilIdle()
@@ -148,12 +169,16 @@ class LibraryDefaultOrderTest {
             assertThat(settings.updateCalls).isEqualTo(0)
         }
 
-    private fun viewModel(settings: SettingsRepository): LibraryViewModel = LibraryViewModel(
+    private fun viewModel(
+        settings: SettingsRepository,
+        featureFlags: FeatureFlags = FakeFeatureFlags(),
+    ): LibraryViewModel = LibraryViewModel(
         bookRepository = repository,
         settingsRepository = settings,
         filterSelection = FilterSelection(),
         browseRequest = LibraryBrowseRequest(),
         filterRepository = FakeFilterRepository(),
+        featureFlags = featureFlags,
     )
 
     private fun appSettings(

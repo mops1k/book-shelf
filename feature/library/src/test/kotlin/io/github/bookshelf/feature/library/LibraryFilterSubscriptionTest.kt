@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.model.Book
@@ -64,6 +65,7 @@ class LibraryFilterSubscriptionTest {
             filterSelection = selection,
             browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
+            featureFlags = FakeFeatureFlags(),
         )
         advanceUntilIdle()
         val beforeFilter = repository.queries.size
@@ -86,6 +88,7 @@ class LibraryFilterSubscriptionTest {
             filterSelection = selection,
             browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
+            featureFlags = FakeFeatureFlags(),
         )
         advanceUntilIdle()
         selection.apply(BookQuery(authorNames = setOf("a")))
@@ -107,6 +110,7 @@ class LibraryFilterSubscriptionTest {
             filterSelection = selection,
             browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
+            featureFlags = FakeFeatureFlags(),
         )
         advanceUntilIdle()
         selection.apply(BookQuery(authorNames = setOf("a")))
@@ -127,6 +131,7 @@ class LibraryFilterSubscriptionTest {
             filterSelection = selection,
             browseRequest = LibraryBrowseRequest(),
             filterRepository = FakeFilterRepository(),
+            featureFlags = FakeFeatureFlags(),
         )
         advanceUntilIdle()
         assertThat(viewModel.uiState.value.activeFilters.activeCount).isEqualTo(0)

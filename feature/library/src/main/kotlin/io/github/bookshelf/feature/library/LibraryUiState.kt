@@ -83,6 +83,13 @@ fun BookQuery.toFilterChipsUi(): FilterChipsUi = FilterChipsUi(
 data class LibraryUiState(
     /** Книги текущей страницы. */
     val books: List<BookCardUi> = emptyList(),
+    /**
+     * Показывать ли вход в каталоги OPDS.
+     *
+     * Сборка без OPDS (`ENABLE_OPDS = false`, ADR-006) не показывает кнопку: маршрута каталогов
+     * в ней нет, и кнопка вела бы в никуда.
+     */
+    val catalogsEnabled: Boolean = true,
     /** Всего книг по текущему запросу (для подписи «Стр. N/M · K книг»). */
     val total: Int = 0,
     /** Номер текущей страницы, нумерация с нуля. */

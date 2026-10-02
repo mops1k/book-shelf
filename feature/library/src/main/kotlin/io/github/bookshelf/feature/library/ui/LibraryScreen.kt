@@ -116,14 +116,7 @@ fun LibraryScreen(
             )
         },
         menuTitle = stringResource(R.string.library_title),
-        menu = { close ->
-            LibraryMenu(
-                close = close,
-                onOpenCollections = onOpenCollections,
-                onOpenCatalogs = onOpenCatalogs,
-                onOpenSettings = onOpenSettings,
-            )
-        },
+        menu = { close -> LibraryMenu(state, close, onOpenCollections, onOpenCatalogs, onOpenSettings) },
         onKeyAction = { action ->
             libraryKeyAction(
                 action = action,
@@ -764,6 +757,7 @@ private fun LibraryHeaderActions(
  */
 @Composable
 private fun LibraryMenu(
+    state: LibraryUiState,
     close: () -> Unit,
     onOpenCollections: () -> Unit,
     onOpenCatalogs: () -> Unit,
@@ -773,9 +767,12 @@ private fun LibraryMenu(
         onOpenCollections()
         close()
     }
-    EinkMenuButton(text = stringResource(R.string.library_menu_catalogs)) {
-        onOpenCatalogs()
-        close()
+    // В сборке без OPDS пункта нет: маршрут каталогов в ней не зарегистрирован (ADR-006).
+    if (state.catalogsEnabled) {
+        EinkMenuButton(text = stringResource(R.string.library_menu_catalogs)) {
+            onOpenCatalogs()
+            close()
+        }
     }
     EinkMenuButton(text = stringResource(R.string.library_menu_settings)) {
         onOpenSettings()

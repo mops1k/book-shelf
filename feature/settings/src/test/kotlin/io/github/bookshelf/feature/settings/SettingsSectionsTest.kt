@@ -34,6 +34,22 @@ class SettingsSectionsTest {
     }
 
     @Test
+    fun `without opds the catalogs section is not shown`() {
+        // Сборка без OPDS (`ENABLE_OPDS = false`, ADR-006) не должна показывать раздел,
+        // у которого нет потребителя: экранов без действия в интерфейсе не держим.
+        val kinds = defaultSettingsSections(opdsEnabled = false).map { section -> section.kind }
+
+        assertThat(kinds).containsExactly(
+            SettingsSectionKind.APPEARANCE,
+            SettingsSectionKind.EINK_SCREEN,
+            SettingsSectionKind.LIBRARY_SCAN,
+            SettingsSectionKind.READERS,
+            SettingsSectionKind.STORAGE,
+            SettingsSectionKind.ABOUT,
+        ).inOrder()
+    }
+
+    @Test
     fun `titles and summaries are the approved ones`() {
         // Тексты живут в `res/values` (ru) и `values-en`, поэтому тест фиксирует выбранные
         // ресурсы: подмена подписи на чужой ресурс обязана упасть так же, как падала на тексте.

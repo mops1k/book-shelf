@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.Book
@@ -157,6 +158,7 @@ class LibraryBrowseTest {
                     "Денис Грей" to AuthorSeries(series = emptyList(), withoutSeries = 1),
                 ),
             ),
+            featureFlags = FakeFeatureFlags(),
         )
         viewModel.onSetBrowse(BrowseMode.AUTHORS)
         advanceUntilIdle()
@@ -238,6 +240,7 @@ class LibraryBrowseTest {
             filterSelection = selection,
             browseRequest = browseRequest,
             filterRepository = filterRepository,
+            featureFlags = FakeFeatureFlags(),
         )
         viewModel.onSetBrowse(BrowseMode.AUTHORS)
         advanceUntilIdle()
@@ -283,6 +286,7 @@ class LibraryBrowseTest {
             filterSelection = FilterSelection(),
             browseRequest = browseRequest,
             filterRepository = filterRepository,
+            featureFlags = FakeFeatureFlags(),
         )
         advanceUntilIdle()
 
@@ -337,6 +341,7 @@ class LibraryBrowseTest {
         filterSelection = FilterSelection(),
         browseRequest = browseRequest,
         filterRepository = filterRepository,
+        featureFlags = FakeFeatureFlags(),
     )
 
     /** Полка, запоминающая запросы: проверяем, что фильтр категории доходит до репозитория. */

@@ -4,6 +4,7 @@ import android.database.SQLException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.flags.FeatureFlags
 import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.author.authorSetNames
 import io.github.bookshelf.core.data.mapper.LibraryQueryDefaults
@@ -59,9 +60,13 @@ class LibraryViewModel @Inject constructor(
     private val filterSelection: FilterSelection,
     private val browseRequest: LibraryBrowseRequest,
     private val filterRepository: FilterRepository,
+    /** Флаги сборки: во flavor без OPDS входа в каталоги нет (ADR-006). */
+    private val featureFlags: FeatureFlags,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LibraryUiState())
+    private val _uiState = MutableStateFlow(
+        LibraryUiState(catalogsEnabled = featureFlags.opdsEnabled),
+    )
 
     private var query: LibraryQuery = LibraryQuery(
         sort = _uiState.value.sort,

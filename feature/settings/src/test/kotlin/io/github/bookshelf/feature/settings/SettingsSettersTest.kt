@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.settings
 
 import android.view.View
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.designsystem.text.AppText
@@ -313,6 +314,7 @@ class SettingsSettersTest {
         coverCache = covers,
         progressSchedule = schedule,
         fbReaderApi = fbReader,
+        featureFlags = FakeFeatureFlags(),
     )
 
     /** Репозиторий настроек: хранит снимок, записывает каждый `update` в список. */

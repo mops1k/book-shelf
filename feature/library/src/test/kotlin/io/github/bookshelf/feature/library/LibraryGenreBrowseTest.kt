@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.library
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.BookQuery
@@ -233,6 +234,7 @@ class LibraryGenreBrowseTest {
         filterSelection = selection,
         browseRequest = LibraryBrowseRequest(),
         filterRepository = filters,
+        featureFlags = FakeFeatureFlags(),
     )
 
     /** Настройки в этих проверках не участвуют: полка берёт из них только вид по умолчанию. */

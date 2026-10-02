@@ -34,6 +34,9 @@ complexity:
       # тип клавиатуры, фокус). «Параметр-объект» спрятал бы контракт компонента.
       - '**/designsystem/component/EinkTextField.kt'
       - '**/feature/library/LibraryRoute.kt'
+      # Hilt-ViewModel настроек: каждая зависимость — отдельный порт (репозитории, контроллер
+      # e-ink, кэш обложек, API читалки, флаги сборки). «Параметр-объект» спрятал бы граф.
+      - '**/feature/settings/SettingsViewModel.kt'
   # DAO, парсеры форматов и реестры — длинные классы по своей природе.
   TooManyFunctions:
     thresholdInClasses: 30

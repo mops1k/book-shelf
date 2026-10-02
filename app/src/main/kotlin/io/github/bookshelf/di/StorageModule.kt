@@ -91,12 +91,18 @@ object StorageModule {
      *
      * API 30+ — `MANAGE_EXTERNAL_STORAGE`; на 24–29 ему соответствует разрешение на чтение памяти.
      * От ответа зависит, спросят ли человека о доступе к носителю (решение «сначала прямой путь»).
+     *
+     * Сборка учитывается флагом: во flavor `play` разрешения нет вовсе
+     * (`ALLOW_ALL_FILES_ACCESS = false`, ADR-006), и притворяться, что доступ есть, нельзя.
      */
     @Provides
     fun provideAllFilesAccess(
         @ApplicationContext context: Context,
+        featureFlags: io.github.bookshelf.core.common.flags.FeatureFlags,
     ): io.github.bookshelf.core.common.permission.AllFilesAccess =
-        io.github.bookshelf.core.common.permission.AllFilesAccess {
+        io.github.bookshelf.core.common.permission.allFilesAccessOf(
+            allowedInBuild = featureFlags.allowAllFilesAccess,
+        ) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 android.os.Environment.isExternalStorageManager()
             } else {

@@ -214,7 +214,10 @@ class MainActivity : ComponentActivity() {
                 ) {
                     EinkRefreshBridge(controller = einkController, settings = themeState.refresh) {
                         Surface(modifier = Modifier.fillMaxSize()) {
-                            BookShelfNavHost(sourceRepository = sourceRepository)
+                            BookShelfNavHost(
+                                sourceRepository = sourceRepository,
+                                opdsEnabled = themeState.opdsEnabled,
+                            )
                         }
                     }
                 }

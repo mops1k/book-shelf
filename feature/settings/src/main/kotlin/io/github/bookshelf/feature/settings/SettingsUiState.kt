@@ -295,8 +295,13 @@ data class SettingsUiState(
     val error: AppText? = null,
 )
 
-/** Список разделов настроек в порядке отображения — чистые данные, без обращений к хранилищу. */
-fun defaultSettingsSections(): List<SettingsSectionUi> = listOf(
+/**
+ * Список разделов настроек в порядке отображения — чистые данные, без обращений к хранилищу.
+ *
+ * @param opdsEnabled сборка с OPDS (`ENABLE_OPDS`): без него раздела каталогов нет вовсе —
+ *   экранов и переключателей без потребителя в интерфейсе не держим (ADR-006).
+ */
+fun defaultSettingsSections(opdsEnabled: Boolean = true): List<SettingsSectionUi> = listOf(
     SettingsSectionUi(
         kind = SettingsSectionKind.APPEARANCE,
         titleRes = R.string.settings_section_appearance,
@@ -321,7 +326,7 @@ fun defaultSettingsSections(): List<SettingsSectionUi> = listOf(
         kind = SettingsSectionKind.OPDS,
         titleRes = R.string.settings_section_opds,
         summaryRes = R.string.settings_section_opds_summary,
-    ),
+    ).takeIf { opdsEnabled },
     SettingsSectionUi(
         kind = SettingsSectionKind.STORAGE,
         titleRes = R.string.settings_section_storage,
@@ -332,4 +337,4 @@ fun defaultSettingsSections(): List<SettingsSectionUi> = listOf(
         titleRes = R.string.settings_section_about,
         summaryRes = R.string.settings_section_about_summary,
     ),
-)
+).filterNotNull()

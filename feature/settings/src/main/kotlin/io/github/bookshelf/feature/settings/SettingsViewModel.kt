@@ -3,6 +3,7 @@ package io.github.bookshelf.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.flags.FeatureFlags
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
@@ -60,9 +61,13 @@ class SettingsViewModel @Inject constructor(
     private val coverCache: CoverCache,
     private val progressSchedule: ProgressSyncSchedule,
     private val fbReaderApi: FbReaderApi,
+    /** Флаги сборки: раздел OPDS существует только в сборке с OPDS (ADR-006). */
+    private val featureFlags: FeatureFlags,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(sections = defaultSettingsSections(opdsEnabled = featureFlags.opdsEnabled)),
+    )
 
     /**
      * Пересканировать все папки: обойти все включённые источники заново.

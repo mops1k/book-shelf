@@ -3,6 +3,7 @@ package io.github.bookshelf.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.flags.FeatureFlags
 import io.github.bookshelf.core.data.author.AuthorBackfill
 import io.github.bookshelf.core.data.sync.MetadataBackfill
 import io.github.bookshelf.core.datastore.SettingsKeys
@@ -47,6 +48,13 @@ data class ThemeState(
     val refreshMode: RefreshModeLike = SettingsKeys.Defaults.REFRESH_MODE,
     val gcInterval: Int = SettingsKeys.Defaults.GC_INTERVAL,
     val frontLightLevel: Int? = null,
+    /**
+     * Есть ли в сборке OPDS (`ENABLE_OPDS`).
+     *
+     * Флаг, а не настройка: в сборке без OPDS маршруты каталогов не регистрируются, и вход
+     * в них из интерфейса не показывается (ADR-006).
+     */
+    val opdsEnabled: Boolean = true,
 )
 
 /**
@@ -69,9 +77,13 @@ class MainViewModel @Inject constructor(
      * и без него авторский фасет, фильтр и серии автора показали бы ноль книг (см. `AuthorBackfill`).
      */
     private val authorBackfill: AuthorBackfill,
+    /** Флаги сборки: во flavor без OPDS маршрутов каталогов нет (ADR-006). */
+    private val featureFlags: FeatureFlags,
 ) : ViewModel() {
 
-    private val _themeState = MutableStateFlow(ThemeState())
+    private val _themeState = MutableStateFlow(
+        ThemeState(opdsEnabled = featureFlags.opdsEnabled),
+    )
 
     /** Текущее состояние отображения для `collectAsStateWithLifecycle` в Activity. */
     val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()
@@ -83,14 +95,15 @@ class MainViewModel @Inject constructor(
             // Ошибки чтения хранилища разбирает сам репозиторий (`DataStoreSettingsRepository`):
             // недоступный файл настроек не должен ронять приложение, работаем на умолчаниях.
             settingsRepository.settings.collect { settings ->
-                _themeState.value = settings.toThemeState()
+                _themeState.value = settings.toThemeState(opdsEnabled = featureFlags.opdsEnabled)
             }
         }
     }
 }
 
 /** Снимок настроек → состояние отображения; вызывается на каждое изменение DataStore. */
-private fun AppSettings.toThemeState(): ThemeState = ThemeState(
+private fun AppSettings.toThemeState(opdsEnabled: Boolean): ThemeState = ThemeState(
+    opdsEnabled = opdsEnabled,
     themeMode = appearance.themeMode,
     density = densityOf(appearance.density),
     fontScale = fontScaleOf(appearance.fontScale),

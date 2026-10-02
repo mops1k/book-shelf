@@ -61,6 +61,13 @@ import io.github.bookshelf.feature.settings.settingsScreen
 fun BookShelfNavHost(
     navController: NavHostController = rememberNavController(),
     sourceRepository: SourceRepository,
+    /**
+     * Есть ли в сборке OPDS (`ENABLE_OPDS`).
+     *
+     * В сборке без OPDS маршруты каталогов не регистрируются вовсе: экран, до которого нельзя
+     * добраться, но который есть в графе, — это скрытая ловушка (ADR-006).
+     */
+    opdsEnabled: Boolean = true,
     onExit: () -> Unit = rememberExitAction(),
 ) {
     // Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
@@ -142,7 +149,7 @@ fun BookShelfNavHost(
             onApply = { navController.popBackStack() },
         )
 
-        systemRoutes(navController = navController, onExit = onExit)
+        systemRoutes(navController = navController, opdsEnabled = opdsEnabled, onExit = onExit)
 
     }
 }
@@ -156,6 +163,7 @@ fun BookShelfNavHost(
  */
 private fun NavGraphBuilder.systemRoutes(
     navController: NavHostController,
+    opdsEnabled: Boolean,
     onExit: () -> Unit,
 ) {
         scanScreen(
@@ -173,21 +181,23 @@ private fun NavGraphBuilder.systemRoutes(
             },
         )
 
-        catalogsScreen(
-            onBack = { navController.popBackStack() },
-            onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
-            // Книга в листинге открывается карточкой записи: описание и кнопка «Скачать».
-            onOpenEntry = { catalogId, entryId, feedUrl ->
-                navController.navigate(EntryRoute.createRoute(catalogId, entryId, feedUrl))
-            },
-        )
+        if (opdsEnabled) {
+            catalogsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
+                // Книга в листинге открывается карточкой записи: описание и кнопка «Скачать».
+                onOpenEntry = { catalogId, entryId, feedUrl ->
+                    navController.navigate(EntryRoute.createRoute(catalogId, entryId, feedUrl))
+                },
+            )
 
-        opdsEntryScreen(
-            onBack = { navController.popBackStack() },
-            // Автор и серия в карточке — это фиды каталога: карточка уже положила просьбу,
-            // возвращаемся в браузер, который её подхватит и сохранит свои уровни.
-            onOpenFeed = { navController.popBackStack() },
-        )
+            opdsEntryScreen(
+                onBack = { navController.popBackStack() },
+                // Автор и серия в карточке — это фиды каталога: карточка уже положила просьбу,
+                // возвращаемся в браузер, который её подхватит и сохранит свои уровни.
+                onOpenFeed = { navController.popBackStack() },
+            )
+        }
 
         settingsScreen(
             onBack = { navController.popBackStack() },
