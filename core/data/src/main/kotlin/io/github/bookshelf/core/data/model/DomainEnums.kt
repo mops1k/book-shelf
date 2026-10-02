@@ -18,30 +18,13 @@ enum class ReadingStatus {
     READ,
 }
 
-/**
- * Подпись статуса чтения для экранов: код `UNREAD` читался бы как код, а не как состояние.
- *
- * Одна реализация на полку, карточку книги и бейдж умной полки. До неё эта подпись лежала
- * тремя независимыми копиями (полка, карточка, `SmartRules`) и уже начала разъезжаться.
+/*
+ * Подписей статуса здесь больше нет (01.10.2026): «не прочитано», «читаю 42%» и «прочитано» —
+ * это слова интерфейса, а не данные. Раньше они жили тут (`ReadingStatus.label` и `.badge`),
+ * и в английском интерфейсе фасеты фильтров, карточка книги и бейдж обложки оставались русскими.
+ * Теперь имя значения (`UNREAD`) — код, а слова выбирает `readingStatusText`/`readingStatusBadge`
+ * в `:core:designsystem` (docs/tdd.md §8).
  */
-val ReadingStatus.label: String
-    get() = when (this) {
-        ReadingStatus.UNREAD -> "не прочитано"
-        ReadingStatus.READING -> "читаю"
-        ReadingStatus.READ -> "прочитано"
-    }
-
-/**
- * Подпись статуса для бейджа на обложке: «не прочитано», «читаю 42%», «прочитано».
- *
- * @param progressPercent прогресс чтения 0..100; `null` — читалка его не отдаёт, и процент
- *   не выдумывается: «читаю 0%» на свежей книге читалось бы как ошибка.
- */
-fun ReadingStatus.badge(progressPercent: Int? = null): String = when {
-    this != ReadingStatus.READING -> label
-    progressPercent == null -> label
-    else -> "$label $progressPercent%"
-}
 
 /**
  * Откуда взяты метаданные книги.

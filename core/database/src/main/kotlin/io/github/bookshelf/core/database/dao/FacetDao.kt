@@ -10,12 +10,14 @@ import io.github.bookshelf.core.database.relation.AuthorSetFacet
 import io.github.bookshelf.core.database.relation.FormatFacet
 import io.github.bookshelf.core.database.relation.ReadingStatusFacet
 import io.github.bookshelf.core.database.relation.SeriesFacet
+import io.github.bookshelf.core.database.relation.SourceFacet
 import io.github.bookshelf.core.database.relation.TagFacet
 import kotlinx.coroutines.flow.Flow
 import androidx.room.RawQuery
 import androidx.sqlite.db.SupportSQLiteQuery
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.BookTagCrossRef
+import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.entity.TagEntity
 
 /**
@@ -105,6 +107,10 @@ interface FacetDao {
     /** Жанры/теги книги с числом книг; считаются по связям `book_tags`/`tags`. */
     @RawQuery(observedEntities = [BookEntity::class, BookTagCrossRef::class, TagEntity::class])
     fun observeTags(query: SupportSQLiteQuery): Flow<List<TagFacet>>
+
+    /** Источники (папки) с числом книг; считается по активным фильтрам, но без своего фильтра. */
+    @RawQuery(observedEntities = [BookEntity::class, SourceEntity::class])
+    fun observeSources(query: SupportSQLiteQuery): Flow<List<SourceFacet>>
 
     /** Форматы (расширения) с числом книг; считается по текущему источнику и активным фильтрам. */
     // STUB(Sprint 4): добавить фильтр по sourceId и активным фасетам.

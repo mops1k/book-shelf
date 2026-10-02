@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.metadata.parser
 
 import java.io.InputStream
-import java.nio.channels.FileChannel
+import io.github.bookshelf.core.common.io.SeekableFile
 
 /**
  * Входные данные парсера — ровно тот контракт, что зафиксирован в docs/architecture.md §4.4.
@@ -23,6 +23,6 @@ class BookInput(
     val mimeType: String?,
     val sizeBytes: Long,
     val openStream: () -> InputStream,
-    val openSeekable: () -> FileChannel?,
+    val openSeekable: () -> SeekableFile?,
     val bytes: suspend (offset: Long, length: Int) -> ByteArray,
 )

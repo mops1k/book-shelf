@@ -60,19 +60,29 @@ class BookFileMetadataWriter(
     private fun rebuild(archive: ZipFile, bookName: String, book: ByteArray): ByteArray {
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { target ->
-            archive.entries().asSequence()
-                .filterNot { entry -> entry.isDirectory }
-                .forEach { entry ->
-                    target.putNextEntry(ZipEntry(entry.name))
-                    if (entry.name == bookName) {
-                        target.write(book)
-                    } else {
-                        archive.getInputStream(entry).use { source -> source.copyTo(target) }
-                    }
-                    target.closeEntry()
-                }
+            copyEntries(target = target, archive = archive, bookName = bookName, book = book)
         }
         return output.toByteArray()
+    }
+
+    /**
+     * Записи архива FB2.ZIP: правимый файл берётся из памяти, прочее копируется из исходного архива.
+     *
+     * Вынесено из `rebuild` отдельной функцией: три уровня вложенности внутри `use` давали порог
+     * `NestedBlockDepth`, а копирование читается отдельно от создания архива.
+     */
+    private fun copyEntries(target: ZipOutputStream, archive: ZipFile, bookName: String, book: ByteArray) {
+        archive.entries().asSequence()
+            .filterNot { entry -> entry.isDirectory }
+            .forEach { entry ->
+                target.putNextEntry(ZipEntry(entry.name))
+                if (entry.name == bookName) {
+                    target.write(book)
+                } else {
+                    archive.getInputStream(entry).use { source -> source.copyTo(target) }
+                }
+                target.closeEntry()
+            }
     }
 
     /** `ZipFile` работает с файлом, а вход — байты: копия нужна, чтобы читать архив по частям. */

@@ -83,22 +83,31 @@ class SmartRulesTest {
     }
 
     @Test
-    fun `description names the conditions in human words`() {
-        // В бейдже полки код `sf_space` читался бы как ошибка, а не как жанр.
-        assertThat(SmartRules(tags = setOf("sf_space")).describe())
-            .isEqualTo("жанр: Космическая фантастика")
-        assertThat(SmartRules(favoritesOnly = true).describe()).isEqualTo("избранное")
-        assertThat(SmartRules(statuses = setOf("UNREAD")).describe()).isEqualTo("статус: не прочитано")
-        assertThat(SmartRules().describe()).isEqualTo("без условий")
+    fun `parts name the conditions without text from the data layer`() {
+        // Подпись собирает экран: здесь только значения и коды, никакого русского текста
+        // (иначе в английском интерфейсе подпись правила была бы русской, docs/tdd.md §8).
+        assertThat(SmartRules(tags = setOf("sf_space")).parts())
+            .containsExactly(SmartRulePart.Genre("sf_space"))
+        assertThat(SmartRules(favoritesOnly = true).parts())
+            .containsExactly(SmartRulePart.Favorites)
+        assertThat(SmartRules(statuses = setOf("UNREAD")).parts())
+            .containsExactly(SmartRulePart.Status("UNREAD"))
+        assertThat(SmartRules().parts()).isEmpty()
     }
 
     @Test
-    fun `description can be limited to one condition for the shelf row`() {
-        val rules = SmartRules(tags = setOf("sf_space"), statuses = setOf("UNREAD"))
+    fun `parts keep one condition of each kind in a stable order`() {
+        val rules = SmartRules(
+            tags = setOf("sf_space", "detective"),
+            authors = setOf("Лем"),
+            statuses = setOf("UNREAD", "READ"),
+        )
 
-        // В строке полки показывается одно условие: при двух подпись обрывалась многоточием
-        // на середине названия жанра (проверено на устройстве 28.09.2026).
-        assertThat(rules.describe(maxParts = 1)).isEqualTo("жанр: Космическая фантастика и ещё 1")
-        assertThat(rules.describe()).isEqualTo("жанр: Космическая фантастика, статус: не прочитано")
+        // По одному условию каждого вида: подпись из двух жанров смысла не имеет.
+        assertThat(rules.parts()).containsExactly(
+            SmartRulePart.Genre("sf_space"),
+            SmartRulePart.Author("Лем"),
+            SmartRulePart.Status("UNREAD"),
+        ).inOrder()
     }
 }

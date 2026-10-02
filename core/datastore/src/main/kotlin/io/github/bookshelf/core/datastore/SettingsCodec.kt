@@ -75,23 +75,8 @@ internal object SettingsCodec {
             target[SettingsKeys.TAP_ZONE_LEFT_PERCENT] = tapZoneLeftPercent
             target[SettingsKeys.TAP_ZONE_RIGHT_PERCENT] = tapZoneRightPercent
         }
-        with(settings.library) {
-            target[SettingsKeys.GRID_COLUMNS] = gridColumns
-            target[SettingsKeys.VIEW_PRESET] = viewPreset.name
-            target[SettingsKeys.METADATA_BACKFILL_DONE] = metadataBackfillDone
-            target[SettingsKeys.ROWS_PER_PAGE] = rowsPerPage
-            target[SettingsKeys.SORT_ORDER] = sortOrder.name
-            target[SettingsKeys.SORT_DESCENDING] = sortDescending
-            target[SettingsKeys.GROUPING] = grouping.name
-            target[SettingsKeys.SHOW_MISSING] = showMissing
-            target[SettingsKeys.AUTO_SCAN_ON_START] = autoScanOnStart
-            target[SettingsKeys.SCAN_SCHEDULE] = scanSchedule.name
-            target[SettingsKeys.MISSING_CLEANUP_DAYS] = missingCleanupDays
-            target[SettingsKeys.METADATA_PARALLELISM] = metadataParallelism
-            target[SettingsKeys.SHOW_REMOVABLE_SHELF] = showRemovableShelf
-            target[SettingsKeys.TEMP_COPY_LIMIT_MB] = tempCopyLimitMb
-            target[SettingsKeys.COVER_CACHE_LIMIT_MB] = coverCacheLimitMb
-        }
+        encodeLibrary(target = target, library = settings.library)
+
         with(settings.reader) {
             target[SettingsKeys.DEFAULT_READER_BY_FORMAT] = json.encodeToString(defaultReaderByFormat)
             target[SettingsKeys.LAST_USED_READER_BY_FORMAT] = json.encodeToString(lastUsedReaderByFormat)
@@ -289,4 +274,31 @@ internal object SettingsCodec {
 
     /** Верхняя граница процента: столько же принимает `EinkController.setFrontLight`. */
     private const val PERCENT_MAX = 100
+}
+
+
+/**
+ * Настройки библиотеки в DataStore.
+ *
+ * Вынесено из `encode` отдельной функцией: та перевалила за предел длины detekt. Ключи и порядок
+ * записи те же — блок виден целиком и читается как таблица.
+ */
+private fun encodeLibrary(target: MutablePreferences, library: LibrarySettings) {
+    with(library) {
+            target[SettingsKeys.GRID_COLUMNS] = gridColumns
+            target[SettingsKeys.VIEW_PRESET] = viewPreset.name
+            target[SettingsKeys.METADATA_BACKFILL_DONE] = metadataBackfillDone
+            target[SettingsKeys.ROWS_PER_PAGE] = rowsPerPage
+            target[SettingsKeys.SORT_ORDER] = sortOrder.name
+            target[SettingsKeys.SORT_DESCENDING] = sortDescending
+            target[SettingsKeys.GROUPING] = grouping.name
+            target[SettingsKeys.SHOW_MISSING] = showMissing
+            target[SettingsKeys.AUTO_SCAN_ON_START] = autoScanOnStart
+            target[SettingsKeys.SCAN_SCHEDULE] = scanSchedule.name
+            target[SettingsKeys.MISSING_CLEANUP_DAYS] = missingCleanupDays
+            target[SettingsKeys.METADATA_PARALLELISM] = metadataParallelism
+            target[SettingsKeys.SHOW_REMOVABLE_SHELF] = showRemovableShelf
+            target[SettingsKeys.TEMP_COPY_LIMIT_MB] = tempCopyLimitMb
+            target[SettingsKeys.COVER_CACHE_LIMIT_MB] = coverCacheLimitMb
+    }
 }

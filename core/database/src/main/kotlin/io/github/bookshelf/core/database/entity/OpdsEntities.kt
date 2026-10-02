@@ -64,6 +64,13 @@ data class OpdsDownloadEntity(
     val targetRelativeDir: String,
     val state: OpdsDownloadState = OpdsDownloadState.QUEUED,
     val bytesDownloaded: Long = 0L,
+    /**
+     * Код причины отказа загрузки (имя константы `DownloadFailure` из `:core:common`).
+     *
+     * Хранится кодом, а не текстом: база не переводит, слова выбирает экран.
+     */
+    val failure: String? = null,
+    /** Диагностика отказа: ответ сервера, отказ провайдера. В интерфейс не выводится. */
     val error: String? = null,
     /** Книга, созданная после успешной загрузки. */
     val bookId: String? = null,

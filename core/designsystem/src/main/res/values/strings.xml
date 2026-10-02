@@ -9,4 +9,105 @@
     <string name="eink_action_close">Закрыть</string>
     <string name="eink_action_more">Ещё</string>
     <string name="eink_menu_title">Действия</string>
+    <!-- Тексты ошибок по типу: AppError.message в баннер не выводится (docs/tdd.md §7). -->
+    <string name="error_not_found">не найдено</string>
+    <string name="error_invalid_argument">неверное значение</string>
+    <string name="error_permission_denied">нет доступа</string>
+    <string name="error_access_lost">доступ к источнику потерян</string>
+    <string name="error_io">ошибка ввода-вывода</string>
+    <string name="error_parse">не удалось разобрать данные: %1$s</string>
+    <string name="error_network">ошибка сети</string>
+    <string name="error_network_code">ошибка сети (HTTP %1$d)</string>
+    <string name="error_unauthorized">нужна авторизация</string>
+    <string name="error_unsupported">пока не поддерживается: %1$s</string>
+    <string name="error_unknown">неизвестная ошибка</string>
+    <!-- Разделитель частей сообщения: итог собирается из переводимых кусков. -->
+    <string name="app_text_parts_separator">, </string>
+
+    <!-- Причины отказа разбора: код живёт в базе, слова выбирает приложение (docs/tdd.md §8). -->
+    <string name="parse_failure_format_unsupported">Формат не поддерживается</string>
+    <string name="parse_failure_corrupt_file">Файл повреждён или не соответствует формату</string>
+    <string name="parse_failure_empty_file">Файл пуст</string>
+    <string name="parse_failure_archive_limit">Содержимое файла превысило допустимый размер</string>
+    <string name="parse_failure_unknown">Причина отказа разбора не определена</string>
+
+    <!-- Причины отказа загрузки OPDS: код живёт в базе, слова выбирает приложение. -->
+    <string name="download_failure_no_write_permission">Приложению не разрешено писать в папку. Откройте «Настройки» → «Библиотека и сканирование» и выберите папку заново — приложению нужно право записи</string>
+    <string name="download_failure_receiver_folder_gone">Папка-получатель больше не существует</string>
+    <string name="download_failure_credentials_unreadable">Не удалось прочитать пароль каталога</string>
+    <string name="download_failure_bad_document_uri">Провайдер вернул адрес, из которого не собрать идентификатор книги</string>
+    <string name="download_failure_failed">Не удалось скачать книгу</string>
+    <string name="download_failure_unknown">Причина отказа загрузки не определена</string>
+
+    <!-- Названия жанров FB2: код — значение фильтра, подпись — ресурс (docs/tdd.md §8). -->
+    <string name="genre_sf">Фантастика</string>
+    <string name="genre_sf_history">Историческая фантастика</string>
+    <string name="genre_sf_action">Боевая фантастика</string>
+    <string name="genre_sf_epic">Эпическая фантастика</string>
+    <string name="genre_sf_heroic">Героическая фантастика</string>
+    <string name="genre_sf_detective">Фантастический детектив</string>
+    <string name="genre_sf_cyberpunk">Киберпанк</string>
+    <string name="genre_sf_space">Космическая фантастика</string>
+    <string name="genre_sf_social">Социальная фантастика</string>
+    <string name="genre_sf_horror">Фантастический ужас</string>
+    <string name="genre_sf_humor">Юмористическая фантастика</string>
+    <string name="genre_sf_fantasy">Фэнтези</string>
+    <string name="genre_sf_fantasy_city">Городское фэнтези</string>
+    <string name="genre_dark_fantasy">Тёмное фэнтези</string>
+    <string name="genre_sf_postapocalyptic">Постапокалипсис</string>
+    <string name="genre_sf_litrpg">ЛитРПГ</string>
+    <string name="genre_network_literature">Сетевая литература</string>
+    <string name="genre_detective">Детективы</string>
+    <string name="genre_det_classic">Классический детектив</string>
+    <string name="genre_det_police">Полицейский детектив</string>
+    <string name="genre_det_irony">Иронический детектив</string>
+    <string name="genre_det_history">Исторический детектив</string>
+    <string name="genre_det_espionage">Шпионский детектив</string>
+    <string name="genre_det_maniac">Маньяки</string>
+    <string name="genre_prose">Проза</string>
+    <string name="genre_prose_classic">Классическая проза</string>
+    <string name="genre_prose_contemporary">Современная проза</string>
+    <string name="genre_prose_history">Историческая проза</string>
+    <string name="genre_prose_rus_classic">Русская классика</string>
+    <string name="genre_prose_su_classics">Советская классика</string>
+    <string name="genre_prose_military">Военная проза</string>
+    <string name="genre_love">Любовные романы</string>
+    <string name="genre_love_contemporary">Современные любовные романы</string>
+    <string name="genre_love_detective">Остросюжетные любовные романы</string>
+    <string name="genre_love_history">Исторические любовные романы</string>
+    <string name="genre_love_sf">Любовно-фантастические романы</string>
+    <string name="genre_adv">Приключения</string>
+    <string name="genre_adv_history">Исторические приключения</string>
+    <string name="genre_adv_maritime">Морские приключения</string>
+    <string name="genre_adv_western">Вестерн</string>
+    <string name="genre_humor">Юмор</string>
+    <string name="genre_humor_fantasy">Юмористическое фэнтези</string>
+    <string name="genre_child">Детская литература</string>
+    <string name="genre_child_sf">Детская фантастика</string>
+    <string name="genre_child_det">Детские детективы</string>
+    <string name="genre_child_tale">Сказки</string>
+    <string name="genre_nonf">Документальное</string>
+    <string name="genre_science">Наука</string>
+    <string name="genre_sci_history">История</string>
+    <string name="genre_sci_philosophy">Философия</string>
+    <string name="genre_sci_psychology">Психология</string>
+    <string name="genre_sci_religion">Религия</string>
+    <string name="genre_sci_tech">Технические науки</string>
+    <string name="genre_comp">Компьютеры</string>
+    <string name="genre_ref">Справочная литература</string>
+    <string name="genre_religion">Религия и духовность</string>
+    <string name="genre_sport">Спорт</string>
+    <string name="genre_home">Дом и семья</string>
+    <string name="genre_health">Здоровье</string>
+    <string name="genre_business">Деловая литература</string>
+    <string name="genre_poetry">Поэзия</string>
+    <string name="genre_drama">Драматургия</string>
+    <string name="genre_periodic">Периодика</string>
+
+    <!-- Статусы чтения: имя значения — код фильтра, слова выбирает интерфейс. -->
+    <string name="status_unread">не прочитано</string>
+    <string name="status_reading">читаю</string>
+    <string name="status_read">прочитано</string>
+    <string name="status_reading_progress">читаю %1$d%%</string>
+    <string name="source_default_name">Папка</string>
 </resources>

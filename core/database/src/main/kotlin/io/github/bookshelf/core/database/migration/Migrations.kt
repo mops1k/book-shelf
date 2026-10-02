@@ -160,5 +160,102 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
     }
 }
 
+/**
+ * Схема 5 → 6: причина отказа разбора становится кодом.
+ *
+ * Пользователь видел русский текст парсера прямо в карточке. Теперь для человека есть код
+ * (`parseFailure`), а текст остаётся диагностикой в `parseError` (в интерфейс не идёт).
+ * Известные причины переносятся: «Формат не поддерживается» — FORMAT_UNSUPPORTED, всё остальное,
+ * что было записано у неразобранных книг, — CORRUPT_FILE. Так ни одна книга не остаётся без
+ * подписи, а данные пользователя не теряются.
+ */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `books` ADD COLUMN `parseFailure` TEXT")
+        db.execSQL(
+            "UPDATE `books` SET `parseFailure` = 'FORMAT_UNSUPPORTED' " +
+                "WHERE `parseError` = 'Формат не поддерживается'",
+        )
+        db.execSQL(
+            "UPDATE `books` SET `parseFailure` = 'CORRUPT_FILE' " +
+                "WHERE `parseFailure` IS NULL AND `parseError` IS NOT NULL",
+        )
+    }
+}
+
+/**
+ * Схема 6 → 7: причина отказа загрузки становится кодом.
+ *
+ * Раньше отказ загрузки хранился готовым текстом (в том числе русской подсказкой про папку) и
+ * показывался в очереди — в английском интерфейсе по-русски. Теперь для человека есть код
+ * (`failure`), а текст остаётся диагностикой в `error`. Известные причины переносятся по тексту,
+ * всё остальное становится общим DOWNLOAD_FAILED: строка без подписи хуже общей, но понятной.
+ */
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `opds_downloads` ADD COLUMN `failure` TEXT")
+        db.execSQL(
+            "UPDATE `opds_downloads` SET `failure` = 'NO_WRITE_PERMISSION' " +
+                "WHERE `error` LIKE 'Приложению не разрешено писать в папку%'",
+        )
+        db.execSQL(
+            "UPDATE `opds_downloads` SET `failure` = 'RECEIVER_FOLDER_GONE' " +
+                "WHERE `error` = 'Папка-получатель больше не существует'",
+        )
+        db.execSQL(
+            "UPDATE `opds_downloads` SET `failure` = 'CREDENTIALS_UNREADABLE' " +
+                "WHERE `error` = 'Не удалось прочитать пароль каталога'",
+        )
+        db.execSQL(
+            "UPDATE `opds_downloads` SET `failure` = 'BAD_DOCUMENT_URI' " +
+                "WHERE `error` = 'Провайдер вернул адрес, из которого не собрать идентификатор'",
+        )
+        // Всё, что не опознано, получает общий код — но только у неудачных загрузок: у остальных
+        // столбец `error` пуст, и кода быть не должно.
+        db.execSQL(
+            "UPDATE `opds_downloads` SET `failure` = 'DOWNLOAD_FAILED' " +
+                "WHERE `failure` IS NULL AND `state` = 'FAILED'",
+        )
+    }
+}
+
+/**
+ * Схема 8: имена служебных полок больше не хранятся в базе.
+ *
+ * Раньше имя писали мы сами и по-русски: «Новая полка» (с номером), «Подборка: жанр: …» и четыре
+ * имени пресетов. В английском интерфейсе эти строки оставались русскими, а в данных лежал текст,
+ * который нельзя перевести (docs/tdd.md §8). Теперь у служебной полки имя пустое, а слова собирает
+ * экран: «Новая полка»/«Новая полка 2» по порядку безымянных полок и подпись правила из его частей.
+ *
+ * Список шаблонов намеренно закрытый и точный: «похоже на наше» затронуло бы полку, которую человек
+ * назвал сам, — а это его данные. Имя не удаляется физически: обнуляется только совпадение, и если
+ * человек когда-то переименовал служебную полку в «Избранное», он увидит подпись правила — меньший
+ * вред, чем переименование чужой полки.
+ */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "UPDATE `collections` SET `name` = '' WHERE `name` = 'Новая полка' " +
+                "OR `name` LIKE 'Новая полка %'",
+        )
+        db.execSQL("UPDATE `collections` SET `name` = '' WHERE `name` LIKE 'Подборка: %'")
+        db.execSQL(
+            "UPDATE `collections` SET `name` = '' WHERE `name` IN " +
+                "('Избранное', 'Непрочитанные', 'Читаю сейчас', 'Прочитанные')",
+        )
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> =
-    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+        MIGRATION_6_7,
+        MIGRATION_7_8,
+    )

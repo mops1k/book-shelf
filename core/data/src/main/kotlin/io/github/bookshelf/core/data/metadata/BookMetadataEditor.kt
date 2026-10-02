@@ -7,6 +7,7 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
@@ -101,18 +102,29 @@ class DefaultBookMetadataEditor @Inject constructor(
             is ParseResult.Partial -> result.metadata
             else -> return "Правка не записана: файл после неё не читается"
         }
-        // Проверяются именно те поля, которых коснулась правка: «файл ещё читается» — слишком
-        // слабая гарантия, правка могла не попасть в него вовсе.
+        val missing = missingField(metadata = metadata, edit = edit)
+        return missing?.let { field -> "Правка не записана: файл после неё не отдаёт «$field»" }
+    }
+
+    /**
+     * Какое поле правки не доехало до файла.
+     *
+     * Проверяются именно те поля, которых коснулась правка: «файл ещё читается» — слишком слабая
+     * гарантия, правка могла не попасть в него вовсе. `orEmpty()` у серии и описания нужен
+     * намеренно: пустая строка в правке означает «убрать значение», и сравнение с `null` напрямую
+     * отвергало бы правильную очистку (найдено на устройстве: серия не убиралась из файла).
+     *
+     * Вынесено из `verify` отдельной функцией: условия давали порог `CyclomaticComplexMethod`,
+     * а проверка полей читается отдельно от разбора файла.
+     */
+    private fun missingField(metadata: BookMetadata, edit: MetadataEdit): String? {
         val wantedTitle = edit.title?.trim()
         val wantedSeries = edit.seriesName?.trim()
         val wantedAuthors = edit.authors?.map(String::trim)
         val wantedDescription = edit.description?.trim()
-        val missing = when {
+        return when {
             metadata.title.isBlank() -> "название"
             wantedTitle != null && metadata.title.trim() != wantedTitle -> "название"
-            // `orEmpty()`: пустая строка в правке означает «убрать значение», и в файле его
-            // действительно не остаётся — сравнивать с `null` напрямую значило бы отвергать
-            // правильную очистку (найдено на устройстве: серия не убиралась из файла).
             wantedSeries != null && metadata.seriesName?.trim().orEmpty() != wantedSeries -> "серия"
             edit.seriesIndex != null && metadata.seriesIndex != edit.seriesIndex -> "номер в серии"
             wantedAuthors != null && metadata.authors.map(String::trim) != wantedAuthors -> "авторы"
@@ -120,7 +132,6 @@ class DefaultBookMetadataEditor @Inject constructor(
                 "описание"
             else -> null
         }
-        return missing?.let { field -> "Правка не записана: файл после неё не отдаёт «$field»" }
     }
 
     private companion object {

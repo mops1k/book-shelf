@@ -1,8 +1,10 @@
 package io.github.bookshelf.core.designsystem.component
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import io.github.bookshelf.core.designsystem.theme.EinkColors
+import io.github.bookshelf.core.designsystem.theme.EinkDimens
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
@@ -72,24 +76,7 @@ fun BookCover(
     val invertFilter = remember(invert) {
         if (invert) ColorFilter.colorMatrix(ColorMatrix(invertedColorMatrix())) else null
     }
-    // Ключ кэша Coil по умолчанию — путь к файлу. Обложка может быть перерисована под ТЕМ ЖЕ
-    // путём (карточка книги → «Обновить из файла»), и тогда кэш отдал бы старую картинку:
-    // на устройстве 28.09.2026 обложка PDF так и оставалась чёрной на экране, хотя в файле уже
-    // лежала страница. Поэтому в ключ входит время изменения файла — оно меняется при записи.
-    val revision = coverPath?.let { path -> java.io.File(path).lastModified() } ?: 0L
-    val imageModel: Any? = if (coverUrl != null) {
-        coverUrl
-    } else if (coverPath != null) {
-        remember(coverPath, revision) {
-            ImageRequest.Builder(context)
-                .data(java.io.File(coverPath))
-                .memoryCacheKey("$coverPath#$revision")
-                .diskCacheKey("$coverPath#$revision")
-                .build()
-        }
-    } else {
-        null
-    }
+    val imageModel = rememberCoverModel(context = context, coverPath = coverPath, coverUrl = coverUrl)
 
     Box(
         modifier = modifier
@@ -132,22 +119,7 @@ fun BookCover(
         }
 
         if (statusBadge != null) {
-            Text(
-                text = statusBadge,
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.foreground,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    // Плашка непрозрачная: на e-ink полупрозрачность и тени запрещены, а по светлой
-                    // обложке светлый текст было бы не прочитать (docs/eink-ux.md §5).
-                    .background(colors.background)
-                    .border(dimens.border, colors.divider)
-                    .padding(vertical = dimens.gutterSmall / 4),
-            )
+            CoverStatusBadge(text = statusBadge, colors = colors, dimens = dimens)
         }
     }
 }
@@ -210,3 +182,67 @@ internal fun invertedColorMatrix(): FloatArray = floatArrayOf(
  */
 private const val INVERT_CHANNEL_MAX = 255f
 
+
+/**
+ * Модель картинки для Coil: ссылка из фида или файл в кэше.
+ *
+ * Ключ кэша включает время изменения файла: обложка может быть перерисована под ТЕМ ЖЕ путём
+ * (карточка книги → «Обновить из файла»), и тогда кэш отдал бы старую картинку — на устройстве
+ * 28.09.2026 обложка PDF так и оставалась чёрной, хотя в файле уже лежала страница.
+ *
+ * Вынесено из `BookCover` отдельной функцией: та перевалила за предел длины detekt.
+ */
+@Composable
+private fun rememberCoverModel(context: Context, coverPath: String?, coverUrl: String?): Any? {
+    // Ключ кэша Coil по умолчанию — путь к файлу. Обложка может быть перерисована под ТЕМ ЖЕ
+    // путём (карточка книги → «Обновить из файла»), и тогда кэш отдал бы старую картинку:
+    // на устройстве 28.09.2026 обложка PDF так и оставалась чёрной на экране, хотя в файле уже
+    // лежала страница. Поэтому в ключ входит время изменения файла — оно меняется при записи.
+    val revision = coverPath?.let { path -> java.io.File(path).lastModified() } ?: 0L
+    val imageModel: Any? = if (coverUrl != null) {
+        coverUrl
+    } else if (coverPath != null) {
+        remember(coverPath, revision) {
+            ImageRequest.Builder(context)
+                .data(java.io.File(coverPath))
+                .memoryCacheKey("$coverPath#$revision")
+                .diskCacheKey("$coverPath#$revision")
+                .build()
+        }
+    } else {
+        null
+    }
+    return imageModel
+}
+
+
+/**
+ * Плашка статуса чтения внизу обложки.
+ *
+ * Непрозрачная подложка обязательна: на e-ink полупрозрачность и тени запрещены, а по светлой
+ * обложке светлый текст было бы не прочитать (docs/eink-ux.md §5). Вынесено из `BookCover`
+ * ради предела длины detekt.
+ */
+@Composable
+private fun BoxScope.CoverStatusBadge(
+    text: String,
+    colors: EinkColors,
+    dimens: EinkDimens,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = colors.foreground,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            // Плашка непрозрачная: на e-ink полупрозрачность и тени запрещены, а по светлой
+            // обложке светлый текст было бы не прочитать (docs/eink-ux.md §5).
+            .background(colors.background)
+            .border(dimens.border, colors.divider)
+            .padding(vertical = dimens.gutterSmall / 4),
+    )
+}

@@ -10,9 +10,7 @@ import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
 import io.github.bookshelf.core.data.model.ReadingStatus
-import io.github.bookshelf.core.data.model.label
 import io.github.bookshelf.core.data.repository.FilterRepository
-import io.github.bookshelf.core.data.tag.genreDisplayName
 import io.github.bookshelf.core.database.dao.FacetDao
 import io.github.bookshelf.core.database.relation.AuthorFacet
 import io.github.bookshelf.core.database.relation.AuthorSeriesFacet
@@ -61,18 +59,19 @@ class FilterRepositoryImpl @Inject constructor(
         statuses: List<ReadingStatusFacet>, tags: List<TagFacet> ->
         FacetSet(
             authors = authors
-                .map { FacetItem(id = it.name, label = it.name, count = it.bookCount) },
+                .map { FacetItem(id = it.name, labelCode = it.name, count = it.bookCount) },
             series = series
-                .map { FacetItem(id = it.seriesName, label = it.seriesName, count = it.bookCount) },
+                .map { FacetItem(id = it.seriesName, labelCode = it.seriesName, count = it.bookCount) },
             formats = formats
-                .map { FacetItem(id = it.extension, label = it.extension, count = it.bookCount) },
+                .map { FacetItem(id = it.extension, labelCode = it.extension, count = it.bookCount) },
             statuses = statuses
                 // id остаётся именем статуса (по нему строится запрос), подпись — словами:
                 // чип «UNREAD» читался бы как код, а не как состояние чтения.
                 .map { facet ->
                     FacetItem(
+                        // Подпись статуса — имя значения: слова выбирает экран (docs/tdd.md §8).
                         id = facet.readingStatus.name,
-                        label = statusLabel(facet.readingStatus.name),
+                        labelCode = facet.readingStatus.name,
                         count = facet.bookCount,
                     )
                 },
@@ -81,9 +80,20 @@ class FilterRepositoryImpl @Inject constructor(
             tags = tags
                 // id остаётся кодом из метаданных (по нему фильтрует SQL), подпись — название:
                 // пользователю нельзя показывать `sf_space` вместо «Космической фантастики».
-                .map { FacetItem(id = it.name, label = genreDisplayName(it.name), count = it.bookCount) },
+                .map { FacetItem(id = it.name, labelCode = it.name, count = it.bookCount) },
         )
-    }.flowOn(dispatchers.metadata)
+    }
+        // Источники (папки) собираются отдельным `combine`: у `combine` пять типизированных
+        // аргументов, а измерений стало шесть. Подпись — имя папки; пустое имя означает, что
+        // слова выберет экран («Папка»), как и везде после отказа писать текст в базу.
+        .combine(facetDao.observeSources(FacetSql.sources(query))) { set, sources ->
+            set.copy(
+                sources = sources.map {
+                    FacetItem(id = it.sourceId, labelCode = it.sourceName, count = it.bookCount)
+                },
+            )
+        }
+        .flowOn(dispatchers.metadata)
 
     override fun observeAuthorSetSeries(
         authorNames: List<String>,
@@ -121,11 +131,7 @@ class FilterRepositoryImpl @Inject constructor(
 private fun List<AuthorSeriesFacet>.toAuthorSeries(): AuthorSeries = AuthorSeries(
     series = mapNotNull { row ->
         val name = row.seriesName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        FacetItem(id = name, label = name, count = row.bookCount)
+        FacetItem(id = name, labelCode = name, count = row.bookCount)
     },
     withoutSeries = firstOrNull { row -> row.seriesName.isNullOrBlank() }?.bookCount ?: 0,
 )
-
-/** Подпись статуса чтения по имени из БД; неизвестное имя остаётся как есть. */
-internal fun statusLabel(name: String): String =
-    ReadingStatus.entries.firstOrNull { status -> status.name == name }?.label ?: name

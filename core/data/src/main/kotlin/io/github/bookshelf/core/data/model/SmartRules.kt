@@ -1,6 +1,5 @@
 package io.github.bookshelf.core.data.model
 
-import io.github.bookshelf.core.data.tag.genreDisplayName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -17,11 +16,38 @@ import kotlinx.serialization.json.Json
  *
  * @param authors имена авторов (`books.authorsText`), «ИЛИ» внутри набора;
  * @param series имена серий;
- * @param tags коды жанров/тегов из метаданных (`sf_space`), подпись переводится [genreDisplayName];
+ * @param tags коды жанров/тегов из метаданных (`sf_space`), подпись переводит экран (`genreText`);
  * @param formats расширения файлов (`fb2`, `epub`);
  * @param statuses статусы чтения именами (`UNREAD`, `READING`, `READ`);
  * @param favoritesOnly только избранное.
  */
+/**
+ * Часть подписи правила умной полки.
+ *
+ * Разделение обязательно (docs/tdd.md §8): значение части — код метаданных (`sf_space`, `UNREAD`)
+ * или имя (автор, серия) — данные, а слова выбирает экран, у которого есть ресурсы.
+ */
+sealed interface SmartRulePart {
+
+    /** Жанр: [code] — код метаданных, подпись переводится на экране. */
+    data class Genre(val code: String) : SmartRulePart
+
+    /** Автор: имя из метаданных, данные. */
+    data class Author(val name: String) : SmartRulePart
+
+    /** Серия: имя из метаданных, данные. */
+    data class Series(val name: String) : SmartRulePart
+
+    /** Формат файла: расширение, данные. */
+    data class Format(val extension: String) : SmartRulePart
+
+    /** Статус чтения: [name] — имя значения (`UNREAD`), подпись переводится на экране. */
+    data class Status(val name: String) : SmartRulePart
+
+    /** Только избранное. */
+    data object Favorites : SmartRulePart
+}
+
 @Serializable
 data class SmartRules(
     val authors: Set<String> = emptySet(),
@@ -67,31 +93,26 @@ data class SmartRules(
      *   многоточием на середине (проверено на устройстве 28.09.2026), и пользователь видел
      *   «жанр: Космическая фа…» вместо названия жанра.
      */
-    fun describe(maxParts: Int = DESCRIPTION_PARTS): String {
-        val parts = buildList {
-            tags.take(1).forEach { code -> add("жанр: ${genreDisplayName(code)}") }
-            authors.take(1).forEach { name -> add("автор: $name") }
-            series.take(1).forEach { name -> add("серия: $name") }
-            formats.take(1).forEach { format -> add("формат: ${format.uppercase()}") }
-            if (statuses.isNotEmpty()) {
-                add("статус: " + statuses.map(::statusText).joinToString("/"))
-            }
-            if (favoritesOnly) add("избранное")
-        }
-        if (parts.isEmpty()) return "без условий"
-        val shown = parts.take(maxParts).joinToString(", ")
-        val rest = parts.size - maxParts
-        return if (rest > 0) "$shown и ещё $rest" else shown
+    /**
+     * Части подписи правила: значения и коды, без текста для человека.
+     *
+     * Текст рождается не здесь (docs/tdd.md §8): у слоя данных нет ресурсов, и готовая русская
+     * строка («жанр: Космическая фантастика») показывалась бы по-русски и в английском интерфейсе.
+     * Экран собирает подпись из этих частей: код жанра переводится `genreText`, имя статуса —
+     * `readingStatusText`, имена авторов и серий — данные и показываются как есть.
+     *
+     * По одному условию каждого вида: список из двух одинаковых условий смысла не имеет.
+     */
+    fun parts(): List<SmartRulePart> = buildList {
+        tags.take(1).forEach { code -> add(SmartRulePart.Genre(code)) }
+        authors.take(1).forEach { name -> add(SmartRulePart.Author(name)) }
+        series.take(1).forEach { name -> add(SmartRulePart.Series(name)) }
+        formats.take(1).forEach { extension -> add(SmartRulePart.Format(extension)) }
+        if (statuses.isNotEmpty()) add(SmartRulePart.Status(statuses.first()))
+        if (favoritesOnly) add(SmartRulePart.Favorites)
     }
 
-    /** Статус чтения словами: в бейдже `UNREAD` читался бы как код, а не как состояние. */
-    private fun statusText(name: String): String =
-        ReadingStatus.entries.firstOrNull { status -> status.name == name }?.label ?: name
-
     companion object {
-        /** Сколько условий показывать в подписи. */
-        private const val DESCRIPTION_PARTS = 2
-
         /** `ignoreUnknownKeys` — чтобы правило из будущей версии не ломало разбор. */
         private val json = Json {
             ignoreUnknownKeys = true

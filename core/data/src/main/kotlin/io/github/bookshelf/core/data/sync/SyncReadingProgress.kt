@@ -1,9 +1,10 @@
 package io.github.bookshelf.core.data.sync
 
-import android.util.Log
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.database.dao.BookCopyDao
@@ -58,6 +59,8 @@ sealed interface ProgressSyncOutcome {
  *    записать ничего.
  */
 class SyncReadingProgress @Inject constructor(
+    /** Журнал: причина «книга не найдена по адресу читалки» нужна для разбора на устройстве. */
+    private val logger: AppLogger,
     private val api: FbReaderApi,
     private val progressSource: ReadingProgressSource,
     private val books: BookRepository,
@@ -93,7 +96,7 @@ class SyncReadingProgress @Inject constructor(
                 ?: run {
                     // Адрес читалки в журнале обязателен: без него непонятно, почему книга не нашлась
                     // (адрес копии, другое кодирование), и это не отлаживается снаружи.
-                    Log.w("BookShelf", "прогресс: книга не найдена по адресу читалки: ${open.path}")
+                    logger.w(APP_LOG_TAG, "прогресс: книга не найдена по адресу читалки: ${open.path}")
                     return@appRunCatching ProgressSyncOutcome.BookUnknown
                 }
             books.saveReadingProgress(

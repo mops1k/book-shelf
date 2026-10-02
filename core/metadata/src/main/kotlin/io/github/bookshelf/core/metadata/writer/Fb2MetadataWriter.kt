@@ -93,62 +93,15 @@ class Fb2MetadataWriter {
             )
         }
         edit.authors?.let { authors ->
-            // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
-            if (authors.isEmpty()) {
-                result = AUTHOR.replace(result, "")
-                return@let
-            }
-            val xml = authors.joinToString(separator = "") { author -> authorXml(author) }
-            result = if (AUTHOR.containsMatchIn(result)) {
-                // Первый автор заменяется всем списком, остальные блоки убираются: иначе в файле
-                // остались бы и прежние авторы, и новые.
-                var first = true
-                AUTHOR.replace(result) { _ ->
-                    if (first) {
-                        first = false
-                        xml
-                    } else {
-                        ""
-                    }
-                }
-            } else {
-                insertBeforeEnd(result, xml)
-            }
+            result = replaceAuthors(result, authors)
         }
         edit.description?.let { description ->
-            // Пустая строка — «описание убрать»: элемент удаляется целиком.
-            result = if (description.isEmpty()) {
-                ANNOTATION_ELEMENT.replace(result, "")
-            } else {
-                replaceOrInsert(
-                    result,
-                    ANNOTATION_ELEMENT,
-                    "<annotation><p>${escapeText(description)}</p></annotation>",
-                )
-            }
+            result = replaceAnnotation(result, description)
         }
-        if (edit.seriesName == EMPTY_SERIES) {
-            // «Серия убрать»: удаляются все элементы sequence, номер без названия смысла не имеет.
-            result = removeSequences(result)
-        } else if (edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex) {
-            val existing = SEQUENCE_ELEMENT.find(result)
-            val name = edit.seriesName ?: existing?.let { attributeOf(it.value, NAME) }
-            val number = when {
-                edit.clearSeriesIndex -> null
-                else -> edit.seriesIndex?.let(::formatIndex)
-                    ?: existing?.let { attributeOf(it.value, NUMBER) }
-            }
-            val xml = buildString {
-                append("<sequence")
-                name?.takeIf { it.isNotBlank() }?.let { append(" name=\"${escapeAttribute(it)}\"") }
-                number?.takeIf { it.isNotBlank() }?.let { append(" number=\"${escapeAttribute(it)}\"") }
-                append("/>")
-            }
-            result = if (existing != null) {
-                result.replaceRange(existing.range, xml)
-            } else {
-                insertBeforeEnd(result, xml)
-            }
+        // Пустая строка в `seriesName` — это «серию убрать»: значение не null, поэтому ветка одна.
+        val seriesTouched = edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex
+        if (seriesTouched) {
+            result = replaceSequence(result, edit)
         }
         return result
     }
@@ -169,6 +122,51 @@ class Fb2MetadataWriter {
     }
 
     /** Заменить первый элемент; если его в книге нет — дописать перед `</title-info>`. */
+    /**
+     * Описание в FB2: пустая строка убирает `<annotation>`, непустая заменяет или добавляется.
+     *
+     * Вынесено из `rewriteTitleInfo` отдельной функцией ради порога `CyclomaticComplexMethod`.
+     */
+    private fun replaceAnnotation(fragment: String, description: String): String =
+        if (description.isEmpty()) {
+            ANNOTATION_ELEMENT.replace(fragment, "")
+        } else {
+            replaceOrInsert(
+                fragment,
+                ANNOTATION_ELEMENT,
+                "<annotation><p>${escapeText(description)}</p></annotation>",
+            )
+        }
+
+    /**
+     * Серия в FB2: пустая строка убирает все `<sequence>`, иначе элемент заменяется или добавляется.
+     *
+     * Номер без названия смысла не имеет — «индекс без серии» не пишется.
+     *
+     * Вынесено из `rewriteTitleInfo` отдельной функцией ради порога `CyclomaticComplexMethod`.
+     */
+    private fun replaceSequence(fragment: String, edit: MetadataEdit): String {
+        if (edit.seriesName == EMPTY_SERIES) return removeSequences(fragment)
+        val existing = SEQUENCE_ELEMENT.find(fragment)
+        val name = edit.seriesName ?: existing?.let { attributeOf(it.value, NAME) }
+        val number = when {
+            edit.clearSeriesIndex -> null
+            else -> edit.seriesIndex?.let(::formatIndex)
+                ?: existing?.let { attributeOf(it.value, NUMBER) }
+        }
+        val xml = buildString {
+            append("<sequence")
+            name?.takeIf { it.isNotBlank() }?.let { append(" name=\"${escapeAttribute(it)}\"") }
+            number?.takeIf { it.isNotBlank() }?.let { append(" number=\"${escapeAttribute(it)}\"") }
+            append("/>")
+        }
+        return if (existing != null) {
+            fragment.replaceRange(existing.range, xml)
+        } else {
+            insertBeforeEnd(fragment, xml)
+        }
+    }
+
     private fun replaceOrInsert(fragment: String, element: Regex, xml: String): String =
         if (element.containsMatchIn(fragment)) {
             fragment.replaceFirst(element, xml)
@@ -254,4 +252,39 @@ class Fb2MetadataWriter {
         /** Пустая строка в правке означает «убрать значение». */
         const val EMPTY_SERIES = ""
     }
+
+/**
+ * Авторы в FB2: пустой список убирает элементы, иначе пишется один `<author>` на человека.
+ *
+ * Блоки прежних авторов убираются: иначе в файле остались бы и старые, и новые. Если авторов
+ * в файле не было, новые вставляются перед концом `<title-info>`.
+ *
+ * Вынесено из `rewriteTitleInfo` отдельной функцией: та перевалила за предел длины detekt.
+ */
+private fun replaceAuthors(fragment: String, authors: List<String>): String {
+    var result = fragment
+        // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
+        if (authors.isEmpty()) {
+            result = AUTHOR.replace(result, "")
+            return result
+        }
+        val xml = authors.joinToString(separator = "") { author -> authorXml(author) }
+        result = if (AUTHOR.containsMatchIn(result)) {
+            // Первый автор заменяется всем списком, остальные блоки убираются: иначе в файле
+            // остались бы и прежние авторы, и новые.
+            var first = true
+            AUTHOR.replace(result) { _ ->
+                if (first) {
+                    first = false
+                    xml
+                } else {
+                    ""
+                }
+            }
+        } else {
+            insertBeforeEnd(result, xml)
+        }
+
+    return result
+}
 }

@@ -3,6 +3,7 @@ package io.github.bookshelf.core.data.mapper
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataOrigin
+import io.github.bookshelf.core.common.error.ParseFailure
 import io.github.bookshelf.core.data.model.ParseState
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.paging.PageRequest
@@ -59,6 +60,8 @@ fun BookEntity.toDomain(authors: List<String>): Book = bookToDomain(
     // Прогресс чтения живёт в отдельной таблице reading_progress, а не в books.
     progressPercent = null,
     parseStateName = parseState.name,
+    // В entity причина лежит именем константы, в доменную модель уходит кодом.
+    parseFailureName = parseFailure,
     parseError = parseError,
 )
 
@@ -98,6 +101,7 @@ internal fun bookToDomain(
     lastOpenedAt: Long? = null,
     progressPercent: Float? = null,
     parseStateName: String = ParseState.PENDING.name,
+    parseFailureName: String? = null,
     parseError: String? = null,
 ): Book = Book(
     id = id,
@@ -126,8 +130,20 @@ internal fun bookToDomain(
     lastOpenedAt = lastOpenedAt,
     progressPercent = progressPercent,
     parseState = parseStateFromName(parseStateName),
+    parseFailure = parseFailureFromName(parseFailureName),
     parseError = parseError,
 )
+
+/**
+ * Код причины отказа разбора из имени entity-значения.
+ *
+ * Значение не из справочника (мусор в столбце, код из будущей версии) даёт [ParseFailure.UNKNOWN]:
+ * карточка покажет общую формулировку, а не пустоту и не упадёт.
+ */
+fun parseFailureFromName(name: String?): ParseFailure? = when {
+    name == null -> null
+    else -> ParseFailure.entries.firstOrNull { it.name == name } ?: ParseFailure.UNKNOWN
+}
 
 /** Статус чтения из имени entity-значения; неизвестное → [ReadingStatus.UNREAD]. */
 fun readingStatusFromName(name: String?): ReadingStatus =

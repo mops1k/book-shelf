@@ -2,6 +2,7 @@ package io.github.bookshelf.core.data.repository.impl
 
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.DownloadFailure
 import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.model.DownloadState
@@ -21,6 +22,7 @@ import io.github.bookshelf.core.opds.cache.OpdsFeedCache
 import io.github.bookshelf.core.opds.client.ConditionalGet
 import io.github.bookshelf.core.opds.auth.CredentialStore
 import io.github.bookshelf.core.opds.auth.OpdsCredentials
+import io.github.bookshelf.core.opds.cache.CachedFeed
 import io.github.bookshelf.core.opds.client.OpdsHttpClient
 import io.github.bookshelf.core.opds.model.OpdsFeed
 import io.github.bookshelf.core.opds.model.OpdsLink
@@ -185,6 +187,29 @@ class OpdsRepositoryImpl @Inject constructor(
     override suspend fun browse(catalogId: String, url: String?): AppResult<List<OpdsEntry>> =
         browsePage(catalogId, url).mapResult { page -> page.entries }
 
+    /**
+     * Кэшированный фид для адреса, если он ещё свежий; `null` — кэша нет или он истёк.
+     *
+     * Вынесено из `browsePage` отдельной функцией: разбор `AppResult` в `when` добавлял ветки
+     * к сложности, а правило «сбой кэша — это отсутствие кэша» читается здесь целиком.
+     */
+    private suspend fun cachedFeed(key: String, maxAgeMinutes: Int): CachedFeed? =
+        when (val got = cache.get(key, maxAgeMinutes * MILLIS_PER_MINUTE)) {
+            is AppResult.Failure -> null
+            is AppResult.Success -> got.value
+        }
+
+    /**
+     * Ответ «304 Not Modified»: страница собирается из кэша, а без кэша это ошибка разбора.
+     *
+     * Вынесено из `browsePage` отдельной функцией ради порога `CyclomaticComplexMethod`.
+     */
+    private fun notModifiedResult(cached: CachedFeed?, target: String): AppResult<OpdsPage> =
+        cached?.let { AppResult.success(it.feed.toPage(target)) }
+            ?: AppResult.failure(
+                AppError.Parse(format = "opds", message = "Сервер не прислал фид, а кэша нет"),
+            )
+
     override suspend fun browsePage(catalogId: String, url: String?): AppResult<OpdsPage> {
         val catalog = catalogDao.getById(catalogId)
             ?: return AppResult.failure(
@@ -200,10 +225,7 @@ class OpdsRepositoryImpl @Inject constructor(
         // даже тогда, когда файл настроек не читается.
         val maxAgeMinutes = runCatching { settingsRepository.current().opds.feedCacheMaxAgeMinutes }
             .getOrDefault(DEFAULT_CACHE_MAX_AGE_MINUTES)
-        val cached = when (val got = cache.get(key, maxAgeMinutes * MILLIS_PER_MINUTE)) {
-            is AppResult.Failure -> null
-            is AppResult.Success -> got.value
-        }
+        val cached = cachedFeed(key = key, maxAgeMinutes = maxAgeMinutes)
 
         // Корневой заход отдаётся из кэша: список должен открываться мгновенно, а не после сети.
         if (cached != null && url == null) return AppResult.success(cached.feed.toPage(target))
@@ -218,12 +240,7 @@ class OpdsRepositoryImpl @Inject constructor(
             is AppResult.Failure -> return got
             is AppResult.Success -> got.value
         }
-        if (response.status == HTTP_NOT_MODIFIED) {
-            return cached?.let { AppResult.success(it.feed.toPage(target)) }
-                ?: AppResult.failure(
-                    AppError.Parse(format = "opds", message = "Сервер не прислал фид, а кэша нет"),
-                )
-        }
+        if (response.status == HTTP_NOT_MODIFIED) return notModifiedResult(cached = cached, target = target)
 
         val feed = when (val got = parser.parse(response.body, response.finalUrl)) {
             is AppResult.Failure -> return got
@@ -480,10 +497,20 @@ class OpdsRepositoryImpl @Inject constructor(
         seriesName = seriesName,
         state = state.toDomain(),
         bytesDownloaded = bytesDownloaded,
+        failure = downloadFailureFromName(failure),
         error = error,
         bookId = bookId,
         createdAt = createdAt,
     )
+
+    /**
+     * Код отказа из имени entity-значения; значение не из справочника даёт
+     * [DownloadFailure.UNKNOWN] — строка очереди покажет общую причину, а не пустоту.
+     */
+    private fun downloadFailureFromName(name: String?): DownloadFailure? = when {
+        name == null -> null
+        else -> DownloadFailure.entries.firstOrNull { it.name == name } ?: DownloadFailure.UNKNOWN
+    }
 
     /** Оба enum'а описывают одно и то же, но живут в разных модулях — сопоставляем по имени. */
     private fun OpdsDownloadState.toDomain(): DownloadState =

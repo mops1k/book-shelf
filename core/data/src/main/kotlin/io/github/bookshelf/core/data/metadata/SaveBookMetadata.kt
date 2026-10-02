@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.data.metadata
 
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.data.author.parseAuthors
@@ -9,16 +10,32 @@ import io.github.bookshelf.core.metadata.writer.MetadataEdit
 import javax.inject.Inject
 
 /**
+ * Причина, по которой правка не попала в файл книги.
+ *
+ * Код, а не готовая строка (docs/tdd.md §8): текст рождается в слое данных, переводить его здесь
+ * нечем, а показывать человеку русскую строку в английском интерфейсе нельзя. Раньше тут была
+ * строка вида «Нет права записи в папку» — заодно с ней терялась и специфика отказа.
+ */
+sealed interface MetadataWriteFailure {
+
+    /** Книги больше нет в библиотеке: её удалили, пока экран правки был открыт. */
+    data object BookNotFound : MetadataWriteFailure
+
+    /** Провайдер отказал в записи; слова для человека выбираются по типу ошибки. */
+    data class WriteFailed(val error: AppError) : MetadataWriteFailure
+}
+
+/**
  * Что получилось из правки метаданных.
  *
  * @param fileWritten правка записана в сам файл книги — значит, переживёт перенос на другое
  *   устройство (требование Александра, 29.09.2026).
- * @param fileReason причина, по которой файл не тронут. Правка при этом в приложении сохранена,
+ * @param fileFailure причина, по которой файл не тронут. Правка при этом в приложении сохранена,
  *   и человек обязан увидеть, что именно не удалось: «сохранено» без этой оговорки было бы враньём.
  */
 data class MetadataSaveResult(
     val fileWritten: Boolean,
-    val fileReason: String? = null,
+    val fileFailure: MetadataWriteFailure? = null,
 )
 
 /**
@@ -42,14 +59,14 @@ class SaveBookMetadata @Inject constructor(
             is AppResult.Success -> found.value
             is AppResult.Failure -> return found
         } ?: return AppResult.success(
-            MetadataSaveResult(fileWritten = false, fileReason = "Книга не найдена"),
+            MetadataSaveResult(fileWritten = false, fileFailure = MetadataWriteFailure.BookNotFound),
         )
         return when (val written = editor.writeToFile(book, patch.toEdit())) {
             is AppResult.Success -> AppResult.success(MetadataSaveResult(fileWritten = true))
             is AppResult.Failure -> AppResult.success(
                 MetadataSaveResult(
                     fileWritten = false,
-                    fileReason = written.error.message ?: "файл не удалось перезаписать",
+                    fileFailure = MetadataWriteFailure.WriteFailed(written.error),
                 ),
             )
         }

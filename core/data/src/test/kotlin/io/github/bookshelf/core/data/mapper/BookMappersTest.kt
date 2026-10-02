@@ -3,6 +3,7 @@ package io.github.bookshelf.core.data.mapper
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataOrigin
+import io.github.bookshelf.core.common.error.ParseFailure
 import io.github.bookshelf.core.data.model.ParseState
 import io.github.bookshelf.core.data.model.ReadingStatus
 import org.junit.Test
@@ -76,7 +77,7 @@ class BookMappersTest {
     }
 
     @Test
-    fun parse_state_and_reason_reach_the_domain_model() {
+    fun parse_state_and_failure_code_reach_the_domain_model() {
         val book = bookToDomain(
             id = "book-1",
             title = "Битый.fb2",
@@ -85,13 +86,33 @@ class BookMappersTest {
             sizeBytes = 10L,
             addedAt = 1L,
             parseStateName = "FAILED",
+            parseFailureName = "CORRUPT_FILE",
             parseError = "FB2 внутри архива превышает допустимый размер XML",
         )
 
-        // Раньше этих полей в модели не было, и карточка книги рисовала баннер «Не удалось
-        // разобрать», который никто не заполнял.
+        // Причина отказа разбора — код, а не строка: слова выбирает экран (docs/tdd.md §8).
+        // Подробный текст парсера остаётся диагностикой и в интерфейс не идёт.
         assertThat(book.parseState).isEqualTo(ParseState.FAILED)
+        assertThat(book.parseFailure).isEqualTo(ParseFailure.CORRUPT_FILE)
         assertThat(book.parseError).contains("превышает допустимый размер")
+    }
+
+    @Test
+    fun unknown_parse_failure_names_do_not_break_the_card() {
+        // В столбце может оказаться мусор или код из будущей версии: карточка должна открыться,
+        // а не упасть, и показать общую формулировку.
+        val book = bookToDomain(
+            id = "book-2",
+            title = "Странный.fb2",
+            authorsText = "",
+            extension = "fb2",
+            sizeBytes = 10L,
+            addedAt = 1L,
+            parseStateName = "FAILED",
+            parseFailureName = "ИЗ БУДУЩЕГО",
+        )
+
+        assertThat(book.parseFailure).isEqualTo(ParseFailure.UNKNOWN)
     }
 
     @Test

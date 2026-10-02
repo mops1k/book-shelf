@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,6 +46,14 @@ fun EinkTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     suffix: String? = null,
     onImeAction: (() -> Unit)? = null,
+    /**
+     * Куда поставить фокус.
+     *
+     * Нужно поле поиска: открыв экран поиска, человек на e-ink не должен ещё раз попадать
+     * по строке ввода — курсор ставится сразу (docs/eink-ux.md §2). Компонент про экран
+     * ничего не знает и фокус сам не запрашивает.
+     */
+    focusRequester: FocusRequester? = null,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
@@ -55,48 +65,93 @@ fun EinkTextField(
         if (label != null) {
             Text(text = label, style = MaterialTheme.typography.labelMedium, color = colors.foreground)
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = dimens.touchMin)
-                .background(colors.background)
-                .border(dimens.border, colors.divider)
-                .padding(horizontal = dimens.gutterSmall, vertical = dimens.gutterSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                if (value.isEmpty() && placeholder != null) {
-                    Text(
-                        text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colors.foreground,
-                    )
-                }
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    enabled = enabled,
-                    singleLine = singleLine,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.foreground),
-                    cursorBrush = SolidColor(colors.foreground),
-                    visualTransformation = visualTransformation,
-                    keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
-                    keyboardActions = KeyboardActions(
-                        onDone = { onImeAction?.invoke() },
-                        onSearch = { onImeAction?.invoke() },
-                        onGo = { onImeAction?.invoke() },
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (suffix != null) {
+        EinkTextInputRow(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            singleLine = singleLine,
+            placeholder = placeholder,
+            suffix = suffix,
+            imeAction = imeAction,
+            keyboardType = keyboardType,
+            visualTransformation = visualTransformation,
+            onImeAction = onImeAction,
+            focusRequester = focusRequester,
+        )
+    }
+}
+
+/**
+ * Строка ввода: рамка, подсказка, поле и суффикс.
+ *
+ * Вынесена из [EinkTextField] отдельной функцией: сам компонент перешагнул порог `LongMethod`,
+ * а строка ввода читается отдельно от подписи над ней.
+ */
+@Composable
+private fun EinkTextInputRow(
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    singleLine: Boolean,
+    placeholder: String?,
+    suffix: String?,
+    imeAction: ImeAction,
+    keyboardType: KeyboardType,
+    visualTransformation: VisualTransformation,
+    onImeAction: (() -> Unit)?,
+    focusRequester: FocusRequester?,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = dimens.touchMin)
+            .background(colors.background)
+            .border(dimens.border, colors.divider)
+            .padding(horizontal = dimens.gutterSmall, vertical = dimens.gutterSmall),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.weight(1f)) {
+            if (value.isEmpty() && placeholder != null) {
                 Text(
-                    text = suffix,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = placeholder,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = colors.foreground,
-                    modifier = Modifier.padding(start = dimens.gutterSmall),
                 )
             }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                singleLine = singleLine,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.foreground),
+                cursorBrush = SolidColor(colors.foreground),
+                visualTransformation = visualTransformation,
+                keyboardOptions = KeyboardOptions(imeAction = imeAction, keyboardType = keyboardType),
+                keyboardActions = KeyboardActions(
+                    onDone = { onImeAction?.invoke() },
+                    onSearch = { onImeAction?.invoke() },
+                    onGo = { onImeAction?.invoke() },
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (focusRequester != null) {
+                            Modifier.focusRequester(focusRequester)
+                        } else {
+                            Modifier
+                        },
+                    ),
+            )
+        }
+        if (suffix != null) {
+            Text(
+                text = suffix,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+                modifier = Modifier.padding(start = dimens.gutterSmall),
+            )
         }
     }
 }

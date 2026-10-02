@@ -80,6 +80,54 @@ class EpubParser : BookMetadataParser {
         return parseOpf(opfBytes, opfPath, archive, checkActive)
     }
 
+    /**
+     * Начало элемента в `container.xml`: проверка корня и запоминание `full-path` первого rootfile.
+     *
+     * Вынесено из `parseContainer` отдельной функцией: та перевалила за порог
+     * `CyclomaticComplexMethod`, а разбор одного элемента читается отдельно от цикла.
+     */
+    private fun containerStartTag(
+        parser: XmlPullParser,
+        stack: MutableList<String>,
+        path: String?,
+    ): String? {
+        val name = localName(parser.name)
+        if (stack.isEmpty() && name != CONTAINER_ROOT) {
+            throw EpubFailure("Ожидался корень container")
+        }
+        stack.add(name)
+        if (name != ROOTFILE_ELEMENT) return path
+        val namespace = parser.namespace
+        if (namespace != null && namespace != CONTAINER_NAMESPACE) {
+            throw EpubFailure("Неверный namespace container.xml")
+        }
+        if (path != null) return path
+        return attribute(parser, "full-path", null)?.let(::normalizePath)
+    }
+
+    /** Текстовый узел OPF: складывается в текущий захват состояния. */
+    private fun appendTextNode(parser: XmlPullParser, state: EpubState) {
+        val text = parser.text
+        if (!text.isNullOrEmpty()) state.appendText(text)
+    }
+
+    /**
+     * Конец элемента OPF: закрываются захваты этой глубины и особые элементы (группа, серия).
+     *
+     * Вынесено из `parseOpf` отдельной функцией: та перевалила за порог `CyclomaticComplexMethod`.
+     */
+    private fun endTag(state: EpubState, stack: MutableList<String>) {
+        val ending = state.captures
+            .filter { it.depth == stack.size }
+            .sortedByDescending { it.depth }
+        state.captures.removeAll(ending.toSet())
+        ending.forEach { it.finish() }
+        if (stack.isEmpty()) return
+        val closed = stack.removeAt(stack.lastIndex)
+        if (closed == GROUP_POSITION_ELEMENT) state.endGroupPosition()
+        if (closed == SERIES_ELEMENT) state.finishSeries()
+    }
+
     private fun parseContainer(bytes: ByteArray, checkActive: () -> Unit): String {
         val text = decodeXml(bytes, checkActive)
         val parser = newXmlParser()
@@ -90,23 +138,7 @@ class EpubParser : BookMetadataParser {
         while (true) {
             checkActive()
             when (parser.next()) {
-                XmlPullParser.START_TAG -> {
-                    val name = localName(parser.name)
-                    if (stack.isEmpty() && name != CONTAINER_ROOT) {
-                        throw EpubFailure("Ожидался корень container")
-                    }
-                    stack.add(name)
-                    if (name == ROOTFILE_ELEMENT) {
-                        val namespace = parser.namespace
-                        if (namespace != null && namespace != CONTAINER_NAMESPACE) {
-                            throw EpubFailure("Неверный namespace container.xml")
-                        }
-                        if (path == null) {
-                            path = attribute(parser, "full-path", null)
-                                ?.let(::normalizePath)
-                        }
-                    }
-                }
+                XmlPullParser.START_TAG -> path = containerStartTag(parser, stack, path)
 
                 XmlPullParser.END_DOCUMENT -> break
                 XmlPullParser.END_TAG -> if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
@@ -134,25 +166,9 @@ class EpubParser : BookMetadataParser {
                 XmlPullParser.START_TAG -> onStartTag(parser, state, stack)
                 XmlPullParser.TEXT,
                 XmlPullParser.CDSECT,
-                XmlPullParser.ENTITY_REF -> {
-                    val text = parser.text
-                    if (!text.isNullOrEmpty()) {
-                        state.appendText(text)
-                    }
-                }
+                XmlPullParser.ENTITY_REF -> appendTextNode(parser, state)
 
-                XmlPullParser.END_TAG -> {
-                    val ending = state.captures
-                        .filter { it.depth == stack.size }
-                        .sortedByDescending { it.depth }
-                    state.captures.removeAll(ending.toSet())
-                    ending.forEach { it.finish() }
-                    if (stack.isNotEmpty()) {
-                        val closed = stack.removeAt(stack.lastIndex)
-                        if (closed == GROUP_POSITION_ELEMENT) state.endGroupPosition()
-                        if (closed == SERIES_ELEMENT) state.finishSeries()
-                    }
-                }
+                XmlPullParser.END_TAG -> endTag(state = state, stack = stack)
 
                 XmlPullParser.END_DOCUMENT -> break
             }
@@ -198,46 +214,11 @@ class EpubParser : BookMetadataParser {
                 })
             }
 
-            name == META_ELEMENT -> {
-                val metaName = attribute(parser, "name", null)
-                val property = attribute(parser, "property", null)?.trim()
-                val content = attribute(parser, "content", null)
-                when {
-                    property?.equals(META_SERIES_PROPERTY, ignoreCase = true) == true && content == null -> {
-                        state.startMetaSeries(attribute(parser, "id", null), stack.size)
-                    }
+            name == META_ELEMENT -> handleMetaElement(parser = parser, state = state, stack = stack)
 
-                    property?.equals(META_GROUP_POSITION, ignoreCase = true) == true -> {
-                        val refines = attribute(parser, "refines", null)
-                        if (content == null) {
-                            state.addCapture(name, stack.size, onEnd = { capture ->
-                                state.finishGroupPosition(capture.text.toString(), refines)
-                            })
-                            state.startGroupPosition()
-                        } else {
-                            state.finishGroupPosition(content, refines)
-                        }
-                    }
+            name == SERIES_ELEMENT -> startSeriesIfRealSeries(parser, state)
 
-                    else -> state.readMeta(metaName, property, content)
-                }
-            }
-
-            name == SERIES_ELEMENT -> {
-                val collectionType = attribute(parser, "collection-type", null)
-                if (collectionType?.trim()?.equals("series", ignoreCase = true) == true) {
-                    val id = attribute(parser, "id", null)
-                    state.startSeries(id)
-                }
-            }
-
-            name == GROUP_POSITION_ELEMENT -> {
-                val refines = attribute(parser, "refines", null)
-                state.addCapture(name, stack.size, onEnd = { capture ->
-                    state.finishGroupPosition(capture.text.toString(), refines)
-                })
-                state.startGroupPosition()
-            }
+            name == GROUP_POSITION_ELEMENT -> startGroupPosition(parser, state, stack)
 
             name == ITEM_ELEMENT -> state.readManifestItem(parser)
         }
@@ -438,17 +419,46 @@ class EpubParser : BookMetadataParser {
         fun finishDc(name: String, raw: String, isbnCandidate: Boolean) {
             val value = normalize(raw) ?: return
             when (name) {
+                "creator" -> addCreator(value)
+                "identifier" -> isbn = isbnOrExisting(isbn, value, isbnCandidate)
+                else -> applyTextDc(name = name, value = value)
+            }
+        }
+
+        /**
+         * Текстовые поля `dc:*`: первое значение побеждает, повторы с тем же именем игнорируются.
+         *
+         * Вынесено из `finishDc` отдельной функцией: семь условий в одном `when` давали порог
+         * `CyclomaticComplexMethod`, а правило «первое значение важнее» здесь читается целиком.
+         */
+        private fun applyTextDc(name: String, value: String) {
+            when (name) {
                 "title" -> if (title == null) title = value
-                "creator" -> if (value !in authors) authors += value
                 "language" -> if (language == null) language = value
                 "description" -> if (description == null) description = value
                 "publisher" -> if (publisher == null) publisher = value
-                "identifier" -> if (isbn == null && (isbnCandidate || value.startsWith("ISBN", true))) {
-                    isbn = value.removePrefix("ISBN").trim()
-                }
-
                 "date" -> if (year == null) year = value
             }
+        }
+
+        /** Авторы не дублируются: один и тот же `dc:creator` в OPF встречается не раз. */
+        private fun addCreator(value: String) {
+            if (value !in authors) authors += value
+        }
+
+        /**
+         * ISBN из `dc:identifier`: берётся, только если прежнего нет и значение похоже на ISBN.
+         *
+         * `dc:identifier` в EPUB нередко содержит UUID или ссылку, поэтому принимается либо явная
+         * пометка `ISBN` (в значении или в атрибуте `scheme`), либо строка, начинающаяся с «ISBN».
+         *
+         * Вынесено из `finishDc` отдельной функцией: условия в `when` давали порог
+         * `CyclomaticComplexMethod`, а правило выбора ISBN читается отдельно.
+         */
+        private fun isbnOrExisting(known: String?, value: String, isbnCandidate: Boolean): String? {
+            if (known != null) return known
+            if (!isbnCandidate && !value.startsWith("ISBN", ignoreCase = true)) return null
+            return value.removePrefix("ISBN").trim().takeIf { it.isNotEmpty() }
         }
 
         fun readMeta(name: String?, property: String?, content: String?) {
@@ -552,24 +562,46 @@ class EpubParser : BookMetadataParser {
         }
 
         fun findCover(opfPath: String, archive: SafeZip, checkActive: () -> Unit): CoverBytes? {
-            val item = coverImageId?.let { manifest[it] }
+            val item = coverManifestItem() ?: return null
+            val path = resolvePath(opfPath, item.href) ?: return null
+            val bytes = readCoverBytes(archive = archive, path = path, checkActive = checkActive)
+                ?: return null
+            val mime = item.mimeType ?: mimeFromPath(path)
+            return CoverBytes(bytes, mime, null, null)
+        }
+
+        /**
+         * Запись манифеста с обложкой: сначала по `properties="cover-image"`, затем по `meta name="cover"`.
+         *
+         * Вынесено из `findCover` отдельной функцией: цепочка `?:` давала заметный вклад в
+         * `CyclomaticComplexMethod`, а порядок поиска читается отдельно.
+         */
+        private fun coverManifestItem(): ManifestItem? =
+            coverImageId?.let { manifest[it] }
                 ?: coverMetaId?.let { manifest[it] }
                 ?: coverImageHref?.let { href -> ManifestItem("", href, null, emptyList()) }
-                ?: return null
-            val path = resolvePath(opfPath, item.href) ?: return null
+
+        /**
+         * Байты обложки из архива; битая картинка — не ошибка разбора.
+         *
+         * Обложка необязательна: причина отказа намеренно не используется (имя `_` это и означает),
+         * а отмена пробрасывается дальше — иначе отменённый разбор выглядел бы завершённым.
+         */
+        private fun readCoverBytes(
+            archive: SafeZip,
+            path: String,
+            checkActive: () -> Unit,
+        ): ByteArray? {
             val entry = archive.find(path) ?: return null
             val bytes = try {
                 archive.read(entry, MAX_COVER_BYTES, checkActive)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Throwable) {
-                // Обложка — необязательная часть: битая картинка не должна ронять разбор книги,
-                // поэтому причина здесь намеренно не используется (имя `_` это и означает).
                 null
             } ?: return null
             if (bytes.isEmpty() || bytes.size > MAX_COVER_BYTES) return null
-            val mime = item.mimeType ?: mimeFromPath(path)
-            return CoverBytes(bytes, mime, null, null)
+            return bytes
         }
 
         private fun normalize(value: String?): String? =
@@ -695,5 +727,64 @@ class EpubParser : BookMetadataParser {
         )
         val WHITESPACE = Regex("\\s+")
         val YEAR = Regex("\\d{4}")
+    }
+
+
+    /**
+     * Элемент `<meta>` в OPF: серия Calibre, позиция в группе или обычное поле.
+     *
+     * Вынесено из `onStartTag` отдельной функцией: та перевалила за предел длины detekt, а разбор
+     * `<meta>` — цельный кусок со своими тремя ветками.
+     */
+    /**
+     * Начало `<meta property="belongs-to-collection">`: серию начинаем только для `collection-type="series"`.
+     *
+     * Вынесено из `onStartTag` отдельной функцией: ветки того `when` давали порог
+     * `CyclomaticComplexMethod`, а условия EPUB-разметки читаются отдельно от цикла разбора.
+     */
+    private fun startSeriesIfRealSeries(parser: XmlPullParser, state: EpubState) {
+        val collectionType = attribute(parser, "collection-type", null)
+        if (collectionType?.trim()?.equals("series", ignoreCase = true) == true) {
+            state.startSeries(attribute(parser, "id", null))
+        }
+    }
+
+    /** Начало `<meta property="group-position">`: значение собирается до закрывающего тега. */
+    private fun startGroupPosition(
+        parser: XmlPullParser,
+        state: EpubState,
+        stack: MutableList<String>,
+    ) {
+        val refines = attribute(parser, "refines", null)
+        state.addCapture(META_ELEMENT, stack.size, onEnd = { capture ->
+            state.finishGroupPosition(capture.text.toString(), refines)
+        })
+        state.startGroupPosition()
+    }
+
+    private fun handleMetaElement(parser: XmlPullParser, state: EpubState, stack: MutableList<String>) {
+                val metaName = attribute(parser, "name", null)
+                val property = attribute(parser, "property", null)?.trim()
+                val content = attribute(parser, "content", null)
+                when {
+                    property?.equals(META_SERIES_PROPERTY, ignoreCase = true) == true && content == null -> {
+                        state.startMetaSeries(attribute(parser, "id", null), stack.size)
+                    }
+
+                    property?.equals(META_GROUP_POSITION, ignoreCase = true) == true -> {
+                        val refines = attribute(parser, "refines", null)
+                        if (content == null) {
+                            state.addCapture(META_ELEMENT, stack.size, onEnd = { capture ->
+                                state.finishGroupPosition(capture.text.toString(), refines)
+                            })
+                            state.startGroupPosition()
+                        } else {
+                            state.finishGroupPosition(content, refines)
+                        }
+                    }
+
+                    else -> state.readMeta(metaName, property, content)
+                }
+        
     }
 }

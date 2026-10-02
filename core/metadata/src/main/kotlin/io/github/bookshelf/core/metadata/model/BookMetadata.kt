@@ -35,15 +35,21 @@ data class BookMetadata(
      * отличить имя собственное от заглавия по тексту нельзя, а предсказуемость поиска важнее.
      */
     fun sortTitleOf(): String {
-        val trimmedTitle = title.trim()
-        if (trimmedTitle.isEmpty()) return trimmedTitle
+        // Кавычки, скобки и тире в начале — оформление, а не буква: «„Тихий Дон“» уезжал в конец
+        // полки, потому что сравнивался по кавычке.
+        val trimmedTitle = title.trim().trim { char -> char in DECORATION }
+        if (trimmedTitle.isEmpty()) return title
 
         val withoutArticle = trimmedTitle.replaceFirst(ARTICLE_PREFIX, "").trim()
-        if (withoutArticle.isEmpty()) return title
+        // Если от названия остался один артикль («The»), сортируем по нему: пустая строка
+        // сортировки поставила бы книгу в начало полки.
+        val sortable = withoutArticle.ifEmpty { trimmedTitle }
 
-        val firstCharacter = withoutArticle.first()
+        // «ё» сортируется как «е» — так принято в русском: иначе «Ёлка» стоит после «Яблока».
+        val normalized = sortable.replace(YO_UPPER, YE_UPPER).replace(YO_LOWER, YE_LOWER)
+        val firstCharacter = normalized.first()
         return firstCharacter.uppercaseChar().toString() +
-            withoutArticle.drop(1).lowercase()
+            normalized.drop(1).lowercase()
     }
 
     private companion object {
@@ -51,7 +57,17 @@ data class BookMetadata(
          * Артикли снимаются только вместе с разделителем; граница пробела обязательна,
          * иначе название вроде «Анна Каренина» было бы повреждено.
          */
-        val ARTICLE_PREFIX = Regex("(?iu)^(?:А|Аа|An|The)\\s+")
+        val ARTICLE_PREFIX = Regex("(?iu)^(?:А|Аа|An|The|A)\\s+")
+
+        /** Оформление в начале и конце названия: сортируется по слову, а не по кавычке. */
+        val DECORATION: Set<Char> = setOf(
+            '«', '»', '"', '\'', '„', '“', '”', '(', ')', '[', ']', '—', '–', '-', '*',
+        )
+
+        const val YO_UPPER = 'Ё'
+        const val YE_UPPER = 'Е'
+        const val YO_LOWER = 'ё'
+        const val YE_LOWER = 'е'
     }
 }
 

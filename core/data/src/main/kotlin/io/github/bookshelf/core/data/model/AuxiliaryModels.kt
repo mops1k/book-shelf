@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.data.model
 
+import io.github.bookshelf.core.common.error.DownloadFailure
 /**
  * Вспомогательные доменные модели, которыми оперируют репозитории `:core:data`.
  *
@@ -232,6 +233,9 @@ data class OpdsDownload(
     val targetRelativeDir: String? = null,
     val bytesDownloaded: Long = 0L,
     val expectedSize: Long? = null,
+    /** Код причины отказа загрузки; `null`, если загрузка не падала или ещё идёт. */
+    val failure: DownloadFailure? = null,
+    /** Диагностика отказа: ответ сервера, отказ провайдера. В интерфейс не выводится. */
     val error: String? = null,
     val bookId: String? = null,
     val createdAt: Long = 0L,
@@ -258,4 +262,11 @@ data class ReaderProfileSummary(
     val enabled: Boolean = true,
     val isBuiltIn: Boolean = false,
     val priority: Int = 0,
+    /**
+     * Форматы (расширения), которые читалка умеет открывать.
+     *
+     * Нужны экрану «Читалки»: он показывает, чем открывается каждый формат, и предлагает только
+     * те читалки, которые этот формат объявили (просьба Александра, 01.10.2026).
+     */
+    val supportedExtensions: Set<String> = emptySet(),
 )

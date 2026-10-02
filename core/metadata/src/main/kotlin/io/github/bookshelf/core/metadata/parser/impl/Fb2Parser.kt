@@ -11,6 +11,7 @@ import io.github.bookshelf.core.metadata.parser.BookMetadataParser
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.binary.FormatHint
 import io.github.bookshelf.core.metadata.binary.MagicBytes
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.zip.ZipLimits
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
@@ -49,6 +50,15 @@ class Fb2Parser(
      * книги с запасом; пик памяти проверен на устройстве (см. `docs/TESTING.md`).
      */
     private val maxXmlBytes: Int = MAX_XML_BYTES,
+    /**
+     * Предел размера временной копии файла книги.
+     *
+     * Копия делается всегда (иначе ZIP нельзя открыть как [ZipFile]), и без предела файл-гигант
+     * успевал занять хранилище целиком ещё до проверки [maxXmlBytes] — предел XML проверялся уже
+     * после копирования (находка аудита 28.09.2026). Предел настраиваемый: тест проверяет его
+     * маленьким значением, не записывая сотни мегабайт.
+     */
+    private val maxSpoolBytes: Long = MAX_SPOOL_BYTES,
 ) : BookMetadataParser {
 
     override val id: String = ID
@@ -78,7 +88,7 @@ class Fb2Parser(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Fb2Failure) {
-            ParseResult.Failed(error.message ?: "Не удалось разобрать FB2")
+            ParseResult.Failed(error.message ?: "Не удалось разобрать FB2", error.kind)
         } catch (error: Throwable) {
             val detail = error.message?.takeIf { it.isNotBlank() } ?: "неизвестная ошибка"
             ParseResult.Failed("Не удалось разобрать FB2 XML: $detail")
@@ -87,7 +97,7 @@ class Fb2Parser(
 
     private fun parsePlainFb2(file: File, checkActive: () -> Unit): ParseResult {
         val bytes = readFile(file, maxXmlBytes.toLong(), checkActive)
-        if (bytes.isEmpty()) throw Fb2Failure("Пустой FB2-файл")
+        if (bytes.isEmpty()) throw Fb2Failure("Пустой FB2-файл", ParseFailureKind.EMPTY_FILE)
         return parseXml(bytes, checkActive)
     }
 
@@ -97,7 +107,10 @@ class Fb2Parser(
             val entry = archive.entries.firstOrNull { !it.isDirectory && it.name.hasFb2Extension() }
                 ?: throw Fb2Failure("В FB2.ZIP не найден файл с расширением fb2")
             val bytes = archive.read(entry, maxXmlBytes, checkActive)
-                ?: throw Fb2Failure("FB2 внутри архива превышает допустимый размер XML")
+                ?: throw Fb2Failure(
+                    "FB2 внутри архива превышает допустимый размер XML",
+                    ParseFailureKind.ARCHIVE_LIMIT,
+                )
             return parseXml(bytes, checkActive)
         } finally {
             // Закрытие временного архива не должно подменять результат разбора исключением:
@@ -149,56 +162,78 @@ class Fb2Parser(
         val parent = stack.lastOrNull()
         stack.add(name)
 
-        when {
-            name == "sequence" && parent == "title-info" -> {
+        // Разбор разложен по родителю элемента: так каждая группа полей читается отдельно, а не
+        // как один `when` на двенадцать веток (это давало сложность 29 при пороге 15).
+        when (parent) {
+            TITLE_INFO -> handleTitleInfoStart(parser, state, stack, name)
+            AUTHOR_ELEMENT -> if (name in AUTHOR_FIELDS) state.addAuthorFieldCapture(name, stack.size)
+            PUBLISH_INFO -> handlePublishInfoStart(parser, state, stack, name)
+            COVERPAGE_ELEMENT -> if (name == IMAGE_ELEMENT) readCoverHref(parser, state)
+        }
+        // `<binary>` встречается в любом месте документа: картинки лежат рядом с описанием книги.
+        if (name == BINARY_ELEMENT) startBinary(parser, state, stack)
+    }
+
+    /** Поля `<title-info>`: название, авторы, серия, жанры, аннотация и язык. */
+    private fun handleTitleInfoStart(
+        parser: XmlPullParser,
+        state: Fb2State,
+        stack: MutableList<String>,
+        name: String,
+    ) {
+        when (name) {
+            SEQUENCE_ELEMENT -> {
                 state.seriesName = attribute(parser, "name", null)?.trim()?.takeIf { it.isNotEmpty() }
                 state.seriesIndex = attribute(parser, "number", null)
                     ?.replace(',', '.')
                     ?.toDoubleOrNull()
             }
 
-            name == "book-title" && parent == "title-info" ->
+            BOOK_TITLE_ELEMENT ->
                 state.addCapture(name, stack.size, onEnd = { state.title = it.text.toString() })
 
-            name == "annotation" && parent == "title-info" ->
+            ANNOTATION_ELEMENT ->
                 state.addCapture(name, stack.size, onEnd = { state.description = it.text.toString() })
 
-            name == "lang" && parent == "title-info" ->
+            LANG_ELEMENT ->
                 state.addCapture(name, stack.size, onEnd = { state.language = it.text.toString() })
 
-            name == "genre" && parent == "title-info" ->
+            GENRE_ELEMENT ->
                 state.addCapture(name, stack.size, onEnd = { state.addTag(it.text.toString()) })
 
-            name == "author" && parent == "title-info" -> state.startAuthor(stack.size)
-
-            name in AUTHOR_FIELDS && parent == "author" ->
-                state.addAuthorFieldCapture(name, stack.size)
-
-            name == "isbn" && parent == "publish-info" ->
-                state.addCapture(name, stack.size, onEnd = { state.isbn = it.text.toString() })
-
-            name == "year" && parent == "publish-info" ->
-                state.addCapture(name, stack.size, onEnd = { state.year = it.text.toString() })
-
-            name == "publisher" && parent == "publish-info" ->
-                state.addCapture(name, stack.size, onEnd = { state.publisher = it.text.toString() })
-
-            name == "image" && parent == "coverpage" -> {
-                val href = attribute(parser, "href", XLINK_NAMESPACE)?.trim()
-                    ?: attribute(parser, "href", null)?.trim()
-                if (href?.startsWith('#') == true) state.coverId = href.removePrefix("#")
-            }
-
-            name == "binary" -> {
-                val id = attribute(parser, "id", null)?.trim().orEmpty()
-                val contentType = attribute(parser, "content-type", null)
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                if (id.isNotEmpty()) {
-                    state.startBinary(id, contentType, stack.size)
-                }
-            }
+            AUTHOR_ELEMENT -> state.startAuthor(stack.size)
         }
+    }
+
+    /** Выходные данные: ISBN, год и издательство. */
+    private fun handlePublishInfoStart(
+        parser: XmlPullParser,
+        state: Fb2State,
+        stack: MutableList<String>,
+        name: String,
+    ) {
+        val field: ((String) -> Unit) = when (name) {
+            ISBN_ELEMENT -> { value -> state.isbn = value }
+            YEAR_ELEMENT -> { value -> state.year = value }
+            PUBLISHER_ELEMENT -> { value -> state.publisher = value }
+            else -> return
+        }
+        state.addCapture(name, stack.size, onEnd = { field(it.text.toString()) })
+    }
+
+    /** Ссылка на картинку обложки: `href` берётся с пространством имён XLink и без него. */
+    private fun readCoverHref(parser: XmlPullParser, state: Fb2State) {
+        val href = attribute(parser, "href", XLINK_NAMESPACE)?.trim()
+            ?: attribute(parser, "href", null)?.trim()
+        if (href?.startsWith('#') == true) state.coverId = href.removePrefix("#")
+    }
+
+    /** Начало `<binary>`: картинка внутри книги, её id и тип нужны для обложки. */
+    private fun startBinary(parser: XmlPullParser, state: Fb2State, stack: MutableList<String>) {
+        val id = attribute(parser, "id", null)?.trim().orEmpty()
+        if (id.isEmpty()) return
+        val contentType = attribute(parser, "content-type", null)?.trim()?.takeIf { it.isNotEmpty() }
+        state.startBinary(id, contentType, stack.size)
     }
 
     private fun appendText(value: String?, captures: List<Fb2Capture>) {
@@ -242,7 +277,9 @@ class Fb2Parser(
         var completed = false
         try {
             input.openStream().use { source ->
-                FileOutputStream(file).use { target -> copy(source, target, checkActive) }
+                FileOutputStream(file).use { target ->
+                    copy(source, target, maxSpoolBytes, checkActive)
+                }
             }
             val prefix = readPrefix(file, checkActive)
             completed = true
@@ -267,18 +304,35 @@ class Fb2Parser(
         return result
     }
 
-    private fun copy(source: InputStream, target: FileOutputStream, checkActive: () -> Unit) {
+    /** Копировать поток с пределом: превышение — отказ разбора, а не заполненное хранилище. */
+    private fun copy(
+        source: InputStream,
+        target: FileOutputStream,
+        maxBytes: Long,
+        checkActive: () -> Unit,
+    ) {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
         while (true) {
             checkActive()
             val count = source.read(buffer)
             if (count < 0) return
-            if (count > 0) target.write(buffer, 0, count)
+            if (count <= 0) continue
+            total += count
+            if (total > maxBytes) {
+                throw Fb2Failure(
+                    "Файл превышает допустимый размер: $total байт",
+                    ParseFailureKind.ARCHIVE_LIMIT,
+                )
+            }
+            target.write(buffer, 0, count)
         }
     }
 
     private fun readFile(file: File, maxBytes: Long, checkActive: () -> Unit): ByteArray {
-        if (file.length() > maxBytes) throw Fb2Failure("FB2 превышает допустимый размер XML")
+        if (file.length() > maxBytes) {
+            throw Fb2Failure("FB2 превышает допустимый размер XML", ParseFailureKind.ARCHIVE_LIMIT)
+        }
         val output = ByteArrayOutputStream(file.length().toInt().coerceAtLeast(INITIAL_BUFFER_SIZE))
         FileInputStream(file).use { stream ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -289,7 +343,12 @@ class Fb2Parser(
                 if (count < 0) break
                 if (count <= 0) continue
                 total += count
-                if (total > maxBytes) throw Fb2Failure("FB2 превышает допустимый размер XML")
+                if (total > maxBytes) {
+                    throw Fb2Failure(
+                        "FB2 превышает допустимый размер XML",
+                        ParseFailureKind.ARCHIVE_LIMIT,
+                    )
+                }
                 output.write(buffer, 0, count)
             }
         }
@@ -298,7 +357,11 @@ class Fb2Parser(
 
     private data class SpooledInput(val file: File, val prefix: ByteArray)
 
-    private class Fb2Failure(message: String, cause: Throwable? = null) : Exception(message, cause)
+    private class Fb2Failure(
+        message: String,
+        val kind: ParseFailureKind = ParseFailureKind.CORRUPT_FILE,
+        cause: Throwable? = null,
+    ) : Exception(message, cause)
 
     private class SafeZip private constructor(
         private val zip: ZipFile,
@@ -355,7 +418,10 @@ class Fb2Parser(
                 } catch (error: Throwable) {
                     // Причина сохраняется: без неё в отчёте видно только «архив повреждён»,
                     // хотя настоящая ошибка (обрыв, нет места, неверный формат) — в cause.
-                    throw Fb2Failure("FB2.ZIP: архив повреждён или не является ZIP", error)
+                    throw Fb2Failure(
+                        "FB2.ZIP: архив повреждён или не является ZIP",
+                        cause = error,
+                    )
                 }
                 try {
                     val entries = mutableListOf<ZipEntry>()
@@ -377,7 +443,10 @@ class Fb2Parser(
                             compressed = compressedForCheck,
                         )
                     ) {
-                        throw Fb2Failure("FB2.ZIP: архив превышает лимиты безопасности")
+                        throw Fb2Failure(
+                            "FB2.ZIP: архив превышает лимиты безопасности",
+                            ParseFailureKind.ARCHIVE_LIMIT,
+                        )
                     }
                     return SafeZip(zip, entries)
                 } catch (cancelled: CancellationException) {
@@ -547,6 +616,14 @@ class Fb2Parser(
         const val XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
         const val MAX_COVER_BYTES = 2 * 1_024 * 1_024
         const val MAX_XML_BYTES = 32 * 1_024 * 1_024
+
+        /**
+         * Предел временной копии файла книги — 200 МБ.
+         *
+         * Ровно эта копия нужна, чтобы открыть ZIP и применить `ZipLimits`; книга больше 200 МБ —
+         * почти наверняка не книга, а копия такого файла занимает хранилище целиком.
+         */
+        const val MAX_SPOOL_BYTES = 200L * 1_024 * 1_024
         const val MAGIC_PREFIX_SIZE = 256L
         const val CHARSET_PREFIX_SIZE = 4_096
         const val MAX_TEXT_CAPTURE = 4 * 1_024 * 1_024
@@ -554,6 +631,21 @@ class Fb2Parser(
         const val MAX_COVER_BASE64_CHARS = ((MAX_COVER_BYTES + 2) / 3) * 4 + 4
         val EXTENSIONS = setOf("fb2", ZIP_EXTENSION)
         val MIME_TYPES = setOf("application/fb2", "application/x-fictionbook+xml")
+        // Имена элементов FB2, которые разбираются при входе в тег (см. `onStartTag`).
+        const val TITLE_INFO = "title-info"
+        const val PUBLISH_INFO = "publish-info"
+        const val COVERPAGE_ELEMENT = "coverpage"
+        const val SEQUENCE_ELEMENT = "sequence"
+        const val BOOK_TITLE_ELEMENT = "book-title"
+        const val ANNOTATION_ELEMENT = "annotation"
+        const val LANG_ELEMENT = "lang"
+        const val GENRE_ELEMENT = "genre"
+        const val AUTHOR_ELEMENT = "author"
+        const val ISBN_ELEMENT = "isbn"
+        const val YEAR_ELEMENT = "year"
+        const val PUBLISHER_ELEMENT = "publisher"
+        const val IMAGE_ELEMENT = "image"
+        const val BINARY_ELEMENT = "binary"
         val AUTHOR_FIELDS = setOf(
             "first-name",
             "middle-name",

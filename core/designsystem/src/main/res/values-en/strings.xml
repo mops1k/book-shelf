@@ -5,4 +5,105 @@
     <string name="eink_action_close">Close</string>
     <string name="eink_action_more">More</string>
     <string name="eink_menu_title">Actions</string>
+    <!-- Error texts by type: AppError.message is never shown (docs/tdd.md §7). -->
+    <string name="error_not_found">not found</string>
+    <string name="error_invalid_argument">invalid value</string>
+    <string name="error_permission_denied">no access</string>
+    <string name="error_access_lost">access to the source is lost</string>
+    <string name="error_io">input/output error</string>
+    <string name="error_parse">could not parse the data: %1$s</string>
+    <string name="error_network">network error</string>
+    <string name="error_network_code">network error (HTTP %1$d)</string>
+    <string name="error_unauthorized">authorization required</string>
+    <string name="error_unsupported">not supported yet: %1$s</string>
+    <string name="error_unknown">unknown error</string>
+    <!-- Разделитель частей сообщения: итог собирается из переводимых кусков. -->
+    <string name="app_text_parts_separator">, </string>
+
+    <!-- Parse failure reasons: the code lives in the database, the app chooses the words. -->
+    <string name="parse_failure_format_unsupported">The format is not supported</string>
+    <string name="parse_failure_corrupt_file">The file is damaged or does not match its format</string>
+    <string name="parse_failure_empty_file">The file is empty</string>
+    <string name="parse_failure_archive_limit">The file content exceeds the allowed size</string>
+    <string name="parse_failure_unknown">The reason for the parsing failure is unknown</string>
+
+    <!-- OPDS download failures: the code lives in the database, the app chooses the words. -->
+    <string name="download_failure_no_write_permission">The app is not allowed to write to the folder. Open Settings → Library and scanning and choose the folder again — the app needs write access</string>
+    <string name="download_failure_receiver_folder_gone">The destination folder no longer exists</string>
+    <string name="download_failure_credentials_unreadable">Could not read the catalog password</string>
+    <string name="download_failure_bad_document_uri">The provider returned an address the book id cannot be built from</string>
+    <string name="download_failure_failed">Could not download the book</string>
+    <string name="download_failure_unknown">The reason for the download failure is unknown</string>
+
+    <!-- FB2 genre names: the code is the filter value, the label is a resource. -->
+    <string name="genre_sf">Science fiction</string>
+    <string name="genre_sf_history">Alternate history</string>
+    <string name="genre_sf_action">Action science fiction</string>
+    <string name="genre_sf_epic">Epic science fiction</string>
+    <string name="genre_sf_heroic">Heroic science fiction</string>
+    <string name="genre_sf_detective">Science fiction detective</string>
+    <string name="genre_sf_cyberpunk">Cyberpunk</string>
+    <string name="genre_sf_space">Space science fiction</string>
+    <string name="genre_sf_social">Social science fiction</string>
+    <string name="genre_sf_horror">Science fiction horror</string>
+    <string name="genre_sf_humor">Humorous science fiction</string>
+    <string name="genre_sf_fantasy">Fantasy</string>
+    <string name="genre_sf_fantasy_city">Urban fantasy</string>
+    <string name="genre_dark_fantasy">Dark fantasy</string>
+    <string name="genre_sf_postapocalyptic">Post-apocalyptic</string>
+    <string name="genre_sf_litrpg">LitRPG</string>
+    <string name="genre_network_literature">Web literature</string>
+    <string name="genre_detective">Detective</string>
+    <string name="genre_det_classic">Classic detective</string>
+    <string name="genre_det_police">Police procedural</string>
+    <string name="genre_det_irony">Comic detective</string>
+    <string name="genre_det_history">Historical detective</string>
+    <string name="genre_det_espionage">Spy detective</string>
+    <string name="genre_det_maniac">Serial killers</string>
+    <string name="genre_prose">Prose</string>
+    <string name="genre_prose_classic">Classic prose</string>
+    <string name="genre_prose_contemporary">Contemporary prose</string>
+    <string name="genre_prose_history">Historical prose</string>
+    <string name="genre_prose_rus_classic">Russian classics</string>
+    <string name="genre_prose_su_classics">Soviet classics</string>
+    <string name="genre_prose_military">Military prose</string>
+    <string name="genre_love">Romance</string>
+    <string name="genre_love_contemporary">Contemporary romance</string>
+    <string name="genre_love_detective">Romantic suspense</string>
+    <string name="genre_love_history">Historical romance</string>
+    <string name="genre_love_sf">Science fiction romance</string>
+    <string name="genre_adv">Adventure</string>
+    <string name="genre_adv_history">Historical adventure</string>
+    <string name="genre_adv_maritime">Sea adventure</string>
+    <string name="genre_adv_western">Western</string>
+    <string name="genre_humor">Humour</string>
+    <string name="genre_humor_fantasy">Comic fantasy</string>
+    <string name="genre_child">Children\'s literature</string>
+    <string name="genre_child_sf">Children\'s science fiction</string>
+    <string name="genre_child_det">Children\'s detective</string>
+    <string name="genre_child_tale">Fairy tales</string>
+    <string name="genre_nonf">Non-fiction</string>
+    <string name="genre_science">Science</string>
+    <string name="genre_sci_history">History</string>
+    <string name="genre_sci_philosophy">Philosophy</string>
+    <string name="genre_sci_psychology">Psychology</string>
+    <string name="genre_sci_religion">Religion</string>
+    <string name="genre_sci_tech">Technical sciences</string>
+    <string name="genre_comp">Computers</string>
+    <string name="genre_ref">Reference</string>
+    <string name="genre_religion">Religion and spirituality</string>
+    <string name="genre_sport">Sport</string>
+    <string name="genre_home">Home and family</string>
+    <string name="genre_health">Health</string>
+    <string name="genre_business">Business</string>
+    <string name="genre_poetry">Poetry</string>
+    <string name="genre_drama">Drama</string>
+    <string name="genre_periodic">Periodicals</string>
+
+    <!-- Reading statuses: the value name is the filter code, the app chooses the words. -->
+    <string name="status_unread">not read</string>
+    <string name="status_reading">reading</string>
+    <string name="status_read">read</string>
+    <string name="status_reading_progress">reading %1$d%%</string>
+    <string name="source_default_name">Folder</string>
 </resources>

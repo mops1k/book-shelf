@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -23,7 +24,7 @@ class OkHttpOpdsClientTest {
     private lateinit var server: MockWebServer
 
     // DoH в этих проверках не участвует: адреса MockWebServer резолвит системный DNS.
-    private val client = OkHttpOpdsClient(doh = HostResolver { emptyList() })
+    private val client = OkHttpOpdsClient(doh = HostResolver { emptyList() }, dispatchers = TestAppDispatchers())
 
     @Before
     fun setUp() {
@@ -100,7 +101,10 @@ class OkHttpOpdsClientTest {
     fun unresolvable_catalog_names_the_host_and_the_dns_cause() = runTest {
         // .test — домен верхнего уровня, которого нет в DNS. Клиент обязан пройти через свой
         // резолвер (система + DoH) и сказать, что дело в имени, а не «сервер недоступен».
-        val failing = OkHttpOpdsClient(doh = HostResolver { host -> emptyList() })
+        val failing = OkHttpOpdsClient(
+            doh = HostResolver { host -> emptyList() },
+            dispatchers = TestAppDispatchers(),
+        )
 
         val result = failing.get("https://blocked.test/opds")
 
@@ -116,7 +120,7 @@ class OkHttpOpdsClientTest {
             // Тот же приём, что и в бою: система имя не знает, DoH отдаёт адрес.
             java.net.InetAddress.getAllByName("127.0.0.1").toList()
         }
-        val throughDoh = OkHttpOpdsClient(doh = doh)
+        val throughDoh = OkHttpOpdsClient(doh = doh, dispatchers = TestAppDispatchers())
 
         val result = throughDoh.get("http://blocked.test:${server.port}/opds")
 

@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.opds.download
 
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.opds.auth.OpdsCredentials
 import javax.inject.Inject
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import okhttp3.ResponseBody
 
 /**
  * Загрузка книг из OPDS в папку библиотеки.
@@ -177,36 +179,12 @@ class DefaultOpdsDownloader @Inject constructor(
         // уже под финальным именем — провайдер при этом не переименовывает ничего.
         val staging = java.io.File(stagingDir, "$fileName$PART_SUFFIX")
         return try {
-            val call = client.newCall(requestBuilder(request, request.url))
-            call.execute().use { response ->
-                if (!response.isSuccessful) {
-                    return AppResult.failure(
-                        io.github.bookshelf.core.common.error.AppError.Network(
-                            httpCode = response.code,
-                            message = "Сервер ответил кодом ${response.code}",
-                        ),
-                    )
-                }
-                val body = response.body ?: return AppResult.failure(
-                    io.github.bookshelf.core.common.error.AppError.Network(message = "Пустой ответ сервера"),
-                )
-                val total = body.contentLength().takeIf { size -> size > 0 } ?: -1L
-                var written = 0L
-                staging.outputStream().use { output ->
-                    body.byteStream().use { input ->
-                        val buffer = ByteArray(BUFFER_SIZE)
-                        while (true) {
-                            if (checkCancelled()) throw java.io.InterruptedIOException("Загрузка отменена")
-                            val read = input.read(buffer)
-                            if (read <= 0) break
-                            output.write(buffer, 0, read)
-                            written += read
-                            onProgress(written, total)
-                        }
-                    }
-                    output.flush()
-                }
-            }
+            downloadToStaging(
+                request = request,
+                staging = staging,
+                checkCancelled = checkCancelled,
+                onProgress = onProgress,
+            )?.let { error -> return AppResult.failure(error) }
 
             // Перенос в дерево: файл появляется у пользователя целиком и сразу под своим именем.
             writer.writeStream(
@@ -264,6 +242,104 @@ class DefaultOpdsDownloader @Inject constructor(
         const val STAGING_DIR = "opds-staging"
         const val DEFAULT_FILE_MIME = "application/octet-stream"
         const val PART_SUFFIX = ".part"
+    }
+
+    /**
+     * Скачать байты во временный файл приложения.
+     *
+     * Схема «сначала `.part` в папке, потом переименование» на SAF не работает: провайдер внешнего
+     * хранилища не поддерживает переименование через `update` («Update not supported»), и загрузка
+     * падала уже после успешной передачи байтов. Поэтому байты идут в приватный файл, а перенос в
+     * дерево делает `writer`.
+     *
+     * Вынесено из `download` отдельной функцией: та перевалила за предел длины detekt.
+     */
+    /**
+     * Скачать байты во временный файл приложения.
+     *
+     * Схема «сначала `.part` в папке, потом переименование» на SAF не работает: провайдер внешнего
+     * хранилища не поддерживает переименование через `update` («Update not supported»), и загрузка
+     * падала уже после успешной передачи байтов. Поэтому байты идут в приватный файл, а перенос в
+     * дерево делает `writer`.
+     *
+     * Вынесено из `download` отдельной функцией: та перевалила за предел длины detekt.
+     * `null` — байты скачаны; ошибка — причина отказа, её показывает вызывающий.
+     */
+    private suspend fun downloadToStaging(
+        request: DownloadRequest,
+        staging: java.io.File,
+        checkCancelled: () -> Boolean,
+        onProgress: suspend (downloaded: Long, total: Long) -> Unit,
+    ): AppError? {
+        val call = client.newCall(requestBuilder(request, request.url))
+        call.execute().use { response ->
+            if (!response.isSuccessful) {
+                return AppError.Network(
+                    httpCode = response.code,
+                    message = "Сервер ответил кодом ${response.code}",
+                )
+            }
+            val body = response.body ?: return AppError.Network(message = "Пустой ответ сервера")
+            streamToFile(
+                body = body,
+                target = staging,
+                checkCancelled = checkCancelled,
+                onProgress = onProgress,
+            )
+        }
+        return null
+    }
+
+    /**
+     * Перелить тело ответа во временный файл, сообщая о прогрессе.
+     *
+     * Вынесено из `downloadToStaging` отдельной функцией: два вложенных `use` и цикл внутри них
+     * давали порог `NestedBlockDepth`, а сам цикл копирования читается отдельно от проверок ответа.
+     */
+    private suspend fun streamToFile(
+        body: ResponseBody,
+        target: java.io.File,
+        checkCancelled: () -> Boolean,
+        onProgress: suspend (downloaded: Long, total: Long) -> Unit,
+    ) {
+        val total = body.contentLength().takeIf { size -> size > 0 } ?: -1L
+        target.outputStream().use { output ->
+            body.byteStream().use { input ->
+                copyStream(
+                    input = input,
+                    output = output,
+                    total = total,
+                    checkCancelled = checkCancelled,
+                    onProgress = onProgress,
+                )
+            }
+            output.flush()
+        }
+    }
+
+    /**
+     * Копирование тела ответа с проверкой отмены и сообщением о прогрессе.
+     *
+     * Цикл вынесен из `streamToFile` отдельной функцией: он давал ещё один уровень вложенности
+     * внутри двух `use`, из-за чего порог `NestedBlockDepth` не проходил.
+     */
+    private suspend fun copyStream(
+        input: java.io.InputStream,
+        output: java.io.OutputStream,
+        total: Long,
+        checkCancelled: () -> Boolean,
+        onProgress: suspend (downloaded: Long, total: Long) -> Unit,
+    ) {
+        val buffer = ByteArray(BUFFER_SIZE)
+        var written = 0L
+        while (true) {
+            if (checkCancelled()) throw java.io.InterruptedIOException("Загрузка отменена")
+            val read = input.read(buffer)
+            if (read <= 0) break
+            output.write(buffer, 0, read)
+            written += read
+            onProgress(written, total)
+        }
     }
 }
 

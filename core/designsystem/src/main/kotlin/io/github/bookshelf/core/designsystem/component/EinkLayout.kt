@@ -7,6 +7,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
@@ -81,6 +83,13 @@ fun EinkListRow(
      * остаётся текстом, а действие — отдельным элементом, по которому можно попасть пальцем.
      */
     trailingContent: (@Composable () -> Unit)? = null,
+    /**
+     * Значок слева от подписи.
+     *
+     * Нужен списку читалок: иконка приложения видна быстрее, чем имя пакета, и человек узнаёт
+     * свою читалку по картинке (просьба Александра, 01.10.2026).
+     */
+    leadingContent: (@Composable () -> Unit)? = null,
     selected: Boolean = false,
     enabled: Boolean = true,
     hasDivider: Boolean = true,
@@ -95,21 +104,15 @@ fun EinkListRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (selected) colors.invertedBackground else colors.background)
-                .then(
-                    if (onClick != null && enabled) {
-                        Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onClick,
-                        )
-                    } else {
-                        Modifier
-                    },
-                )
+                .then(rowClickModifier(onClick = onClick, enabled = enabled))
                 .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            if (leadingContent != null) {
+                leadingContent()
+                Spacer(modifier = Modifier.width(dimens.gutterSmall))
+            }
             androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
@@ -154,3 +157,22 @@ fun EinkListRow(
         }
     }
 }
+
+
+/**
+ * Модификатор нажатия строки: кликабельна она только когда нажатие есть и разрешено.
+ *
+ * Вынесено из `EinkListRow` отдельной функцией: та перевалила за предел длины detekt, а условие
+ * с `MutableInteractionSource` — цельный кусок (индикатор нажатия на e-ink не рисуется).
+ */
+@Composable
+private fun rowClickModifier(onClick: (() -> Unit)?, enabled: Boolean): Modifier =
+    if (onClick != null && enabled) {
+        Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        )
+    } else {
+        Modifier
+    }

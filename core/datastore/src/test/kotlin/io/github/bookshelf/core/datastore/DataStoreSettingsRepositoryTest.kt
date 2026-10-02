@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
@@ -37,7 +38,10 @@ class DataStoreSettingsRepositoryTest {
 
     private fun repository(fileName: String = "settings.preferences_pb"): DataStoreSettingsRepository {
         val file: File = temporaryFolder.newFolder("store-${System.nanoTime()}").resolve(fileName)
-        return DataStoreSettingsRepository(createSettingsDataStore(produceFile = { file }))
+        return DataStoreSettingsRepository(createSettingsDataStore(
+            produceFile = { file },
+            dispatchers = TestAppDispatchers(),
+        ))
     }
 
     @Test
@@ -167,7 +171,10 @@ class DataStoreSettingsRepositoryTest {
         val file = temporaryFolder.newFolder("store-corrupt").resolve("settings.preferences_pb")
         // Мусор вместо protobuf: ровно то, что остаётся после обрыва записи.
         file.writeBytes(byteArrayOf(0x00, 0x7F, -1, -1, 0x42, 0x13, 0x37))
-        val repository = DataStoreSettingsRepository(createSettingsDataStore(produceFile = { file }))
+        val repository = DataStoreSettingsRepository(createSettingsDataStore(
+            produceFile = { file },
+            dispatchers = TestAppDispatchers(),
+        ))
 
         assertThat(repository.current()).isEqualTo(AppSettings())
     }
@@ -175,7 +182,10 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun unknown_enum_name_falls_back_to_documented_default() = runBlocking {
         val file = temporaryFolder.newFolder("store-garbage").resolve("settings.preferences_pb")
-        val store: DataStore<Preferences> = createSettingsDataStore(produceFile = { file })
+        val store: DataStore<Preferences> = createSettingsDataStore(
+            produceFile = { file },
+            dispatchers = TestAppDispatchers(),
+        )
         store.edit { prefs ->
             prefs[SettingsKeys.THEME_MODE] = "НЕ_СУЩЕСТВУЕТ"
             prefs[SettingsKeys.SORT_ORDER] = "SORT_BY_VIBES"
@@ -190,7 +200,10 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun non_positive_numbers_fall_back_because_zero_would_crash_the_app() = runBlocking {
         val file = temporaryFolder.newFolder("store-zeros").resolve("settings.preferences_pb")
-        val store: DataStore<Preferences> = createSettingsDataStore(produceFile = { file })
+        val store: DataStore<Preferences> = createSettingsDataStore(
+            produceFile = { file },
+            dispatchers = TestAppDispatchers(),
+        )
         store.edit { prefs ->
             // metadataParallelism уходит в Executors.newFixedThreadPool, который на 0 бросает
             // IllegalArgumentException (проверено на JDK 21), а gcInterval = 0 означал бы полный
@@ -219,7 +232,10 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun unreadable_reader_map_json_is_ignored() = runBlocking {
         val file = temporaryFolder.newFolder("store-json").resolve("settings.preferences_pb")
-        val store: DataStore<Preferences> = createSettingsDataStore(produceFile = { file })
+        val store: DataStore<Preferences> = createSettingsDataStore(
+            produceFile = { file },
+            dispatchers = TestAppDispatchers(),
+        )
         store.edit { prefs ->
             prefs[SettingsKeys.DEFAULT_READER_BY_FORMAT] = "не json вовсе"
         }

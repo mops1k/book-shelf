@@ -5,11 +5,13 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import io.github.bookshelf.core.common.io.SeekableFile
 import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.metadata.model.CoverBytes
 import io.github.bookshelf.core.metadata.model.MetadataOrigin
 import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.BookMetadataParser
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import java.io.File
 import java.io.FileInputStream
@@ -34,7 +36,16 @@ import kotlin.math.roundToInt
  * Положительный путь обложки нужно проверять на устройстве: Robolectric не воспроизводит нативный
  * рендерер одинаково с Android (см. docs/formats.md §9).
  */
-class PdfParser : BookMetadataParser {
+class PdfParser(
+    /**
+     * Предел размера временной копии документа.
+     *
+     * `PdfRenderer` работает только с файлом, поэтому документ копируется целиком; без предела
+     * файл-гигант занимал хранилище (находка аудита 28.09.2026). Предел настраиваемый: тест
+     * проверяет его маленьким значением.
+     */
+    private val maxCopyBytes: Long = MAX_COPY_BYTES,
+) : BookMetadataParser {
 
     override val id: String = ID
 
@@ -54,6 +65,8 @@ class PdfParser : BookMetadataParser {
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (error: PdfFailure) {
+            ParseResult.Failed(error.message ?: "PDF: отказ разбора", error.kind)
         } catch (error: Throwable) {
             val detail = error.message?.takeIf { it.isNotBlank() } ?: "неизвестная ошибка"
             ParseResult.Failed("PDF: не удалось открыть документ: $detail")
@@ -171,15 +184,23 @@ class PdfParser : BookMetadataParser {
     }
 
     private fun copyToTemporaryFile(input: BookInput): File {
+        // Заявленный размер известен заранее: гигантский документ отвергается до копирования.
+        input.sizeBytes?.let { size ->
+            if (size > maxCopyBytes) throw tooLarge(size)
+        }
         val temporaryFile = File.createTempFile(TEMP_PREFIX, TEMP_SUFFIX)
         val copied = tryCopyChannel(input, temporaryFile)
-        if (copied) return temporaryFile
+        if (copied) {
+            checkCopySize(temporaryFile)
+            return temporaryFile
+        }
 
         temporaryFile.delete()
         return try {
             input.openStream().use { stream ->
                 FileOutputStream(temporaryFile).use { output -> stream.copyTo(output) }
             }
+            checkCopySize(temporaryFile)
             temporaryFile
         } catch (error: Throwable) {
             temporaryFile.delete()
@@ -187,8 +208,22 @@ class PdfParser : BookMetadataParser {
         }
     }
 
+    /** Провайдер вправе не сообщать размер: тогда предел проверяется по факту копии. */
+    private fun checkCopySize(file: File) {
+        if (file.length() > maxCopyBytes) throw tooLarge(file.length())
+    }
+
+    private fun tooLarge(bytes: Long): PdfFailure =
+        PdfFailure("PDF: файл превышает допустимый размер: $bytes байт", ParseFailureKind.ARCHIVE_LIMIT)
+
+    /** Отказ разбора с видом: без него превышение лимита выглядело бы как битый файл. */
+    private class PdfFailure(
+        message: String,
+        val kind: ParseFailureKind = ParseFailureKind.CORRUPT_FILE,
+    ) : Exception(message)
+
     private fun tryCopyChannel(input: BookInput, destination: File): Boolean {
-        val channel = try {
+        val seekable = try {
             input.openSeekable()
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -197,14 +232,14 @@ class PdfParser : BookMetadataParser {
         } ?: return false
 
         return try {
-            FileOutputStream(destination).use { output -> copyChannel(channel, output) }
+            FileOutputStream(destination).use { output -> copyChannel(seekable.channel, output) }
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
             false
         } finally {
-            runCatching { channel.close() }
+            seekable.close()
         }
     }
 
@@ -241,6 +276,14 @@ class PdfParser : BookMetadataParser {
         const val SPRINT = 3
         const val TEMP_PREFIX = "bookshelf-pdf-"
         const val TEMP_SUFFIX = ".pdf"
+
+        /**
+         * Предел временной копии PDF — 300 МБ.
+         *
+         * Сканы бывают крупными, поэтому предел выше, чем у копии книги; но без предела файл-гигант
+         * из облачного источника занимал бы хранилище целиком.
+         */
+        const val MAX_COPY_BYTES = 300L * 1_024 * 1_024
         const val READ_BUFFER_BYTES = 8 * 1024
         const val BYTE_MASK = 0xFF
         const val MAX_COVER_DIMENSION = 600

@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.data.model
 
+import io.github.bookshelf.core.common.error.ParseFailure
 /**
  * Доменная модель книги для UI (docs/architecture.md §3.1).
  *
@@ -65,6 +66,16 @@ data class Book(
      * (проверено на устройстве 30.09.2026 — 19 таких книг, раздел пуст).
      */
     val parseState: ParseState = ParseState.PENDING,
-    /** Причина отказа разбора; `null`, если разбор прошёл или ещё не было. */
+    /**
+     * Код причины отказа разбора; `null`, если разбор прошёл или ещё не было.
+     *
+     * Показывается словами на экране (`ParseFailure` → ресурс): сама причина переживает
+     * перезапуск, а готовый текст в базе ломал бы английский интерфейс.
+     */
+    val parseFailure: ParseFailure? = null,
+    /**
+     * Диагностика разбора от парсера: путь, лимит, ответ провайдера. В интерфейс не выводится
+     * (docs/tdd.md §7) — человеку показывается [parseFailure], а подробность уходит в журнал.
+     */
     val parseError: String? = null,
 )

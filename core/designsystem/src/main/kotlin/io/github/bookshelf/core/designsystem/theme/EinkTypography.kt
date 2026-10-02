@@ -38,69 +38,68 @@ fun einkTypography(
     val line: TextUnit = (BASE_FONT_SIZE_SP * scale.factor * LINE_HEIGHT_FACTOR).sp
 
     return Typography(
-        displayLarge = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body * 1.6f,
-            lineHeight = line * 1.4f,
+        displayLarge = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 1.6f, lineHeight = line * 1.4f,
+            weight = FontWeight.Normal,
         ),
-        headlineMedium = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = body * 1.35f,
-            lineHeight = line * 1.2f,
+        headlineMedium = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 1.35f, lineHeight = line * 1.2f,
+            weight = FontWeight.Medium,
         ),
-        titleLarge = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = body * 1.2f,
-            lineHeight = line * 1.1f,
+        titleLarge = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 1.2f, lineHeight = line * 1.1f,
+            weight = FontWeight.Medium,
         ),
-        titleMedium = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = body,
-            lineHeight = line,
+        titleMedium = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body, lineHeight = line,
+            weight = FontWeight.Medium,
         ),
-        bodyLarge = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body,
-            lineHeight = line,
+        bodyLarge = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body, lineHeight = line,
+            weight = FontWeight.Normal,
         ),
-        bodyMedium = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body * 0.94f,
-            lineHeight = line,
+        bodyMedium = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 0.94f, lineHeight = line,
+            weight = FontWeight.Normal,
         ),
-        bodySmall = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body * 0.82f,
-            lineHeight = line * 0.95f,
+        bodySmall = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 0.82f, lineHeight = line * 0.95f,
+            weight = FontWeight.Normal,
         ),
-        labelLarge = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = body * 0.94f,
-            lineHeight = line,
+        labelLarge = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 0.94f, lineHeight = line,
+            weight = FontWeight.Medium,
         ),
-        labelMedium = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body * 0.82f,
-            lineHeight = line * 0.95f,
+        labelMedium = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 0.82f, lineHeight = line * 0.95f,
+            weight = FontWeight.Normal,
         ),
         // Самый мелкий кегль интерфейса. Им рисуются бейджи на обложке (формат, статус чтения):
         // они лежат поверх картинки и не должны спорить с названием книги под плиткой. По просьбе
         // Александра (28.09.2026) кегль бейджей уменьшен заметно: при 0.72 высота прописных
         // выходила ≈78 % от названия, то есть читалась как второй заголовок, а не как пометка.
-        labelSmall = TextStyle(
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Normal,
-            fontSize = body * 0.6f,
-            lineHeight = line * 0.75f,
+        labelSmall = einkTextStyle(
+            fontFamily = fontFamily, fontSize = body * 0.6f, lineHeight = line * 0.75f,
+            weight = FontWeight.Normal,
         ),
     )
 }
+
+
+/**
+ * Стиль текста e-ink: семейство, кегль, высота строки и начертание.
+ *
+ * Вынесено из `einkTypography` отдельной функцией ради предела длины detekt и заодно убрало
+ * двенадцать одинаковых блоков по шесть строк: значения остались теми же.
+ */
+private fun einkTextStyle(
+    fontFamily: FontFamily,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    weight: FontWeight,
+): TextStyle = TextStyle(
+    fontFamily = fontFamily,
+    fontWeight = weight,
+    fontSize = fontSize,
+    lineHeight = lineHeight,
+)

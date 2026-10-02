@@ -2,6 +2,7 @@ package io.github.bookshelf.core.metadata.parser.impl
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.metadata.parser.BookInput
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import java.io.ByteArrayInputStream
 import java.io.IOException
@@ -47,6 +48,17 @@ class PdfParserTest {
 
         assertThat(result).isInstanceOf(ParseResult.Failed::class.java)
         assertThat((result as ParseResult.Failed).reason).isNotEmpty()
+    }
+
+    @Test
+    fun `a document bigger than the copy limit is rejected before it fills storage`() = runBlocking<Unit> {
+        // Дефект аудита 28.09.2026: PDF копировался целиком (канал или поток) без контроля размера.
+        val parser = PdfParser(maxCopyBytes = 4)
+
+        val result = parser.parse(inputWithoutSeekable())
+
+        assertThat(result).isInstanceOf(ParseResult.Failed::class.java)
+        assertThat((result as ParseResult.Failed).kind).isEqualTo(ParseFailureKind.ARCHIVE_LIMIT)
     }
 
     private fun inputWithoutSeekable(): BookInput = input(

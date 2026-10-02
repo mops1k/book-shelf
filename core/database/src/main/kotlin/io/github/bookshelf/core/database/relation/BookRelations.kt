@@ -125,6 +125,17 @@ data class TagFacet(
     val bookCount: Int,
 )
 
+/**
+ * Фасет «источник»: папка, из которой пришли книги, и их число.
+ *
+ * Имя папки может быть пустым: приложение больше не пишет «Папка» в базу (слова выбирает экран).
+ */
+data class SourceFacet(
+    val sourceId: String,
+    val sourceName: String,
+    val bookCount: Int,
+)
+
 /** Фасет «формат»: расширение файла и число книг. */
 data class FormatFacet(
     val extension: String,

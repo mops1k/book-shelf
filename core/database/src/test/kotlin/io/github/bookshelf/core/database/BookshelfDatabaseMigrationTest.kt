@@ -8,6 +8,9 @@ import io.github.bookshelf.core.database.migration.MIGRATION_1_2
 import io.github.bookshelf.core.database.migration.MIGRATION_2_3
 import io.github.bookshelf.core.database.migration.MIGRATION_3_4
 import io.github.bookshelf.core.database.migration.MIGRATION_4_5
+import io.github.bookshelf.core.database.migration.MIGRATION_5_6
+import io.github.bookshelf.core.database.migration.MIGRATION_6_7
+import io.github.bookshelf.core.database.migration.MIGRATION_7_8
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -168,6 +171,72 @@ class BookshelfDatabaseMigrationTest {
     }
 
     @Test
+    fun migrate_6_to_7_moves_download_failures_into_codes() {
+        givenVersion6WithFailedDownload()
+
+        helper.runMigrationsAndValidate(TEST_DB, 7, true, MIGRATION_6_7).use { db ->
+            // Отказ в записи переносится своим кодом: именно он даёт человеку подсказку про папку.
+            assertThat(db.stringOf("SELECT failure FROM opds_downloads WHERE id = ?", DOWNLOAD_ID))
+                .isEqualTo("NO_WRITE_PERMISSION")
+            // Прочие тексты становятся общим кодом, а сам текст остаётся диагностикой.
+            assertThat(db.stringOf("SELECT failure FROM opds_downloads WHERE id = ?", SECOND_DOWNLOAD_ID))
+                .isEqualTo("DOWNLOAD_FAILED")
+            assertThat(db.stringOf("SELECT error FROM opds_downloads WHERE id = ?", SECOND_DOWNLOAD_ID))
+                .isEqualTo("Сервер ответил кодом 404")
+            // Неудачная загрузка без записи причины тоже получает код, а не пустоту.
+            assertThat(db.stringOf("SELECT failure FROM opds_downloads WHERE id = ?", THIRD_DOWNLOAD_ID))
+                .isEqualTo("DOWNLOAD_FAILED")
+        }
+    }
+
+    @Test
+    fun migrate_7_to_8_clears_the_names_our_own_code_wrote() {
+        givenVersion7WithServiceCollections()
+
+        helper.runMigrationsAndValidate(TEST_DB, 8, true, MIGRATION_7_8).use { db ->
+            // Имена служебных полок писали мы сами по-русски: раньше «Новая полка», «Подборка: …»,
+            // «Избранное». Теперь в базе для них пусто, а слова собирает экран («Новая полка»,
+            // «Новая полка 2», подпись правила) — docs/tdd.md §8.
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", NEW_SHELF_ID)).isEmpty()
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", SECOND_SHELF_ID)).isEmpty()
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", FILTER_SHELF_ID)).isEmpty()
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", FAVORITES_SHELF_ID)).isEmpty()
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", READING_SHELF_ID)).isEmpty()
+
+            // Имя, которое написал человек, остаётся его данными: миграция его не трогает.
+            assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", CUSTOM_SHELF_ID))
+                .isEqualTo("Фантастика 2020")
+
+            // Правила полки не потерялись: по ним экран и собирает подпись.
+            assertThat(
+                db.nullableStringOf("SELECT rulesJson FROM collections WHERE id = ?", FILTER_SHELF_ID),
+            ).isNotNull()
+        }
+    }
+
+    @Test
+    fun migrate_5_to_6_moves_the_known_reason_into_a_code() {
+        givenVersion5WithFailedBook()
+
+        helper.runMigrationsAndValidate(TEST_DB, 6, true, MIGRATION_5_6).use { db ->
+            // Пользователь видел русскую причину из парсера: она переносится в код, а сам текст
+            // остаётся диагностикой (в интерфейс такие тексты больше не идут).
+            assertThat(db.stringOf("SELECT parseFailure FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo("FORMAT_UNSUPPORTED")
+            assertThat(db.stringOf("SELECT parseError FROM books WHERE id = ?", BOOK_ID))
+                .isEqualTo("Формат не поддерживается")
+
+            // Прочие причины переносятся в «файл повреждён»: ни одна книга не остаётся без подписи.
+            assertThat(db.stringOf("SELECT parseFailure FROM books WHERE id = ?", SECOND_BOOK_ID))
+                .isEqualTo("CORRUPT_FILE")
+            // Книга, разобравшаяся успешно, кода не получает.
+            assertThat(
+                db.nullableStringOf("SELECT parseFailure FROM books WHERE id = ?", OK_BOOK_ID),
+            ).isNull()
+        }
+    }
+
+    @Test
     fun migrate_4_to_5_creates_book_copies_table_that_can_be_written() {
         givenVersion4WithBook()
 
@@ -210,6 +279,64 @@ class BookshelfDatabaseMigrationTest {
     }
 
     /** Книга, записанная в схеме 4 — до появления таблицы копий. */
+    /** Книга, у которой разбор не удался и причина записана текстом — так было до схемы 6. */
+    /** Неудачные загрузки, записанные в схеме 6 — когда отказ хранился текстом. */
+    private fun givenVersion6WithFailedDownload() {
+        helper.createDatabase(TEST_DB, 6).apply {
+            execSQL(DOWNLOAD_SQL, downloadArgs(DOWNLOAD_ID, "Приложению не разрешено писать в папку"))
+            execSQL(DOWNLOAD_SQL, downloadArgs(SECOND_DOWNLOAD_ID, "Сервер ответил кодом 404"))
+            execSQL(DOWNLOAD_SQL, downloadArgs(THIRD_DOWNLOAD_ID, null))
+            close()
+        }
+    }
+
+    /** Полки схемы 7: служебные (их имена писали мы) и одна с именем, которое дал человек. */
+    private fun givenVersion7WithServiceCollections() {
+        helper.createDatabase(TEST_DB, 7).apply {
+            for ((id, name) in SERVICE_COLLECTION_NAMES) {
+                execSQL(INSERT_COLLECTION_SQL, collectionArgs(id, name))
+            }
+            execSQL(INSERT_COLLECTION_SQL, collectionArgs(CUSTOM_SHELF_ID, "Фантастика 2020"))
+            execSQL(
+                "UPDATE collections SET rulesJson = ? WHERE id = ?",
+                arrayOf<Any>("{}", FILTER_SHELF_ID),
+            )
+            close()
+        }
+    }
+
+    /** Вставка полки: обязательные поля заполнены, имя — параметром. */
+    private fun collectionArgs(id: String, name: String): Array<Any> =
+        arrayOf<Any>(id, name, "SMART", 0, 1000L)
+
+    /** Вставка строки очереди: обязательные поля есть, причина и состояние — параметрами. */
+    private fun downloadArgs(id: String, error: String?): Array<Any?> =
+        arrayOf<Any?>(id, "FAILED", error)
+
+    private fun givenVersion5WithFailedBook() {
+        helper.createDatabase(TEST_DB, 5).apply {
+            execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Битый.fb2"))
+            // Адрес документа у книг разный: на `documentUri` в схеме стоит UNIQUE.
+            execSQL(
+                INSERT_BOOK_WITH_URI_SQL,
+                arrayOf<Any>(SECOND_BOOK_ID, "content://b2", "Тоже битый.fb2", "Тоже битый.fb2", ""),
+            )
+            execSQL(
+                INSERT_BOOK_WITH_URI_SQL,
+                arrayOf<Any>(OK_BOOK_ID, "content://b3", "Целая.fb2", "Целая.fb2", ""),
+            )
+            execSQL(
+                "UPDATE books SET parseState = 'FAILED', parseError = ? WHERE id = ?",
+                arrayOf<Any>("Формат не поддерживается", BOOK_ID),
+            )
+            execSQL(
+                "UPDATE books SET parseState = 'FAILED', parseError = ? WHERE id = ?",
+                arrayOf<Any>("FB2 внутри архива превышает допустимый размер XML", SECOND_BOOK_ID),
+            )
+            close()
+        }
+    }
+
     private fun givenVersion4WithBook() {
         helper.createDatabase(TEST_DB, 4).apply {
             execSQL(INSERT_BOOK_SQL, bookArgs(BOOK_ID, "Война и мир"))
@@ -305,15 +432,57 @@ class BookshelfDatabaseMigrationTest {
             "INSERT INTO book_copies (copyDocumentUri, bookId, sourceId, sizeBytes, lastModified, " +
                 "contentHash) VALUES (?, ?, ?, ?, ?, ?)"
 
+        /** Вставка полки: обязательные поля заполнены, имя — параметром. */
+        const val INSERT_COLLECTION_SQL =
+            "INSERT INTO collections (id, name, type, position, createdAt) VALUES (?, ?, ?, ?, ?)"
+
+        const val NEW_SHELF_ID = "shelf-new"
+        const val SECOND_SHELF_ID = "shelf-new-2"
+        const val FILTER_SHELF_ID = "shelf-filter"
+        const val FAVORITES_SHELF_ID = "shelf-favorites"
+        const val READING_SHELF_ID = "shelf-reading"
+        const val CUSTOM_SHELF_ID = "shelf-custom"
+
+        /**
+         * Имена, которые писали мы сами: ровно они обнуляются миграцией 7→8.
+         *
+         * Список закрытый и намеренно точный: «похоже на наше» затронуло бы полку, которую человек
+         * назвал сам, а это его данные.
+         */
+        val SERVICE_COLLECTION_NAMES = listOf(
+            NEW_SHELF_ID to "Новая полка",
+            SECOND_SHELF_ID to "Новая полка 2",
+            FILTER_SHELF_ID to "Подборка: жанр: Космическая фантастика",
+            FAVORITES_SHELF_ID to "Избранное",
+            READING_SHELF_ID to "Читаю сейчас",
+        )
+
         const val TEST_DB = "migration-test.db"
         const val BOOK_ID = "book-1"
+        const val SECOND_BOOK_ID = "book-2"
+        const val OK_BOOK_ID = "book-3"
         const val DOWNLOAD_ID = "download-1"
+        const val SECOND_DOWNLOAD_ID = "download-2"
+        const val THIRD_DOWNLOAD_ID = "download-3"
+        /** Строка очереди для проверки миграции причины отказа загрузки. */
+        const val DOWNLOAD_SQL =
+            "INSERT INTO opds_downloads (id, catalogId, entryId, title, downloadUrl, targetSourceId, " +
+                "targetRelativeDir, state, bytesDownloaded, error, createdAt) VALUES (?, 'catalog-1', " +
+                "'entry-1', 'Солярис', 'https://host/1.fb2', 'source-1', '', ?, 0, ?, 1)"
 
         /**
          * Вставка только обязательных полей: схема требует `metadataSource`, `parseState`,
          * `readingStatus`, `openCount`, `favorite` и `isMissing` — у них нет DEFAULT в SQL.
          * Плейсхолдеры идут в порядке колонок: id, title, sortTitle, authorsText.
          */
+        /** Та же вставка, но адрес документа — параметром: у книг в тестах он разный. */
+        const val INSERT_BOOK_WITH_URI_SQL =
+            "INSERT INTO books (id, sourceId, documentUri, relativePath, fileName, extension, " +
+                "mimeType, sizeBytes, lastModified, title, sortTitle, authorsText, metadataSource, " +
+                "parseState, readingStatus, openCount, favorite, isMissing, addedAt, updatedAt, " +
+                "lastSeenAt) VALUES (?, 's1', ?, 'a/b.fb2', 'b.fb2', 'fb2', 'application/fb2', " +
+                "10, 1, ?, ?, ?, 'NONE', 'PENDING', 'UNREAD', 0, 0, 0, 1, 1, 1)"
+
         const val INSERT_BOOK_SQL =
             "INSERT INTO books (id, sourceId, documentUri, relativePath, fileName, extension, " +
                 "mimeType, sizeBytes, lastModified, title, sortTitle, authorsText, metadataSource, " +

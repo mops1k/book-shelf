@@ -6,6 +6,7 @@ import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.metadata.model.MetadataOrigin
 import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.BookMetadataParser
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -40,7 +41,7 @@ class TxtParser(
         return try {
             val prefix = input.openStream().use { stream -> readPrefix(stream) }
             if (prefix.isEmpty()) {
-                return ParseResult.Failed("TXT: файл пуст")
+                return ParseResult.Failed("TXT: файл пуст", ParseFailureKind.EMPTY_FILE)
             }
 
             val text = decode(prefix, input.mimeType)

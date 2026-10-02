@@ -9,7 +9,14 @@ package io.github.bookshelf.core.data.model
  */
 data class FacetItem(
     val id: String,
-    val label: String,
+    /**
+     * Значение подписи, а не текст интерфейса.
+     *
+     * Для жанров это код метаданных (`sf_space`): слова выбирает экран (`genreText`), потому что
+     * у слоя данных нет ресурсов, а готовая русская строка из ядра показывалась бы по-русски
+     * и в английском интерфейсе. Для авторов и серий это имя — данные, они так и показываются.
+     */
+    val labelCode: String,
     val count: Int,
 )
 
@@ -28,6 +35,8 @@ data class FacetSet(
     val formats: List<FacetItem> = emptyList(),
     val statuses: List<FacetItem> = emptyList(),
     val tags: List<FacetItem> = emptyList(),
+    /** Источники (папки): `id` — id источника, подпись — имя папки (может быть пустым). */
+    val sources: List<FacetItem> = emptyList(),
 )
 
 /**

@@ -9,6 +9,7 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.common.testing.FakeAppClock
+import io.github.bookshelf.core.common.testing.RecordingAppLogger
 import io.github.bookshelf.core.data.duplicates.DuplicateFinder
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
 import io.github.bookshelf.core.fb2opt.Fb2ImageOptimizer
@@ -262,6 +263,7 @@ class SyncReadingProgressTest {
         books = repository,
         settings = settings,
         copies = database.bookCopyDao(),
+        logger = RecordingAppLogger(),
     )
 
     private suspend fun givenBook(

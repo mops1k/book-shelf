@@ -52,7 +52,10 @@ class SaveBookMetadataTest {
 
         val saved = result.getOrNull()
         assertThat(saved?.fileWritten).isFalse()
-        assertThat(saved?.fileReason).isEqualTo("Нет права записи в папку")
+        // Причина — типизированный код: строку выбирает экран (docs/tdd.md §8).
+        assertThat(saved?.fileFailure).isEqualTo(
+            MetadataWriteFailure.WriteFailed(AppError.Io(message = "Нет права записи в папку")),
+        )
         // Правка в приложении осталась: отказ записи файла не отменяет работу пользователя.
         assertThat(repository.metadataPatches).hasSize(1)
     }

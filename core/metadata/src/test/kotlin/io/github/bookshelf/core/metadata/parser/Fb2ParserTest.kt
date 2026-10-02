@@ -2,6 +2,7 @@ package io.github.bookshelf.core.metadata.parser
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.metadata.model.MetadataOrigin
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.parser.impl.Fb2Parser
 import java.io.File
 import java.io.FileInputStream
@@ -213,6 +214,21 @@ class Fb2ParserTest {
         return String(xml, Charsets.UTF_8)
             .replace("</FictionBook>", binary + "</FictionBook>")
             .toByteArray(Charsets.UTF_8)
+    }
+
+    @Test
+    fun `a file bigger than the spool limit is rejected before it fills storage`() = runBlocking<Unit> {
+        // Дефект аудита 28.09.2026: файл целиком копировался во временный файл без контроля размера,
+        // и только потом проверялся предел XML — огромный файл успевал занять хранилище.
+        val file = temporaryFolder.newFile("huge.fb2").apply { writeBytes(ByteArray(4_096) { 65 }) }
+        val parser = Fb2Parser(maxSpoolBytes = 128)
+
+        val result = parser.parse(input(file, "fb2"))
+
+        assertThat(result).isInstanceOf(ParseResult.Failed::class.java)
+        val failure = result as ParseResult.Failed
+        assertThat(failure.kind).isEqualTo(ParseFailureKind.ARCHIVE_LIMIT)
+        assertThat(failure.reason).contains("размер")
     }
 
     private fun input(file: File, extension: String): BookInput = BookInput(

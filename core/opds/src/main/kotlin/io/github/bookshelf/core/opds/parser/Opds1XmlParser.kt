@@ -35,6 +35,45 @@ import org.xmlpull.v1.XmlPullParser
 @Singleton
 class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
 
+    /** Начало тега Atom: открыть запись, начать автора, прочитать ссылку или жанр. */
+    private fun startTag(parser: XmlPullParser, state: FeedState, baseUrl: String): StringBuilder {
+        when (parser.name) {
+            "entry" -> state.startEntry()
+            "author" -> state.author = StringBuilder()
+            "link" -> state.addLink(parser, baseUrl)
+            // category у Flibusta — жанр («Космическая фантастика»), а серия приходит отдельной
+            // ссылкой. Считать одно другим нельзя: в карточке вместо серии был бы жанр.
+            "category" -> state.entry?.genres?.add(parser.getAttributeValue(null, "term").orEmpty())
+        }
+        return StringBuilder()
+    }
+
+    /**
+     * Конец тега Atom: значение из буфера раскладывается по полям записи.
+     *
+     * Вынесено из `parse` отдельной функцией: два вложенных `when` в одном цикле давали сложность
+     * 24 при пороге 15, а разбор закрывающих тегов читается отдельно от самого разбора.
+     */
+    private fun endTag(parser: XmlPullParser, state: FeedState, buffer: StringBuilder?) {
+        val value = buffer?.toString().orEmpty().trim()
+        when (parser.name) {
+            "entry" -> state.finishEntry()
+            "author" -> state.finishAuthor()
+            "name" -> state.author?.append(value)
+            "title" -> state.put("title", value)
+            "id" -> state.put("id", value)
+            "updated" -> state.put("updated", value)
+            "summary" -> state.put("summary", value)
+            // content у Flibusta — HTML внутри текста: без очистки аннотация показывала бы разметку.
+            "content" -> state.put("summary", value.plainText())
+            "language" -> state.put("language", value)
+            "identifier" -> state.put("identifier", value)
+            "publisher" -> state.put("publisher", value)
+            // dc:issued — год издания: в карточке книги он нужен и когда описания нет вовсе.
+            "issued" -> state.put("issued", value)
+        }
+    }
+
     override suspend fun parse(body: String, baseUrl: String): AppResult<OpdsFeed> = runCatching {
         require(body.isNotBlank()) { "Пустое тело фида" }
         require(body.contains(FEED_MARKER) || body.contains(ENTRY_MARKER)) { "Это не Atom-фид" }
@@ -55,41 +94,13 @@ class Opds1XmlParser @Inject constructor() : OpdsFeedParser {
 
                 XmlPullParser.START_TAG -> {
                     depth++
-                    buffer = StringBuilder()
-                    when (parser.name) {
-                        "entry" -> state.startEntry()
-                        "author" -> state.author = StringBuilder()
-                        "link" -> state.addLink(parser, baseUrl)
-                        // category у Flibusta — жанр («Космическая фантастика»), а серия
-                        // приходит отдельной ссылкой. Считать одно другим нельзя: в карточке
-                        // пользователь увидел бы вместо серии жанр.
-                        "category" -> state.entry?.genres?.add(
-                            parser.getAttributeValue(null, "term").orEmpty(),
-                        )
-                    }
+                    buffer = startTag(parser = parser, state = state, baseUrl = baseUrl)
                 }
 
                 XmlPullParser.END_TAG -> {
                     depth--
-                    val value = buffer?.toString().orEmpty().trim()
+                    endTag(parser = parser, state = state, buffer = buffer)
                     buffer = null
-                    when (parser.name) {
-                        "entry" -> state.finishEntry()
-                        "author" -> state.finishAuthor()
-                        "name" -> state.author?.append(value)
-                        "title" -> state.put("title", value)
-                        "id" -> state.put("id", value)
-                        "updated" -> state.put("updated", value)
-                        // content у Flibusta — HTML внутри текста: без очистки аннотация показала бы разметку.
-                        "summary" -> state.put("summary", value)
-                        "content" -> state.put("summary", value.plainText())
-                        "language" -> state.put("language", value)
-                        "identifier" -> state.put("identifier", value)
-                        "publisher" -> state.put("publisher", value)
-                        // dc:issued — год издания: в карточке книги он нужен, даже когда описания
-                        // каталог не прислал вовсе.
-                        "issued" -> state.put("issued", value)
-                    }
                 }
             }
             event = parser.next()

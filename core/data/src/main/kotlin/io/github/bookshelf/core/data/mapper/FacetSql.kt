@@ -103,6 +103,25 @@ internal object FacetSql {
         groupBy = "GROUP BY tags.id, tags.name ORDER BY bookCount DESC, tags.name COLLATE NOCASE ASC",
     )
 
+    /**
+     * Источники (папки) с числом книг.
+     *
+     * Свой фильтр снимается: выбранная папка не должна скрывать остальные, иначе второй источник
+     * уже не выбрать. Числа — «сколько книг придёт из этой папки при текущих фильтрах».
+     */
+    fun sources(query: BookQuery): SupportSQLiteQuery = facet(
+        query = query.copy(sourceIds = emptySet()),
+        // Имя источника лежит в колонке `displayName`: поля `name` в таблице `sources` нет.
+        // Такая ошибка не ловится проверкой строки SQL — только исполнением запроса (см.
+        // `SourceFacetTest`: на устройстве фильтры показывали «Не удалось загрузить фильтры»).
+        select = "SELECT sources.id AS sourceId, sources.displayName AS sourceName, " +
+            "COUNT(*) AS bookCount " +
+            "FROM books INNER JOIN sources ON sources.id = books.sourceId",
+        extra = null,
+        groupBy = "GROUP BY sources.id, sources.displayName " +
+            "ORDER BY sources.displayName COLLATE NOCASE ASC",
+    )
+
     fun formats(query: BookQuery): SupportSQLiteQuery = facet(
         query = query.copy(formats = emptySet()),
         select = "SELECT books.extension AS extension, COUNT(*) AS bookCount FROM books",

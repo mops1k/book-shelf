@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.opds.client
 
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.opds.auth.CredentialsHeader
@@ -46,6 +47,8 @@ import okio.Buffer
 class OkHttpOpdsClient @Inject constructor(
     /** Резолвер для случаев, когда системный DNS имя не отдал (docs/opds.md). */
     private val doh: HostResolver,
+    /** Диспетчеры приложения: свой `Dispatchers.IO` в модуле запрещён (docs/tdd.md §5). */
+    private val dispatchers: AppDispatchers,
 ) : OpdsHttpClient {
 
     private val http: OkHttpClient by lazy { buildClient() }
@@ -54,7 +57,7 @@ class OkHttpOpdsClient @Inject constructor(
         url: String,
         conditional: ConditionalGet?,
         credentials: OpdsCredentials?,
-    ): AppResult<HttpResponse> = withContext(Dispatcher) {
+    ): AppResult<HttpResponse> = withContext(dispatchers.io) {
         val target = url.toHttpUrlOrNull()
             ?: return@withContext AppResult.failure(
                 AppError.InvalidArgument(what = "url", message = "Некорректный адрес: $url"),
@@ -112,15 +115,8 @@ class OkHttpOpdsClient @Inject constructor(
     private fun Response.toResult(requested: HttpUrl): AppResult<HttpResponse> = use { response ->
         when {
             // 304 — не ошибка: условный запрос отработал, тело пустое, кэш остаётся годным.
-            response.code == HTTP_NOT_MODIFIED -> AppResult.success(
-                HttpResponse(
-                    status = response.code,
-                    body = "",
-                    etag = response.header("ETag"),
-                    lastModified = response.header("Last-Modified"),
-                    finalUrl = response.request.url.toString(),
-                ),
-            )
+            response.code == HTTP_NOT_MODIFIED ->
+                AppResult.success(response.toHttpResponse(body = ""))
 
             !response.isSuccessful -> AppResult.failure(
                 AppError.Network(
@@ -129,32 +125,32 @@ class OkHttpOpdsClient @Inject constructor(
                 ),
             )
 
-            else -> {
-                val body = response.body
-                if (body == null) {
-                    AppResult.failure(AppError.Network(message = "Пустой ответ сервера"))
-                } else {
-                    val text = readCapped(body)
-                    if (text == null) {
-                        AppResult.failure(
-                            AppError.Network(message = "Фид больше ${MAX_BODY_BYTES / 1024 / 1024} МБ"),
-                        )
-                    } else {
-                        AppResult.success(
-                            HttpResponse(
-                                status = response.code,
-                                body = text,
-                                etag = response.header("ETag"),
-                                lastModified = response.header("Last-Modified"),
-                                // Именно адрес после редиректов: по нему разрешаются ссылки.
-                                finalUrl = response.request.url.toString(),
-                            ),
-                        )
-                    }
-                }
-            }
+            else -> response.readBody()
         }
     }
+
+    /**
+     * Тело успешного ответа: пустой ответ и слишком большой фид — отказы, иначе текст и заголовки.
+     *
+     * Вынесено из `toResult` отдельной функцией: вложенные проверки тела давали порог
+     * `NestedBlockDepth`, а чтение ответа читается отдельно от разбора кода состояния.
+     */
+    private fun Response.readBody(): AppResult<HttpResponse> {
+        val body = body ?: return AppResult.failure(AppError.Network(message = "Пустой ответ сервера"))
+        val text = readCapped(body) ?: return AppResult.failure(
+            AppError.Network(message = "Фид больше ${MAX_BODY_BYTES / 1024 / 1024} МБ"),
+        )
+        return AppResult.success(toHttpResponse(body = text))
+    }
+
+    /** Заголовки и текст ответа в одном виде: адрес берётся после редиректов. */
+    private fun Response.toHttpResponse(body: String): HttpResponse = HttpResponse(
+        status = code,
+        body = body,
+        etag = header("ETag"),
+        lastModified = header("Last-Modified"),
+        finalUrl = request.url.toString(),
+    )
 
     /** Тело с пределом: возврат `null` означает «превышен лимит», а не «прочитано пусто». */
     private fun readCapped(body: okhttp3.ResponseBody): String? = runCatching {
@@ -247,4 +243,3 @@ class OkHttpOpdsClient @Inject constructor(
     }
 }
 
-private val Dispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO

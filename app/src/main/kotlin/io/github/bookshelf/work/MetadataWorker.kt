@@ -1,7 +1,6 @@
 package io.github.bookshelf.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -20,16 +19,22 @@ import io.github.bookshelf.core.database.model.ParseState
 import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.metadata.model.CoverBytes
 import io.github.bookshelf.core.metadata.parser.BookInput
+import io.github.bookshelf.core.metadata.parser.ParseFailureKind
 import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.parser.parseSafely
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
 import io.github.bookshelf.core.storage.files.BookContentOpener
+import io.github.bookshelf.core.common.io.SeekableFile
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.storage.files.readRange
 import java.io.File
 import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
 
 /**
@@ -48,6 +53,7 @@ import kotlinx.coroutines.ensureActive
 class MetadataWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val bookDao: BookDao,
     private val registry: ParserRegistry,
     private val coverCache: CoverCache,
@@ -61,6 +67,14 @@ class MetadataWorker @AssistedInject constructor(
      * писали врозь, и авторы не попадали в `authors`/`book_authors` вовсе.
      */
     private val parsedBookWriter: ParsedBookWriter,
+    /**
+     * Диспетчеры приложения.
+     *
+     * Разбор идёт на `metadata` — пуле с ограниченным параллелизмом (2 потока, `bookshelf-metadata`):
+     * без этого разбор занимал пул WorkManager целиком, и на e-ink читалка получала меньше
+     * процессора, чем обещано в docs/architecture.md §4.4.
+     */
+    private val dispatchers: AppDispatchers,
     /** Сессия чтения: разбор — тяжёлая работа и не должен конкурировать с читалкой. */
     private val readerSession: ReaderSession,
 ) : CoroutineWorker(appContext, params) {
@@ -71,7 +85,7 @@ class MetadataWorker @AssistedInject constructor(
         // остаётся в состоянии PENDING и будет разобрана, когда чтение закончится. `success` был бы
         // хуже: книга осталась бы неразобранной до следующего скана, которого может не быть.
         if (readerSession.isActive()) {
-            Log.w("BookShelf", "разбор отложен: открыта читалка")
+            logger.w(APP_LOG_TAG, "разбор отложен: открыта читалка")
             return Result.retry()
         }
         val book = bookDao.getById(bookId) ?: return Result.success()
@@ -88,33 +102,20 @@ class MetadataWorker @AssistedInject constructor(
 
         // `parseSafely`, а не прямой вызов: заглушка формата или чужой парсер могут бросить,
         // и исключение не должно валить фоновую работу (книга получит причину в parseError).
-        return when (val parsed = parseSafely(parser, input)) {
-            is ParseResult.Success -> {
-                // Обложка приходит из того же прохода, что и метаданные: отдельный
-                // CoverExtractor был бы вторым чтением файла и лишней точкой отказа.
-                val coverPath = chooseCoverPath(
-                    cachedCover = cachedCoverOf(book),
-                    hasExtractedCover = parsed.cover != null,
-                    refreshCover = refreshCover,
-                    store = { parsed.cover?.let { cover -> storeCover(book.id, cover) } },
-                )
-                parsedBookWriter.store(
-                    updated = book.applyParsed(parsed.metadata, coverPath, clock.nowMillis()),
-                    tags = parsed.metadata.tags,
-                )
-                Result.success(workDataOf(KEY_BOOK_ID to bookId))
-            }
+        // Разбор идёт на `metadata`: пул ограничен настройкой проекта (2 потока на e-ink), иначе
+        // книги разбирались бы на всём пуле WorkManager и отбирали процессор у читалки.
+        val parsed = withContext(dispatchers.metadata) { parseSafely(parser, input) }
+        return when (parsed) {
+            // Полный и частичный разбор сохраняются ОДНИМ путём: разница только в причине,
+            // которую записал парсер, а метаданные и обложка обрабатываются одинаково.
+            is ParseResult.Success -> storeParsed(book, parsed.metadata, parsed.cover, refreshCover)
 
-            is ParseResult.Partial -> {
-                parsedBookWriter.store(
-                    updated = book.applyParsed(parsed.metadata, null, clock.nowMillis()),
-                    tags = parsed.metadata.tags,
-                )
-                Result.success(workDataOf(KEY_BOOK_ID to bookId))
-            }
+            is ParseResult.Partial -> storeParsed(book, parsed.metadata, parsed.cover, refreshCover)
 
             is ParseResult.Failed -> {
-                bookDao.update(book.applyFailed(parsed.reason, clock.nowMillis()))
+                bookDao.update(
+                    book.applyFailed(parsed.kind, parsed.reason, clock.nowMillis()),
+                )
                 Result.success()
             }
 
@@ -122,6 +123,8 @@ class MetadataWorker @AssistedInject constructor(
                 bookDao.update(
                     book.copy(
                         parseState = ParseState.FAILED,
+                        // Для человека — код («формат не поддерживается»), для журнала — текст.
+                        parseFailure = ParseFailureKind.FORMAT_UNSUPPORTED.name,
                         parseError = NO_PARSER,
                         updatedAt = clock.nowMillis(),
                     ),
@@ -129,6 +132,32 @@ class MetadataWorker @AssistedInject constructor(
                 Result.success()
             }
         }
+    }
+
+    /**
+     * Записать разобранные метаданные и обложку.
+     *
+     * Обложка приходит из того же прохода, что и метаданные: отдельный `CoverExtractor` был бы
+     * вторым чтением файла и лишней точкой отказа. Правило выбора пути — [chooseCoverPath]:
+     * без флага перерисовки уже сохранённая обложка не трогается.
+     */
+    private suspend fun storeParsed(
+        book: BookEntity,
+        metadata: BookMetadata,
+        cover: CoverBytes?,
+        refreshCover: Boolean,
+    ): Result {
+        val coverPath = chooseCoverPath(
+            cachedCover = cachedCoverOf(book),
+            hasExtractedCover = cover != null,
+            refreshCover = refreshCover,
+            store = { cover?.let { bytes -> storeCover(book.id, bytes) } },
+        )
+        parsedBookWriter.store(
+            updated = book.applyParsed(metadata, coverPath, clock.nowMillis()),
+            tags = metadata.tags,
+        )
+        return Result.success(workDataOf(KEY_BOOK_ID to book.id))
     }
 
     /**
@@ -155,7 +184,7 @@ class MetadataWorker @AssistedInject constructor(
         bytes = { offset, length -> readRange(offset, length) },
     )
 
-    private fun BookEntity.openChannel(): FileChannel? = contentOpener.openSeekableChannel(documentUri)
+    private fun BookEntity.openChannel(): SeekableFile? = contentOpener.openSeekableChannel(documentUri)
 
     private fun BookEntity.readRange(offset: Long, length: Int): ByteArray =
         contentOpener.openStream(documentUri)?.use { stream ->
@@ -193,13 +222,23 @@ class MetadataWorker @AssistedInject constructor(
             coverUpdatedAt = if (coverPath != null) now else coverUpdatedAt,
             metadataSource = MetadataSource.EMBEDDED,
             parseState = ParseState.OK,
+            parseFailure = null,
             parseError = null,
             updatedAt = now,
         )
     }
 
-    private fun BookEntity.applyFailed(reason: String, now: Long): BookEntity =
-        copy(parseState = ParseState.FAILED, parseError = reason.take(ERROR_MAX), updatedAt = now)
+    private fun BookEntity.applyFailed(
+        kind: ParseFailureKind,
+        reason: String,
+        now: Long,
+    ): BookEntity = copy(
+        parseState = ParseState.FAILED,
+        parseFailure = kind.name,
+        // Текст парсера остаётся диагностикой: он не переводится и человеку не показывается.
+        parseError = reason.take(ERROR_MAX),
+        updatedAt = now,
+    )
 
     companion object {
         const val KEY_BOOK_ID: String = "bookId"

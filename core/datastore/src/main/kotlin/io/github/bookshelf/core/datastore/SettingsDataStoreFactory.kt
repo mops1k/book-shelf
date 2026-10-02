@@ -5,6 +5,7 @@ import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,14 +23,15 @@ import kotlinx.coroutines.SupervisorJob
  * файл. Обработчик заменяет файл пустыми настройками — приложение стартует на умолчаниях.
  *
  * @param produceFile файл хранилища; в бою — `context.preferencesDataStoreFile(...)`;
- * @param scope область корутин DataStore; по умолчанию своя, с [SupervisorJob], чтобы падение
+ * @param dispatchers диспетчеры приложения: свой `Dispatchers.IO` в main-коде запрещён
+ *   (docs/tdd.md §5), а область корутин собирается здесь — с [SupervisorJob], чтобы падение
  *   одной записи не убивало последующие.
  */
 internal fun createSettingsDataStore(
     produceFile: () -> File,
-    scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    dispatchers: AppDispatchers,
 ): DataStore<Preferences> = PreferenceDataStoreFactory.create(
     corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
-    scope = scope,
+    scope = CoroutineScope(dispatchers.io + SupervisorJob()),
     produceFile = produceFile,
 )

@@ -53,7 +53,9 @@ import io.github.bookshelf.core.database.entity.TagEntity
  *
  * * `exportSchema = true` — JSON-схема версии уезжает в `core/database/schemas`, из неё
  *   `MigrationTestHelper` проверяет миграции в CI (docs/architecture.md §3.4).
- * * `version = 1` — стартовая схема; каждое изменение — миграция в `migration/Migrations.kt`.
+ * * `version = 1` — стартовая схема; каждое изменение — миграция в `migration/Migrations.kt`
+ *   (текущая версия — 7: причины отказов хранятся кодом — `books.parseFailure`,
+ *   `opds_downloads.failure` — а тексты остаются диагностикой).
  * * деструктивный fallback в release запрещён: `fallbackToDestructiveMigration()` не вызывается
  *   даже как «временное решение».
  */
@@ -81,7 +83,7 @@ import io.github.bookshelf.core.database.entity.TagEntity
         OpdsFeedCacheEntity::class,
         MetadataOverrideEntity::class,
     ],
-    version = 5,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

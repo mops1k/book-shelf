@@ -47,6 +47,20 @@ class FacetSqlTest {
     }
 
     @Test
+    fun `source facet counts folders and drops its own filter`() {
+        val sql = FacetSql.sources(
+            BookQuery(sourceIds = setOf("sd-card"), series = setOf("Хроники")),
+        ).sql
+
+        // Источник — такое же измерение, как автор: выбранный источник не должен скрывать
+        // остальные папки, иначе второй источник уже не выбрать.
+        assertThat(sql).contains("INNER JOIN sources")
+        assertThat(sql).contains("books.seriesName IN")
+        assertThat(sql).doesNotContain("books.sourceId IN")
+        assertThat(sql).contains("GROUP BY sources.id")
+    }
+
+    @Test
     fun `empty selection gives a facet over the whole library`() {
         val sql = FacetSql.formats(BookQuery()).sql
 

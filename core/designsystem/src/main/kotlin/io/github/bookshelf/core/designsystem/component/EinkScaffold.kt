@@ -79,9 +79,7 @@ fun EinkScaffold(
     // не получал ни одного события: на устройстве 28.09.2026 не работали ни Page Up/Down
     // (полка не листалась), ни MENU (меню «Ещё» не открывалось). Индикатор фокуса не нужен —
     // на e-ink подсветка и анимации запрещены, поэтому indication выключен.
-    LaunchedEffect(Unit) {
-        runCatching { keyFocus.requestFocus() }
-    }
+    RequestKeyFocus(keyFocus = keyFocus)
 
     Column(
         modifier = modifier
@@ -90,64 +88,22 @@ fun EinkScaffold(
             .focusRequester(keyFocus)
             // Индикатор фокуса не рисуется: `indication` к узлу не подключён, а анимации и
             // подсветка на e-ink запрещены (docs/eink-ux.md §5).
-            .focusable(
-                interactionSource = remember { MutableInteractionSource() },
-            )
-            .onEinkKeys(
+            .einkFocusAndKeys(
                 volumeKeysAsPageTurn = volumeKeysAsPageTurn,
-                onAction = { action ->
-                    // Аппаратная MENU открывает то же меню, что и кнопка «Ещё»: отдельной кнопки
-                    // для этого на экране нет, а клавиша есть у каждой e-ink модели.
-                    if (action == EinkAction.MENU && menu != null) {
-                        isMenuOpen = !isMenuOpen
-                    } else {
-                        onKeyAction(action)
-                    }
-                },
+                hasMenu = menu != null,
+                onToggleMenu = { isMenuOpen = !isMenuOpen },
+                onKeyAction = onKeyAction,
             ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = dimens.touchComfort)
-                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-        ) {
-            if (onBack != null) {
-                EinkButton(text = stringResource(R.string.eink_action_back), onClick = onBack)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.foreground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.foreground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            actions()
-            if (menu != null) {
-                EinkButton(
-                    text = if (isMenuOpen) {
-                        stringResource(R.string.eink_action_close)
-                    } else {
-                        stringResource(R.string.eink_action_more)
-                    },
-                    onClick = { isMenuOpen = !isMenuOpen },
-                    primary = isMenuOpen,
-                )
-            }
-        }
+        ScaffoldHeader(
+            title = title,
+            subtitle = subtitle,
+            onBack = onBack,
+            actions = actions,
+            hasMenu = menu != null,
+            isMenuOpen = isMenuOpen,
+            onToggleMenu = { isMenuOpen = !isMenuOpen },
+        )
 
         EinkDivider()
 
@@ -178,3 +134,105 @@ fun EinkScaffold(
         }
     }
 }
+
+
+/**
+ * Шапка экрана: «Назад», заголовок с подписью, действия экрана и кнопка «Ещё».
+ *
+ * Вынесена из `EinkScaffold` отдельной функцией: она перевалила за предел длины detekt, а шапка —
+ * цельный кусок, который не зависит от содержимого и подвала экрана.
+ */
+@Composable
+private fun ScaffoldHeader(
+    title: String,
+    subtitle: String?,
+    onBack: (() -> Unit)?,
+    actions: @Composable RowScope.() -> Unit,
+    hasMenu: Boolean,
+    isMenuOpen: Boolean,
+    onToggleMenu: () -> Unit,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = dimens.touchComfort)
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        if (onBack != null) {
+            EinkButton(text = stringResource(R.string.eink_action_back), onClick = onBack)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.foreground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        actions()
+        if (hasMenu) {
+            EinkButton(
+                text = if (isMenuOpen) {
+                    stringResource(R.string.eink_action_close)
+                } else {
+                    stringResource(R.string.eink_action_more)
+                },
+                onClick = onToggleMenu,
+                primary = isMenuOpen,
+            )
+        }
+    }
+}
+
+
+/**
+ * Фокус узла и разбор аппаратных клавиш.
+ *
+ * Клавиши приходят только узлу в фокусе: без явного запроса фокуса `onEinkKeys` не получал ни
+ * одного события — на устройстве 28.09.2026 не работали ни Page Up/Down, ни MENU. Индикатор
+ * фокуса не подключён: анимации и подсветка на e-ink запрещены (docs/eink-ux.md §5).
+ *
+ * Вынесено из `EinkScaffold` отдельной функцией: та перевалила за предел длины detekt.
+ */
+@Composable
+private fun RequestKeyFocus(keyFocus: FocusRequester) {
+    LaunchedEffect(Unit) {
+        runCatching { keyFocus.requestFocus() }
+    }
+}
+
+/** Что делает аппаратная клавиша: MENU открывает меню, остальное отдаётся экрану. */
+@Composable
+private fun Modifier.einkFocusAndKeys(
+    volumeKeysAsPageTurn: Boolean,
+    hasMenu: Boolean,
+    onToggleMenu: () -> Unit,
+    onKeyAction: (EinkAction) -> Unit,
+): Modifier = this
+    .focusable(
+        interactionSource = remember { MutableInteractionSource() },
+    )
+    .onEinkKeys(
+        volumeKeysAsPageTurn = volumeKeysAsPageTurn,
+        onAction = { action ->
+            if (action == EinkAction.MENU && hasMenu) {
+                onToggleMenu()
+            } else {
+                onKeyAction(action)
+            }
+        },
+    )

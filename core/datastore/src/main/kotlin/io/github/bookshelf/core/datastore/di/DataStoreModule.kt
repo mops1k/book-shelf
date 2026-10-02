@@ -10,6 +10,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import io.github.bookshelf.core.datastore.DataStoreSettingsRepository
 import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.SettingsRepository
@@ -33,8 +34,10 @@ object DataStoreModule {
     @Singleton
     fun provideSettingsDataStore(
         @ApplicationContext context: Context,
+        dispatchers: AppDispatchers,
     ): DataStore<Preferences> = createSettingsDataStore(
         produceFile = { context.preferencesDataStoreFile(SettingsKeys.SETTINGS_FILE_NAME) },
+        dispatchers = dispatchers,
     )
 }
 

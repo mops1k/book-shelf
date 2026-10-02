@@ -1,6 +1,7 @@
 package io.github.bookshelf.core.metadata.parser.impl
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.io.SeekableFile
 import io.github.bookshelf.core.metadata.model.MetadataOrigin
 import io.github.bookshelf.core.metadata.parser.BookInput
 import io.github.bookshelf.core.metadata.parser.ParseResult
@@ -128,7 +129,10 @@ class TxtParserTest {
             mimeType = mimeType,
             sizeBytes = bytes.size.toLong(),
             openStream = { file.inputStream() },
-            openSeekable = { FileInputStream(file).channel },
+            openSeekable = {
+                val stream = FileInputStream(file)
+                SeekableFile(stream.channel, stream)
+            },
             bytes = { _, _ -> bytes },
         )
     }

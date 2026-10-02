@@ -66,80 +66,69 @@ class EpubMetadataWriter {
             result = replaceText(result, DC_TITLE, escapeText(title))
         }
         edit.authors?.let { authors ->
-            // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
-            if (authors.isEmpty()) {
-                result = CREATOR.replace(result, "")
-                return@let
-            }
-            val first = CREATOR.find(result)
-            // Атрибуты первого автора (`opf:file-as`, `id`) переносятся: их пишут читалки и Calibre.
-            val attributes = first
-                ?.let { match -> OPENING_TAG.find(match.value)?.value.orEmpty() }
-                .orEmpty()
-                .removePrefix("<dc:creator")
-                .removeSuffix(">")
-            val xml = authors.joinToString(separator = "") { author ->
-                "<dc:creator$attributes>${escapeText(author)}</dc:creator>"
-            }
-            result = if (first != null) {
-                var replaced = false
-                CREATOR.replace(result) { _ ->
-                    if (replaced) {
-                        ""
-                    } else {
-                        replaced = true
-                        xml
-                    }
-                }
-            } else {
-                insertBeforeMetadataEnd(result, xml)
-            }
+            result = replaceCreators(result, authors)
         }
         edit.description?.let { description ->
-            // Пустая строка — «описание убрать»: элемент удаляется целиком.
-            result = when {
-                description.isEmpty() -> DC_DESCRIPTION.replace(result, "")
-                DC_DESCRIPTION.containsMatchIn(result) -> replaceText(result, DC_DESCRIPTION, escapeText(description))
-                else -> insertBeforeMetadataEnd(
-                    result,
-                    "<dc:description>${escapeText(description)}</dc:description>",
-                )
-            }
+            result = replaceDescription(result, description)
         }
-        if (edit.seriesName == EMPTY_SERIES) {
-            // «Серия убрать»: старые теги серии удаляются, новые не пишутся. Номер без названия
-            // смысла не имеет, поэтому индекс тоже не возвращается.
-            result = SERIES_META.replace(result, "")
-        } else if (edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex) {
-            val existingName = SERIES_NAME_CONTENT.find(result)?.groupValues?.get(1)
-            val name = edit.seriesName ?: existingName
-            val number = when {
-                edit.clearSeriesIndex -> null
-                else -> edit.seriesIndex?.let(::formatIndex)
-                    ?: SERIES_INDEX_CONTENT.find(result)?.groupValues?.get(1)
-            }
-            result = SERIES_META.replace(result, "")
-            val xml = buildString {
-                name?.takeIf { it.isNotBlank() }?.let { value ->
-                    append("<meta name=\"calibre:series\" content=\"${escapeAttribute(value)}\"/>")
-                }
-                number?.takeIf { it.isNotBlank() }?.let { value ->
-                    append("<meta name=\"calibre:series_index\" content=\"${escapeAttribute(value)}\"/>")
-                }
-                if (name?.isNotBlank() == true) {
-                    append("<meta property=\"belongs-to-collection\" id=\"$COLLECTION_ID\">")
-                    append(escapeText(name))
-                    append("</meta>")
-                    number?.takeIf { it.isNotBlank() }?.let { value ->
-                        append("<meta refines=\"#$COLLECTION_ID\" property=\"group-position\">")
-                        append(escapeText(value))
-                        append("</meta>")
-                    }
-                }
-            }
-            result = insertBeforeMetadataEnd(result, xml)
+        // Пустая строка в `seriesName` — это «серию убрать»: значение не null, поэтому ветка одна.
+        val seriesTouched = edit.seriesName != null || edit.seriesIndex != null || edit.clearSeriesIndex
+        if (seriesTouched) {
+            result = replaceSeries(result, edit)
         }
         return result
+    }
+
+    /**
+     * Описание в OPF: пустая строка убирает элемент, непустая заменяет или добавляется.
+     *
+     * Вынесено из `rewriteOpf` отдельной функцией: та перевалила за порог
+     * `CyclomaticComplexMethod`, а три случая описания читаются отдельно от остальных полей.
+     */
+    private fun replaceDescription(opf: String, description: String): String = when {
+        description.isEmpty() -> DC_DESCRIPTION.replace(opf, "")
+        DC_DESCRIPTION.containsMatchIn(opf) -> replaceText(opf, DC_DESCRIPTION, escapeText(description))
+        else -> insertBeforeMetadataEnd(
+            opf,
+            "<dc:description>${escapeText(description)}</dc:description>",
+        )
+    }
+
+    /**
+     * Серия в OPF: три способа записи разом — calibre:series, calibre:series_index и
+     * belongs-to-collection с group-position. Номер без названия смысла не имеет, поэтому
+     * «номер без серии» не пишется.
+     *
+     * Вынесено из `rewriteOpf` отдельной функцией ради порога `CyclomaticComplexMethod`.
+     */
+    private fun replaceSeries(opf: String, edit: MetadataEdit): String {
+        if (edit.seriesName == EMPTY_SERIES) return SERIES_META.replace(opf, "")
+        val existingName = SERIES_NAME_CONTENT.find(opf)?.groupValues?.get(1)
+        val name = edit.seriesName ?: existingName
+        val number = when {
+            edit.clearSeriesIndex -> null
+            else -> edit.seriesIndex?.let(::formatIndex)
+                ?: SERIES_INDEX_CONTENT.find(opf)?.groupValues?.get(1)
+        }
+        val xml = buildString {
+            name?.takeIf { it.isNotBlank() }?.let { value ->
+                append("<meta name=\"calibre:series\" content=\"${escapeAttribute(value)}\"/>")
+            }
+            number?.takeIf { it.isNotBlank() }?.let { value ->
+                append("<meta name=\"calibre:series_index\" content=\"${escapeAttribute(value)}\"/>")
+            }
+            if (name?.isNotBlank() == true) {
+                append("<meta property=\"belongs-to-collection\" id=\"$COLLECTION_ID\">")
+                append(escapeText(name))
+                append("</meta>")
+                number?.takeIf { it.isNotBlank() }?.let { value ->
+                    append("<meta refines=\"#$COLLECTION_ID\" property=\"group-position\">")
+                    append(escapeText(value))
+                    append("</meta>")
+                }
+            }
+        }
+        return insertBeforeMetadataEnd(SERIES_META.replace(opf, ""), xml)
     }
 
     /** Заменить текст внутри элемента, сохранив его атрибуты (у `dc:title` бывает `id`). */
@@ -164,32 +153,50 @@ class EpubMetadataWriter {
     private fun rebuild(zip: ZipFile, opfPath: String, opf: ByteArray): ByteArray {
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { target ->
-            val mime = MIMETYPE_CONTENT.toByteArray(StandardCharsets.UTF_8)
-            val crc = CRC32().apply { update(mime) }
-            target.putNextEntry(
-                ZipEntry(MIMETYPE).apply {
-                    method = ZipEntry.STORED
-                    size = mime.size.toLong()
-                    compressedSize = mime.size.toLong()
-                    this.crc = crc.value
-                },
-            )
-            target.write(mime)
-            target.closeEntry()
-            zip.entries().asSequence()
-                .filterNot { entry -> entry.isDirectory }
-                .filterNot { entry -> entry.name == MIMETYPE }
-                .forEach { entry ->
-                    target.putNextEntry(ZipEntry(entry.name))
-                    if (entry.name == opfPath) {
-                        target.write(opf)
-                    } else {
-                        zip.getInputStream(entry).use { source -> source.copyTo(target) }
-                    }
-                    target.closeEntry()
-                }
+            writeMimetype(target)
+            copyEntries(target = target, zip = zip, opfPath = opfPath, opf = opf)
         }
         return output.toByteArray()
+    }
+
+    /**
+     * `mimetype` пишется первым и без сжатия: так требует формат EPUB, иначе читалки отказываются
+     * открывать книгу.
+     */
+    private fun writeMimetype(target: ZipOutputStream) {
+        val mime = MIMETYPE_CONTENT.toByteArray(StandardCharsets.UTF_8)
+        val crc = CRC32().apply { update(mime) }
+        target.putNextEntry(
+            ZipEntry(MIMETYPE).apply {
+                method = ZipEntry.STORED
+                size = mime.size.toLong()
+                compressedSize = mime.size.toLong()
+                this.crc = crc.value
+            },
+        )
+        target.write(mime)
+        target.closeEntry()
+    }
+
+    /**
+     * Остальные записи архива: правимый OPF берётся из памяти, прочее копируется из исходного архива.
+     *
+     * Вынесено из `rebuild` отдельной функцией: три уровня вложенности внутри `use` давали порог
+     * `NestedBlockDepth`, а копирование записей читается отдельно от создания архива.
+     */
+    private fun copyEntries(target: ZipOutputStream, zip: ZipFile, opfPath: String, opf: ByteArray) {
+        zip.entries().asSequence()
+            .filterNot { entry -> entry.isDirectory }
+            .filterNot { entry -> entry.name == MIMETYPE }
+            .forEach { entry ->
+                target.putNextEntry(ZipEntry(entry.name))
+                if (entry.name == opfPath) {
+                    target.write(opf)
+                } else {
+                    zip.getInputStream(entry).use { source -> source.copyTo(target) }
+                }
+                target.closeEntry()
+            }
     }
 
     /** `ZipFile` работает с файлом, а вход — байты: копия нужна, чтобы читать архив по частям. */
@@ -208,6 +215,41 @@ class EpubMetadataWriter {
 
     private fun formatIndex(index: Double): String =
         if (index % 1.0 == 0.0) index.toLong().toString() else index.toString()
+
+    /**
+     * Авторы в OPF: пустой список убирает элементы, иначе пишется один `<dc:creator>` на автора.
+     *
+     * Атрибуты первого автора (`opf:file-as`, `id`) переносятся: их пишут читалки и Calibre.
+     * Элементов может не быть вовсе — тогда новые вставляются перед концом блока метаданных.
+     *
+     * Вынесено из `rewriteOpf` отдельной функцией: та перевалила за предел длины detekt.
+     */
+    private fun replaceCreators(opf: String, authors: List<String>): String {
+        // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
+        if (authors.isEmpty()) return CREATOR.replace(opf, "")
+        val first = CREATOR.find(opf)
+        // Атрибуты первого автора (`opf:file-as`, `id`) переносятся: их пишут читалки и Calibre.
+        val attributes = first
+            ?.let { match -> OPENING_TAG.find(match.value)?.value.orEmpty() }
+            .orEmpty()
+            .removePrefix("<dc:creator")
+            .removeSuffix(">")
+        val xml = authors.joinToString(separator = "") { author ->
+            "<dc:creator$attributes>${escapeText(author)}</dc:creator>"
+        }
+        if (first == null) return insertBeforeMetadataEnd(opf, xml)
+        // Первый найденный элемент заменяется на весь список, остальные найденные удаляются:
+        // иначе после правки в файле остались бы прежние авторы рядом с новыми.
+        var replaced = false
+        return CREATOR.replace(opf) { _ ->
+            if (replaced) {
+                ""
+            } else {
+                replaced = true
+                xml
+            }
+        }
+    }
 
     private companion object {
         const val CONTAINER_PATH = "META-INF/container.xml"

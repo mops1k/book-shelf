@@ -14,7 +14,10 @@ import io.github.bookshelf.core.database.dao.OpdsDownloadDao
 import io.github.bookshelf.core.database.dao.SourceDao
 import io.github.bookshelf.core.database.model.OpdsDownloadState
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.log.AppLogger
+import io.github.bookshelf.core.common.error.DownloadFailure
 import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.opds.auth.CredentialStore
 import io.github.bookshelf.core.opds.auth.OpdsCredentials
 import io.github.bookshelf.core.opds.download.DEFAULT_DOWNLOAD_FILE_NAME_TEMPLATE
@@ -64,13 +67,15 @@ class OpdsDownloadWorker @AssistedInject constructor(
      * на 401, а очередь показывала бы «ошибка загрузки» без причины.
      */
     private val credentialStore: CredentialStore,
+    /** Журнал: подробность отказа (ответ сервера, отказ провайдера) в интерфейс не идёт. */
+    private val logger: AppLogger,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         val downloadId = inputData.getString(KEY_DOWNLOAD_ID) ?: return Result.failure()
         val download = downloadDao.getById(downloadId) ?: return Result.success()
         val source = sourceDao.getById(download.targetSourceId)
-            ?: return fail(downloadId, "Папка-получатель больше не существует")
+            ?: return fail(downloadId, DownloadFailure.RECEIVER_FOLDER_GONE)
 
         updateState(downloadId, OpdsDownloadState.RUNNING, bytes = 0L, error = null)
 
@@ -79,7 +84,8 @@ class OpdsDownloadWorker @AssistedInject constructor(
         val credentials = when (val loaded = credentialStore.load(download.catalogId)) {
             is AppResult.Failure -> return fail(
                 downloadId,
-                loaded.error.message ?: "Не удалось прочитать пароль каталога",
+                DownloadFailure.CREDENTIALS_UNREADABLE,
+                detail = loaded.error.message,
             )
             is AppResult.Success -> loaded.value
         }
@@ -102,22 +108,45 @@ class OpdsDownloadWorker @AssistedInject constructor(
 
         // Без `fold`: его лямбды не suspend, а запись в базу внутри них suspend-функция.
         val documentUri = result.getOrNull()
-            ?: return fail(downloadId, downloadErrorMessage(result.errorOrNull()?.message))
+            ?: return fail(
+                downloadId,
+                downloadFailureOf(result.errorOrNull()?.message),
+                detail = result.errorOrNull()?.message,
+            )
         // Тот же идентификатор, что у скана: иначе та же книга попала бы на полку дважды. Если
         // строка с таким адресом уже есть (скачали раньше или файл уже был в папке), берётся её id:
         // иначе вставка упала бы на `UNIQUE books.documentUri`.
         val bookId = bookDao.findByDocumentUri(documentUri)?.id
             ?: bookIdOfDocumentUri(documentUri)
-            ?: return fail(downloadId, "Провайдер вернул адрес, из которого не собрать идентификатор")
+            ?: return fail(
+                downloadId,
+                DownloadFailure.BAD_DOCUMENT_URI,
+                detail = "адрес документа: $documentUri",
+            )
         bookDao.upsertAll(listOf(newBookEntity(bookId, documentUri, download, source.id, template, credentials)))
         authorWriter.replace(bookId, download.authorsText.orEmpty())
-        downloadDao.upsert(download.copy(state = OpdsDownloadState.DONE, bookId = bookId, error = null))
+        downloadDao.upsert(
+            download.copy(state = OpdsDownloadState.DONE, bookId = bookId, failure = null, error = null),
+        )
         metadataScheduler.enqueueMetadata(bookId)
         return Result.success()
     }
 
-    private suspend fun fail(downloadId: String, message: String): Result {
-        updateState(downloadId, OpdsDownloadState.FAILED, bytes = 0L, error = message)
+    /**
+     * Пометить загрузку неудачной.
+     *
+     * Человеку — код ([DownloadFailure]), диагностика ([detail]) остаётся в записи и пишется в
+     * журнал: по ней ищут причину, но в интерфейсе она не показывается (docs/tdd.md §7).
+     */
+    private suspend fun fail(
+        downloadId: String,
+        failure: DownloadFailure,
+        detail: String? = null,
+    ): Result {
+        if (!detail.isNullOrBlank()) {
+            logger.w(TAG, "загрузка $downloadId не удалась (${failure.name}): $detail")
+        }
+        updateState(downloadId, OpdsDownloadState.FAILED, bytes = 0L, failure = failure, error = detail)
         return Result.success()
     }
 
@@ -125,10 +154,18 @@ class OpdsDownloadWorker @AssistedInject constructor(
         downloadId: String,
         state: OpdsDownloadState,
         bytes: Long,
-        error: String?,
+        failure: DownloadFailure? = null,
+        error: String? = null,
     ) {
         val current = downloadDao.getById(downloadId) ?: return
-        downloadDao.upsert(current.copy(state = state, bytesDownloaded = bytes, error = error))
+        downloadDao.upsert(
+            current.copy(
+                state = state,
+                bytesDownloaded = bytes,
+                failure = failure?.name,
+                error = error,
+            ),
+        )
     }
 
     private var lastProgressAt: Long = 0L
@@ -212,7 +249,9 @@ class OpdsDownloadWorker @AssistedInject constructor(
             lastModified = now,
             // Название из фида — лучше, чем имя файла: в нём нет подстановок «_».
             title = download.title.ifBlank { fileName },
-            sortTitle = download.title.ifBlank { fileName },
+            // Та же нормализация, что и после разбора: книга из каталога должна стоять на той же
+            // полке, что и та же книга, добавленная файлом.
+            sortTitle = BookMetadata(title = download.title.ifBlank { fileName }).sortTitleOf(),
             authorsText = download.authorsText.orEmpty(),
             addedAt = now,
             updatedAt = now,
@@ -225,6 +264,9 @@ class OpdsDownloadWorker @AssistedInject constructor(
         const val KEY_DOWNLOAD_ID: String = "downloadId"
 
         private const val PROGRESS_INTERVAL_MS = 500L
+
+        /** Тег журнала: по нему видно, что подробность отказа записана. */
+        private const val TAG = "OpdsDownload"
 
     }
 }

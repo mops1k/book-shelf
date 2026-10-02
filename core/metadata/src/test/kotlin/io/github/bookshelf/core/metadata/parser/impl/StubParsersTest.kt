@@ -10,7 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /**
- * Заглушки форматов: MOBI/AZW3/PRC, CBZ, CBR, DOCX, ODT, RTF.
+ * Заглушка формата: CBR (нужен UnRar, лицензия не проходит F-Droid — только flavor `full`).
  *
  * Реализация этих парсеров отложена до релиза (решение Александра, 29.09.2026), но до тех пор файл
  * такого формата в библиотеке не имеет права ломать разбор: заглушка обязана отдать
@@ -19,12 +19,7 @@ import org.junit.Test
 class StubParsersTest {
 
     private fun stubs(): List<Pair<BookMetadataParser, String>> = listOf(
-        MobiParser() to "mobi",
-        CbzParser() to "cbz",
         CbrParser(flags) to "cbr",
-        DocxParser() to "docx",
-        OdtParser() to "odt",
-        RtfParser() to "rtf",
     )
 
     @Test

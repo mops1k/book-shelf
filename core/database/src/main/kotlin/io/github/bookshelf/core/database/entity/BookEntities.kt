@@ -72,7 +72,13 @@ data class BookEntity(
     /** Откуда взяты метаданные; `MANUAL` парсер не перезаписывает. */
     val metadataSource: MetadataSource = MetadataSource.NONE,
     val parseState: ParseState = ParseState.PENDING,
-    /** Диагностика разбора; показывается в карточке по «подробнее». */
+    /**
+     * Код причины отказа разбора (имя константы `ParseFailure` из `:core:data`).
+     *
+     * Хранится именем, а не текстом: база не переводит, а карточка показывает слова по коду.
+     */
+    val parseFailure: String? = null,
+    /** Диагностика разбора от парсера: в интерфейс не выводится, это материал для журнала. */
     val parseError: String? = null,
     val addedAt: Long,
     val updatedAt: Long,

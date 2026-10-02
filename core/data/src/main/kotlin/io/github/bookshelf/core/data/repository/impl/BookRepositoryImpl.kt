@@ -38,6 +38,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.MetadataOverrideEntity
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
 import io.github.bookshelf.core.database.relation.BookWithRelations
+import io.github.bookshelf.core.fb2opt.Fb2Optimization
 import io.github.bookshelf.core.metadata.model.BookMetadata
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -138,7 +139,7 @@ class BookRepositoryImpl @Inject constructor(
         val book = bookDao.getById(bookId)
             ?: return AppResult.failure(AppError.NotFound(what = "book", message = "Книга $bookId не найдена"))
         return appRunCatching {
-            val now = nowMillis()
+            val now = clock.nowMillis()
             val existing = overrideDao.getByBookId(bookId)
             val updated = existing.orEmptyPatch(bookId, patch, now)
             overrideDao.upsert(updated)
@@ -287,17 +288,7 @@ class BookRepositoryImpl @Inject constructor(
                 ),
             )
         }
-        if (entity.optimizedAt != null) {
-            return AppResult.success(
-                BookOptimizationResult(
-                    savedBytes = 0,
-                    beforeBytes = entity.sizeBytes.toInt(),
-                    afterBytes = entity.sizeBytes.toInt(),
-                    images = 0,
-                    alreadyOptimized = true,
-                ),
-            )
-        }
+        if (entity.optimizedAt != null) return AppResult.success(alreadyOptimizedResult(entity))
         if (readerSession.isActive()) {
             return AppResult.failure(
                 AppError.PermissionDenied(
@@ -325,33 +316,12 @@ class BookRepositoryImpl @Inject constructor(
                     ),
                 )
             } else {
-                val replaced = contentOpener.replaceContent(entity.documentUri, optimized)
-                if (replaced is AppResult.Failure) {
-                    // Откат: файл уже мог быть усечён, поэтому возвращаем исходные байты на место.
-                    contentOpener.replaceContent(entity.documentUri, original)
-                    AppResult.failure(replaced.error)
-                } else {
-                    // Размер и время изменения записываются сразу: иначе скан увидел бы расхождение
-                    // с файлом, перечитал бы метаданные, сбросил обложку и снял отметку проверки —
-                    // а книга-то изменилась только нами. Чего провайдер не сообщает, то остаётся
-                    // прежним: выдуманное время заставило бы скан поверить в несуществующее.
-                    val facts = contentOpener.factsOf(entity.documentUri)
-                    bookDao.update(
-                        entity.copy(
-                            sizeBytes = facts?.sizeBytes ?: optimization.afterBytes.toLong(),
-                            lastModified = facts?.lastModified ?: entity.lastModified,
-                            optimizedAt = clock.nowMillis(),
-                        ),
-                    )
-                    AppResult.success(
-                        BookOptimizationResult(
-                            savedBytes = optimization.savedBytes,
-                            beforeBytes = optimization.beforeBytes,
-                            afterBytes = optimization.afterBytes,
-                            images = optimization.images,
-                        ),
-                    )
-                }
+                replaceOptimizedFile(
+                    entity = entity,
+                    original = original,
+                    optimization = optimization,
+                    optimized = optimized,
+                )
             }
         } catch (error: IllegalStateException) {
             AppResult.failure(AppError.Unknown(message = "Оптимизация книги не удалась", cause = error))
@@ -361,6 +331,60 @@ class BookRepositoryImpl @Inject constructor(
     /** Отметить книгу как проверенную: эту версию файла смотреть больше нечего. */
     private suspend fun markChecked(entity: BookEntity) {
         bookDao.update(entity.copy(optimizedAt = clock.nowMillis()))
+    }
+
+/** Результат «файл уже оптимизирован»: размеры равны, экономии нет, отметка стоит. */
+private fun alreadyOptimizedResult(entity: BookEntity): BookOptimizationResult = BookOptimizationResult(
+    savedBytes = 0,
+    beforeBytes = entity.sizeBytes.toInt(),
+    afterBytes = entity.sizeBytes.toInt(),
+    images = 0,
+    alreadyOptimized = true,
+)
+
+    /**
+     * Записать оптимизированный файл на место и обновить факты о нём.
+     *
+     * Откат при отказе провайдера обязателен: файл уже мог быть усечён, поэтому исходные байты
+     * возвращаются на место. Размер и время изменения записываются вместе с отметкой `optimizedAt`:
+     * иначе скан увидел бы расхождение с файлом, перечитал бы метаданные и снял отметку проверки.
+     *
+     * Вынесено из `optimizeBookOnBackground` отдельной функцией: та перевалила за предел длины
+     * detekt, а замена файла — цельный кусок со своей страховкой.
+     */
+    private suspend fun replaceOptimizedFile(
+        entity: BookEntity,
+        original: ByteArray,
+        optimization: Fb2Optimization,
+        optimized: ByteArray,
+    ): AppResult<BookOptimizationResult> {
+        val replaced = contentOpener.replaceContent(entity.documentUri, optimized)
+        return if (replaced is AppResult.Failure) {
+            // Откат: файл уже мог быть усечён, поэтому возвращаем исходные байты на место.
+            contentOpener.replaceContent(entity.documentUri, original)
+            AppResult.failure(replaced.error)
+        } else {
+            // Размер и время изменения записываются сразу: иначе скан увидел бы расхождение
+            // с файлом, перечитал бы метаданные, сбросил обложку и снял отметку проверки —
+            // а книга-то изменилась только нами. Чего провайдер не сообщает, то остаётся
+            // прежним: выдуманное время заставило бы скан поверить в несуществующее.
+            val facts = contentOpener.factsOf(entity.documentUri)
+            bookDao.update(
+                entity.copy(
+                    sizeBytes = facts?.sizeBytes ?: optimization.afterBytes.toLong(),
+                    lastModified = facts?.lastModified ?: entity.lastModified,
+                    optimizedAt = clock.nowMillis(),
+                ),
+            )
+            AppResult.success(
+                BookOptimizationResult(
+                    savedBytes = optimization.savedBytes,
+                    beforeBytes = optimization.beforeBytes,
+                    afterBytes = optimization.afterBytes,
+                    images = optimization.images,
+                ),
+            )
+        }
     }
 
     /**
@@ -595,12 +619,6 @@ class BookRepositoryImpl @Inject constructor(
         /** Доля в таблице прогресса (0..1) → проценты для полки (0..100). */
         const val PERCENT = 100f
 
-        /**
-         * Время сохранения правки. Нужно только для показа «изменено вручную», поэтому системных
-         * часов достаточно; внедрение [io.github.bookshelf.core.common.time.AppClock] придёт
-         * вместе с тестами, которым понадобится управлять временем.
-         */
-        fun nowMillis(): Long = System.currentTimeMillis()
     }
 }
 

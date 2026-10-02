@@ -40,6 +40,8 @@ fun BookEntity.afterFileChange(
     updatedAt = now,
     lastSeenAt = now,
     parseState = ParseState.PENDING,
+    // Файл другой: прежняя причина отказа разбора к нему не относится — ни код, ни диагностика.
+    parseFailure = null,
     parseError = null,
     // Файл другой — значит прежняя проверка оптимизацией к нему не относится.
     optimizedAt = null,
