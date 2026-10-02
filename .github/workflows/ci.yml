@@ -86,7 +86,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.flavor }}
-          path: app/build/outputs/apk/${{ matrix.flavor }}/*.apk
+          # Путь с уровнем build type обязателен: сборка кладёт APK в .../apk/<flavor>/debug/,
+          # и без `debug` glob ничего не находил — шаг «APK» падал у всех трёх flavor'ов
+          # («No files were found», прогон 37061579165, проверено через `gh run view --log-failed`).
+          path: app/build/outputs/apk/${{ matrix.flavor }}/debug/*.apk
           if-no-files-found: error
 
   lint:
