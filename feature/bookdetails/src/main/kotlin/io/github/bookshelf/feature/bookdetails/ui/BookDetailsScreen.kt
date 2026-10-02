@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -453,10 +454,27 @@ private fun BookDetailsContent(
     onOpenLibrary: () -> Unit,
 ) {
     val dimens = LocalEinkDimens.current
+    val contentScroll = rememberScrollState()
+
+    // Строка подтверждения выше кнопки, которую она заменяет, а прокрутка остаётся на прежнем
+    // месте: низ строки уходил за границу окна, кнопки «Удалить»/«Отмена» обрезались до полоски,
+    // и тап по этой полоске попадал в закреплённый подвал «Читать» — вместо подтверждения
+    // удаления открывалась читалка (дефект с устройства 02.10.2026). Поэтому доводим содержимое
+    // до конца списка: подтверждение — последний его элемент. Прыжком, а не анимацией: на e-ink
+    // анимации запрещены (docs/eink-ux.md §5).
+    LaunchedEffect(state.isConfirmingDelete) {
+        if (state.isConfirmingDelete) {
+            // Кадр пропускаем: разметка с новой строкой ещё не пересчитана, и `maxValue` пока
+            // указывает туда, где строки подтверждения нет.
+            withFrameNanos { }
+            contentScroll.scrollTo(contentScroll.maxValue)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(contentScroll)
             .padding(dimens.gutter),
         verticalArrangement = Arrangement.spacedBy(dimens.gutter),
     ) {

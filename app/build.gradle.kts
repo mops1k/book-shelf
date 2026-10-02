@@ -41,10 +41,19 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.core.ktx)
-    // Truth подключается к androidTest отдельно: `:core:testing` даёт его только юнит-тестам,
-    // а проверки в инструментальных тестах пишутся тем же стилем, что и везде в проекте.
+    // Truth подключается к androidTest явно: проверки в инструментальных тестах пишутся тем же
+    // стилем, что и везде в проекте, и не должны зависеть от состава фейков в `:core:testing`.
     androidTestImplementation(libs.truth)
     androidTestImplementation(libs.espresso.core)
+    // Фейки репозиториев и портов: экраны в инструментальных тестах собираются с настоящим
+    // ViewModel и подставными данными (ADR-012: свои типы не мокаются).
+    // Robolectric из этой зависимости исключается: он нужен JVM-тестам, но в инструментальном APK
+    // его `Shadow` инициализируется на живом устройстве и роняет прогон целиком
+    // (`No field IMPL_LOOKUP in class Ljava/lang/invoke/MethodHandles$Lookup` — проверено на
+    // Bigme B6 Color 02.10.2026).
+    androidTestImplementation(project(":core:testing")) {
+        exclude(group = "org.robolectric")
+    }
     // Compose-артефакты версий не несут: их задаёт BOM, а он в convention-плагине подключён
     // только к `implementation` и `testImplementation`, поэтому для androidTest — здесь.
     androidTestImplementation(platform(libs.androidx.compose.bom))
