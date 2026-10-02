@@ -5,7 +5,7 @@
 полкой. Читает книгу не он, а ваша читалка: BookShelf доводит книгу до неё одним нажатием и
 подтягивает прогресс чтения обратно на полку.
 
-![Полка](docs/images/shelf.png)
+![Полка](assets/screenshots/shelf.png)
 
 ## Возможности
 
@@ -50,7 +50,7 @@
 
 ### Карточка книги
 
-![Карточка книги](docs/images/book-card.png)
+![Карточка книги](assets/screenshots/book-card.png)
 
 Обложка, все найденные сведения, аннотация, путь к файлу и действия: читать, в избранное,
 отметить прочитанной, положить на полку, показать в папке, изменить метаданные, оптимизировать
@@ -69,7 +69,7 @@
 
 | Полки | Каталоги OPDS | Настройки |
 |---|---|---|
-| ![Полки](docs/images/collections.png) | ![Каталоги](docs/images/catalogs.png) | ![Настройки](docs/images/settings.png) |
+| ![Полки](assets/screenshots/collections.png) | ![Каталоги](assets/screenshots/catalogs.png) | ![Настройки](assets/screenshots/settings.png) |
 
 ## Установка
 
@@ -82,14 +82,38 @@ APK публикуются в разделе [Releases](https://github.com/mops1
 | `BookShelf-<версия>-full.apk` | Всё, включая комиксы CBR |
 | `BookShelf-<версия>-fdroid.apk` | Без CBR: распаковщик RAR распространяется под лицензией UnRar, которая не подходит для F-Droid |
 
-Релизы собирает владелец репозитория (вручную или тегом). Если готового релиза ещё нет — соберите
-приложение из исходников: команды описаны в [протоколе тестирования](docs/TESTING.md).
-
 ### Из исходников
 
-Нужны JDK 17+ и Android SDK. Коротко: `./gradlew :app:assembleFullDebug`, установка —
-`:app:installFullDebug`. Сборка, установка, тесты и релизная сборка с подписью — в
-[`docs/TESTING.md`](docs/TESTING.md).
+Нужны JDK 17+ и Android SDK (compileSdk 35). Путь к SDK — в `local.properties` или в `ANDROID_HOME`.
+
+```bash
+# сборка
+./gradlew :app:assembleFullDebug        # полная сборка: все файлы и комиксы CBR
+./gradlew :app:assembleFdroidDebug      # без CBR (несвободный распаковщик RAR)
+./gradlew :app:assemblePlayDebug        # только SAF, без «доступа ко всем файлам»
+
+# установка на подключённое устройство
+./gradlew :app:installFullDebug
+
+# проверки
+./gradlew testDebugUnitTest             # юнит-тесты всех модулей
+./gradlew detekt                        # статический анализ
+node tools/check-sources.mjs            # санитария исходников
+node tools/check-versions.mjs           # каждая версия из каталога существует
+node tools/check-reachability.mjs       # все маршруты достижимы
+
+# релизные сборки: подпись — ключ `keystore.properties` в корне,
+# в CI те же значения приходят переменными окружения
+./gradlew :app:assembleFullRelease :app:assembleFdroidRelease
+```
+
+Полный гейт одной строкой:
+
+```bash
+./gradlew testDebugUnitTest :app:testFullDebugUnitTest :app:testFdroidDebugUnitTest \
+  :app:testPlayDebugUnitTest :app:assembleFullDebug :app:assembleFdroidDebug \
+  :app:assemblePlayDebug detekt --continue
+```
 
 ## Требования
 
@@ -104,25 +128,6 @@ APK публикуются в разделе [Releases](https://github.com/mops1
 * Сеть нужна только для OPDS-каталогов и загрузки обложек оттуда — и только когда каталог открыт
   вами.
 * Библиотека, настройки и кэш обложек остаются на устройстве.
-
-## Документация для разработчиков
-
-| Документ | О чём |
-|---|---|
-| [`docs/TESTING.md`](docs/TESTING.md) | Протокол: сборка, гейт тестов, инструментальные тесты на устройстве, релиз с подписью, ручная приёмка |
-| [`docs/tdd.md`](docs/tdd.md) | Обязательный процесс разработки: red → green → refactor, уровни тестов, фикстуры |
-| [`docs/architecture.md`](docs/architecture.md) | Модули, схема данных, сканирование, кэш обложек, варианты поставки |
-| [`docs/eink-ux.md`](docs/eink-ux.md) | Дизайн-система и правила интерфейса для электронных чернил |
-| [`docs/formats.md`](docs/formats.md) | Чем разбирается каждый формат, лимиты, тестовые файлы |
-| [`docs/reader-integration.md`](docs/reader-integration.md) | Как приложение договаривается с читалками (FBReader и другие) |
-| [`docs/opds.md`](docs/opds.md) | Каталоги OPDS: экраны, загрузки, безопасность |
-| [`docs/decisions.md`](docs/decisions.md) | Журнал архитектурных решений (ADR) с причинами |
-| [`docs/roadmap.md`](docs/roadmap.md) | План работ и текущее состояние проекта |
-| [`docs/structure.md`](docs/structure.md) | Карта репозитория (генерируется) |
-| [`PLAN.md`](PLAN.md) | Мастер-план: требования, скоуп, сроки, что нужно от заказчика |
-
-Ключевые решения одним взглядом: Compose с переопределённой темой · свои парсеры вместо тяжёлых
-библиотек · FBReader как главная читалка · OPDS в v1.0 · CBR только во `full` · DJVU и CB7 вне скоупа.
 
 ## Лицензия
 
