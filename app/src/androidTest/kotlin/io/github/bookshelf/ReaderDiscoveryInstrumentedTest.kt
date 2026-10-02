@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.readerlink.discovery.AndroidReaderDiscovery
+import io.github.bookshelf.core.readerlink.discovery.NonReaderApps
 import io.github.bookshelf.core.readerlink.discovery.ReaderRank
 import io.github.bookshelf.core.readerlink.discovery.readerRankOf
 import kotlinx.coroutines.runBlocking
@@ -37,6 +38,18 @@ class ReaderDiscoveryInstrumentedTest {
     }
 
     @Test
+    fun a_dictionary_that_views_books_is_not_offered_as_a_reader() {
+        val nonReaders = appsViewingBooks().filter(NonReaderApps::isKnownNonReader)
+        val offered = runBlocking { AndroidReaderDiscovery(context).installedReaders() }
+            .map { reader -> reader.profile.packageName }
+            .toSet()
+
+        // На устройстве без словарей ожидание пустое и проверка ничего не доказывает — это
+        // допустимо: она ловит именно случай «система готова, приложение не должно».
+        assertThat(offered).containsNoneIn(nonReaders)
+    }
+
+    @Test
     fun the_readers_are_ordered_before_other_apps() {
         val readers = runBlocking { AndroidReaderDiscovery(context).installedReaders() }
 
@@ -51,10 +64,21 @@ class ReaderDiscoveryInstrumentedTest {
     /**
      * Кто, по мнению системы, открывает книги.
      *
+     * Минус известные не-читалки — тем же признаком, что и в приложении ([NonReaderApps]):
+     * словарь `com.eusoft.eudic` объявляет `application/epub+zip` и отвечает на запрос о книге,
+     * но читалкой не является, и приложение его не предлагает. Без этого вычитания тест краснел
+     * на живом устройстве со словарём (02.10.2026), хотя поведение приложения было верным.
+     */
+    private fun expectedReaders(): Set<String> =
+        appsViewingBooks().filterNot(NonReaderApps::isKnownNonReader).toSet()
+
+    /**
+     * Что система готова запустить на книжный тип.
+     *
      * Список книжных MIME берём из самих профилей приложения (`context.packageName` исключаем):
      * так ожидание опирается на систему, а не на реализацию discovery.
      */
-    private fun expectedReaders(): Set<String> {
+    private fun appsViewingBooks(): Set<String> {
         val packageManager = context.packageManager
         val probes = listOf(
             "application/epub+zip",
