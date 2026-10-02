@@ -28,6 +28,7 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -104,8 +105,12 @@ class BookDetailsViewModel @Inject constructor(
                     )
                 }
 
-                else -> _uiState.update {
-                    it.copy(isDeleting = false, isConfirmingDelete = false, isDeleted = true)
+                else -> {
+                    // Книги больше нет: подписка на неё закрывается, состояние остаётся «удалено».
+                    bookObservation?.cancel()
+                    _uiState.update {
+                        it.copy(isDeleting = false, isConfirmingDelete = false, isDeleted = true)
+                    }
                 }
             }
         }
@@ -326,19 +331,37 @@ class BookDetailsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Подписка на строку книги: её гасим после удаления.
+     *
+     * Держим ссылку, потому что после успешного удаления наблюдать больше не за чем, а последнее
+     * событие потока (книга исчезла) не должно переписывать состояние закрывающегося экрана.
+     */
+    private var bookObservation: Job? = null
+
     private fun observeBook() {
-        viewModelScope.launch {
+        bookObservation = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 var receivedBook = false
                 bookRepository.observeById(bookId).collect { book ->
                     receivedBook = true
                     if (book == null) {
-                        _uiState.value = BookDetailsUiState(
-                            bookId = bookId,
-                            isLoading = false,
-                            error = AppText(R.string.book_error_not_found),
-                        )
+                        // Книгу удалили — в том числе прямо с этой карточки. Признак удаления
+                        // сбрасывать нельзя: StateFlow склеивает значения, и промежуточный
+                        // `isDeleted = true` мог не дойти до экрана, который по нему уходит назад.
+                        // Тогда человек видел «книга не найдена» на удалённой книге вместо возврата.
+                        _uiState.update { state ->
+                            if (state.isDeleted) {
+                                state
+                            } else {
+                                BookDetailsUiState(
+                                    bookId = bookId,
+                                    isLoading = false,
+                                    error = AppText(R.string.book_error_not_found),
+                                )
+                            }
+                        }
                     } else {
                         val sourceName = sourceNameOf(book.sourceId)
                         _uiState.update { state ->

@@ -32,6 +32,8 @@ import io.github.bookshelf.core.database.entity.AuthorEntity
 import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.BookAuthorCrossRef
 import io.github.bookshelf.core.database.entity.BookTagCrossRef
+import io.github.bookshelf.core.database.entity.OpdsDownloadEntity
+import io.github.bookshelf.core.database.model.OpdsDownloadState
 import io.github.bookshelf.core.database.entity.BookCopyEntity
 import io.github.bookshelf.core.database.entity.CollectionBookCrossRef
 import io.github.bookshelf.core.database.entity.ReadingProgressEntity
@@ -422,6 +424,31 @@ class BookRepositoryTest {
         assertThat(countRows("book_tags", "war")).isEqualTo(0)
         assertThat(countRows("book_authors", "war")).isEqualTo(0)
         assertThat(countRows("collection_books", "war")).isEqualTo(0)
+    }
+
+    @Test
+    fun delete_permanently_clears_the_download_link_to_the_book() = runBlocking<Unit> {
+        givenLibrary()
+        database.opdsDownloadDao().upsert(
+            OpdsDownloadEntity(
+                id = DOWNLOAD_ID,
+                catalogId = "catalog:one",
+                entryId = "entry:one",
+                title = "Война и мир",
+                downloadUrl = "https://example.org/war.fb2",
+                targetSourceId = "source:one",
+                targetRelativeDir = "",
+                state = OpdsDownloadState.DONE,
+                bookId = "war",
+                createdAt = 1_000L,
+            ),
+        )
+
+        repository.deletePermanently(listOf("war")).getOrNull()
+
+        // История загрузок остаётся, а ссылка на удалённую книгу — нет: по ней экран загрузок
+        // рисовал «открыть скачанную книгу» и открывал карточку книги, которой уже нет.
+        assertThat(database.opdsDownloadDao().getById(DOWNLOAD_ID)?.bookId).isNull()
     }
 
     @Test
@@ -883,6 +910,8 @@ class BookRepositoryTest {
     }
 
     private companion object {
+        const val DOWNLOAD_ID = "download:one"
+
         const val COPY_URI =
             "content://com.android.externalstorage.documents/tree/primary%3ABooks/document/" +
                 "primary%3ABooks%2F2026-09-30%2Fbook.fb2.zip"

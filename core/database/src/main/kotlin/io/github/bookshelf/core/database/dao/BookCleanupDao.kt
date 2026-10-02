@@ -39,8 +39,20 @@ abstract class BookCleanupDao {
         deleteReaderOverrides(ids)
         deleteBookmarks(ids)
         deleteCoverCacheEntries(ids)
+        clearDownloadLinks(ids)
         deleteBooks(ids)
     }
+
+    /**
+     * Убрать из истории загрузок OPDS ссылку на удалённую книгу.
+     *
+     * Удаление книги физическое, поэтому ссылка обязана исчезнуть: иначе экран загрузок по
+     * `bookId` рисует «открыть скачанную книгу» и открывает карточку книги, которой уже нет
+     * (дефект Александра 02.10.2026). Саму запись загрузки не трогаем: это история о скачивании,
+     * а не о книге, и `bookId` в схеме объявлен nullable ровно для такого случая.
+     */
+    @Query("UPDATE opds_downloads SET bookId = NULL WHERE bookId IN (:ids)")
+    abstract suspend fun clearDownloadLinks(ids: List<String>)
 
     /** Удалить сами записи книг; `books_fts` очищает триггер `books_fts_delete`. */
     @Query("DELETE FROM books WHERE id IN (:ids)")
