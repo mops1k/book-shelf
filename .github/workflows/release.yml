@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -66,7 +66,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -110,6 +110,26 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "Релиз: версия $version, versionCode $code"
+
+      - name: Проверить, что секреты подписи заданы
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BOOKSHELF_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BOOKSHELF_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BOOKSHELF_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BOOKSHELF_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${KEYSTORE_BASE64:-}" ] || missing="$missing BOOKSHELF_KEYSTORE_BASE64"
+          [ -n "${KEYSTORE_PASSWORD:-}" ] || missing="$missing BOOKSHELF_KEYSTORE_PASSWORD"
+          [ -n "${KEY_ALIAS:-}" ] || missing="$missing BOOKSHELF_KEY_ALIAS"
+          [ -n "${KEY_PASSWORD:-}" ] || missing="$missing BOOKSHELF_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы секреты подписи:$missing"
+            echo "Добавьте их: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+          echo "Секреты подписи заданы."
 
       - name: Ключ подписи из секретов
         env:

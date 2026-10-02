@@ -8,7 +8,8 @@
   * DebugReaderActivity — «читалка», которая ловит ACTION_VIEW с книжным MIME и запоминает
     намерение, чтобы тест проверил, что книга уходит наружу с нужным URI и типом.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application>
         <provider
@@ -20,7 +21,13 @@
         <activity
             android:name="io.github.bookshelf.debug.DebugReaderActivity"
             android:exported="true">
-            <intent-filter>
+            <!--
+              Ловим VIEW по MIME, а не по ссылке: это заглушка читалки для инструментальных тестов.
+              Lint принимает такой фильтр за deep link и требует URL — требование здесь неприменимо,
+              поэтому ошибка `AppLinkUrlError` гасится осознанно (иначе падает шаг `lintFullDebug`
+              в CI, проверено 02.10.2026).
+            -->
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/epub+zip" />
