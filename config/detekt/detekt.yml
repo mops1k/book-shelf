@@ -98,6 +98,7 @@ exceptions:
       - '**/opds/download/OpdsDownloader.kt'
       - '**/storage/saf/SafTreeWriter.kt'
       - '**/parser/impl/Fb2Parser.kt'
+      - '**/parser/impl/ComicArchiveParser.kt'
       - '**/parser/impl/CbzParser.kt'
       - '**/parser/impl/DocxParser.kt'
       - '**/parser/impl/OdtParser.kt'

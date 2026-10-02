@@ -28,6 +28,12 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.okhttp)
 
+    // CBR (RAR с комиксом) — только во flavor `full`: junrar распространяется под несвободной
+    // UnRar License, которую не принимает F-Droid (ADR-007). Библиотека нужна ровно одному
+    // классу — `app/src/full/.../rar/JunrarRarArchive.kt`; в остальных сборках этого источника
+    // нет, набор реализаций чтения RAR пуст, и формат честно не предлагается.
+    "fullImplementation"(libs.junrar)
+
     // Инструментальные тесты: провайдер SAF, FileProvider, запуск приложения и пробуждение
     // чужих activity обычными юнит-тестами не проверить — нужен живой Android и настоящие
     // системные службы (docs/tdd.md §4). Раннер задан в convention-плагине

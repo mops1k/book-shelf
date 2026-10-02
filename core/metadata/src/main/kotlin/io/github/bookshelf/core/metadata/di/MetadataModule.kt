@@ -17,6 +17,7 @@ import io.github.bookshelf.core.metadata.parser.impl.OdtParser
 import io.github.bookshelf.core.metadata.parser.impl.PdfParser
 import io.github.bookshelf.core.metadata.parser.impl.RtfParser
 import io.github.bookshelf.core.metadata.parser.impl.TxtParser
+import io.github.bookshelf.core.metadata.rar.RarArchive
 import io.github.bookshelf.core.metadata.registry.DefaultParserRegistry
 import io.github.bookshelf.core.metadata.registry.ParserRegistry
 import javax.inject.Singleton
@@ -58,12 +59,18 @@ object MetadataModule {
 
     /**
      * CBR доступен только во flavor `full` (junrar под UnRar License, ADR-007).
-     * Парсер всегда в графе, но `supports()` возвращает `false`, когда флаг выключен,
-     * поэтому формат просто не предлагается — без `if (flavor == …)` в логике.
+     *
+     * Парсер всегда в графе, но `supports()` возвращает `false`, когда флаг выключен или когда
+     * в сборке нет ни одной реализации чтения RAR, — поэтому формат просто не предлагается,
+     * без `if (flavor == …)` в логике. Реализацию чтения приносит `:app` из flavor-источника
+     * `src/full`, в остальных сборках набор пуст.
      */
     @Provides
     @IntoSet
-    fun provideCbrParser(featureFlags: FeatureFlags): BookMetadataParser = CbrParser(featureFlags)
+    fun provideCbrParser(
+        featureFlags: FeatureFlags,
+        rarReaders: Set<@JvmSuppressWildcards RarArchive>,
+    ): BookMetadataParser = CbrParser(featureFlags, rarReaders)
 
     @Provides
     @IntoSet
