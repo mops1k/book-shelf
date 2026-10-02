@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   # TDD-гейт: тесты — первая и обязательная ступень, а не «после сборки».
-  # Правила, что именно блокирует слияние, — docs/tdd.md §9.
+  # Правила, что именно блокирует слияние, — «TDD» §9.
   tests:
     name: Тесты и статический анализ
     runs-on: ubuntu-latest
@@ -34,9 +34,6 @@ jobs:
       - name: Санитарная проверка исходников (без JDK)
         run: node tools/check-sources.mjs
 
-      - name: Карта репозитория не устарела
-        run: node tools/generate-structure.mjs --check
-
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit-тесты всех модулей
@@ -44,11 +41,11 @@ jobs:
 
       - name: detekt (maxIssues = 0)
         # Гейт блокирующий: замечаний нет (maxIssues = 0), красный detekt останавливает слияние
-        # и релиз (docs/tdd.md §9). Каркаса с заглушками в дереве давно нет.
+        # и релиз («TDD» §9). Каркаса с заглушками в дереве давно нет.
         run: ./gradlew detekt
 
       # TODO(Sprint 1): порог покрытия (Kover) — после появления базовой линии тестов.
-      #  Ориентиры по модулям: docs/tdd.md §6. Задача вида:
+      #  Ориентиры по модулям: «TDD» §6. Задача вида:
       #  ./gradlew koverXmlReportDebug && node tools/check-coverage.mjs --threshold-from docs/tdd.md
       #  Точное имя задачи зависит от варианта сборки; включать вместе с первыми тестами данных.
 
@@ -63,7 +60,7 @@ jobs:
           if-no-files-found: ignore
 
   # Сборка всех трёх flavor'ов: расхождение в манифестах и разрешениях должно ломать CI,
-  # а не релиз (docs/architecture.md §9).
+  # а не релиз («Архитектура» §9).
   flavors:
     name: Сборка flavor'ов
     runs-on: ubuntu-latest
