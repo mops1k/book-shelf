@@ -43,32 +43,100 @@ class Fb2XmlMinifier {
         nextByte: Int = NO_BYTE,
     ): ByteArray {
         if (from >= to) return EMPTY
-        val out = ByteArrayOutputStream(to - from)
-        var last = previousByte
+        return Minifier(
+            source = source,
+            from = from,
+            to = to,
+            previousByte = previousByte,
+            nextByte = nextByte,
+        ).run()
+    }
 
-        fun writeByte(value: Int) {
+    /**
+     * Сжатие одного диапазона: накопитель, последний записанный байт и текущая позиция.
+     *
+     * Раньше это был один метод с тремя вложенными функциями: `CyclomaticComplexMethod` считал
+     * и ветки разбора, и ветки внутри них, из-за чего сложность доходила до 24 при пороге 15.
+     * Шаги (комментарий, CDATA, тег, пробелы) стали методами: каждый читается отдельно, а
+     * поведение проверяется тем же `Fb2XmlMinifierTest`.
+     */
+    private inner class Minifier(
+        private val source: ByteArray,
+        private val from: Int,
+        private val to: Int,
+        previousByte: Int,
+        private val nextByte: Int,
+    ) {
+        private val out = ByteArrayOutputStream(to - from)
+        private var last = previousByte
+        private var index = from
+
+        fun run(): ByteArray {
+            while (index < to) {
+                val byte = source[index].toInt() and BYTE_MASK
+                when {
+                    startsWith(source, index, to, COMMENT_OPEN) -> skipComment()
+                    startsWith(source, index, to, CDATA_OPEN) -> copyCdata()
+                    byte == LT -> index = copyTag(index)
+                    isWhitespace(byte) -> collapseWhitespace()
+                    else -> {
+                        writeByte(byte)
+                        index += 1
+                    }
+                }
+            }
+            return out.toByteArray()
+        }
+
+        private fun writeByte(value: Int) {
             out.write(value)
             last = value
         }
 
-        fun writeRange(start: Int, end: Int) {
+        private fun writeRange(start: Int, end: Int) {
             if (end <= start) return
             out.write(source, start, end - start)
             last = source[end - 1].toInt() and BYTE_MASK
         }
 
+        /**
+         * Комментарий выбрасывается целиком; незакрытый остаётся как есть — битый файл чинить
+         * не наша задача, а потерять из-за него данные нельзя.
+         */
+        private fun skipComment() {
+            val end = indexOf(source, index, to, COMMENT_CLOSE)
+            if (end < 0) {
+                writeRange(index, to)
+                index = to
+            } else {
+                index = end + COMMENT_CLOSE.size
+            }
+        }
+
+        /** CDATA копируется байт-в-байт: это текст, а не разметка. */
+        private fun copyCdata() {
+            val end = indexOf(source, index, to, CDATA_CLOSE)
+            if (end < 0) {
+                writeRange(index, to)
+                index = to
+                return
+            }
+            writeRange(index, end + CDATA_CLOSE.size)
+            index = end + CDATA_CLOSE.size
+        }
+
         /** Скопировать тег, сжав пробелы внутри него до одного. */
-        fun copyTag(start: Int): Int {
+        private fun copyTag(start: Int): Int {
             val end = findTagEnd(source, start, to)
             if (end < 0) {
                 writeRange(start, to)
                 return to
             }
             writeByte(LT)
-            var index = start + 1
+            var position = start + 1
             var pendingSpace = false
-            while (index < end) {
-                val byte = source[index].toInt() and BYTE_MASK
+            while (position < end) {
+                val byte = source[position].toInt() and BYTE_MASK
                 if (isWhitespace(byte)) {
                     pendingSpace = true
                 } else {
@@ -76,61 +144,24 @@ class Fb2XmlMinifier {
                     pendingSpace = false
                     writeByte(byte)
                 }
-                index += 1
+                position += 1
             }
             writeByte(GT)
             return end + 1
         }
 
-        var index = from
-        while (index < to) {
-            val byte = source[index].toInt() and BYTE_MASK
-            when {
-                // Комментарий: выбрасываем целиком. Незакрытый — оставляем как есть: битый файл
-                // чинить не наша задача, а потерять данные из-за него нельзя.
-                startsWith(source, index, to, COMMENT_OPEN) -> {
-                    val end = indexOf(source, index, to, COMMENT_CLOSE)
-                    if (end < 0) {
-                        writeRange(index, to)
-                        index = to
-                    } else {
-                        index = end + COMMENT_CLOSE.size
-                    }
-                }
-
-                // CDATA: байт-в-байт.
-                startsWith(source, index, to, CDATA_OPEN) -> {
-                    val end = indexOf(source, index, to, CDATA_CLOSE)
-                    if (end < 0) {
-                        writeRange(index, to)
-                        index = to
-                    } else {
-                        writeRange(index, end + CDATA_CLOSE.size)
-                        index = end + CDATA_CLOSE.size
-                    }
-                }
-
-                byte == LT -> index = copyTag(index)
-
-                isWhitespace(byte) -> {
-                    val end = skipWhitespace(source, index, to)
-                    // Отступ МЕЖДУ тегами (`>` … `<`) — форматирование файла, его убираем. Но если
-                    // хотя бы с одной стороны текст, пробел значим: `<p>Одно <emphasis>слово`
-                    // без него склеилось бы в «Однослово».
-                    val before = last
-                    val after = if (end < to) source[end].toInt() and BYTE_MASK else nextByte
-                    val atEdge = before == NO_BYTE || after == NO_BYTE
-                    if (!atEdge && !(before == GT && after == LT)) writeByte(SPACE)
-                    index = end
-                }
-
-                else -> {
-                    writeByte(byte)
-                    index += 1
-                }
-            }
+        /**
+         * Отступ МЕЖДУ тегами (`>` … `<`) — форматирование файла, его убираем. Но если хотя бы с
+         * одной стороны текст, пробел значим: `<p>Одно <emphasis>слово` без него склеилось бы.
+         */
+        private fun collapseWhitespace() {
+            val end = skipWhitespace(source, index, to)
+            val before = last
+            val after = if (end < to) source[end].toInt() and BYTE_MASK else nextByte
+            val atEdge = before == NO_BYTE || after == NO_BYTE
+            if (!atEdge && !(before == GT && after == LT)) writeByte(SPACE)
+            index = end
         }
-        return out.toByteArray()
     }
 
     /**

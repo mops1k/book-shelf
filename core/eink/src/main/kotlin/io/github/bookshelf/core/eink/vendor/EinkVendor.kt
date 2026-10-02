@@ -7,10 +7,12 @@ package io.github.bookshelf.core.eink.vendor
  * ([io.github.bookshelf.core.eink.onyx.OnyxEinkController] или
  * [io.github.bookshelf.core.eink.reflection.RockchipEinkController]) и можно ли управлять подсветкой.
  *
- * [displayName] — человекочитаемая строка для экрана «О приложении»: «Устройство: Onyx Boox Nova Air,
- * e-ink: да, быстрый режим: поддерживается (Onyx SDK)» (docs/eink-ux.md §8.5).
+ * [displayName] — имя производителя для экрана «О приложении» («Onyx Boox», «Bigme»). Это данные,
+ * а не текст интерфейса: названия брендов не переводятся. Неизвестный вендор даёт `null`, а слова
+ * «неизвестное устройство» выбирает экран приложения из своих ресурсов — раньше строка приходила
+ * отсюда готовой и оставалась русской в английском интерфейсе (docs/eink-ux.md §8.5).
  */
-enum class EinkVendor(val displayName: String) {
+enum class EinkVendor(val displayName: String?) {
     ONYX("Onyx Boox"),
     ROCKCHIP_BOYUE("Boyue / Likebook / Meebook"),
     HISENSE("Hisense"),
@@ -20,5 +22,5 @@ enum class EinkVendor(val displayName: String) {
     POCKETBOOK("PocketBook"),
     IREADER("iReader"),
     INKPALM("InkPalm"),
-    UNKNOWN("Неизвестное устройство"),
+    UNKNOWN(null),
 }

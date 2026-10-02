@@ -23,13 +23,7 @@ internal object PngTestSupport {
         val bitDepth = header[8].toInt() and BYTE_MASK
         val colorType = header[9].toInt() and BYTE_MASK
         check(bitDepth == BITS_PER_CHANNEL) { "тест умеет только 8 бит на канал, а тут $bitDepth" }
-        val channels = when (colorType) {
-            0 -> 1
-            2 -> 3
-            4 -> 2
-            6 -> 4
-            else -> error("тест не умеет тип цвета $colorType")
-        }
+        val channels = channelsFor(colorType)
         val rowBytes = width * channels
         val raw = idatInflated(bytes)
         val out = IntArray(width * height)
@@ -37,35 +31,79 @@ internal object PngTestSupport {
         var source = 0
         for (row in 0 until height) {
             val filter = raw[source].toInt() and BYTE_MASK
-            val line = IntArray(rowBytes)
-            for (index in 0 until rowBytes) {
-                val value = raw[source + 1 + index].toInt() and BYTE_MASK
-                val left = if (index >= channels) line[index - channels] else 0
-                val up = previous[index]
-                val upLeft = if (index >= channels) previous[index - channels] else 0
-                val predictor = when (filter) {
-                    0 -> 0
-                    1 -> left
-                    2 -> up
-                    3 -> (left + up) / 2
-                    4 -> paeth(left, up, upLeft)
-                    else -> error("неизвестный фильтр строки $filter")
-                }
-                line[index] = (value + predictor) and BYTE_MASK
-            }
-            for (x in 0 until width) {
-                val at = x * channels
-                out[row * width + x] = when (channels) {
-                    1 -> argb(OPAQUE, line[at], line[at], line[at])
-                    2 -> argb(line[at + 1], line[at], line[at], line[at])
-                    3 -> argb(OPAQUE, line[at], line[at + 1], line[at + 2])
-                    else -> argb(line[at + 3], line[at], line[at + 1], line[at + 2])
-                }
-            }
+            val line = reconstructRow(
+                raw = raw,
+                start = source + 1,
+                rowBytes = rowBytes,
+                channels = channels,
+                filter = filter,
+                previous = previous,
+            )
+            copyRow(out = out, row = row, width = width, channels = channels, line = line)
             previous = line
             source += rowBytes + 1
         }
         return out
+    }
+
+    /**
+     * Число каналов по типу цвета PNG.
+     *
+     * Вынесено из `pixels` отдельной функцией: ветки `when` давали порог
+     * `CyclomaticComplexMethod`, а таблица каналов читается отдельно от обхода строк.
+     */
+    private fun channelsFor(colorType: Int): Int = when (colorType) {
+        0 -> 1
+        2 -> 3
+        4 -> 2
+        6 -> 4
+        else -> error("тест не умеет тип цвета $colorType")
+    }
+
+    /**
+     * Строка пикселей из сырых байт: снятие фильтра PNG по спецификации.
+     *
+     * Фильтры читаются независимо от оптимизатора — иначе проверка сравнивала бы данные,
+     * снятые одним и тем же (возможно, неверным) кодом.
+     */
+    private fun reconstructRow(
+        raw: ByteArray,
+        start: Int,
+        rowBytes: Int,
+        channels: Int,
+        filter: Int,
+        previous: IntArray,
+    ): IntArray {
+        val line = IntArray(rowBytes)
+        for (index in 0 until rowBytes) {
+            val value = raw[start + index].toInt() and BYTE_MASK
+            val left = if (index >= channels) line[index - channels] else 0
+            val up = previous[index]
+            val upLeft = if (index >= channels) previous[index - channels] else 0
+            val predictor = when (filter) {
+                0 -> 0
+                1 -> left
+                2 -> up
+                3 -> (left + up) / 2
+                4 -> paeth(left, up, upLeft)
+                else -> error("неизвестный фильтр строки $filter")
+            }
+            line[index] = (value + predictor) and BYTE_MASK
+        }
+        return line
+    }
+
+    /** Строка каналов → строки ARGB в общий массив. */
+    private fun copyRow(out: IntArray, row: Int, width: Int, channels: Int, line: IntArray) {
+        for (x in 0 until width) {
+            val at = x * channels
+            out[row * width + x] = when (channels) {
+                1 -> argb(OPAQUE, line[at], line[at], line[at])
+                2 -> argb(line[at + 1], line[at], line[at], line[at])
+                3 -> argb(OPAQUE, line[at], line[at + 1], line[at + 2])
+                else -> argb(line[at + 3], line[at], line[at + 1], line[at + 2])
+            }
+        }
     }
 
     /** Сколько байт занимают сжатые данные `IDAT` в файле. */

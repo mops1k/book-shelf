@@ -64,31 +64,41 @@ class Fb2ImageOptimizer @Inject constructor(
         while (index + 1 < bytes.size) {
             if (bytes[index] != MARKER_PREFIX) return null
             val marker = bytes[index + 1].toInt() and BYTE_MASK
-            when {
-                // Начало сжатых данных: дальше только они и маркер конца — копируем без разбора.
-                marker == SOS || marker == EOI -> {
-                    out.write(bytes, index, bytes.size - index)
-                    return if (dropped && out.size() < bytes.size) out.toByteArray() else null
-                }
-
-                marker == COM || marker == APP1 -> {
-                    val end = segmentEnd(bytes, index) ?: return null
-                    if (marker == APP1 && bytes.hasOrientation(index, end)) {
-                        // Ориентация в EXIF: снятие перевернуло бы картинку — не трогаем вовсе.
-                        return null
-                    }
-                    dropped = true
-                    index = end
-                }
-
-                else -> {
-                    val end = segmentEnd(bytes, index) ?: return null
-                    out.write(bytes, index, end - index)
-                    index = end
-                }
+            // Начало сжатых данных: дальше только они и маркер конца — копируем без разбора.
+            if (marker == SOS || marker == EOI) {
+                out.write(bytes, index, bytes.size - index)
+                return if (dropped && out.size() < bytes.size) out.toByteArray() else null
             }
+            val end = segmentEnd(bytes, index) ?: return null
+            // Метаданные (комментарий и EXIF) — единственное, что мы снимаем. Ориентация в EXIF —
+            // исключение: снятие перевернуло бы картинку, поэтому тогда оптимизация не делается.
+            when (bytes.metadataDecision(marker = marker, start = index, end = end)) {
+                MetadataDecision.ABORT -> return null
+                MetadataDecision.DROP -> dropped = true
+                MetadataDecision.KEEP -> out.write(bytes, index, end - index)
+            }
+            index = end
         }
         return null
+    }
+
+    /** Что делать с сегментом JPEG: снять метаданные, скопировать как есть или отказаться. */
+    private enum class MetadataDecision { DROP, KEEP, ABORT }
+
+    /**
+     * Решение по сегменту: комментарий и EXIF снимаются, ориентация в EXIF — повод отказаться.
+     *
+     * Вынесено из `optimizeJpeg` отдельной функцией: условия в цикле давали порог
+     * `CyclomaticComplexMethod`, а само решение читается как три случая.
+     */
+    private fun ByteArray.metadataDecision(
+        marker: Int,
+        start: Int,
+        end: Int,
+    ): MetadataDecision = when {
+        marker != COM && marker != APP1 -> MetadataDecision.KEEP
+        marker == APP1 && hasOrientation(start, end) -> MetadataDecision.ABORT
+        else -> MetadataDecision.DROP
     }
 
     /** Конец сегмента JPEG: заголовок с длиной плюс сама длина. */

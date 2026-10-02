@@ -4,6 +4,8 @@ import android.view.View
 import io.github.bookshelf.core.eink.EinkController
 import io.github.bookshelf.core.eink.RefreshMode
 import io.github.bookshelf.core.eink.device.EinkDeviceInfo
+import io.github.bookshelf.core.eink.frontlight.FrontLightController
+import io.github.bookshelf.core.eink.frontlight.SysfsFrontLightController
 import io.github.bookshelf.core.eink.device.EinkScreen
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 
@@ -17,7 +19,8 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
  *
  * [setRefreshMode] и [fullRefresh] сводятся к `view.invalidate()`: на обычном экране это обычная
  * перерисовка, на e-ink — минимально возможный запрос обновления. [setGcInterval] и [setFrontLight]
- * — честные no-op, [frontLight] возвращает `null` («устройство не сообщает уровень»).
+ * — честные no-op, а подсветка идёт через [FrontLightController] (sysfs, если узел открыт на
+ * запись; иначе `frontLight()` возвращает `null` — «устройство не сообщает уровень»).
  */
 class NoopEinkController(
     /**
@@ -29,6 +32,14 @@ class NoopEinkController(
      * экраном» и «неизвестным вендором», и диагностика врала человеку.
      */
     private val device: EinkDeviceInfo = NORMAL_DEVICE,
+    /**
+     * Подсветка.
+     *
+     * Вендорской команды у заглушки нет, но sysfs-узел бывает открыт на запись и без SDK:
+     * тогда подсветка работает. Там, где узла нет (Bigme B6: каталог `/sys/class/leds` приложению
+     * не читается), контроллер честно отвечает «подсветки нет», и строка настроек не показывается.
+     */
+    private val frontLight: FrontLightController = SysfsFrontLightController(),
 ) : EinkController {
 
     override val isEinkDevice: Boolean = device.isEink
@@ -51,9 +62,11 @@ class NoopEinkController(
 
     override fun setGcInterval(partialUpdates: Int) = Unit
 
-    override fun setFrontLight(level: Int) = Unit
+    override fun setFrontLight(level: Int) {
+        frontLight.setLevel(level)
+    }
 
-    override fun frontLight(): Int? = null
+    override fun frontLight(): Int? = frontLight.level()
 }
 
 /** Обычное устройство: заглушка без данных детектора ничего о железе не утверждает. */
