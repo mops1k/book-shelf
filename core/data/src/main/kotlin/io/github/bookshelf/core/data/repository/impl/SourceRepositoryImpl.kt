@@ -125,6 +125,25 @@ class SourceRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addDirectPathSource(path: String, displayName: String): AppResult<Source> {
+        if (path.isBlank()) {
+            return AppResult.failure(
+                AppError.InvalidArgument(what = "path", message = "Путь источника не может быть пустым"),
+            )
+        }
+        val entity = SourceEntity(
+            id = UUID.randomUUID().toString(),
+            uri = path,
+            displayName = displayName,
+            kind = io.github.bookshelf.core.database.model.SourceKind.DIRECT_PATH,
+        )
+        return appRunCatching {
+            sourceDao.insert(entity)
+            scanScheduler.enqueueScan(entity.id)
+            entity.toDomain(documentCount = 0)
+        }
+    }
+
     override suspend fun hasWriteAccess(sourceId: String): Boolean {
         val source = sourceDao.getById(sourceId) ?: return false
         return safTreeReader.hasWritePermission(source.uri)

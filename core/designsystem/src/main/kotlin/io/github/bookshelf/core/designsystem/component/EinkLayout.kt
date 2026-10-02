@@ -142,7 +142,9 @@ fun EinkListRow(
                     modifier = Modifier.padding(start = dimens.gutterSmall),
                 )
             }
-            trailingContent?.invoke()
+            // Отступ перед действием: без него число книг упиралось в кнопку «Дать доступ»/«Отключить»
+            // (замечание Александра 02.10.2026).
+            trailingContent?.let { content -> Row(Modifier.padding(start = dimens.gutterSmall)) { content() } }
         }
         if (!enabled) {
             // Отключённое состояние — пунктиром нельзя (нет API), поэтому рамкой и без реакции.

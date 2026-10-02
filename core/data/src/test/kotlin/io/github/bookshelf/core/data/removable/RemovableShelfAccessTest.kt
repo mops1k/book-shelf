@@ -42,6 +42,14 @@ class RemovableShelfAccessTest {
     }
 
     @Test
+    fun `a privately mounted volume is recognised by its path`() {
+        // Так выглядит том на прошивке без публичной точки /storage/<uuid>: приложение читает его
+        // по приватному пути vold (проверено на Bigme B6 Color 02.10.2026).
+        assertThat(sourceBelongsToVolume("/mnt/media_rw/1A2B-3C4D", "1A2B-3C4D")).isTrue()
+        assertThat(volumeUuidOf("/mnt/media_rw/0436-C297")).isEqualTo("0436-C297")
+    }
+
+    @Test
     fun `a source inside the volume is recognised by its path`() {
         assertThat(sourceBelongsToVolume("/storage/1A2B-3C4D/Books", "1A2B-3C4D")).isTrue()
         assertThat(

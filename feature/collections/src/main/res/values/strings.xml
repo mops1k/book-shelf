@@ -15,6 +15,10 @@
     <string name="collections_action_add">добавить</string>
     <string name="collections_empty_title">Полок пока нет</string>
     <string name="collections_empty_message">Ручная полка — это список книг, который вы собираете сами. Умная полка считает состав по правилам (жанр, автор, серия, статус чтения, избранное) — и обновляется сама, когда книги добавляются.</string>
+    <string name="collections_smart_default_name">Умная полка</string>
+    <string name="collections_volume_title">Полка носителя</string>
+    <string name="collections_volume_empty">На этом носителе книг нет</string>
+    <string name="collections_volume_unmount">Отключить</string>
     <string name="collections_save_filter">Сохранить текущий фильтр как полку</string>
     <string name="collections_auto_header">Доступные автополки</string>
     <string name="collections_rename_title">Новое название</string>

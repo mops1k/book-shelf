@@ -16,17 +16,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * и выбор папки человеком.
  */
 class FakeRemovableShelfRepository(
-    shelf: RemovableShelf? = null,
+    shelves: List<RemovableShelf> = emptyList(),
 ) : RemovableShelfRepository {
 
-    /** Живой поток полки: тест вправе вставить или вынуть носитель после создания фейка. */
-    val shelfFlow: MutableStateFlow<RemovableShelf?> = MutableStateFlow(shelf)
+    /** Живой поток полок: тест вправе вставить или вынуть носитель после создания фейка. */
+    val shelvesFlow: MutableStateFlow<List<RemovableShelf>> = MutableStateFlow(shelves)
 
-    /** Что сейчас показывает репозиторий. */
+    /** Одна полка — удобная запись для тестов, где носитель один. */
     var shelf: RemovableShelf?
-        get() = shelfFlow.value
+        get() = shelvesFlow.value.firstOrNull()
         set(value) {
-            shelfFlow.value = value
+            shelvesFlow.value = listOfNotNull(value)
         }
 
     /** Что вернуть на [ensureSource]; по умолчанию доступ ко всем файлам уже есть. */
@@ -44,7 +44,7 @@ class FakeRemovableShelfRepository(
     /** Носители, об изъятии которых сообщили. */
     val ejected: MutableList<RemovableVolume> = mutableListOf()
 
-    override fun observeShelf(): Flow<RemovableShelf?> = shelfFlow
+    override fun observeShelves(): Flow<List<RemovableShelf>> = shelvesFlow
 
     override suspend fun ensureSource(volume: RemovableVolume): AppResult<Unit> {
         requested += volume.uuid

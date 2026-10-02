@@ -79,7 +79,7 @@ open class DefaultTreeWalker(
         options: ScanOptions,
         onBatch: suspend (batch: List<DocumentEntry>, resumeFrom: ScanCursor) -> Unit,
     ): AppResult<ScanCursor?> {
-        val pending = initialQueue(source = source, cursor = cursor)
+        val pending = initialQueue(rootId = treeReader.rootDocumentId(source.treeUri), cursor = cursor)
         if (pending.isEmpty()) return AppResult.success(null)
 
         val excludedGlobs = (options.excludeGlobs + source.excludeGlobs).distinct()
@@ -238,10 +238,9 @@ open class DefaultTreeWalker(
  * Вынесено из `walkInternal` отдельной функцией: та перевалила за предел длины detekt, а выбор
  * начала обхода — цельный кусок, который читается отдельно от самого цикла.
  */
-private fun initialQueue(source: SourceRef, cursor: ScanCursor?): ArrayDeque<ScanCursor.Item> {
+private fun initialQueue(rootId: String, cursor: ScanCursor?): ArrayDeque<ScanCursor.Item> {
     val pending = ArrayDeque<ScanCursor.Item>()
     if (cursor == null) {
-        val rootId = DocumentsContract.getTreeDocumentId(Uri.parse(source.treeUri))
         pending.add(ScanCursor.Item(rootId, depth = 0))
     } else {
         pending.addAll(cursor.queue)

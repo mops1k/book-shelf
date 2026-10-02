@@ -115,8 +115,10 @@ class DefaultBookContentOpener(
     private val tempCopyLimitBytes: () -> Long = { DEFAULT_MAX_TEMP_COPY_BYTES },
 ) : BookContentOpener {
 
-    override fun openStream(documentUri: String): InputStream? =
-        runCatching { resolver.openInputStream(Uri.parse(documentUri)) }.getOrNull()
+    override fun openStream(documentUri: String): InputStream? = runCatching {
+        val path = filePathOf(documentUri)
+        if (path != null) FileInputStream(File(path)) else resolver.openInputStream(Uri.parse(documentUri))
+    }.getOrNull()
 
     /**
      * Канал с seek — нужен форматам с произвольным доступом (PDF, ZIP, MOBI).
@@ -131,8 +133,15 @@ class DefaultBookContentOpener(
      * (находка аудита 28.09.2026).
      */
     override fun openSeekableChannel(documentUri: String): SeekableFile? = runCatching {
-        resolver.openFileDescriptor(Uri.parse(documentUri), "r")?.let { descriptor ->
-            SeekableFile(FileInputStream(descriptor.fileDescriptor).channel, descriptor)
+        val path = filePathOf(documentUri)
+        if (path != null) {
+            // Владелец — сам поток: закрытие канала и потока вместе освобождает дескриптор файла.
+            val stream = FileInputStream(File(path))
+            SeekableFile(stream.channel, stream)
+        } else {
+            resolver.openFileDescriptor(Uri.parse(documentUri), "r")?.let { descriptor ->
+                SeekableFile(FileInputStream(descriptor.fileDescriptor).channel, descriptor)
+            }
         }
     }.getOrNull()
 
@@ -143,6 +152,11 @@ class DefaultBookContentOpener(
      * чтобы вызывающий решал иначе, а не получил выдуманный ноль.
      */
     override fun sizeOf(documentUri: String): Long? = runCatching {
+        val path = filePathOf(documentUri)
+        if (path != null) {
+            val file = File(path)
+            return@runCatching if (file.isFile) file.length() else null
+        }
         val cursor = resolver.query(Uri.parse(documentUri), SIZE_PROJECTION, null, null, null)
             ?: return@runCatching null
         cursor.use {
@@ -162,6 +176,18 @@ class DefaultBookContentOpener(
      * выдуманным временем нельзя, скан по нему решит, что файл не менялся.
      */
     override fun factsOf(documentUri: String): DocumentFacts? = runCatching {
+        val path = filePathOf(documentUri)
+        if (path != null) {
+            val file = File(path)
+            return@runCatching if (file.isFile) {
+                DocumentFacts(
+                    sizeBytes = file.length(),
+                    lastModified = file.lastModified().takeIf { it > 0L },
+                )
+            } else {
+                null
+            }
+        }
         val cursor = resolver.query(Uri.parse(documentUri), FACTS_PROJECTION, null, null, null)
             ?: return@runCatching null
         cursor.use {
@@ -205,9 +231,13 @@ class DefaultBookContentOpener(
      * и книга превратилась бы в мусор.
      */
     override fun replaceContent(documentUri: String, bytes: ByteArray): AppResult<Unit> = appRunCatching {
-        val uri = Uri.parse(documentUri)
-        val output = resolver.openOutputStream(uri, WRITE_TRUNCATE)
-            ?: error("Провайдер не открыл файл для записи: $documentUri")
+        val path = filePathOf(documentUri)
+        val output = if (path != null) {
+            FileOutputStream(File(path))
+        } else {
+            resolver.openOutputStream(Uri.parse(documentUri), WRITE_TRUNCATE)
+                ?: error("Провайдер не открыл файл для записи: $documentUri")
+        }
         output.use { stream ->
             stream.write(bytes)
             stream.flush()
@@ -242,8 +272,8 @@ class DefaultBookContentOpener(
         val target = File(directory, name)
         return runCatching {
             if (!directory.exists()) directory.mkdirs()
-            val source = resolver.openInputStream(Uri.parse(documentUri))
-                ?: error("Провайдер не отдал поток")
+            val source = openStream(documentUri)
+                ?: error("Источник не отдал поток: $documentUri")
             source.use { input -> FileOutputStream(temp).use { output -> input.copyTo(output) } }
             // Провайдер мог солгать в SIZE или не отдать его вовсе: проверяем по факту.
             if (temp.length() > maxTempCopyBytes) {
@@ -304,3 +334,23 @@ class DefaultBookContentOpener(
         )
     }
 }
+
+/**
+ * Путь файла в файловой системе или `null`, если адрес обслуживает провайдер.
+ *
+ * Источники съёмного носителя на прошивках без публичной точки `/storage/<uuid>` читаются по
+ * обычному пути (`/mnt/media_rw/<uuid>/…`, проверено на Bigme B6 Color 02.10.2026), и opener обязан
+ * понимать и такие адреса, и `file://`. Схема `content://` остаётся за `ContentResolver`.
+ */
+internal fun filePathOf(documentUri: String): String? {
+    val trimmed = documentUri.trim()
+    return when {
+        trimmed.isEmpty() -> null
+        trimmed.startsWith(CONTENT_SCHEME, ignoreCase = true) -> null
+        trimmed.startsWith(FILE_SCHEME, ignoreCase = true) -> trimmed.substring(FILE_SCHEME.length)
+        else -> trimmed
+    }
+}
+
+private const val CONTENT_SCHEME = "content://"
+private const val FILE_SCHEME = "file://"

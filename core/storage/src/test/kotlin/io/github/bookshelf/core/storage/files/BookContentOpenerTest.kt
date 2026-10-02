@@ -18,6 +18,7 @@ import org.robolectric.annotation.Config
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.file.Files
 
@@ -235,6 +236,82 @@ class BookContentOpenerTest {
         assertThat(handle.channel.isOpen).isFalse()
         assertThat(descriptor.fileDescriptor.valid()).isFalse()
     }
+
+
+    @Test
+    fun open_stream_reads_bytes_by_file_path() {
+        val book = temporaryFolder.newFile("book.fb2").apply { writeBytes(byteArrayOf(7, 8, 9)) }
+        val opener = fileOpener()
+
+        assertThat(opener.openStream(book.absolutePath)!!.readBytes()).isEqualTo(byteArrayOf(7, 8, 9))
+        // `file://` — тот же путь: адрес приходит и в таком виде.
+        assertThat(opener.openStream("file://${book.absolutePath}")!!.readBytes()).isEqualTo(byteArrayOf(7, 8, 9))
+    }
+
+    @Test
+    fun a_file_path_gives_a_seekable_channel() {
+        val book = temporaryFolder.newFile("book.fb2").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        val opener = fileOpener()
+
+        opener.openSeekableChannel(book.absolutePath)!!.use { seekable ->
+            val buffer = ByteBuffer.allocate(2)
+            seekable.channel.position(1)
+            seekable.channel.read(buffer)
+            assertThat(buffer.array()).isEqualTo(byteArrayOf(2, 3))
+            assertThat(seekable.channel.isOpen).isTrue()
+        }
+    }
+
+    @Test
+    fun size_and_facts_of_a_file_are_read_from_the_file() {
+        val book = temporaryFolder.newFile("book.fb2").apply { writeBytes(ByteArray(5)) }
+        val opener = fileOpener()
+
+        assertThat(opener.sizeOf(book.absolutePath)).isEqualTo(5L)
+        val facts = opener.factsOf(book.absolutePath)!!
+        assertThat(facts.sizeBytes).isEqualTo(5L)
+        assertThat(facts.lastModified).isNotNull()
+        // Несуществующий файл — не выдуманный ноль, а отсутствие данных.
+        assertThat(opener.sizeOf("${book.absolutePath}.нет")).isNull()
+        assertThat(opener.factsOf("${book.absolutePath}.нет")).isNull()
+    }
+
+    @Test
+    fun a_file_copy_lands_in_the_export_directory() {
+        val book = temporaryFolder.newFile("book.fb2").apply { writeBytes("текст".toByteArray()) }
+        val opener = fileOpener()
+
+        val copy = opener.exportCopy(book.absolutePath, "fb2").getOrNull()!!
+
+        assertThat(File(copy).readBytes()).isEqualTo("текст".toByteArray())
+        assertThat(copy).endsWith(".fb2")
+    }
+
+    @Test
+    fun replacing_content_writes_the_file() {
+        val book = temporaryFolder.newFile("book.fb2")
+        val opener = fileOpener()
+
+        opener.replaceContent(book.absolutePath, byteArrayOf(9, 9)).getOrNull()
+
+        assertThat(book.readBytes()).isEqualTo(byteArrayOf(9, 9))
+    }
+
+    @Test
+    fun provider_addresses_are_told_apart_from_file_paths() {
+        assertThat(filePathOf("content://provider/tree/1A2B-3C4D%3A")).isNull()
+        assertThat(filePathOf("/mnt/media_rw/0436-C297/книга.fb2")).isEqualTo("/mnt/media_rw/0436-C297/книга.fb2")
+        assertThat(filePathOf("file:///mnt/media_rw/0436-C297/книга.fb2"))
+            .isEqualTo("/mnt/media_rw/0436-C297/книга.fb2")
+        assertThat(filePathOf("   ")).isNull()
+    }
+
+    /** Opener для проверок по обычному пути: резолвер в этой ветке не участвует. */
+    private fun fileOpener(): DefaultBookContentOpener = DefaultBookContentOpener(
+        resolver = mockk(relaxed = true),
+        importDir = temporaryFolder.newFolder("import"),
+        exportDir = temporaryFolder.newFolder("export"),
+    )
 
     private companion object {
 

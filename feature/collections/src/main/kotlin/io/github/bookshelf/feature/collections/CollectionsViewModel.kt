@@ -85,7 +85,11 @@ class CollectionsViewModel @Inject constructor(
      * Хранится, а не берётся из состояния: в состоянии для экрана лежит только то, что он
      * показывает (метка, число книг), а `RemovableVolume` нужен лишь вызовам репозитория.
      */
-    private var cardVolume: RemovableVolume? = null
+    /** Тома подключённых носителей по UUID: действия строки адресуют том, по которому нажали. */
+    private var cardVolumes: Map<String, RemovableVolume> = emptyMap()
+
+    /** Носитель, для которого открыт системный выбор папки: пикер бывает только один за раз. */
+    private var pendingCardVolume: RemovableVolume? = null
 
     init {
         observeCollections()
@@ -188,10 +192,10 @@ class CollectionsViewModel @Inject constructor(
      * Два действия подряд — создать полку и записать её правила: `create` не принимает правила,
      * потому что ручной полке они не нужны, а умная без правил пуста.
      */
-    fun onAddPreset(presetId: String) {
+    fun onAddPreset(presetId: String, name: String) {
         val preset = SmartPreset.entries.firstOrNull { it.id == presetId } ?: return
         // Имени не пишем: слова собирает экран из правила («TDD» §8).
-        viewModelScope.launch { createSmartShelf(name = "", rules = preset.rules) }
+        viewModelScope.launch { createSmartShelf(name = name, rules = preset.rules) }
     }
 
     /**
@@ -200,7 +204,7 @@ class CollectionsViewModel @Inject constructor(
      * Мост между фильтрами и полками: набор условий у них один и тот же, поэтому пользователю не
      * нужно выставлять те же галочки второй раз.
      */
-    fun onSaveCurrentFilter() {
+    fun onSaveCurrentFilter(name: String) {
         val query = filterSelection.query.value
         val rules = SmartRules.fromQuery(query)
         if (rules.isEmpty) {
@@ -209,7 +213,7 @@ class CollectionsViewModel @Inject constructor(
         }
         // Имени у подборки нет: подпись правила собирает экран из частей (`rulesSummary`),
         // и в базе не остаётся русского текста, который не переводится («TDD» §8).
-        viewModelScope.launch { createSmartShelf(name = "", rules = rules) }
+        viewModelScope.launch { createSmartShelf(name = name, rules = rules) }
     }
 
     /**
@@ -263,8 +267,8 @@ class CollectionsViewModel @Inject constructor(
      * репозиторий, и человек ничего не видит. Без него репозиторий отказывает
      * [AppError.PermissionDenied] — это не ошибка, а просьба открыть выбор папки на корне носителя.
      */
-    fun onGrantCardAccess() {
-        val volume = cardVolume ?: return
+    fun onGrantCardAccess(uuid: String) {
+        val volume = cardVolumes[uuid] ?: return
         viewModelScope.launch {
             removableShelfRepository.ensureSource(volume).fold(
                 onSuccess = { _uiState.update { it.copy(cardAccessRequest = null, cardError = null) } },
@@ -280,7 +284,8 @@ class CollectionsViewModel @Inject constructor(
      * предлагать доступ. Папку проверяет репозиторий: он знает, что относится к этому носителю.
      */
     fun onCardTreePicked(treeUri: String?) {
-        val volume = cardVolume ?: return
+        val volume = pendingCardVolume ?: return
+        pendingCardVolume = null
         _uiState.update { it.copy(cardAccessRequest = null) }
         if (treeUri == null) return
         viewModelScope.launch {
@@ -301,6 +306,7 @@ class CollectionsViewModel @Inject constructor(
     private fun onCardAccessFailure(volume: RemovableVolume, error: AppError) {
         if (error is AppError.PermissionDenied) {
             // Пикер открывается на дереве носителя: искать карту в списке мест вручную — работа.
+            pendingCardVolume = volume
             _uiState.update { it.copy(cardAccessRequest = volumeTreeUri(volume.uuid), cardError = null) }
         } else {
             _uiState.update { it.copy(cardError = error) }
@@ -342,6 +348,21 @@ class CollectionsViewModel @Inject constructor(
     }
 
     /**
+     * Отключить том: система спросит подтверждение своим диалогом.
+     *
+     * Размонтировать носитель приложение не вправе — оно только просит систему. Просьба передаётся
+     * экрану UUID-ом: системный интент собирается и запускается там, где есть `Context`.
+     */
+    fun onUnmountCard(uuid: String) {
+        _uiState.update { it.copy(cardUnmountRequest = uuid) }
+    }
+
+    /** Системный запрос на отключение запущен (или не открылся) — просьба больше не нужна. */
+    fun onUnmountLaunched() {
+        _uiState.update { it.copy(cardUnmountRequest = null) }
+    }
+
+    /**
      * Подписаться на полку съёмного носителя.
      *
      * Носитель вставили — строка появится; вынули или выключили настройку — исчезнет: состав
@@ -351,17 +372,19 @@ class CollectionsViewModel @Inject constructor(
      */
     private fun observeRemovableShelf() {
         viewModelScope.launch {
-            removableShelfRepository.observeShelf()
+            removableShelfRepository.observeShelves()
                 .catch { throwable ->
-                    cardVolume = null
+                    cardVolumes = emptyMap()
                     _uiState.update {
-                        it.copy(removableShelf = null, cardError = throwable.toAppError())
+                        it.copy(removableShelves = emptyList(), cardError = throwable.toAppError())
                     }
                 }
-                .collect { shelf ->
-                    cardVolume = shelf?.volume
+                .collect { shelves ->
+                    cardVolumes = shelves.associate { shelf -> shelf.volume.uuid to shelf.volume }
                     // Успешно заведённый источник приходит сюда же: строка перестаёт просить доступ.
-                    _uiState.update { it.copy(removableShelf = shelf?.toUi(), cardError = null) }
+                    _uiState.update {
+                        it.copy(removableShelves = shelves.map { shelf -> shelf.toUi() }, cardError = null)
+                    }
                 }
         }
     }
@@ -437,6 +460,8 @@ class CollectionsViewModel @Inject constructor(
      * по умолчанию («Карта памяти»), поэтому сюда попадает как есть.
      */
     private fun RemovableShelf.toUi(): RemovableShelfUi = RemovableShelfUi(
+        uuid = volume.uuid,
+        sourceId = sourceId,
         label = volume.label,
         bookCount = bookCount,
         needsAccess = needsAccess,

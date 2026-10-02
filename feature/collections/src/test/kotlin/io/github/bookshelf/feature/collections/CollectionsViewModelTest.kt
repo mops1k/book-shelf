@@ -57,10 +57,11 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        val row = viewModel.uiState.value.removableShelf
-        assertThat(row?.label).isEqualTo(CARD.label)
-        assertThat(row?.bookCount).isEqualTo(3)
-        assertThat(row?.needsAccess).isFalse()
+        val row = viewModel.uiState.value.removableShelves.single()
+        assertThat(row.uuid).isEqualTo(CARD.uuid)
+        assertThat(row.label).isEqualTo(CARD.label)
+        assertThat(row.bookCount).isEqualTo(3)
+        assertThat(row.needsAccess).isFalse()
         // Выбор папки никто не запрашивал: доступ уже есть.
         assertThat(viewModel.uiState.value.cardAccessRequest).isNull()
     }
@@ -70,7 +71,20 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.removableShelf).isNull()
+        assertThat(viewModel.uiState.value.removableShelves).isEmpty()
+    }
+
+    @Test
+    fun `every partition of the medium gets its own row`() = runTest(dispatcher) {
+        val second = RemovableVolume(uuid = "0436-C297", label = "disk", path = "/mnt/media_rw/0436-C297")
+        card.shelvesFlow.value = listOf(shelf(bookCount = 3, needsAccess = false), shelfOf(second, bookCount = 1))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val rows = viewModel.uiState.value.removableShelves
+        assertThat(rows.map { row -> row.uuid }).containsExactly(CARD.uuid, second.uuid).inOrder()
+        assertThat(rows.map { row -> row.bookCount }).containsExactly(3, 1).inOrder()
     }
 
     @Test
@@ -79,7 +93,7 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
 
         assertThat(card.requested).containsExactly(CARD.uuid)
@@ -95,7 +109,7 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
 
         // Пикер открывается на корне носителя, а не на последней папке: искать карту вручную — работа.
@@ -109,7 +123,7 @@ class CollectionsViewModelTest {
         card.ensureResult = AppResult.failure(AppError.PermissionDenied(message = "нет доступа"))
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
         val picked = "${volumeTreeUri(CARD.uuid)}Books"
 
@@ -127,7 +141,7 @@ class CollectionsViewModelTest {
         card.ensureResult = AppResult.failure(AppError.PermissionDenied(message = "нет доступа"))
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
 
         viewModel.onCardTreePicked(null)
@@ -146,7 +160,7 @@ class CollectionsViewModelTest {
         card.treeResult = AppResult.failure(AppError.InvalidArgument(what = "treeUri"))
         val viewModel = viewModel()
         advanceUntilIdle()
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
 
         viewModel.onCardTreePicked("content://com.android.externalstorage.documents/tree/primary%3ABooks")
@@ -164,7 +178,7 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onGrantCardAccess()
+        viewModel.onGrantCardAccess(CARD.uuid)
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.cardError).isInstanceOf(AppError.Io::class.java)
@@ -205,7 +219,7 @@ class CollectionsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onSaveCurrentFilter()
+        viewModel.onSaveCurrentFilter("Умная полка")
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.error).isEqualTo(AppText(R.string.collections_error_filter_empty))
@@ -213,16 +227,16 @@ class CollectionsViewModelTest {
     }
 
     @Test
-    fun `adding a preset writes no name into the database`() = runTest(dispatcher) {
+    fun `adding a preset writes the preset title into the database`() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onAddPreset("favorites")
+        viewModel.onAddPreset("favorites", "Избранное")
         advanceUntilIdle()
 
-        // В базу уходит пустое имя: слова для строки полки собирает экран («TDD» §8).
-        // Раньше здесь лежало «Избранное» — русский текст, который не переводится.
-        assertThat(shelves.created.map { (name, _) -> name }).containsExactly("")
+        // Решение Александра 02.10.2026: название пресета пишется в базу готовым текстом
+        // (сознательное сужение правила «текст — ресурс»: при смене языка не переведётся).
+        assertThat(shelves.created.map { (name, _) -> name }).containsExactly("Избранное")
         assertThat(shelves.created.single().second).isEqualTo(CollectionType.SMART)
     }
 
@@ -246,14 +260,38 @@ class CollectionsViewModelTest {
             .doesNotContain("favorites")
     }
 
+    @Test
+    fun `unmounting a volume asks the screen for the system storage page`() = runTest(dispatcher) {
+        card.shelvesFlow.value = listOf(
+            RemovableShelf(volume = CARD, sourceId = "card-source", bookCount = 3, needsAccess = false),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onUnmountCard(CARD.uuid)
+
+        // Просьба передаётся экрану: системный интент собирается там, где есть `Context`.
+        assertThat(viewModel.uiState.value.cardUnmountRequest).isEqualTo(CARD.uuid)
+
+        viewModel.onUnmountLaunched()
+        assertThat(viewModel.uiState.value.cardUnmountRequest).isNull()
+    }
+
     private fun viewModel() = CollectionsViewModel(
         collectionRepository = shelves,
         filterSelection = FilterSelection(),
         removableShelfRepository = card,
     )
 
-    private fun shelf(bookCount: Int, needsAccess: Boolean) = RemovableShelf(
-        volume = CARD,
+    private fun shelf(bookCount: Int, needsAccess: Boolean) =
+        shelfOf(CARD, bookCount = bookCount, needsAccess = needsAccess)
+
+    private fun shelfOf(
+        volume: RemovableVolume,
+        bookCount: Int,
+        needsAccess: Boolean = true,
+    ) = RemovableShelf(
+        volume = volume,
         sourceId = if (needsAccess) null else "card-source",
         bookCount = bookCount,
         needsAccess = needsAccess,

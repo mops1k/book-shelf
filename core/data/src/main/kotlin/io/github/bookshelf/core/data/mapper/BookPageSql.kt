@@ -46,6 +46,7 @@ internal object BookPageSql {
     fun select(query: LibraryQuery): SupportSQLiteQuery {
         val args = mutableListOf<Any?>()
         val where = buildWhere(query.bookQuery, args)
+            .let { base -> coverOnlyWhere(base, query.withCoverOnly) }
         val join = if (query.sort == SortOrder.PROGRESS) PROGRESS_JOIN else ""
         val offset = query.page * query.pageSize
         val bound = args + listOf(query.pageSize, offset)
@@ -69,6 +70,13 @@ internal object BookPageSql {
      * разъедутся со значениями. Параметры добавляются строка за строкой, в момент присоединения
      * каждого условия.
      */
+    /** Дополняет условие выборки требованием обложки: `NULL`-обложки в полоску не годятся. */
+    private fun coverOnlyWhere(where: String, coverOnly: Boolean): String = when {
+        !coverOnly -> where
+        where.isEmpty() -> "WHERE books.coverPath IS NOT NULL"
+        else -> "$where AND books.coverPath IS NOT NULL"
+    }
+
     internal fun buildWhere(
         bookQuery: io.github.bookshelf.core.data.model.BookQuery,
         args: MutableList<Any?>,

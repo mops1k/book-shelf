@@ -82,7 +82,9 @@ fun BookCover(
         modifier = modifier
             .aspectRatio(COVER_ASPECT_RATIO)
             .border(dimens.border, colors.divider)
-            .background(colors.background),
+            // Пустая обложка заливается лёгким серым: белое поле читалось как «тут пусто», а
+            // светлая заливка обозначает место обложки (просьба Александра 02.10.2026).
+            .background(if (imageModel == null) colors.placeholder else colors.background),
         contentAlignment = Alignment.Center,
     ) {
         if (imageModel != null) {

@@ -366,6 +366,11 @@ class SettingsSettersTest {
             Source(id = "s", uri = uri, displayName = displayName, kind = SourceKind.SAF_TREE),
         )
 
+        override suspend fun addDirectPathSource(path: String, displayName: String): AppResult<Source> =
+
+            AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
+
+
         override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> =
                 AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 

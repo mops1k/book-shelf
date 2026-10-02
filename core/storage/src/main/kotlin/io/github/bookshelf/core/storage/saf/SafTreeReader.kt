@@ -62,6 +62,17 @@ interface SafTreeReader {
     /** Есть ли сохранённое право записи: без него скачивание книги в папку не пройдёт. */
     fun hasWritePermission(treeUri: String): Boolean
 
+    /**
+     * Идентификатор корня дерева.
+     *
+     * У SAF корень — `documentId` из адреса дерева (`DocumentsContract.getTreeDocumentId`), а у
+     * источника по обычному пути корнем является сам путь, и его идентификатор — пустая строка.
+     * Обходчик обязан спросить это у читателя: системный разбор SAF-адреса на обычном пути падает
+     * (`IllegalArgumentException: Invalid URI`, проверено 02.10.2026 на носителе, который прошивка
+     * не опубликовала в `/storage/<uuid>`).
+     */
+    fun rootDocumentId(treeUri: String): String
+
     /** `content://`-URI конкретного документа внутри дерева. */
     fun documentUri(treeUri: String, documentId: String): String
 
@@ -159,6 +170,9 @@ class AndroidSafTreeReader(
                 "запись=${hasWritePermission(treeUri)}",
         )
     }
+
+    override fun rootDocumentId(treeUri: String): String =
+        DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
 
     override fun documentUri(treeUri: String, documentId: String): String =
         DocumentsContract.buildDocumentUriUsingTree(Uri.parse(treeUri), documentId).toString()

@@ -49,9 +49,11 @@ class CollectionRepositoryTest {
     }
 
     @Test
-    fun rejects_blank_name() = runTest {
-        assertThat(repository().create("   ").isFailure).isTrue()
-        assertThat(dao.rows.value).isEmpty()
+    fun keeps_a_shelf_without_a_name() = runTest {
+        // Имя подставляет экран, пока человек его не задал: пустое имя — не ошибка, полка
+        // сохраняется, а слова для строки берутся из ресурсов («Новая полка», «Новая полка 2»).
+        assertThat(repository().create("   ").getOrNull()).isNotNull()
+        assertThat(dao.rows.value.single().name).isEmpty()
     }
 
     @Test

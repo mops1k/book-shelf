@@ -46,9 +46,11 @@ class RemovableVolumesTest {
     }
 
     @Test
-    fun `an ejected volume is not a card`() {
+    fun `a volume the monitor could not reach is not a card`() {
+        // Монитор отдаёт путь только для доступного тома: изъятый (или неопубликованный системой,
+        // как на Bigme B6 Color) приходит без пути — и носителем не считается.
         val volumes = removableVolumesOf(
-            listOf(raw(uuid = "1A2B-3C4D", label = "SD-карта", path = "/storage/1A2B-3C4D", mounted = false)),
+            listOf(raw(uuid = "1A2B-3C4D", label = "SD-карта", path = null)),
         )
 
         assertThat(volumes).isEmpty()
@@ -84,6 +86,46 @@ class RemovableVolumesTest {
     }
 
     @Test
+    fun `the public path is preferred and the private one is the fallback`() {
+        val candidates = volumePathCandidates(uuid = "1A2B-3C4D", publicPath = "/storage/1A2B-3C4D")
+
+        assertThat(candidates)
+            .containsExactly("/storage/1A2B-3C4D", "/mnt/media_rw/1A2B-3C4D")
+            .inOrder()
+    }
+
+    @Test
+    fun `without a public path the private one is offered`() {
+        // Так выглядит прошивка, которая монтирует том только приватно (Bigme B6 Color, 02.10.2026).
+        assertThat(volumePathCandidates(uuid = "0436-C297", publicPath = null))
+            .containsExactly("/mnt/media_rw/0436-C297")
+    }
+
+    @Test
+    fun `the same path is not offered twice`() {
+        assertThat(volumePathCandidates(uuid = "1A2B-3C4D", publicPath = "/mnt/media_rw/1A2B-3C4D"))
+            .containsExactly("/mnt/media_rw/1A2B-3C4D")
+    }
+
+    @Test
+    fun `a volume without uuid keeps only the public path`() {
+        // Приватный путь строится из UUID: без него угадывать нечего.
+        assertThat(volumePathCandidates(uuid = null, publicPath = "/storage/1A2B-3C4D"))
+            .containsExactly("/storage/1A2B-3C4D")
+        assertThat(volumePathCandidates(uuid = "  ", publicPath = "/storage/1A2B-3C4D"))
+            .containsExactly("/storage/1A2B-3C4D")
+    }
+
+    @Test
+    fun `the first available path wins`() {
+        val candidates = listOf("/storage/1A2B-3C4D", "/mnt/media_rw/1A2B-3C4D")
+
+        assertThat(availableVolumePath(candidates) { path -> path.startsWith("/mnt/") })
+            .isEqualTo("/mnt/media_rw/1A2B-3C4D")
+        assertThat(availableVolumePath(candidates) { false }).isNull()
+    }
+
+    @Test
     fun `several cards are all listed`() {
         val volumes = removableVolumesOf(
             listOf(
@@ -102,13 +144,11 @@ class RemovableVolumesTest {
         path: String? = null,
         removable: Boolean = true,
         emulated: Boolean = false,
-        mounted: Boolean = true,
     ) = RawVolume(
         uuid = uuid,
         label = label,
         path = path,
         isRemovable = removable,
         isEmulated = emulated,
-        isMounted = mounted,
     )
 }

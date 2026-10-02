@@ -22,6 +22,8 @@ import io.github.bookshelf.core.storage.files.ContentHasher
 import io.github.bookshelf.core.storage.files.DefaultContentHasher
 import io.github.bookshelf.core.storage.files.DefaultBookContentOpener
 import io.github.bookshelf.core.storage.saf.AndroidSafTreeReader
+import io.github.bookshelf.core.storage.saf.DirectPathTreeReader
+import io.github.bookshelf.core.storage.saf.DispatchingTreeReader
 import io.github.bookshelf.core.storage.saf.SafTreeReader
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
 import io.github.bookshelf.core.storage.saf.SafTreeWriterImpl
@@ -51,7 +53,12 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideSafTreeReader(@ApplicationContext context: Context): SafTreeReader =
-        AndroidSafTreeReader(context.contentResolver)
+        DispatchingTreeReader(
+            saf = AndroidSafTreeReader(context.contentResolver),
+            // Источники по обычному пути (съёмный носитель, который система не опубликовала)
+            // обходятся напрямую: SAF про такой том не знает.
+            direct = DirectPathTreeReader(),
+        )
 
     /**
      * Запись в дерево SAF.

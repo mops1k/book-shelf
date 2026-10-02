@@ -81,7 +81,9 @@ class CollectionRepositoryImpl @Inject constructor(
         if (rules != null) {
             return combine(
                 bookDao.observeCount(BookPageSql.count(smartQuery(rules))),
-                bookDao.observePage(BookPageSql.select(smartQuery(rules, PREVIEW_COVERS)))
+                bookDao.observePage(
+                    BookPageSql.select(smartQuery(rules, PREVIEW_COVERS, coverOnly = true)),
+                )
                     .map { books -> books.mapNotNull { book -> book.coverPath } },
             ) { count: Int, covers: List<String> ->
                 row.toDomain().copy(bookCount = count, previewCovers = covers)
@@ -144,11 +146,16 @@ class CollectionRepositoryImpl @Inject constructor(
     }
 
     /** Запрос состава умной полки: сортировка как на полке, лимит — с запасом на домашнюю библиотеку. */
-    private fun smartQuery(rules: SmartRules, pageSize: Int = SMART_PAGE_SIZE): LibraryQuery = LibraryQuery(
+    private fun smartQuery(
+        rules: SmartRules,
+        pageSize: Int = SMART_PAGE_SIZE,
+        coverOnly: Boolean = false,
+    ): LibraryQuery = LibraryQuery(
         sort = SortOrder.AUTHOR,
         page = 0,
         pageSize = pageSize,
         bookQuery = rules.toBookQuery(),
+        withCoverOnly = coverOnly,
     )
 
     private fun booksByIds(ids: List<String>): Flow<List<Book>> {
@@ -162,12 +169,10 @@ class CollectionRepositoryImpl @Inject constructor(
 
     /** Порядок задаёт пользователь, поэтому позиция растёт, а не перезаписывает список. */
     override suspend fun create(name: String, type: CollectionType): AppResult<Collection> {
+        // Пустое имя допустимо: экран подставляет «Новая полка» по счёту безымянных, а полка из
+        // автополки получает название пресета. Отказ здесь ломал создание полки целиком
+        // (найдено на устройстве 02.10.2026: в таблице `collections` ноль строк).
         val trimmed = name.trim()
-        if (trimmed.isEmpty()) {
-            return AppResult.failure(
-                AppError.InvalidArgument(what = "name", message = "Название полки не может быть пустым"),
-            )
-        }
         val position = (dao.observeAll().first().maxOfOrNull { it.position } ?: -1) + 1
         val entity = CollectionEntity(
             id = UUID.randomUUID().toString(),

@@ -16,17 +16,20 @@ object CollectionsRoute {
  * @param onBack возврат на полку.
  * @param onOpenCollection открытие содержимого выбранной полки.
  * @param onEditRules открытие редактора правил умной полки.
+ * @param onOpenVolumeShelf открытие полки съёмного носителя отдельным экраном.
  */
 fun NavGraphBuilder.collectionsScreen(
     onBack: () -> Unit,
     onOpenCollection: (String) -> Unit,
     onEditRules: (String) -> Unit,
+    onOpenVolumeShelf: (String) -> Unit,
 ) {
     composable(CollectionsRoute.route) {
         CollectionsScreen(
             onBack = onBack,
             onOpenCollection = onOpenCollection,
             onEditRules = onEditRules,
+            onOpenVolumeShelf = onOpenVolumeShelf,
         )
     }
 }

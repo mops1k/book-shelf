@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.bookshelf.core.storage.volume.storageSettingsIntentOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.designsystem.component.BookCover
@@ -64,6 +67,9 @@ private const val PREVIEW_COVERS = 3
 /** Ширина мини-обложки в строке полки: высота получается из пропорции обложки. */
 private val PREVIEW_COVER_WIDTH = 34.dp
 
+/** Делитель шага наезда: шаг — треть ширины, значит наезд двух третей (просьба 02.10.2026). */
+private const val OVERLAP_DIVISOR = 3f
+
 /** Ключ строки полки носителя: она одна и не приходит из базы полок. */
 private const val REMOVABLE_SHELF_KEY = "removable-shelf"
 
@@ -82,6 +88,7 @@ private const val REMOVABLE_SHELF_KEY = "removable-shelf"
 fun CollectionsScreen(
     onBack: () -> Unit,
     onOpenCollection: (String) -> Unit,
+    onOpenVolumeShelf: (String) -> Unit,
     onEditRules: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CollectionsViewModel = hiltViewModel(),
@@ -122,6 +129,7 @@ fun CollectionsScreen(
             listState = listState,
             onOpenCollection = onOpenCollection,
             onEditRules = onEditRules,
+            onOpenVolumeShelf = onOpenVolumeShelf,
         )
     }
 }
@@ -159,7 +167,12 @@ private fun CardAccessPicker(request: String?, onPicked: (String?) -> Unit) {
  * в маленькую кнопку неудобно.
  */
 @Composable
-private fun CardShelfRow(shelf: RemovableShelfUi, onGrantAccess: () -> Unit) {
+private fun CardShelfRow(
+    shelf: RemovableShelfUi,
+    onGrantAccess: () -> Unit,
+    onOpen: () -> Unit,
+    onUnmount: () -> Unit,
+) {
     EinkListRow(
         title = shelf.label.ifBlank { stringResource(R.string.collections_card_title) },
         subtitle = stringResource(
@@ -167,15 +180,61 @@ private fun CardShelfRow(shelf: RemovableShelfUi, onGrantAccess: () -> Unit) {
         ),
         // Число книг — подпись, а не действие: пока доступа нет, книг и не может быть.
         trailing = if (shelf.needsAccess) null else shelf.bookCount.toString(),
-        onClick = if (shelf.needsAccess) onGrantAccess else null,
+        // С доступом строка открывает свои книги: без этого нажатие уходило в пустоту
+        // (найдено на устройстве 02.10.2026).
+        onClick = if (shelf.needsAccess) onGrantAccess else onOpen,
+        // Доступ есть — предлагаем отключить том (системным подтверждением); доступа нет —
+        // предлагаем его дать.
         trailingContent = if (shelf.needsAccess) {
             { EinkButton(text = stringResource(R.string.collections_card_grant), onClick = onGrantAccess) }
         } else {
-            null
+            { EinkButton(text = stringResource(R.string.collections_volume_unmount), onClick = onUnmount) }
         },
     )
 }
 
+
+/**
+ * Просьба отключить том: открывает системный экран памяти.
+ *
+ * Размонтировать носитель приложение не вправе — это делает система своим экраном. Вынесено ради
+ * предела длины функции detekt.
+ */
+@Composable
+private fun UnmountRequestEffect(request: String?, onLaunched: () -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(request) {
+        if (request != null) {
+            storageSettingsIntentOf(context)?.let { intent ->
+                runCatching { context.startActivity(intent) }
+            }
+            onLaunched()
+        }
+    }
+}
+
+/**
+ * Строки полок съёмных носителей — первыми в списке.
+ *
+ * Их появление и исчезновение и есть ответ на «вставил карту». Томов может быть несколько (флешка
+ * с разделами), поэтому строка на каждый том. Вынесено ради предела длины функции detekt.
+ */
+private fun LazyListScope.removableShelfRows(
+    shelves: List<RemovableShelfUi>,
+    viewModel: CollectionsViewModel,
+    onOpenVolumeShelf: (String) -> Unit,
+) {
+    items(items = shelves, key = { shelf -> REMOVABLE_SHELF_KEY + shelf.uuid }) { card ->
+        CardShelfRow(
+            shelf = card,
+            onGrantAccess = { viewModel.onGrantCardAccess(card.uuid) },
+            // Полка тома — отдельный экран с кнопкой «назад»: глобальный фильтр библиотеки не
+            // трогаем, иначе из полки не вернуться к остальным книгам (правило 02.10.2026).
+            onOpen = { card.sourceId?.let(onOpenVolumeShelf) },
+            onUnmount = { viewModel.onUnmountCard(card.uuid) },
+        )
+    }
+}
 
 /**
  * Баннер ошибки на экране полок.
@@ -252,6 +311,9 @@ private fun ShelfRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Полоска показывается только когда обложки есть на самом деле: пустых мест на строке быть
+        // не должно (просьба Александра 02.10.2026). У книги без обложки серая заливка остаётся в
+        // своей плитке и на карточке, но строку полки она не занимает.
         if (collection.previewCovers.isNotEmpty()) {
             ShelfPreview(covers = collection.previewCovers)
         }
@@ -288,15 +350,18 @@ private fun ShelfPreview(covers: List<String>) {
         // Отступ слева — тот же, что у текста строки: без него мини-обложка прилипала к краю
         // экрана и висела вне самой строки (проверено на устройстве 28.09.2026).
         modifier = Modifier.padding(start = dimens.gutter, end = dimens.gutterSmall),
-        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall / 2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        covers.take(PREVIEW_COVERS).forEach { cover ->
+        covers.take(PREVIEW_COVERS).forEachIndexed { index, cover ->
             BookCover(
                 coverPath = cover,
                 title = "",
                 contentDescription = null,
-                modifier = Modifier.width(PREVIEW_COVER_WIDTH),
+                // Каждая следующая обложка наезжает на предыдущую на две трети ширины: шаг равен
+                // трети, поэтому видна только левая треть нижней (просьба Александра 02.10.2026).
+                modifier = Modifier
+                    .width(PREVIEW_COVER_WIDTH)
+                    .offset(x = -PREVIEW_COVER_WIDTH * (index / OVERLAP_DIVISOR)),
             )
         }
     }
@@ -415,11 +480,14 @@ private fun ColumnScope.CollectionsContent(
     listState: LazyListState,
     onOpenCollection: (String) -> Unit,
     onEditRules: (String) -> Unit,
+    onOpenVolumeShelf: (String) -> Unit,
 ) {
     val dimens = LocalEinkDimens.current
+    UnmountRequestEffect(state.cardUnmountRequest, viewModel::onUnmountLaunched)
+
     CollectionsErrorBanner(state = state, onRetry = viewModel::onRefresh)
 
-    if (state.collections.isEmpty() && state.presets.isEmpty() && state.removableShelf == null) {
+    if (state.collections.isEmpty() && state.presets.isEmpty() && state.removableShelves.isEmpty()) {
         EinkEmptyState(
             title = stringResource(R.string.collections_empty_title),
             message = stringResource(R.string.collections_empty_message),
@@ -429,13 +497,11 @@ private fun ColumnScope.CollectionsContent(
         )
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            // Полка носителя — первой: её появление и исчезновение и есть ответ на «вставил карту».
-            val card = state.removableShelf
-            if (card != null) {
-                item(key = REMOVABLE_SHELF_KEY) {
-                    CardShelfRow(shelf = card, onGrantAccess = viewModel::onGrantCardAccess)
-                }
-            }
+            removableShelfRows(
+                shelves = state.removableShelves,
+                viewModel = viewModel,
+                onOpenVolumeShelf = onOpenVolumeShelf,
+            )
 
             collectionShelfItems(
                 state = state,
@@ -445,9 +511,12 @@ private fun ColumnScope.CollectionsContent(
             )
 
             item(key = "save-filter") {
+                // Название уходит в базу готовым текстом (решение Александра 02.10.2026): при смене
+                // языка приложения уже созданная полка останется на прежнем языке.
+                val smartName = stringResource(R.string.collections_smart_default_name)
                 EinkButton(
                     text = stringResource(R.string.collections_save_filter),
-                    onClick = viewModel::onSaveCurrentFilter,
+                    onClick = { viewModel.onSaveCurrentFilter(smartName) },
                     enabled = state.canSaveCurrentFilter,
                     modifier = Modifier.padding(
                         horizontal = dimens.gutter,
@@ -464,11 +533,14 @@ private fun ColumnScope.CollectionsContent(
                     )
                 }
                 items(items = state.presets, key = { preset -> "preset:${preset.id}" }) { preset ->
+                    // Название пресета пишется в базу (решение Александра 02.10.2026): строку берём
+                    // здесь, до лямбды нажатия — внутри неё обращаться к ресурсам нельзя.
+                    val presetTitle = stringResource(preset.titleRes)
                     EinkListRow(
-                        title = stringResource(preset.titleRes),
+                        title = presetTitle,
                         subtitle = preset.hint.resolve(),
                         trailing = stringResource(R.string.collections_action_add),
-                        onClick = { viewModel.onAddPreset(preset.id) },
+                        onClick = { viewModel.onAddPreset(preset.id, presetTitle) },
                     )
                 }
             }

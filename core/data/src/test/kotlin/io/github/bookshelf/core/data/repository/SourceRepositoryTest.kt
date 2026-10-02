@@ -260,6 +260,8 @@ private class RecordingSafTreeReader : SafTreeReader {
     override suspend fun children(treeUri: String, parentDocumentId: String): AppResult<List<DocumentEntry>> =
         AppResult.failure(AppError.Unsupported("children не вызывается в тестах репозитория"))
 
+    override fun rootDocumentId(treeUri: String): String = "" 
+
     override suspend fun takePersistablePermission(
         treeUri: String,
         modeFlags: Int,

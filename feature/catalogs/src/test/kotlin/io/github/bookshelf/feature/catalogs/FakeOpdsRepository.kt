@@ -165,6 +165,11 @@ internal object FakeSourceRepository : SourceRepository {
     override suspend fun addSafSource(uri: String, displayName: String): AppResult<Source> =
         AppResult.failure(AppError.Unknown(message = "не нужно в тестах"))
 
+    override suspend fun addDirectPathSource(path: String, displayName: String): AppResult<Source> =
+
+        AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
+
+
     override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> =
         AppResult.failure(AppError.Unknown(message = "в этом тесте не используется"))
 

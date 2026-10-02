@@ -30,6 +30,16 @@ interface SourceRepository {
      */
     suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source>
 
+    /**
+     * Добавить источник по обычному пути файловой системы (вид `DIRECT_PATH`).
+     *
+     * Так заводится съёмный носитель, который прошивка опубликовала не полностью: SAF такого тома
+     * не видит (`/storage/<uuid>` не создан), а приложение с доступом ко всем файлам читает его по
+     * приватному пути (`/mnt/media_rw/<uuid>`). Разрешение не запрашивается — доступ уже есть;
+     * без него источник заводит [addSafSource] после выбора папки человеком.
+     */
+    suspend fun addDirectPathSource(path: String, displayName: String): AppResult<Source>
+
     /** Убрать источник из библиотеки (книги помечаются пропавшими, но не удаляются). */
     suspend fun removeSource(sourceId: String): AppResult<Unit>
 

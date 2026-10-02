@@ -42,24 +42,33 @@ class RemovableShelfRepositoryImpl @Inject constructor(
     private val clock: AppClock,
 ) : RemovableShelfRepository {
 
-    override fun observeShelf(): Flow<RemovableShelf?> =
+    /**
+     * Строка на каждый подключённый том.
+     *
+     * Носитель может быть разбит на несколько партиций (флешка с двумя разделами — обычное дело,
+     * проверено на устройстве 02.10.2026): каждая партиция монтируется своим томом со своим UUID,
+     * поэтому у каждой своя строка и свой счёт книг. Показывать только первый том значило бы
+     * потерять книги второго раздела.
+     */
+    override fun observeShelves(): Flow<List<RemovableShelf>> =
         combine(
             monitor.observe(),
             settings.settings,
             sourceDao.observeAll(),
         ) { volumes: List<RemovableVolume>, appSettings, allSources: List<SourceEntity> ->
-            val volume = volumes.firstOrNull() ?: return@combine null
-            if (!appSettings.library.showRemovableShelf) return@combine null
-            val source = allSources.firstOrNull { candidate ->
-                sourceBelongsToVolume(candidate.uri, volume.uuid)
+            if (!appSettings.library.showRemovableShelf) return@combine emptyList()
+            volumes.map { volume ->
+                val source = allSources.firstOrNull { candidate ->
+                    sourceBelongsToVolume(candidate.uri, volume.uuid)
+                }
+                RemovableShelf(
+                    volume = volume,
+                    sourceId = source?.id,
+                    // Считаются книги источника целиком: пропавшие (изъятый носитель) и так скрыты полкой.
+                    bookCount = source?.let { found -> bookDao.countBySource(found.id) } ?: 0,
+                    needsAccess = source == null,
+                )
             }
-            RemovableShelf(
-                volume = volume,
-                sourceId = source?.id,
-                // Считаются книги источника целиком: пропавшие (изъятый носитель) и так скрыты полкой.
-                bookCount = source?.let { found -> bookDao.countBySource(found.id) } ?: 0,
-                needsAccess = source == null,
-            )
         }
 
     override suspend fun ensureSource(volume: RemovableVolume): AppResult<Unit> {
@@ -70,8 +79,10 @@ class RemovableShelfRepositoryImpl @Inject constructor(
                 AppError.PermissionDenied(message = "Нужен доступ к съёмному носителю"),
             )
         }
-        return sources.addGrantedSource(
-            uri = volumeTreeUri(volume.uuid),
+        // Источник заводится по тому пути, по которому том реально читается: на исправной прошивке
+        // это `/storage/<uuid>`, на прошивке без публичной точки — `/mnt/media_rw/<uuid>`.
+        return sources.addDirectPathSource(
+            path = volume.path,
             displayName = displayNameOf(volume),
         ).map { }
     }

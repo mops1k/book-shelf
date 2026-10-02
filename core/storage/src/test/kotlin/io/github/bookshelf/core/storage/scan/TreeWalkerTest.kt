@@ -7,12 +7,16 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.testing.TestAppDispatchers
+import io.github.bookshelf.core.storage.saf.DirectPathTreeReader
+import io.github.bookshelf.core.storage.saf.DispatchingTreeReader
 import io.github.bookshelf.core.storage.saf.DocumentEntry
 import io.github.bookshelf.core.storage.saf.SafTreeReader
 import io.github.bookshelf.core.storage.saf.SourceKind
 import io.github.bookshelf.core.storage.saf.SourceRef
 import kotlinx.coroutines.test.runTest
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -24,6 +28,32 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [24])
 class TreeWalkerTest {
+
+    @get:Rule
+    val cards = TemporaryFolder()
+
+    /**
+     * Обход источника, который читается по обычному пути файловой системы.
+     *
+     * Так работает съёмный носитель, который прошивка не опубликовала в `/storage/<uuid>`
+     * (Bigme B6 Color, 02.10.2026): адрес источника — путь, и обходчик обязан дойти до книги.
+     */
+    @Test
+    fun walk_reads_a_filesystem_source_by_its_path() = runTest {
+        val card = cards.newFolder("card")
+        cards.newFolder("card", "Лем")
+        cards.newFile("card/Солярис.fb2")
+
+        val reader = DispatchingTreeReader(saf = FakeSafTreeReader(emptyMap()), direct = DirectPathTreeReader())
+        val found = walkToEnd(
+            reader = reader,
+            options = ScanOptions.DEFAULT,
+            ref = source(uri = card.absolutePath, kind = SourceKind.DIRECT_PATH),
+        )
+
+        assertThat(found.map { entry -> entry.displayName }).contains("Солярис.fb2")
+        assertThat(found.map { entry -> entry.documentId }).contains("Солярис.fb2")
+    }
 
     @Test
     fun walk_finds_books_in_nested_tree_across_resume() = runTest {
@@ -180,11 +210,13 @@ class TreeWalkerTest {
     private fun source(
         recursive: Boolean = true,
         excludeGlobs: List<String> = emptyList(),
+        uri: String = TREE_URI,
+        kind: SourceKind = SourceKind.SAF_TREE,
     ): SourceRef = SourceRef(
         id = "source-id",
-        treeUri = TREE_URI,
+        treeUri = uri,
         displayName = "Моя полка",
-        kind = SourceKind.SAF_TREE,
+        kind = kind,
         recursive = recursive,
         excludeGlobs = excludeGlobs,
     )
@@ -210,6 +242,10 @@ class TreeWalkerTest {
     private class FakeSafTreeReader(
         private val entries: Map<String, List<DocumentEntry>>,
     ) : SafTreeReader {
+
+        override fun rootDocumentId(treeUri: String): String =
+            DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
+
 
         val visited = mutableListOf<String>()
 

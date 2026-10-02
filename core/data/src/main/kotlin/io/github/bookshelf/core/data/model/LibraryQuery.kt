@@ -15,6 +15,14 @@ data class LibraryQuery(
     val grouping: Grouping = Grouping.NONE,
     val page: Int = 0,
     val pageSize: Int = PageRequest.DEFAULT_PAGE_SIZE,
+    /**
+     * Только книги с обложкой.
+     *
+     * Нужно полоске обложек на строке полки: без этого берутся первые книги, часть из них без
+     * обложки, и после отсева полоска остаётся пустой, хотя обложки на полке есть
+     * (просьба Александра 02.10.2026 — «взять первые 3 книги с обложками»).
+     */
+    val withCoverOnly: Boolean = false,
 )
 
 /**

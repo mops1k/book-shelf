@@ -51,6 +51,9 @@ class FakeSourceRepository(
     /** Адреса источников, зарегистрированных с уже имеющимся доступом (полка носителя). */
     val grantedSources: MutableList<String> = mutableListOf()
 
+    /** Источники по обычному пути файловой системы: так заводится съёмный носитель. */
+    val directSources: MutableList<String> = mutableListOf()
+
     override suspend fun addGrantedSource(uri: String, displayName: String): AppResult<Source> {
         grantedSources += uri
         return AppResult.success(
@@ -59,6 +62,18 @@ class FakeSourceRepository(
                 uri = uri,
                 displayName = displayName,
                 kind = SourceKind.SAF_TREE,
+            ),
+        )
+    }
+
+    override suspend fun addDirectPathSource(path: String, displayName: String): AppResult<Source> {
+        directSources += path
+        return AppResult.success(
+            Source(
+                id = "direct-${directSources.size}",
+                uri = path,
+                displayName = displayName,
+                kind = SourceKind.DIRECT_PATH,
             ),
         )
     }

@@ -83,14 +83,14 @@ class RemovableShelfRepositoryTest {
 
     @Test
     fun `no medium means no shelf`() = runBlocking<Unit> {
-        assertThat(repository.observeShelf().first()).isNull()
+        assertThat(repository.observeShelves().first()).isEmpty()
     }
 
     @Test
     fun `a medium without a source asks for access and counts nothing`() = runBlocking<Unit> {
         monitor.volumes.value = listOf(CARD)
 
-        val shelf = repository.observeShelf().first()
+        val shelf = repository.observeShelves().first().single()
 
         assertThat(shelf?.volume?.uuid).isEqualTo(CARD.uuid)
         assertThat(shelf?.sourceId).isNull()
@@ -106,11 +106,11 @@ class RemovableShelfRepositoryTest {
         givenBook("book-1", "card-source")
         givenBook("book-2", "card-source")
 
-        val shelf = repository.observeShelf().first()
+        val shelf = repository.observeShelves().first().single()
 
-        assertThat(shelf?.sourceId).isEqualTo("card-source")
-        assertThat(shelf?.needsAccess).isFalse()
-        assertThat(shelf?.bookCount).isEqualTo(2)
+        assertThat(shelf.sourceId).isEqualTo("card-source")
+        assertThat(shelf.needsAccess).isFalse()
+        assertThat(shelf.bookCount).isEqualTo(2)
     }
 
     @Test
@@ -119,16 +119,35 @@ class RemovableShelfRepositoryTest {
         givenBook("book-1", "card-source")
         settings.library = LibrarySettings(showRemovableShelf = false)
 
-        assertThat(repository.observeShelf().first()).isNull()
+        assertThat(repository.observeShelves().first()).isEmpty()
     }
 
     @Test
-    fun `with all files access the source is registered without asking`() = runBlocking<Unit> {
+    fun `every partition of the medium gets its own shelf`() = runBlocking<Unit> {
+        // Флешка с двумя разделами: у каждой партиции свой UUID, свой источник и свой счёт книг.
+        val second = RemovableVolume(uuid = "0436-C297", label = "disk", path = "/mnt/media_rw/0436-C297")
+        monitor.volumes.value = listOf(CARD, second)
+        givenSourceOfCard()
+        givenBook("book-1", "card-source")
+
+        val shelves = repository.observeShelves().first()
+
+        assertThat(shelves.map { shelf -> shelf.volume.uuid }).containsExactly(CARD.uuid, second.uuid).inOrder()
+        assertThat(shelves.first { shelf -> shelf.volume.uuid == CARD.uuid }.bookCount).isEqualTo(1)
+        // У второго тома источника ещё нет — строка честно просит доступ.
+        assertThat(shelves.first { shelf -> shelf.volume.uuid == second.uuid }.needsAccess).isTrue()
+    }
+
+    @Test
+    fun `with all files access the source is registered by the path the volume is read by`() = runBlocking<Unit> {
         val result = repository.ensureSource(CARD)
 
         assertThat(result).isInstanceOf(AppResult.Success::class.java)
         val source = database.sourceDao().observeAll().first().single()
-        assertThat(source.uri).isEqualTo(volumeTreeUri(CARD.uuid))
+        // Путь тома, а не придуманный SAF-адрес: на прошивке без публичной точки том читается
+        // только по приватному пути (проверено на Bigme B6 Color 02.10.2026).
+        assertThat(source.uri).isEqualTo(CARD.path)
+        assertThat(source.kind.name).isEqualTo("DIRECT_PATH")
         assertThat(database.sourceDao().countAll()).isEqualTo(1)
     }
 
@@ -265,6 +284,8 @@ class RemovableShelfRepositoryTest {
 
     /** SAF-порт в тестах полки не читает дерево: проверяется регистрация источника. */
     private class FakeSafTreeReader : SafTreeReader {
+
+        override fun rootDocumentId(treeUri: String): String = ""
 
         /** Ответ на [takePersistablePermission]: по умолчанию право берётся. */
         var persistable: AppResult<Unit> = AppResult.success(Unit)

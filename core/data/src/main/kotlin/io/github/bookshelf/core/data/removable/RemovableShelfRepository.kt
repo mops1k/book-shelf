@@ -5,7 +5,7 @@ import io.github.bookshelf.core.storage.volume.RemovableVolume
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Полка съёмного носителя: карта памяти или флешка (требование Александра 01.10.2026).
+ * Полки съёмных носителей: карта памяти или флешка (требование Александра 01.10.2026).
  *
  * Поведение: носитель с книгами подключили — в полках появилась полка носителя, книги видны и в
  * общей полке; носитель вынули — полка исчезла и книг с него не видно; вставили снова — всё вернулось.
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
 interface RemovableShelfRepository {
 
     /** Полка носителя или `null`, если носителя нет либо полка выключена настройкой. */
-    fun observeShelf(): Flow<RemovableShelf?>
+    fun observeShelves(): Flow<List<RemovableShelf>>
 
     /**
      * Завести источник носителя, если доступа достаточно.

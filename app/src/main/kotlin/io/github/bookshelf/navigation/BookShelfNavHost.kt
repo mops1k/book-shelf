@@ -34,6 +34,8 @@ import io.github.bookshelf.feature.scan.scanScreen
 import io.github.bookshelf.feature.search.SearchRoute
 import io.github.bookshelf.feature.search.searchScreen
 import io.github.bookshelf.feature.collections.CollectionContentRoute
+import io.github.bookshelf.feature.collections.VolumeShelfRoute
+import io.github.bookshelf.feature.collections.volumeShelfScreen
 import io.github.bookshelf.feature.collections.collectionContentScreen
 import io.github.bookshelf.feature.settings.SettingsCategoryRoute
 import io.github.bookshelf.feature.settings.SettingsRoute
@@ -124,6 +126,9 @@ fun BookShelfNavHost(
             // Раньше переход вёл на тот же список полок: открыть полку и посмотреть, что
             // в ней, было негде. Теперь это отдельный маршрут.
             onOpenCollection = { id -> navController.navigate(CollectionContentRoute.createRoute(id)) },
+            onOpenVolumeShelf = { sourceId ->
+                navController.navigate(VolumeShelfRoute.createRoute(sourceId))
+            },
             onEditRules = { id -> navController.navigate(ShelfRulesRoute.createRoute(id)) },
         )
 
@@ -133,10 +138,7 @@ fun BookShelfNavHost(
             onSaved = { navController.popBackStack() },
         )
 
-        collectionContentScreen(
-            onBack = { navController.popBackStack() },
-            onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
-        )
+        shelfScreens(navController)
 
         searchScreen(
             onBack = { navController.popBackStack() },
@@ -232,4 +234,24 @@ private fun rememberExitAction(): () -> Unit {
     return remember(context) {
         { (context as? android.app.Activity)?.finish() }
     }
+}
+
+/**
+ * Экраны полок: содержимое полки и полка съёмного носителя.
+ *
+ * Любая полка — отдельный экран с кнопкой «назад» (правило Александра 02.10.2026), и шаги навигации
+ * у них одинаковые: «назад» к списку полок и карточка книги. Вынесено ради предела длины функции.
+ */
+private fun NavGraphBuilder.shelfScreens(navController: NavHostController) {
+    val openBook: (String) -> Unit = { bookId ->
+        navController.navigate(BookDetailsRoute.createRoute(bookId))
+    }
+    collectionContentScreen(
+        onBack = { navController.popBackStack() },
+        onOpenBook = openBook,
+    )
+    volumeShelfScreen(
+        onBack = { navController.popBackStack() },
+        onOpenBook = openBook,
+    )
 }
