@@ -6,8 +6,8 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.Parcel
-import android.util.Log
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.log.AppLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -36,6 +36,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class BinderFbReaderTransport(
     private val context: Context,
     private val dispatchers: AppDispatchers,
+    private val logger: AppLogger,
 ) : FbReaderTransport {
 
     private var binder: IBinder? = null
@@ -75,7 +76,7 @@ class BinderFbReaderTransport(
             release()
             return@withContext false
         }
-        Log.i(TAG, "API читалки подключён: ${binder?.interfaceDescriptor}")
+        logger.i(TAG, "API читалки подключён: ${binder?.interfaceDescriptor}")
         true
     }
 
@@ -88,7 +89,7 @@ class BinderFbReaderTransport(
         runCatching { readValue(service, code) }
             .onFailure { error ->
                 // Отвалившаяся привязка — не повод падать: следующая синхронизация подключится заново.
-                Log.i(TAG, "запрос $code не выполнен: ${error.javaClass.simpleName}: ${error.message}")
+                logger.i(TAG, "запрос $code не выполнен: ${error.javaClass.simpleName}: ${error.message}")
                 release()
             }
             .getOrNull()
@@ -115,7 +116,7 @@ class BinderFbReaderTransport(
                 )
 
                 else -> {
-                    Log.i(TAG, "код $code вернул неизвестный тип $type")
+                    logger.i(TAG, "код $code вернул неизвестный тип $type")
                     FbReaderValue.Unsupported
                 }
             }

@@ -3,6 +3,7 @@ package io.github.bookshelf.core.readerlink.discovery
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.bookshelf.core.readerlink.mime.MimeTypes
@@ -72,50 +73,75 @@ class AndroidReaderDiscovery @Inject constructor(
             }
         }
 
-        // Собираем activity только для проверенных читалок. Посторонние приложения, тоже
-        // объявившие книжный MIME (браузеры, галереи, файловые менеджеры), сюда не попадают
-        // вообще: пользователь выбирает читалку, а не «любое приложение, которое подошло
-        // под запрос системы». Длинный список с браузерами был бесполезен и ошибочен.
-        val byPackage = linkedMapOf<String, InstalledReaderBuilder>()
-        MimeTypes.knownMimeTypes().forEach { mime ->
-            packageManager.queryIntentActivities(probeFor(mime), 0).forEach { info ->
+        val found = linkedMapOf<String, InstalledReaderBuilder>()
+        MimeTypes.probeMimeTypes().forEach { mime ->
+            // Флаг `GET_RESOLVED_FILTER` обязателен: без него `ResolveInfo.filter` пуст, и
+            // «объявленные книжные форматы» получаются пустыми — читалка вне списка известных
+            // снова пропадала (проверено на устройстве: XReader исчез, остался только FBReader).
+            packageManager.queryIntentActivities(probeFor(mime), PackageManager.GET_RESOLVED_FILTER)
+                .forEach { info ->
                 val activity = info.activityInfo
                 if (activity.packageName == ownPackage) return@forEach
-                if (activity.packageName !in FbReaderPreset.KNOWN_READER_PACKAGES) return@forEach
-                byPackage.getOrPut(activity.packageName) { InstalledReaderBuilder(activity.packageName) }
-                    .also { builder -> builder.mimes.add(mime) }
+                // Решение принимается по ОБЪЯВЛЕННЫМ типам (`info.filter`), а не по тому, чем
+                // приложение поймало запрос: общий шаблон ловит всё, и читалкой стало бы всё —
+                // браузер, «Фото», словарь и редактор документов.
+                val declaredBook = declaredBookMimeTypes(info.filter)
+                if (readerRankOf(activity.packageName, declaredBook) == ReaderRank.OTHER) return@forEach
+                // В профиль пишем ВСЕ объявленные типы, а не только книжные: иначе читалка,
+                // умеющая PDF, не попала бы в список «Документы».
+                val declared = declaredMimeTypes(info.filter)
+                found.getOrPut(activity.packageName) { InstalledReaderBuilder(activity.packageName) }
+                    .also { builder -> builder.mimes.addAll(declared) }
                     .also { builder -> builder.activities.putIfAbsent(activity.name, true) }
             }
         }
-
-        return byPackage.values.mapNotNull { builder ->
-            val info = runCatching { packageManager.getApplicationInfo(builder.packageName, 0) }
-                .getOrNull()
-                ?: return@mapNotNull null
-            val label = runCatching { info.loadLabel(packageManager).toString() }
-                .getOrNull()
-                ?.takeIf { it.isNotBlank() }
-                ?: return@mapNotNull null
-            InstalledReader(
-                profile = ReaderProfile(
-                    id = builder.packageName,
-                    name = label,
-                    packageName = builder.packageName,
-                    // Имя activity, а НЕ ApplicationInfo.name: класс Application нельзя
-                    // поставить целью intent. Раньше сюда попадало имя Application-класса,
-                    // и запуск уходил в «не найдено приложение», хотя читалка была установлена.
-                    activityName = builder.activities.keys.first(),
-                    mimeTypes = builder.mimes.toList(),
-                    supportsContentUri = true,
-                    extrasJson = null,
-                    isBuiltIn = false,
-                ),
-                resolveInfoLike = builder.activities.keys.first(),
-            )
-            // Порядок из PackageManager не переносим: выбор «первой подходящей» без ранга
-            // зависел бы от версии Android. Впереди — текущий FBReader, за ним старый.
-        }.sortedBy { FbReaderPreset.rankOf(it.profile.packageName) }
+        return found.values.toReaders(packageManager)
     }
+
+    /**
+     * Профили из найденных приложений: человеческое имя, activity и порядок.
+     *
+     * Вынесено из [installedReaders] отдельной функцией: сборка списка и сам обход —
+     * разные заботы, а вместе они упирались в порог `CyclomaticComplexMethod`.
+     */
+    private fun Collection<InstalledReaderBuilder>.toReaders(
+        packageManager: PackageManager,
+    ): List<InstalledReader> = mapNotNull { builder ->
+        val info = runCatching { packageManager.getApplicationInfo(builder.packageName, 0) }
+            .getOrNull()
+            ?: return@mapNotNull null
+        val label = runCatching { info.loadLabel(packageManager).toString() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: return@mapNotNull null
+        InstalledReader(
+            profile = ReaderProfile(
+                id = builder.packageName,
+                name = label,
+                packageName = builder.packageName,
+                // Имя activity, а НЕ ApplicationInfo.name: класс Application нельзя
+                // поставить целью intent. Раньше сюда попадало имя Application-класса,
+                // и запуск уходил в «не найдено приложение», хотя читалка была установлена.
+                activityName = builder.activities.keys.first(),
+                mimeTypes = builder.mimes.toList(),
+                supportsContentUri = true,
+                extrasJson = null,
+                isBuiltIn = false,
+            ),
+            resolveInfoLike = builder.activities.keys.first(),
+        )
+    // Порядок из PackageManager не переносим: выбор «первой подходящей» без ранга зависел бы
+    // от версии Android. Впереди — известные читалки (в порядке предпочтения), за ними те,
+    // кто объявил книжные форматы.
+    }.sortedWith(
+        compareBy<InstalledReader> { reader ->
+            when (readerRankOf(reader.profile.packageName, reader.profile.mimeTypes)) {
+                ReaderRank.KNOWN -> FbReaderPreset.rankOf(reader.profile.packageName)
+                ReaderRank.BOOK_FORMAT -> KNOWN_READERS_WEIGHT
+                ReaderRank.OTHER -> OTHER_APPS_WEIGHT
+            }
+        }.thenBy { reader -> reader.profile.name.lowercase() },
+    )
 
     private companion object {
         /**
@@ -126,6 +152,12 @@ class AndroidReaderDiscovery @Inject constructor(
 
         /** Расширение, когда у MIME нет своего: нужно для фильтров по `pathPattern`. */
         const val PROBE_EXTENSION = "book"
+
+        /** Вес «читалка, найденная по книжному формату»: после всех известных, до остальных. */
+        const val KNOWN_READERS_WEIGHT = 1_000
+
+        /** Вес остальных приложений: они в конце списка, но человек их видит и может выбрать. */
+        const val OTHER_APPS_WEIGHT = 2_000
     }
 
     /** Накопитель находок по одному пакету, пока листы запросов идут по MIME. */

@@ -35,6 +35,8 @@ import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
 import io.github.bookshelf.core.fb2opt.Fb2Optimizer
+import io.github.bookshelf.core.data.repository.impl.ReaderProfileRepositoryImpl
+import io.github.bookshelf.core.readerlink.profile.ReaderProfileRepository
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
@@ -129,6 +131,11 @@ abstract class DataModule {
     @Binds
     abstract fun bindReaderRepository(impl: ReaderRepositoryImpl): ReaderRepository
 
+
+    @Binds
+    abstract fun bindReaderProfileRepository(
+        impl: ReaderProfileRepositoryImpl,
+    ): ReaderProfileRepository
     @Binds
     abstract fun bindReadingProgressRepository(impl: ReadingProgressRepositoryImpl): ReadingProgressRepository
 

@@ -18,6 +18,9 @@ interface ReaderRepository {
     fun installedReaders(): Flow<List<ReaderProfileSummary>>
 
     /** Id профиля по умолчанию для формата (`fb2`, `epub`, …) или `null`. */
+    /** Все привязки «формат → читалка»: экран настроек показывает их одним списком. */
+    fun readerDefaults(): Flow<Map<String, String>>
+
     fun defaultForFormat(format: String): Flow<String?>
 
     /** Назначить читалку по умолчанию для формата; `null` — «спрашивать всегда». */

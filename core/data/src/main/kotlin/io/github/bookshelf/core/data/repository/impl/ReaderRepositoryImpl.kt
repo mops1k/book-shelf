@@ -19,12 +19,15 @@ import io.github.bookshelf.core.database.entity.FormatDefaultEntity
 import io.github.bookshelf.core.database.entity.ReaderProfileEntity
 import io.github.bookshelf.core.readerlink.discovery.ReaderDiscovery
 import io.github.bookshelf.core.readerlink.discovery.InstalledReader
+import io.github.bookshelf.core.readerlink.discovery.ReaderRank
+import io.github.bookshelf.core.readerlink.discovery.readerRankOf
 import io.github.bookshelf.core.readerlink.launch.LaunchRequest
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
 import io.github.bookshelf.core.readerlink.mime.MimeTypes
 import io.github.bookshelf.core.readerlink.profile.FbReaderPreset
 import io.github.bookshelf.core.readerlink.profile.ReaderProfile
+import io.github.bookshelf.core.readerlink.profile.supportedExtensions
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -78,6 +81,7 @@ class ReaderRepositoryImpl @Inject constructor(
                 enabled = true,
                 isBuiltIn = found.profile.isBuiltIn,
                 priority = 0,
+                supportedExtensions = found.profile.supportedExtensions(),
             )
         }).sortedWith(
             compareByDescending<ReaderProfileSummary> { it.priority }.thenBy { it.name },
@@ -88,17 +92,32 @@ class ReaderRepositoryImpl @Inject constructor(
     override fun defaultForFormat(format: String): Flow<String?> =
         formatDefaultDao.observeAll().map { entries -> entries.firstOrNull { it.format == format }?.profileId }
 
+    /** Все привязки «формат → читалка» одним потоком: экран показывает их списком. */
+    override fun readerDefaults(): Flow<Map<String, String>> =
+        formatDefaultDao.observeAll().map { entries -> entries.associate { it.format to it.profileId } }
+
     /** Привязка формата к читалке пишется одним upsert; `null` снимает привязку строкой. */
     override suspend fun setDefault(format: String, profileId: String?): AppResult<Unit> =
         appRunCatching {
             if (profileId == null) {
                 formatDefaultDao.deleteByFormat(format)
             } else {
+                // Выбранную читалку сохраняем В БАЗУ, а не только в привязку к формату: найденные
+                // discovery профили в таблице не лежали, и `resolveProfile` не находил выбор по id —
+                // книга открывалась в первой из зашитого списка (дефект Александра, 01.10.2026).
+                rememberProfile(profileId)
                 formatDefaultDao.upsert(
                     FormatDefaultEntity(format = format, profileId = profileId),
                 )
             }
         }
+
+    /** Сохранить профиль найденной читалки, если его ещё нет в базе. */
+    private suspend fun rememberProfile(profileId: String) {
+        if (profileDao.getById(profileId) != null) return
+        val profile = discovered(profileId) ?: return
+        profileDao.upsertAll(listOf(profile.toEntity()))
+    }
 
     /**
      * Запуск книги.
@@ -153,6 +172,8 @@ class ReaderRepositoryImpl @Inject constructor(
         documentUri: String,
         request: LaunchRequest,
     ): AppResult<Unit> {
+        // Расширение книги обязательно: копия без него читалке ничего не говорит, и она
+        // открывает свою последнюю книгу вместо выбранной (отчёт Александра 01.10.2026).
         val exported = export.exportedReaderUri(documentUri, request.extension)
         val exportedUri = exported.getOrNull()
             ?: return AppResult.failure(
@@ -209,41 +230,45 @@ class ReaderRepositoryImpl @Inject constructor(
      */
     private suspend fun resolveProfile(profileId: String?, extension: String): ReaderProfile? {
         if (profileId != null) {
-            profileDao.getById(profileId)?.let { return it.toProfile() }
+            profileById(profileId)?.let { return it }
         }
         formatDefaultDao.getByFormat(extension)?.profileId?.let { defaultId ->
-            profileDao.getById(defaultId)?.let { return it.toProfile() }
+            profileById(defaultId)?.let { return it }
         }
         val installed = discovery.installedReaders()
-        val byPackage = installed.associate { it.profile.packageName to it.profile }
-        // Сохранённые пользователем профили — его явный выбор, им верят.
-        val stored = profileDao.observeEnabled().first()
-            .mapNotNull { byPackage[it.packageName] }
-        if (stored.isNotEmpty()) {
-            return stored.minByOrNull { FbReaderPreset.rankOf(it.packageName) }
-        }
-        // Ничего не выбрано: берём только проверенную читалку (ADR-005). Все прочие найденные
-        // пакеты игнорируются намеренно — иначе книга ушла бы в приложение, которое к книгам
-        // отношения не имеет.
+        // Сохранённые пользователем профили — его явный выбор, им верят. Порядок берём из
+        // discovery: он уже отсортирован «известные читалки → с книжными форматами → остальные».
+        val storedPackages = profileDao.observeEnabled().first().map { it.packageName }.toSet()
+        installed.firstOrNull { it.profile.packageName in storedPackages }?.let { return it.profile }
+        // Ничего не выбрано: берём лучшую ЧИТАЛКУ. Приложения, которые лишь подошли под запрос
+        // (умеют только pdf или text/plain), автоматически не выбираются: молча открыть книгу
+        // в просмотрщике PDF хуже, чем попросить человека выбрать читалку в настройках.
         return installed
-            .map { it.profile }
-            .minByOrNull { FbReaderPreset.rankOf(it.packageName) }
+            .firstOrNull { found ->
+                readerRankOf(found.profile.packageName, found.profile.mimeTypes) != ReaderRank.OTHER
+            }
+            ?.profile
     }
-}
 
-/** Профиль из БД в доменную модель; MIME хранятся строкой и делятся разделителем. */
-private fun ReaderProfileEntity.toProfile(): ReaderProfile = ReaderProfile(
-    id = id,
-    name = name,
-    packageName = packageName,
-    activityName = activityName,
-    mimeTypes = mimeTypes.split(MIME_SEPARATOR).filter { it.isNotBlank() },
-    supportsContentUri = supportsContentUri,
-    extrasJson = extrasJson,
-    isBuiltIn = isBuiltIn,
-    enabled = enabled,
-    priority = priority,
-)
+    /**
+     * Профиль по идентификатору: сначала в базе, затем среди найденных читалок.
+     *
+     * Найденные читалки в базе не лежат, пока человек их не выбрал, но id у них стабильный
+     * (имя пакета) — по нему профиль и находится.
+     */
+    private suspend fun profileById(profileId: String): ReaderProfile? {
+        profileDao.getById(profileId)?.let { return it.toProfile() }
+        return discovered(profileId)
+    }
+
+    /** Найденная читалка по id или имени пакета. */
+    private suspend fun discovered(profileId: String): ReaderProfile? =
+        discovery.installedReaders()
+            .firstOrNull { found ->
+                found.profile.id == profileId || found.profile.packageName == profileId
+            }
+            ?.profile
+}
 
 private fun ReaderProfileEntity.toSummary(): ReaderProfileSummary = ReaderProfileSummary(
     id = id,
@@ -252,7 +277,8 @@ private fun ReaderProfileEntity.toSummary(): ReaderProfileSummary = ReaderProfil
     enabled = enabled,
     isBuiltIn = isBuiltIn,
     priority = priority,
+    // Форматы считаем и для сохранённых профилей: объявленные типы лежат в самой записи, а без
+    // них у выбранной читалки пропадал список форматов (дефект, найденный на устройстве).
+    supportedExtensions = toProfile().supportedExtensions(),
 )
 
-/** Разделитель списка MIME в строковом поле: запятая безопасна, так как MIME её не содержит. */
-private const val MIME_SEPARATOR = ","

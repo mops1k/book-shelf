@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.readerlink.fbreader.BinderFbReaderTransport
 import io.github.bookshelf.core.readerlink.fbreader.DefaultFbReaderApi
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderAdapter
@@ -20,8 +21,6 @@ import io.github.bookshelf.core.readerlink.fbreader.DefaultFbReaderConnection
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderConnection
 import io.github.bookshelf.core.readerlink.launch.DefaultReaderLauncher
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
-import io.github.bookshelf.core.readerlink.profile.DefaultReaderProfileRepository
-import io.github.bookshelf.core.readerlink.profile.ReaderProfileRepository
 import io.github.bookshelf.core.readerlink.resolve.DefaultReaderResolver
 import io.github.bookshelf.core.readerlink.resolve.ReaderResolver
 
@@ -36,11 +35,6 @@ import io.github.bookshelf.core.readerlink.resolve.ReaderResolver
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class ReaderLinkModule {
-
-    @Binds
-    abstract fun bindReaderProfileRepository(
-        impl: DefaultReaderProfileRepository,
-    ): ReaderProfileRepository
 
     @Binds
     abstract fun bindReaderDiscovery(
@@ -70,7 +64,8 @@ internal abstract class ReaderLinkModule {
         fun provideFbReaderApi(
             @ApplicationContext context: Context,
             dispatchers: AppDispatchers,
-        ): FbReaderApi = DefaultFbReaderApi(BinderFbReaderTransport(context, dispatchers))
+            logger: AppLogger,
+        ): FbReaderApi = DefaultFbReaderApi(BinderFbReaderTransport(context, dispatchers, logger))
 
         /** Доменный источник прогресса: считает процент по данным читалки. */
         @Provides

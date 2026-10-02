@@ -1,5 +1,7 @@
 package io.github.bookshelf.core.readerlink.profile
 
+import io.github.bookshelf.core.readerlink.mime.MimeTypes
+
 import kotlinx.serialization.Serializable
 
 /**
@@ -38,3 +40,19 @@ data class ReaderProfile(
     val enabled: Boolean = true,
     val priority: Int = 0,
 )
+
+/**
+ * Умеет ли читалка открыть формат [extension].
+ *
+ * Сравниваются ОБЪЯВЛЕННЫЕ типы (`MimeTypes.declaredMimeTypesFor`), а не тот, который мы
+ * отправляем: для FB2 отправляется `application/octet-stream`, и по нему «умеет» любое
+ * приложение — включая галерею и словарь.
+ */
+fun ReaderProfile.supportsExtension(extension: String): Boolean {
+    val declared = MimeTypes.declaredMimeTypesFor(extension)
+    return mimeTypes.any { mime -> mime.trim().lowercase() in declared }
+}
+
+/** Форматы, которые читалка умеет открывать: расширения, чьи объявленные типы она заявила. */
+fun ReaderProfile.supportedExtensions(): Set<String> =
+    MimeTypes.knownExtensions().filterTo(mutableSetOf()) { extension -> supportsExtension(extension) }
