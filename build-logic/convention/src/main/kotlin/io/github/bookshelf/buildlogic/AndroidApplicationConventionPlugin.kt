@@ -31,8 +31,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             defaultConfig {
                 applicationId = APPLICATION_ID
                 targetSdk = TARGET_SDK
-                versionCode = libVersion("appVersionCode").toInt()
-                versionName = libVersion("appVersionName")
+                versionCode = appVersionCode()
+                versionName = appVersionName()
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 vectorDrawables.useSupportLibrary = true
             }
@@ -71,6 +71,20 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 // решение зависит от площадки публикации (открытый вопрос № 5 в docs/decisions.md).
             }
 
+            // Подпись релиза: локально ключ из `keystore.properties`, в CI — из переменных
+            // окружения. Ключа нет — конфигурация остаётся пустой и не подключается (см.
+            // ReleaseSigning.kt): молча выпустить неподписанный релиз нельзя, это ловит workflow.
+            signingConfigs {
+                create(RELEASE_SIGNING_CONFIG) {
+                    releaseSigningKey()?.let { key ->
+                        storeFile = key.storeFile
+                        storePassword = key.storePassword
+                        keyAlias = key.keyAlias
+                        keyPassword = key.keyPassword
+                    }
+                }
+            }
+
             buildTypes {
                 getByName("debug") {
                     applicationIdSuffix = ".debug"
@@ -84,8 +98,11 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         getDefaultProguardFile("proguard-android-optimize.txt"),
                         "proguard-rules.pro",
                     )
-                    // Подпись — в CI через переменные окружения, ключи в репозиторий не попадают.
-                    // TODO(Sprint 9): signingConfig из keystore.properties / env для релизных сборок.
+                    // Подпись подключается только когда ключ есть (ReleaseSigning.kt): иначе
+                    // release собирается неподписанным и годится лишь как артефакт проверки.
+                    if (releaseSigningKey() != null) {
+                        signingConfig = signingConfigs.getByName(RELEASE_SIGNING_CONFIG)
+                    }
                 }
             }
         }
@@ -116,5 +133,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
     private companion object {
         const val APPLICATION_ID = "io.github.bookshelf"
         const val STORE_FLAVOR_DIMENSION = "store"
+
+        /** Имя конфигурации подписи релиза: `signingConfigs.release`. */
+        const val RELEASE_SIGNING_CONFIG = "release"
     }
 }

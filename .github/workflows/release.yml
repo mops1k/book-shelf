@@ -1,0 +1,212 @@
+name: Release
+
+# Релиз собирается вручную или по тегу `v*` и публикуется на GitHub вместе с release-APK.
+#
+# Debug-сборки в релиз не попадают: собираются только `assemble<Flavor>Release`, а подпись
+# проверяется явно (`apksigner verify`) — неподписанный APK установить нельзя, поэтому отсутствие
+# ключа останавливает релиз, а не выпускает артефакт, который никому не поставить.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия релиза: 1.0.0 или v1.0.0. Пусто — из gradle/libs.versions.toml'
+        required: false
+        default: ''
+      version_code:
+        description: 'versionCode. Пусто — из gradle/libs.versions.toml'
+        required: false
+        default: ''
+      draft:
+        description: 'Черновик: собрать и приложить, но не публиковать сразу'
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+# Публикация релиза пишет в репозиторий (тег, релиз, файлы).
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Тот же гейт, что в CI (docs/tdd.md §9): релиз не собирается на красных тестах.
+  gate:
+    name: Гейт (тесты и detekt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit-тесты всех модулей
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: detekt (maxIssues = 0)
+        run: ./gradlew detekt
+
+  publish:
+    name: Сборка и публикация
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `--generate-notes` собирает список изменений по истории и тегам.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Версия релиза
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          version="$INPUT_VERSION"
+          # Тег `v1.0.1` — уже готовое решение о версии, вводить её второй раз не нужно.
+          if [ "$EVENT_NAME" = "push" ] && [ -z "$version" ]; then
+            version="$REF_NAME"
+          fi
+          version="${version#v}"
+          if [ -z "$version" ]; then
+            version="$(sed -nE 's/^appVersionName *= *"([^"]+)".*/\1/p' gradle/libs.versions.toml | head -1)"
+          fi
+
+          code="$INPUT_VERSION_CODE"
+          if [ -z "$code" ]; then
+            code="$(sed -nE 's/^appVersionCode *= *"([^"]+)".*/\1/p' gradle/libs.versions.toml | head -1)"
+          fi
+
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+            echo "::error::Версия '$version' не похожа на X.Y.Z. Задайте её входными или в gradle/libs.versions.toml."
+            exit 1
+          fi
+          # Первая публикуемая версия — 1.0.0: до неё сборки были превью, и релиз с номером меньше
+          # сбивал бы с толку всех, кто обновляется.
+          if [ "${version%%.*}" -lt 1 ]; then
+            echo "::error::Версия $version ниже 1.0.0 — релизы начинаются с 1.0.0."
+            exit 1
+          fi
+
+          echo "name=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Релиз: версия $version, versionCode $code"
+
+      - name: Ключ подписи из секретов
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BOOKSHELF_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BOOKSHELF_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BOOKSHELF_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BOOKSHELF_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing BOOKSHELF_KEYSTORE_BASE64"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing BOOKSHELF_KEYSTORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing BOOKSHELF_KEY_ALIAS"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing BOOKSHELF_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы секреты:$missing. Без ключа релиз не подписать — см. README, раздел «Релиз»."
+            exit 1
+          fi
+
+          keystore="$RUNNER_TEMP/bookshelf-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "BOOKSHELF_KEYSTORE_FILE=$keystore"
+            echo "BOOKSHELF_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "BOOKSHELF_KEY_ALIAS=$KEY_ALIAS"
+            echo "BOOKSHELF_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Release-APK (full и fdroid)
+        run: >
+          ./gradlew
+          :app:assembleFullRelease
+          :app:assembleFdroidRelease
+          -PversionName=${{ steps.version.outputs.name }}
+          -PversionCode=${{ steps.version.outputs.code }}
+          --stacktrace
+
+      - name: Проверить, что APK подписаны и это не debug
+        run: |
+          set -euo pipefail
+
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          build_tools="$(ls -d "$sdk"/build-tools/* | sort -V | tail -1)"
+          apksigner="$build_tools/apksigner"
+          aapt2="$build_tools/aapt2"
+
+          for apk in \
+            app/build/outputs/apk/full/release/app-full-release.apk \
+            app/build/outputs/apk/fdroid/release/app-fdroid-release.apk; do
+            if [ ! -f "$apk" ]; then
+              echo "::error::Нет файла $apk — релизная сборка не собралась."
+              exit 1
+            fi
+            "$apksigner" verify "$apk"
+            badging="$("$aapt2" dump badging "$apk" | head -1)"
+            echo "$apk: $badging"
+            # Debug-пакет носит суффикс `.debug`, а версия — суффикс `-debug`: проверяем и то, и то.
+            printf '%s' "$badging" | grep -q "name='io.github.bookshelf'" \
+              || { echo "::error::$apk собран не как релиз."; exit 1; }
+            printf '%s' "$badging" | grep -q "versionName='${{ steps.version.outputs.name }}'" \
+              || { echo "::error::$apk собран с другой версией."; exit 1; }
+          done
+
+      - name: Собрать файлы релиза
+        run: |
+          set -euo pipefail
+
+          version="${{ steps.version.outputs.name }}"
+          mkdir -p dist
+          cp app/build/outputs/apk/full/release/app-full-release.apk "dist/BookShelf-$version-full.apk"
+          cp app/build/outputs/apk/fdroid/release/app-fdroid-release.apk "dist/BookShelf-$version-fdroid.apk"
+          ls -la dist
+
+      - name: Опубликовать релиз
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.version.outputs.tag }}"
+          version="${{ steps.version.outputs.name }}"
+          draft_flag=""
+          if [ "$DRAFT" = "true" ]; then
+            draft_flag="--draft"
+          fi
+
+          # Повторный запуск на том же теге не должен падать: файлы просто заменяются.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.apk --clobber
+          else
+            # shellcheck disable=SC2086
+            gh release create "$tag" dist/*.apk \
+              --title "BookShelf $version" \
+              --generate-notes \
+              $draft_flag
+          fi
+
+          gh release view "$tag" --json url --jq '"Релиз: " + .url'

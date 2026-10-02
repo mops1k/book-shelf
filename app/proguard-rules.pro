@@ -46,3 +46,10 @@
 # Сообщения об ошибках разбора должны оставаться читаемыми в отчёте о скане.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# --- slf4j без привязки (junrar в flavor full) --------------------------------
+# junrar ходит в логи через slf4j-api, а реализации-привязки в сборке нет: `StaticLoggerBinder`
+# — необязательный класс, который ищется рефлексией и отсутствует штатно. R8 считает его
+# пропавшим и роняет релизную сборку `full` («Missing class org.slf4j.impl.StaticLoggerBinder»,
+# проверено 02.10.2026), хотя пропажи нет: код рассчитан на работу без привязки.
+-dontwarn org.slf4j.impl.StaticLoggerBinder

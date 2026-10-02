@@ -30,3 +30,30 @@ internal fun Project.libVersion(alias: String): String =
     versionCatalog.findVersion(alias).orElseThrow {
         IllegalStateException("Версия '$alias' не найдена в секции [versions] gradle/libs.versions.toml")
     }.requiredVersion
+
+/**
+ * Свойство Gradle, переопределяющее название версии: `-PversionName=1.0.1`.
+ *
+ * Нужно релизу: workflow собирает версию из тега или ручного ввода и не правит репозиторий.
+ */
+internal const val VERSION_NAME_PROPERTY: String = "versionName"
+
+/** Свойство Gradle, переопределяющее код версии: `-PversionCode=42`. */
+internal const val VERSION_CODE_PROPERTY: String = "versionCode"
+
+/**
+ * Название версии приложения: свойство Gradle, иначе значение из каталога.
+ *
+ * Умолчание живёт в `gradle/libs.versions.toml` — одном месте, которое видно без чтения сборочных
+ * скриптов; переопределение существует ради релиза.
+ */
+internal fun Project.appVersionName(): String =
+    providers.gradleProperty(VERSION_NAME_PROPERTY).orNull?.trim().takeUnless { it.isNullOrEmpty() }
+        ?: libVersion("appVersionName")
+
+/** Код версии приложения: свойство Gradle, иначе значение из каталога. */
+internal fun Project.appVersionCode(): Int =
+    (
+        providers.gradleProperty(VERSION_CODE_PROPERTY).orNull?.trim().takeUnless { it.isNullOrEmpty() }
+            ?: libVersion("appVersionCode")
+        ).toInt()

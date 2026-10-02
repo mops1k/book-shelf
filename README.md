@@ -5,10 +5,12 @@ Android-приложение «книжная полка» для устройс
 по автору и серии, качает книги из OPDS-каталогов и открывает их во внешней читалке.
 Основная читалка — **FBReader**. `minSdk 24` (Android 7.0), `targetSdk 35`.
 
-**Сейчас в репозитории — каркас приложения:** 22 модуля, convention-плагины сборки, дизайн-система
-под e-ink, абстракции всех слоёв, DI-граф, flavors, тестовая инфраструктура и CI.
-Бизнес-логики ещё нет: каждая нереализованная часть помечена `STUB(Sprint N): …`
-(см. [«Состояние»](#состояние-и-заглушки)).
+**Версия 1.0.0:** 22 модуля, convention-плагины сборки, дизайн-система под e-ink, DI-граф, flavors,
+тестовая инфраструктура, CI и релизная сборка с подписью. Работает: сканирование SAF-папок,
+разбор метаданных и обложек (FB2, FB2.ZIP, EPUB, PDF, TXT, CBZ, CBR во flavor `full`), полка
+с сортировкой и фильтрами, поиск, полки-коллекции, запуск книг во внешних читалках с чёрным
+списком не-читалок, OPDS-каталоги, съёмный носитель как полка, оптимизация FB2 без потери данных.
+Что ещё не сделано — помечено `STUB(Sprint N): …` (см. [«Состояние»](#состояние-и-заглушки)).
 
 ---
 
@@ -40,6 +42,69 @@ adb shell am start -n io.github.bookshelf.debug/io.github.bookshelf.MainActivity
 | `node tools/check-versions.mjs` | Проверяет, что каждая версия из `gradle/libs.versions.toml` реально существует в репозитории, и печатает свежие стабильные версии |
 | `bash tools/list-stubs.sh` | Печатает рабочий бэклог: все маркеры `STUB(Sprint N)` с файлами |
 | `node tools/generate-launcher-icons.mjs` | Пересобирает PNG-иконки для API 24–25 |
+
+---
+
+## Релиз
+
+Релиз собирается и публикуется GitHub Actions — вручную (`Actions → Release → Run workflow`) или
+пушем тега `v*`:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Что делает [`release.yml`](.github/workflows/release.yml):
+
+1. гейт: `./gradlew testDebugUnitTest detekt` — на красных тестах релиз не собирается;
+2. версия: входное значение (`1.0.0` или `v1.0.0`), иначе тег, иначе `appVersionName` из
+   `gradle/libs.versions.toml`. Версии ниже 1.0.0 отклоняются: релизы начинаются с неё;
+3. сборка `:app:assembleFullRelease` и `:app:assembleFdroidRelease` с `-PversionName` / `-PversionCode`;
+4. проверка, что APK подписаны и это не debug (`apksigner verify` + `aapt2 dump badging`);
+5. публикация релиза `v<версия>` с приложенными `BookShelf-<версия>-full.apk` и
+   `BookShelf-<версия>-fdroid.apk`. Debug-APK к релизу не прикрепляются никогда.
+
+`appVersionCode` перед каждым релизом увеличивается: Android ставит обновление поверх старой
+версии только при большем коде.
+
+### Ключ подписи
+
+Ключ создаётся один раз и хранится у владельца: обновления обязаны подписываться тем же ключом.
+
+```bash
+keytool -genkeypair -v -keystore bookshelf-release.jks -alias bookshelf \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 bookshelf-release.jks > bookshelf-release.jks.b64
+```
+
+Секреты репозитория (`Settings → Secrets and variables → Actions`):
+
+| Секрет | Что положить |
+|---|---|
+| `BOOKSHELF_KEYSTORE_BASE64` | содержимое `bookshelf-release.jks.b64` |
+| `BOOKSHELF_KEYSTORE_PASSWORD` | пароль хранилища ключей |
+| `BOOKSHELF_KEY_ALIAS` | `bookshelf` |
+| `BOOKSHELF_KEY_PASSWORD` | пароль ключа |
+
+Без этих секретов workflow останавливается с понятной ошибкой: неподписанный APK установить нельзя.
+
+### Локальная релизная сборка
+
+`keystore.properties` в корне репозитория (файл в `.gitignore`, в репозиторий не попадает):
+
+```properties
+storeFile=bookshelf-release.jks
+storePassword=…
+keyAlias=bookshelf
+keyPassword=…
+```
+
+```bash
+./gradlew :app:assembleFullRelease -PversionName=1.0.1 -PversionCode=2
+```
+
+Без `keystore.properties` release-сборка выходит неподписанной (`…-unsigned.apk`) — этого хватает
+только для проверки, что R8 и правила ProGuard не сломались.
 
 ---
 

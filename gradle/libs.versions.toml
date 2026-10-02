@@ -8,7 +8,7 @@
 
 [versions]
 # Версия приложения (единственное место, где она задана)
-appVersionName = "0.1.0-alpha01"
+appVersionName = "1.0.0"
 appVersionCode = "1"
 
 # Сборка

@@ -43,10 +43,8 @@ jobs:
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: detekt (maxIssues = 0)
-        # ВНИМАНИЕ: каркас содержит ~290 маркеров `STUB(Sprint N)` и заведомо даёт замечания
-        # detekt. До Спринта 1 шаг собирает отчёт, но не блокирует слияние; гейт включается
-        # вместе с первым реальным кодом (docs/tdd.md §9) — убрать `continue-on-error`.
-        continue-on-error: true
+        # Гейт блокирующий: замечаний нет (maxIssues = 0), красный detekt останавливает слияние
+        # и релиз (docs/tdd.md §9). Каркаса с заглушками в дереве давно нет.
         run: ./gradlew detekt
 
       # TODO(Sprint 1): порог покрытия (Kover) — после появления базовой линии тестов.
