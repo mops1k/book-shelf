@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.bookdetails
 
 import io.github.bookshelf.core.data.model.ReadingStatus
+import io.github.bookshelf.core.designsystem.text.AppText
 
 /**
  * Состояние карточки книги (docs/eink-ux.md §6.4).
@@ -46,7 +47,7 @@ data class BookDetailsUiState(
     /** Число страниц из метаданных. */
     val pageCount: Int? = null,
     /** Размер файла подписью: «2,3 МБ». */
-    val sizeLabel: String? = null,
+    val sizeLabel: AppText? = null,
     /** Дата добавления подписью. */
     val addedAtLabel: String? = null,
     /** Аннотация; на e-ink сворачиваемая. */
@@ -65,8 +66,8 @@ data class BookDetailsUiState(
     val readingStatus: ReadingStatus = ReadingStatus.UNREAD,
     /** Книга в избранном. */
     val isFavorite: Boolean = false,
-    /** Причина ошибки разбора файла (`parseState = FAILED`). */
-    val parseError: String? = null,
+    /** Причина ошибки разбора файла (`parseState = FAILED`) словами по коду из базы. */
+    val parseFailure: AppText? = null,
     /** Идёт загрузка карточки. */
     val isLoading: Boolean = false,
     /** Показывается подтверждение удаления книги с устройства. */
@@ -89,7 +90,7 @@ data class BookDetailsUiState(
      * команды — карточка перечитывает книгу после замены файла (меняется размер), и сообщение
      * обязано это пережить.
      */
-    val optimizationMessage: String? = null,
+    val optimizationMessage: AppText? = null,
     /**
      * Книга удалена: экран закрывается, возвращаться на карточку некуда.
      *
@@ -98,5 +99,5 @@ data class BookDetailsUiState(
      */
     val isDeleted: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val error: AppText? = null,
 )

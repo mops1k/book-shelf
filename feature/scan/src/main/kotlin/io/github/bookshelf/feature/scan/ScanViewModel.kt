@@ -5,14 +5,17 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.errorOrNull
-import io.github.bookshelf.core.common.error.isFailure
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.ScanProgress
 import io.github.bookshelf.core.data.model.ScanReport
 import io.github.bookshelf.core.data.model.ScanStatus
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ScanRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,7 +86,7 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val sourceId = activeSourceId.value ?: firstAvailableSourceId()
             if (sourceId == null) {
-                showError("Нет источника для сканирования")
+                showError(AppText(R.string.scan_error_no_source))
                 return@launch
             }
             activeSourceId.value = sourceId
@@ -94,7 +97,7 @@ class ScanViewModel @Inject constructor(
                 throw cancelled
             } catch (error: Throwable) {
                 _uiState.value = _uiState.value.copy(
-                    error = error.userMessage("Не удалось поставить скан на паузу."),
+                    error = AppText(R.string.scan_error_pause, error.toAppError().text()),
                 )
             }
         }
@@ -136,7 +139,7 @@ class ScanViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось обновить сканирование."))
+                showError(AppText(R.string.scan_error_refresh, error.toAppError().text()))
             }
         }
     }
@@ -146,7 +149,7 @@ class ScanViewModel @Inject constructor(
             try {
                 val sourceId = activeSourceId.value ?: firstAvailableSourceId()
                 if (sourceId == null) {
-                    showError("Нет источника для сканирования")
+                    showError(AppText(R.string.scan_error_no_source))
                     return@launch
                 }
                 activeSourceId.value = sourceId
@@ -159,16 +162,16 @@ class ScanViewModel @Inject constructor(
                         kotlinx.coroutines.delay(NO_PROGRESS_TIMEOUT_MS)
                         val stillIdle = _uiState.value.progress?.filesSeen == 0 && !_uiState.value.isRunning
                         if (stillIdle) {
-                            showError("Не удалось просканировать: работа не запустилась")
+                            showError(AppText(R.string.scan_error_not_started))
                         }
                     }
                 }
                 if (result.isFailure) {
                     _uiState.value = _uiState.value.copy(
                         status = ScanStatus.IDLE,
-                        error = appErrorMessage(
-                            result.errorOrNull(),
-                            "Не удалось запустить сканирование.",
+                        error = AppText(
+                            R.string.scan_error_start,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
                         ),
                     )
                 }
@@ -177,7 +180,7 @@ class ScanViewModel @Inject constructor(
             } catch (error: Throwable) {
                 _uiState.value = _uiState.value.copy(
                     status = ScanStatus.IDLE,
-                    error = error.userMessage("Не удалось запустить сканирование."),
+                    error = AppText(R.string.scan_error_start, error.toAppError().text()),
                 )
             }
         }
@@ -203,7 +206,7 @@ class ScanViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось получить список источников."))
+                showError(AppText(R.string.scan_error_sources, error.toAppError().text()))
             }
         }
     }
@@ -220,7 +223,7 @@ class ScanViewModel @Inject constructor(
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (error: Throwable) {
-                            showError(error.userMessage("Не удалось получить прогресс сканирования."))
+                            showError(AppText(R.string.scan_error_progress, error.toAppError().text()))
                             emptyFlow()
                         }
                     }
@@ -228,7 +231,7 @@ class ScanViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось получить прогресс сканирования."))
+                showError(AppText(R.string.scan_error_progress, error.toAppError().text()))
             }
         }
     }
@@ -242,7 +245,7 @@ class ScanViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось получить отчёты сканирования."))
+                showError(AppText(R.string.scan_error_reports, error.toAppError().text()))
             }
         }
     }
@@ -254,7 +257,7 @@ class ScanViewModel @Inject constructor(
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (error: Throwable) {
-        showError(error.userMessage("Не удалось получить список источников."))
+        showError(AppText(R.string.scan_error_sources, error.toAppError().text()))
         null
     }
 
@@ -308,7 +311,8 @@ class ScanViewModel @Inject constructor(
                         ProblemFileUi(
                             id = book.id,
                             fileName = book.title,
-                            reason = book.parseError ?: "Причина не записана",
+                            // Причина из базы остаётся данными; `null` — «не записали», текст даст экран.
+                            parseFailure = book.parseFailure?.text(),
                         )
                     },
                 ),
@@ -316,26 +320,15 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    private fun reportDuration(report: ScanReport): String? {
+    private fun reportDuration(report: ScanReport): AppText? {
         val finishedAt = report.finishedAt ?: return null
         val seconds = ((finishedAt - report.startedAt) / MILLIS_IN_SECOND).coerceAtLeast(0L)
-        return "$seconds с"
+        return AppText(R.string.scan_duration_seconds, seconds)
     }
 
-    private fun showError(message: String) {
+    private fun showError(message: AppText) {
         _uiState.value = _uiState.value.copy(error = message)
     }
-
-    private fun appErrorMessage(error: AppError?, fallback: String): String = when {
-        error == null -> fallback
-        error is AppError.AccessLost -> "Доступ к папке потерян, выберите её заново."
-        error is AppError.Unsupported -> error.message ?: "Операция пока не поддерживается."
-        !error.message.isNullOrBlank() -> error.message.orEmpty()
-        else -> fallback
-    }
-
-    private fun Throwable.userMessage(fallback: String): String =
-        message?.takeIf { it.isNotBlank() } ?: fallback
 
     private companion object {
         /** Столько ждём первого прогресса, прежде чем сказать, что работа не запустилась. */

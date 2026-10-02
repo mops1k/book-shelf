@@ -23,4 +23,15 @@
     <string name="onboarding_action_back">Back</string>
     <string name="onboarding_action_next">Next</string>
     <string name="onboarding_action_finish">Build the library</string>
+
+    <!-- Onboarding messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <string name="onboarding_error_open_picker">Could not open the folder picker</string>
+    <string name="onboarding_error_empty_uri">The chosen folder has no URI</string>
+    <string name="onboarding_error_add_source">Could not add the folder: %1$s</string>
+    <string name="onboarding_error_remove_source">Could not remove the folder: %1$s</string>
+    <string name="onboarding_error_default_reader">Could not set the default reader: %1$s</string>
+    <string name="onboarding_error_test_file">Opening the reader test file is not supported yet</string>
+    <string name="onboarding_error_no_source">Add a folder with books first</string>
+    <string name="onboarding_error_sources">Could not get the list of folders: %1$s</string>
+    <string name="onboarding_error_readers">Could not get the list of readers: %1$s</string>
 </resources>

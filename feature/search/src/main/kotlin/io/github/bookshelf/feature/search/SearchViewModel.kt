@@ -1,10 +1,14 @@
 package io.github.bookshelf.feature.search
 
+import android.database.SQLException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.repository.SearchRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -15,7 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import android.database.SQLException
 
 /**
  * ViewModel поиска по FTS (docs/eink-ux.md §6.5).
@@ -66,7 +69,12 @@ class SearchViewModel @Inject constructor(
             } catch (error: SQLException) {
                 _uiState.update { state ->
                     if (state.query == query) {
-                        state.copy(error = error.message ?: "Не удалось получить подсказки")
+                        state.copy(
+                            error = AppText(
+                                R.string.search_error_suggestions,
+                                error.toAppError().text(),
+                            ),
+                        )
                     } else {
                         state
                     }
@@ -132,7 +140,7 @@ class SearchViewModel @Inject constructor(
                     if (state.query.trim() == term) {
                         state.copy(
                             isSearching = false,
-                            error = error.message ?: "Не удалось выполнить поиск",
+                            error = AppText(R.string.search_error_search, error.toAppError().text()),
                         )
                     } else {
                         state

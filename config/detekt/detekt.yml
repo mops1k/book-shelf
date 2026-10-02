@@ -26,9 +26,13 @@ complexity:
       # зависимости, а порог здесь ничего не ловит.
       - '**/repository/impl/BookRepositoryImpl.kt'
       - '**/work/ScanSourceWorker.kt'
+      - '**/work/MetadataWorker.kt'
       - '**/work/OpdsDownloadWorker.kt'
       - '**/storage/scan/TreeWalker.kt'
       - '**/feature/library/ui/LibraryScreen.kt'
+      # Поле ввода дизайн-системы: каждый параметр — отдельное свойство поля (подсказка, суффикс,
+      # тип клавиатуры, фокус). «Параметр-объект» спрятал бы контракт компонента.
+      - '**/designsystem/component/EinkTextField.kt'
       - '**/feature/library/LibraryRoute.kt'
   # DAO, парсеры форматов и реестры — длинные классы по своей природе.
   TooManyFunctions:
@@ -36,27 +40,43 @@ complexity:
     thresholdInInterfaces: 25
     thresholdInObjects: 20
     thresholdInFiles: 25
-  # Ниже — датированные пороги долга (2026-09-28, план p_cf3535f45780, фаза 1).
-  # Пороги подняты не «чтобы стало зелёно», а чтобы гейт ловил НОВЫЕ нарушения, пока в коде
-  # остаются крупные функции, которые нельзя дробить без риска для проверенных парсеров.
-  # Список для разукрупнения и возврата порогов — задача фазы 4 «Разукрупнить крупные методы
-  # и вернуть строгие пороги detekt». Текущие максимумы: LongMethod 119 (SearchScreen),
-  # ComplexMethod 29 (Fb2Parser.onStartTag), NestedBlockDepth 5, ReturnCount 7
-  # (Fb2Parser.findCover), ThrowsCount 3.
+  # Пороги сложности возвращены к ЗНАЧЕНИЯМ ПО УМОЛЧАНИЮ detekt 01.10.2026: `LongMethod` 60
+  # (было ослаблено до 120 28.09.2026), `CyclomaticComplexMethod` 15 (было 30),
+  # `NestedBlockDepth` 4 (было 6) — причём БЕЗ исключений: `OpdsDownloader.downloadToStaging`
+  # разобран на `streamToFile` и `copyStream`, поэтому исключение из конфига убрано.
+  # Разукрупнено вынесением цельных кусков больше пятидесяти функций: экраны и категории настроек,
+  # компоненты дизайн-системы, навигация, воркеры, репозитории, разбор и запись форматов, обход
+  # дерева SAF, минификатор FB2. Каждый вынос проверен тестами модуля и полным гейтом.
+  #
+  # ВНИМАНИЕ, ГРАБЛИ ЗАМЕРА: правка ТОЛЬКО этого файла не помечает задачи detekt устаревшими —
+  # Gradle считает их UP-TO-DATE. Мерить нужно `./gradlew detekt --continue --rerun-tasks
+  # --no-configuration-cache` и смотреть на ИТОГ сборки: если YAML сломан, detekt падает на
+  # разборе конфига, а grep по строкам с `*.kt:` показывает «ноль замечаний» — так уже
+  # случалось 01.10.2026 (сломанный YAML выглядел как идеально чистый код).
+  #
+  # ОСОЗНАННО ОСТАЮТСЯ ОСЛАБЛЕННЫМИ (с обоснованием, а не «потому что падает»):
+  # * `ReturnCount` max 8 и `ThrowsCount` max 6: в воркерах и валидаторах выходы — это guard
+  #   clause (`if (нет доступа) return success()`), и приведение к 2 сделало бы код хуже:
+  #   проверено 01.10.2026 — при `max: 2` замечания идут на `doWork` воркеров, `genreText`,
+  #   `readingStatusBadge`, `startsWith`, `optimize`;
+  # * `TooGenericExceptionCaught`: список файлов закрытый и перечисляет ровно границу с чужим
+  #   кодом (воркеры, SAF-запись, парсеры, экраны); политика — docs/decisions.md («битый файл —
+  #   это состояние книги, а не исключение»);
+  # * `LongParameterList` 8/10: Hilt-воркер обязан принять каждый DAO отдельным параметром, а
+  #   Compose-экран — каждый колбэк; «параметр-объект» спрятал бы зависимости;
+  # * `TooManyFunctions` (класс 30, интерфейс 25, объект 20, файл 25): при выноске помощников
+  #   файл упирается в порог, поэтому помощники делаются СВОБОДНЫМИ функциями файла или
+  #   переезжают в отдельный файл (`feature/catalogs/ui/CatalogsList.kt`);
+  # * `UnusedParameter`/`NotImplementedDeclaration` выключены: заглушки STUB(Sprint N) — по ADR-013;
+  # * `MagicNumber`: токены дизайн-системы (48.dp, 600 px, 200 МБ) — данные, а не «магические числа».
   LongMethod:
-    threshold: 120
+    threshold: 60
   # Имя правила в detekt 1.23.7 — CyclomaticComplexMethod (`ComplexMethod` устарело и
   # выдаёт предупреждение о переименовании).
   CyclomaticComplexMethod:
-    threshold: 30
+    threshold: 15
   NestedBlockDepth:
-    threshold: 6
-    # Единственный на весь проект случай глубже порога — разбор загрузки OPDS
-    # (сетевой вызов → поток → запись во временный файл → проверка отмены).
-    # Переписать его без потери читаемости — задача фазы 4 плана p_cf3535f45780.
-    excludes:
-      - '**/opds/download/OpdsDownloader.kt'
-
+    threshold: 4
 exceptions:
   # Каркас намеренно состоит из заглушек, помеченных STUB(Sprint N) (ADR-013).
   # Правило включается, когда заглушек не останется (Спринт 9), иначе оно шумит на плане работ.
@@ -74,9 +94,15 @@ exceptions:
   TooGenericExceptionCaught:
     excludes:
       - '**/work/ScanSourceWorker.kt'
+      - '**/work/MetadataWorker.kt'
       - '**/opds/download/OpdsDownloader.kt'
       - '**/storage/saf/SafTreeWriter.kt'
       - '**/parser/impl/Fb2Parser.kt'
+      - '**/parser/impl/CbzParser.kt'
+      - '**/parser/impl/DocxParser.kt'
+      - '**/parser/impl/OdtParser.kt'
+      - '**/parser/impl/RtfParser.kt'
+      - '**/parser/impl/MobiParser.kt'
       - '**/parser/impl/EpubParser.kt'
       - '**/parser/impl/PdfParser.kt'
       - '**/parser/impl/TxtParser.kt'

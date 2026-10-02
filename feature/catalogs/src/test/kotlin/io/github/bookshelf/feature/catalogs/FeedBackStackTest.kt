@@ -27,8 +27,8 @@ class FeedBackStackTest {
         stack.push(level(title = "Жанры"))
 
         assertThat(stack.canGoBack).isTrue()
-        assertThat(stack.pop()?.feed?.title).isEqualTo("Жанры")
-        assertThat(stack.pop()?.feed?.title).isEqualTo("Корень")
+        assertThat(stack.pop()?.feed?.title).isEqualTo(FeedLabel.Named("Жанры"))
+        assertThat(stack.pop()?.feed?.title).isEqualTo(FeedLabel.Named("Корень"))
         assertThat(stack.canGoBack).isFalse()
     }
 
@@ -38,7 +38,7 @@ class FeedBackStackTest {
         stack.push(
             FeedLevel(
                 entries = listOf(entry(id = "book-1")),
-                feed = FeedUi(title = "Фантастика"),
+                feed = FeedUi(title = FeedLabel.Named("Фантастика")),
                 feedUrl = "https://flibusta.is/opds/genre/1",
             ),
         )
@@ -62,7 +62,7 @@ class FeedBackStackTest {
 
     private fun level(title: String) = FeedLevel(
         entries = emptyList(),
-        feed = FeedUi(title = title),
+        feed = FeedUi(title = FeedLabel.Named(title)),
         feedUrl = null,
     )
 

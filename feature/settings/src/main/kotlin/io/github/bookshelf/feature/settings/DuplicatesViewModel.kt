@@ -6,6 +6,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,22 +20,22 @@ import kotlinx.coroutines.launch
  *
  * @param isChecking идёт сравнение содержимого файлов (чтение всех книг).
  * @param isDeleting идёт удаление подтверждённых файлов.
- * @param message результат для строки настроек: «дубликатов не найдено», «удалено N файлов»…
+ * @param message результат для строки настроек: переводимые части («дубликатов не найдено», «удалено N файлов»)
  * @param toRemove идентификаторы копий, предложенных к удалению как дубли.
  * @param broken идентификаторы файлов нулевого размера (их отдельно предлагается удалить).
  * @param isConfirming показывается подтверждение удаления дублей.
  * @param isConfirmingBroken показывается подтверждение удаления битых файлов.
- * @param error текст ошибки для баннера.
+ * @param error ошибка для баннера: текст по типу причины, а не `AppError.message` (docs/tdd.md §7).
  */
 data class DuplicatesUiState(
     val isChecking: Boolean = false,
     val isDeleting: Boolean = false,
-    val message: String? = null,
+    val message: List<AppText> = emptyList(),
     val toRemove: List<String> = emptyList(),
     val broken: List<String> = emptyList(),
     val isConfirming: Boolean = false,
     val isConfirmingBroken: Boolean = false,
-    val error: String? = null,
+    val error: AppText? = null,
 )
 
 /**
@@ -62,7 +64,7 @@ class DuplicatesViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isChecking = true,
-                message = null,
+                message = emptyList(),
                 error = null,
                 toRemove = emptyList(),
                 broken = emptyList(),
@@ -74,7 +76,12 @@ class DuplicatesViewModel @Inject constructor(
             val report = books.findDuplicates()
             val error = report.errorOrNull()
             if (error != null) {
-                _uiState.update { it.copy(isChecking = false, error = explain(error.message)) }
+                _uiState.update {
+                    it.copy(
+                        isChecking = false,
+                        error = AppText(R.string.settings_duplicates_check_failed, error.text()),
+                    )
+                }
                 return@launch
             }
             val found = report.getOrNull()
@@ -106,7 +113,8 @@ class DuplicatesViewModel @Inject constructor(
             state.copy(
                 toRemove = emptyList(),
                 isConfirming = false,
-                message = "Удалено файлов: $deleted" + failedSuffix(failed),
+                message = listOf(AppText(R.string.settings_duplicates_deleted, deleted)) +
+                    failedPart(failed),
             )
         }
     }
@@ -114,7 +122,11 @@ class DuplicatesViewModel @Inject constructor(
     /** Отказаться от удаления дублей: список к удалению забывается, повторный поиск его найдёт снова. */
     fun onCancelDelete() {
         _uiState.update {
-            it.copy(toRemove = emptyList(), isConfirming = false, message = "Удаление дублей отменено")
+            it.copy(
+                toRemove = emptyList(),
+                isConfirming = false,
+                message = listOf(AppText(R.string.settings_duplicates_cancel)),
+            )
         }
     }
 
@@ -126,7 +138,8 @@ class DuplicatesViewModel @Inject constructor(
             state.copy(
                 broken = emptyList(),
                 isConfirmingBroken = false,
-                message = "Удалено битых файлов: $deleted" + failedSuffix(failed),
+                message = listOf(AppText(R.string.settings_duplicates_broken_deleted, deleted)) +
+                    failedPart(failed),
             )
         }
     }
@@ -134,7 +147,11 @@ class DuplicatesViewModel @Inject constructor(
     /** Отказаться от удаления битых файлов. */
     fun onCancelDeleteBroken() {
         _uiState.update {
-            it.copy(broken = emptyList(), isConfirmingBroken = false, message = "Удаление битых файлов отменено")
+            it.copy(
+                broken = emptyList(),
+                isConfirmingBroken = false,
+                message = listOf(AppText(R.string.settings_duplicates_broken_cancel)),
+            )
         }
     }
 
@@ -153,7 +170,12 @@ class DuplicatesViewModel @Inject constructor(
             val outcome = books.deletePermanently(ids)
             val error = outcome.errorOrNull()
             if (error != null) {
-                _uiState.update { it.copy(isDeleting = false, error = explain(error.message)) }
+                _uiState.update {
+                    it.copy(
+                        isDeleting = false,
+                        error = AppText(R.string.settings_duplicates_delete_error, error.text()),
+                    )
+                }
                 return@launch
             }
             val result = outcome.getOrNull()
@@ -164,30 +186,32 @@ class DuplicatesViewModel @Inject constructor(
     }
 }
 
-/** Строка результата проверки: сколько групп и файлов нашлось. */
-private fun resultMessage(groups: Int, duplicates: Int, broken: Int, stopped: Boolean): String {
-    // Прерванный поиск нельзя выдавать за «дубликатов не найдено»: файлы ещё не сравнены, и
-    // человек сделал бы вывод, что копий нет. Причина остановки — открытая читалка, которой
-    // поиск уступает процессор (ANR читалки 30.09.2026).
+/**
+ * Строка результата проверки: сколько групп и файлов нашлось.
+ *
+ * Прерванный поиск нельзя выдавать за «дубликатов не найдено»: файлы ещё не сравнены, и человек
+ * сделал бы вывод, что копий нет. Причина остановки — открытая читалка, которой поиск уступает
+ * процессор (ANR читалки 30.09.2026). Части — переводимые тексты, экран склеивает их сам.
+ */
+private fun resultMessage(groups: Int, duplicates: Int, broken: Int, stopped: Boolean): List<AppText> {
     if (stopped) {
         val found = if (groups == 0 && broken == 0) {
-            "ничего не найдено до остановки"
+            AppText(R.string.settings_duplicates_nothing_before_stop)
         } else {
-            "найдено до остановки: групп дублей $groups, битых файлов $broken"
+            AppText(R.string.settings_duplicates_found_before_stop, groups, broken)
         }
-        return "Поиск остановлен: открыта читалка ($found). Закройте читалку и повторите."
+        return listOf(AppText(R.string.settings_duplicates_stopped, found))
     }
-    if (groups == 0 && broken == 0) return "Дубликатов не найдено"
-    val parts = mutableListOf<String>()
-    if (groups > 0) parts += "групп дублей: $groups, к удалению файлов: $duplicates"
-    if (broken > 0) parts += "битых файлов (0 байт): $broken"
-    return parts.joinToString("; ")
+    if (groups == 0 && broken == 0) return listOf(AppText(R.string.settings_duplicates_none))
+    return buildList {
+        if (groups > 0) add(AppText(R.string.settings_duplicates_groups, groups, duplicates))
+        if (broken > 0) add(AppText(R.string.settings_duplicates_broken, broken))
+    }
 }
 
-/** Хвост сообщения о неудачных удалениях: молчать о них нельзя, файлы остались на месте. */
-private fun failedSuffix(failed: Int): String =
-    if (failed == 0) "" else ", не удалось удалить: $failed (нет доступа к папке)"
-
-/** Человеческое объяснение сбоя поиска или удаления. */
-private fun explain(message: String?): String =
-    message?.takeIf { it.isNotBlank() } ?: "Не удалось выполнить операцию с дублями"
+/** Часть «часть файлов осталась на диске»: причина отказа — нет доступа к папке. */
+private fun failedPart(failed: Int): List<AppText> = if (failed == 0) {
+    emptyList()
+} else {
+    listOf(AppText(R.string.settings_duplicates_delete_failed, failed))
+}

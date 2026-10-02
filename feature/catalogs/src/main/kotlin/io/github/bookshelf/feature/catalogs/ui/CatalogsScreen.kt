@@ -1,13 +1,19 @@
 package io.github.bookshelf.feature.catalogs.ui
 
+import io.github.bookshelf.feature.catalogs.messageText
+import io.github.bookshelf.feature.catalogs.namedText
+import io.github.bookshelf.feature.catalogs.FeedLabel
+import io.github.bookshelf.feature.catalogs.FeedUi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -56,6 +62,8 @@ import io.github.bookshelf.feature.catalogs.FeedEntryUi
 import io.github.bookshelf.feature.catalogs.R
 import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.theme.EinkDimens
+import io.github.bookshelf.feature.catalogs.AddCatalogFormUi
 
 /** Полная шкала прогресса: `progressPercent` приходит в процентах, `EinkProgress` ждёт 0..1. */
 private const val PERCENT_MAX = 100f
@@ -119,6 +127,81 @@ fun CatalogsScreen(
     }
 }
 
+
+/** Баннер ошибки списка каталогов: вынесен ради предела длины `CatalogsListScreen`. */
+@Composable
+private fun CatalogsListErrorBanner(state: CatalogsUiState, onRetry: () -> Unit) {
+    val error = state.error ?: return
+    EinkErrorBanner(
+        message = error.resolve(),
+        actionLabel = stringResource(R.string.catalogs_action_refresh),
+        onAction = onRetry,
+    )
+}
+/** Подвал списка каталогов: число каталогов и кнопка добавления. */
+@Composable
+private fun CatalogsListFooter(count: Int, onAddCatalog: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        StatusFooter(label = stringResource(R.string.catalogs_count, count))
+        EinkButton(
+            text = stringResource(R.string.catalogs_action_add_catalog),
+            onClick = onAddCatalog,
+            primary = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** Аппаратные клавиши браузера фида: страниц у фида нет, список прокручивается целиком. */
+private fun feedBrowserKeyAction(
+    action: EinkAction,
+    scrollEntries: (Int) -> Unit,
+    onSearchInFeed: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onBack: () -> Unit,
+) {
+    when (action) {
+        EinkAction.PREVIOUS_PAGE -> scrollEntries(-1)
+        EinkAction.NEXT_PAGE -> scrollEntries(1)
+        EinkAction.SEARCH -> onSearchInFeed()
+        EinkAction.MENU -> onOpenDownloads()
+        EinkAction.BACK -> onBack()
+        else -> Unit
+    }
+}
+
+/** Подвал формы каталога: «Отмена» и «Проверить и добавить» либо «Сохранить». */
+@Composable
+private fun AddCatalogFooter(
+    isEditing: Boolean,
+    onBack: () -> Unit,
+    onSave: () -> Unit,
+    onCheckAndAdd: () -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        EinkButton(
+            text = stringResource(R.string.catalogs_action_cancel),
+            onClick = onBack,
+            modifier = Modifier.weight(1f),
+        )
+        EinkButton(
+            text = if (isEditing) {
+                stringResource(R.string.catalogs_action_save)
+            } else {
+                stringResource(R.string.catalogs_action_check_and_add)
+            },
+            onClick = if (isEditing) onSave else onCheckAndAdd,
+            primary = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
 /** Список добавленных каталогов. */
 @Composable
 private fun CatalogsListScreen(
@@ -140,8 +223,14 @@ private fun CatalogsListScreen(
         modifier = modifier,
         onBack = onBack,
         actions = {
-            EinkButton(text = stringResource(R.string.catalogs_action_add), onClick = viewModel::onOpenAddForm)
-            EinkButton(text = stringResource(R.string.catalogs_downloads_title), onClick = viewModel::onOpenDownloads)
+            EinkButton(
+                text = stringResource(R.string.catalogs_action_add),
+                onClick = viewModel::onOpenAddForm,
+            )
+            EinkButton(
+                text = stringResource(R.string.catalogs_downloads_title),
+                onClick = viewModel::onOpenDownloads,
+            )
         },
         onKeyAction = { action ->
             when (action) {
@@ -153,88 +242,52 @@ private fun CatalogsListScreen(
             }
         },
         footer = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                StatusFooter(label = stringResource(R.string.catalogs_count, state.catalogs.size))
-                EinkButton(
-                    text = stringResource(R.string.catalogs_action_add_catalog),
-                    onClick = viewModel::onOpenAddForm,
-                    primary = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            CatalogsListFooter(
+                count = state.catalogs.size,
+                onAddCatalog = viewModel::onOpenAddForm,
+            )
         },
     ) {
-        val error = state.error
-        if (error != null) {
-            EinkErrorBanner(
-                message = error,
-                actionLabel = stringResource(R.string.catalogs_action_refresh),
-                onAction = viewModel::onBackToList,
-            )
-        }
+        CatalogsListContent(
+            state = state,
+            viewModel = viewModel,
+            listState = listState,
+        )
+    }
+}
 
-        Box(
-                modifier = Modifier.weight(1f),
-            ) {
-            if (state.catalogs.isEmpty()) {
-                EinkEmptyState(
-                    title = stringResource(R.string.catalogs_empty_title),
-                    message = stringResource(R.string.catalogs_empty_message),
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                    listItems(items = state.catalogs, key = { catalog -> catalog.id }) { catalog ->
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            EinkListRow(
-                                title = catalog.title,
-                                subtitle = catalog.url,
-                                trailing = catalogTrailing(catalog),
-                                // «⋯» — единственный вход к правке и удалению: раньше каталог
-                                // можно было только добавить, а убрать или переименовать — нет.
-                                trailingContent = {
-                                    EinkButton(
-                                        text = "⋯",
-                                        onClick = { viewModel.catalogActions.onToggleActions(catalog.id) },
-                                    )
-                                },
-                                onClick = { viewModel.onOpenCatalog(catalog.id) },
-                            )
-                            if (state.actionsForCatalogId == catalog.id) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = dimens.gutter),
-                                    horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                                ) {
-                                    EinkButton(
-                                        text = stringResource(R.string.catalogs_action_edit),
-                                        onClick = { viewModel.catalogActions.onAskEdit(catalog.id) },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    EinkButton(
-                                        text = stringResource(R.string.catalogs_action_delete),
-                                        onClick = { viewModel.catalogActions.onAskDelete(catalog.id) },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                            if (state.confirmingDeleteCatalogId == catalog.id) {
-                                EinkConfirmRow(
-                                    question = stringResource(
-                                        R.string.catalogs_delete_confirm,
-                                        catalog.title,
-                                    ),
-                                    confirmLabel = stringResource(R.string.catalogs_action_delete),
-                                    onConfirm = viewModel.catalogActions::onConfirmDelete,
-                                    onCancel = viewModel.catalogActions::onCancelDelete,
-                                    modifier = Modifier.padding(horizontal = dimens.gutter),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+/**
+ * Содержимое списка каталогов: баннер ошибки, пустое состояние и строки с действиями.
+ *
+ * Вынесено из `CatalogsListScreen` отдельной функцией: экран перевалил за предел длины detekt,
+ * а содержимое — цельный кусок, зависящий только от состояния, списка и ViewModel.
+ */
+@Composable
+private fun ColumnScope.CatalogsListContent(
+    state: CatalogsUiState,
+    viewModel: CatalogsViewModel,
+    listState: LazyListState,
+) {
+    val dimens = LocalEinkDimens.current
+    CatalogsListErrorBanner(state = state, onRetry = viewModel::onBackToList)
+
+    Box(
+            modifier = Modifier.weight(1f),
+        ) {
+        if (state.catalogs.isEmpty()) {
+            EinkEmptyState(
+                title = stringResource(R.string.catalogs_empty_title),
+                message = stringResource(R.string.catalogs_empty_message),
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            catalogsList(
+                state = state,
+                viewModel = viewModel,
+                listState = listState,
+                dimens = dimens,
+            )
+
         }
     }
 }
@@ -271,34 +324,18 @@ private fun AddCatalogScreen(
             }
         },
         footer = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-            ) {
-                EinkButton(
-                    text = stringResource(R.string.catalogs_action_cancel),
-                    onClick = onBack,
-                    modifier = Modifier.weight(1f),
-                )
-                EinkButton(
-                    text = if (isEditing) {
-                        stringResource(R.string.catalogs_action_save)
-                    } else {
-                        stringResource(R.string.catalogs_action_check_and_add)
-                    },
-                    onClick = if (isEditing) viewModel.catalogActions::onSaveChanges else viewModel::onCheckAndAdd,
-                    primary = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            AddCatalogFooter(
+                isEditing = isEditing,
+                onBack = onBack,
+                onSave = viewModel.catalogActions::onSaveChanges,
+                onCheckAndAdd = viewModel::onCheckAndAdd,
+            )
         },
     ) {
         // Ошибка валидации раньше не отображалась вовсе: нажатие выглядело как «ничего не
         // происходит». В footer её ставить нельзя — там Row с кнопками, и баннер их вытеснял.
         state.error?.let { message ->
-            EinkErrorBanner(message = message, actionLabel = null, onAction = {})
+            EinkErrorBanner(message = message.resolve(), actionLabel = null, onAction = {})
         }
 
         if (state.isLoading) {
@@ -309,46 +346,7 @@ private fun AddCatalogScreen(
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(dimens.gutter),
-            verticalArrangement = Arrangement.spacedBy(dimens.gutter),
-        ) {
-            EinkTextField(
-                value = form.title,
-                onValueChange = { viewModel.onFormChange(form.copy(title = it)) },
-                label = stringResource(R.string.catalogs_form_name),
-                placeholder = stringResource(R.string.catalogs_form_name_placeholder),
-            )
-            EinkTextField(
-                value = form.url,
-                onValueChange = { viewModel.onFormChange(form.copy(url = it)) },
-                label = stringResource(R.string.catalogs_form_url),
-                placeholder = "https://example.org/opds",
-            )
-            EinkTextField(
-                value = form.username,
-                onValueChange = { viewModel.onFormChange(form.copy(username = it)) },
-                label = stringResource(R.string.catalogs_form_login),
-            )
-            // Пароль не логируется и не экспортируется: в БД попадает только alias.
-            EinkTextField(
-                value = form.password,
-                onValueChange = { viewModel.onFormChange(form.copy(password = it)) },
-                label = if (isEditing) {
-                    stringResource(R.string.catalogs_form_password_new)
-                } else {
-                    stringResource(R.string.catalogs_form_password)
-                },
-                visualTransformation = PasswordVisualTransformation(),
-            )
-            EinkCheckbox(
-                checked = form.openImmediately,
-                onCheckedChange = { viewModel.onFormChange(form.copy(openImmediately = it)) },
-                label = stringResource(R.string.catalogs_form_open_now),
-            )
-        }
+        AddCatalogFields(form = form, isEditing = isEditing, viewModel = viewModel)
     }
 }
 
@@ -369,35 +367,28 @@ private fun FeedBrowserScreen(
     val scrollEntries = rememberEinkGridPageScroller(entriesGridState)
 
     EinkScaffold(
-        title = feed?.title ?: stringResource(R.string.catalogs_browser_title),
-        subtitle = feed?.breadcrumbs?.joinToString(separator = " / ")
-            ?: stringResource(R.string.catalogs_browser_empty_title),
+        title = feed?.title?.label() ?: stringResource(R.string.catalogs_browser_title),
+        subtitle = crumbText(feed),
         modifier = modifier,
         onBack = onBack,
         // Кнопка правого края: из любого уровня каталога возвращает к списку каталогов одним
         // касанием. Левая «← Назад» идёт на уровень выше, и из глубокого раздела до списка
         // приходилось щёлкать её несколько раз.
         actions = {
-            // Дорога к очереди прямо из фида: раньше после «Скачать» карточка молча закрывалась,
-            // а «Загрузки» были доступны только из списка каталогов — в разделах фида их не было
-            // видно вовсе (жалоба Александра, 28.09.2026).
-            EinkButton(
-                text = downloadsButtonLabel(state.downloads).resolve(),
-                onClick = viewModel::onOpenDownloads,
+            FeedBrowserActions(
+                downloads = state.downloads,
+                onOpenDownloads = viewModel::onOpenDownloads,
+                onBackToList = viewModel::onBackToList,
             )
-            EinkButton(text = stringResource(R.string.catalogs_browser_feed_title), onClick = viewModel::onBackToList)
         },
         onKeyAction = { action ->
-            when (action) {
-                // Страниц у фида нет: список прокручивается целиком, и клавиши листают его,
-                // а не несуществующие страницы (pager тут оставался мёртвым состоянием).
-                EinkAction.PREVIOUS_PAGE -> scrollEntries(-1)
-                EinkAction.NEXT_PAGE -> scrollEntries(1)
-                EinkAction.SEARCH -> viewModel.onSearchInFeed()
-                EinkAction.MENU -> viewModel.onOpenDownloads()
-                EinkAction.BACK -> onBack()
-                else -> Unit
-            }
+            feedBrowserKeyAction(
+                action = action,
+                scrollEntries = scrollEntries,
+                onSearchInFeed = viewModel::onSearchInFeed,
+                onOpenDownloads = viewModel::onOpenDownloads,
+                onBack = onBack,
+            )
         },
         // Страниц у фида больше нет: весь список прокручивается. Подпись «Стр. 1/2» вводила
         // в заблуждение — вторая страница была недостижима, а список на самом деле целиком.
@@ -411,75 +402,14 @@ private fun FeedBrowserScreen(
             )
         },
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-        ) {
-            EinkTextField(
-                value = state.feedQuery,
-                onValueChange = viewModel::onFeedQueryChange,
-                placeholder = stringResource(R.string.catalogs_search_title),
-                modifier = Modifier.weight(1f),
-            )
-            EinkButton(text = stringResource(R.string.catalogs_search_action), onClick = viewModel::onSearchInFeed)
-        }
-
-        // Ошибка загрузки фида раньше не показывалась вовсе: нажатие на раздел, который не
-        // открылся, выглядело как «ничего не произошло». Баннер стоит над списком, а не в подвале,
-        // потому что в подвале уже подпись о записях.
-        state.error?.let { message ->
-            EinkErrorBanner(
-                message = message,
-                actionLabel = stringResource(R.string.catalogs_action_retry),
-                onAction = viewModel::onReloadFeed,
-            )
-        }
-
-        // Индикация загрузки: переход по разделам ждёт сеть, и без подписи экран выглядел
-        // зависшим — пользователь не понимал, идёт работа или приложение задумалось.
-        if (state.isLoading) {
-            LoadingRow(label = stringResource(R.string.catalogs_loading_section))
-        }
-
-        Box(
-                modifier = Modifier.weight(1f),
-            ) {
-            if (entries.isEmpty()) {
-                when {
-                    // Первый фид: пустая подсказка «фид не загружен» противоречила бы индикатору.
-                    state.isLoading -> LoadingRow(label = stringResource(R.string.catalogs_loading_feed))
-
-                    feed == null -> EinkEmptyState(
-                        title = stringResource(R.string.catalogs_feed_empty_title),
-                        message = stringResource(R.string.catalogs_feed_empty_message),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-
-                    // Фид загружен, но записей в нём нет: так отвечает поиск, которому нечего
-                    // показать. «Фид не загружен» здесь было бы неправдой, а «Назад» — выходом.
-                    else -> EinkEmptyState(
-                        title = stringResource(R.string.catalogs_nothing_found_title),
-                        message = stringResource(R.string.catalogs_nothing_found_message),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            } else {
-                // Список один и прокручивается целиком; когда пользователь доходит до конца,
-                // следующая страница фида догружается сама (rel="next").
-                FeedContent(
-                    entries = entries,
-                    gridState = entriesGridState,
-                    columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
-                    hasNextPage = feed?.hasNextPage == true,
-                    isLoadingMore = state.isLoadingMore,
-                    onOpen = { entry -> viewModel.onOpenEntry(entry.id, onOpenEntry) },
-                    onLoadMore = viewModel::onLoadNextPage,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
+        FeedBrowserContent(
+            state = state,
+            viewModel = viewModel,
+            feed = feed,
+            entries = entries,
+            entriesGridState = entriesGridState,
+            onOpenEntry = onOpenEntry,
+        )
     }
 }
 
@@ -505,7 +435,7 @@ private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean
  * врала бы о состоянии. На e-ink статичная подпись честнее и не мигает (docs/eink-ux.md §5).
  */
 @Composable
-private fun LoadingRow(label: String) {
+internal fun LoadingRow(label: String) {
     EinkListRow(
         title = label,
         subtitle = stringResource(R.string.catalogs_network_request),
@@ -520,7 +450,7 @@ private fun LoadingRow(label: String) {
  * у Флибусты, и два независимых списка прокручивались бы по отдельности.
  */
 @Composable
-private fun FeedContent(
+internal fun FeedContent(
     entries: List<FeedEntryUi>,
     gridState: LazyGridState,
     columns: GridCells,
@@ -743,14 +673,14 @@ private fun DownloadRow(
             EinkProgress(
                 caption = stringResource(R.string.catalogs_download_status_downloading),
                 progress = download.progressPercent / PERCENT_MAX,
-                detail = "Скачано ${download.progressPercent}%",
+                detail = stringResource(R.string.catalogs_download_progress, download.progressPercent),
             )
             EinkButton(text = stringResource(R.string.catalogs_action_cancel_download), onClick = onCancel)
         }
-        val error = download.error
-        if (error != null) {
+        val failure = download.failure
+        if (failure != null) {
             EinkErrorBanner(
-                message = error,
+                message = failure.resolve(),
                 actionLabel = stringResource(R.string.catalogs_action_retry),
                 onAction = onCancel,
             )
@@ -779,24 +709,3 @@ private fun StatusFooter(label: String) {
  * Страниц нет — список прокручивается, поэтому подпись только считает каталоги: «Стр. 1/2»
  * обещала страницу, до которой нельзя было добраться пальцем.
  */
-
-/** Подпись состояния каталога в списке. */
-@Composable
-private fun catalogTrailing(catalog: CatalogUi): String = when {
-    !catalog.isAvailable -> stringResource(R.string.catalogs_catalog_unavailable)
-    catalog.requiresAuth -> stringResource(R.string.catalogs_catalog_login)
-    catalog.lastOpenedLabel != null -> catalog.lastOpenedLabel
-    else -> stringResource(R.string.catalogs_catalog_ready)
-}
-
-/** Подпись записи фида: форматы, размер, язык. */
-@Composable
-private fun entryMeta(entry: FeedEntryUi): String {
-    val parts = buildList {
-        if (entry.formats.isNotEmpty()) add(entry.formats.joinToString(separator = ", "))
-        entry.sizeLabel?.let { size -> add(size.resolve()) }
-        entry.language?.let { add(it) }
-    }
-    return parts.joinToString(separator = " · ")
-}
-

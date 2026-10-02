@@ -4,6 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.export.LibraryExportSummary
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import org.junit.Test
 
 /**
@@ -19,18 +21,18 @@ class LibraryExportReportTest {
     fun `success names how many books and shelves were written`() {
         val run = libraryExportReport(AppResult.success(LibraryExportSummary(books = 74, collections = 3)))
 
-        assertThat(run.message).isEqualTo("Экспортировано книг: 74, полок: 3")
+        assertThat(run.message).isEqualTo(AppText(R.string.settings_export_report, 74, 3))
         assertThat(run.error).isNull()
     }
 
     @Test
     fun `failure carries the cause and no success message`() {
-        val run = libraryExportReport(
-            AppResult.failure(AppError.Io(message = "Нет места на диске")),
-        )
+        val failure = AppError.Io(message = "Нет места на диске")
+        val run = libraryExportReport(AppResult.failure(failure))
 
         assertThat(run.message).isNull()
-        assertThat(run.error).isEqualTo("Нет места на диске")
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        assertThat(run.error).isEqualTo(AppText(R.string.settings_export_failed, failure.text()))
     }
 
     @Test
@@ -39,6 +41,6 @@ class LibraryExportReportTest {
 
         // Пустая причина не должна оставить человека без объяснения: «ничего не произошло» —
         // худший ответ на нажатие кнопки.
-        assertThat(run.error).isEqualTo("Не удалось выгрузить библиотеку")
+        assertThat(run.error).isEqualTo(AppText(R.string.settings_export_failed, AppError.Unknown().text()))
     }
 }

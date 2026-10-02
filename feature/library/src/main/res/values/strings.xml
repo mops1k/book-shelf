@@ -67,7 +67,7 @@
     <string name="library_browse_authors_set">Авторы: %1$s</string>
     <string name="library_browse_series_level">Серия: %1$s</string>
 
-    <string name="library_error_load">Не удалось загрузить полку</string>
+    <string name="library_error_load">Не удалось загрузить полку: %1$s</string>
 
     <plurals name="library_book_count">
         <item quantity="one">%1$d книга</item>

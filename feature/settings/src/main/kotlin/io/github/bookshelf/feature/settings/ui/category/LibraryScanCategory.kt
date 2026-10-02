@@ -24,12 +24,15 @@ import io.github.bookshelf.core.designsystem.component.EinkConfirmRow
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
+import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.resolveJoined
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.COVER_CACHE_LIMIT_CHOICES_MB
 import io.github.bookshelf.feature.settings.DiskLimitAction
 import io.github.bookshelf.feature.settings.DuplicatesUiState
 import io.github.bookshelf.feature.settings.DuplicatesViewModel
 import io.github.bookshelf.feature.settings.LibraryBehaviourAction
+import io.github.bookshelf.feature.settings.PermissionItemUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.TEMP_COPY_LIMIT_CHOICES_MB
@@ -92,7 +95,7 @@ internal fun LibraryScanCategory(
     Column(modifier = Modifier.fillMaxSize()) {
         val duplicatesError = duplicates.error
         if (duplicatesError != null) {
-            EinkErrorBanner(message = duplicatesError)
+            EinkErrorBanner(message = duplicatesError.resolve())
         }
 
         LazyColumn(
@@ -100,51 +103,7 @@ internal fun LibraryScanCategory(
                 .fillMaxSize()
                 .padding(horizontal = dimens.gutter),
         ) {
-        item(key = "view-preset") {
-            ViewPresetChooser(preset = state.settings.viewPreset, onPick = viewModel::onSetViewPreset)
-        }
-
-        item(key = "library-removable-shelf") {
-            ToggleRow(
-                title = stringResource(R.string.settings_library_removable_shelf),
-                subtitle = stringResource(R.string.settings_library_removable_shelf_hint),
-                enabled = state.settings.showRemovableShelf,
-                onToggle = { enabled ->
-                    viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetShowRemovableShelf(enabled))
-                },
-            )
-        }
-
-        item(key = "default-sort") {
-            ValueChoiceRow(
-                title = stringResource(R.string.settings_library_sort),
-                options = SortOrder.entries,
-                selected = state.settings.sortOrder,
-                labelRes = ::sortOrderLabelRes,
-                onPick = viewModel::onSetDefaultSortOrder,
-                subtitle = stringResource(R.string.settings_library_sort_hint),
-            )
-        }
-
-        item(key = "default-sort-descending") {
-            ToggleRow(
-                title = stringResource(R.string.settings_library_descending),
-                subtitle = stringResource(R.string.settings_library_descending_hint),
-                enabled = state.settings.sortDescending,
-                onToggle = viewModel::onSetDefaultSortDescending,
-            )
-        }
-
-        item(key = "default-grouping") {
-            ValueChoiceRow(
-                title = stringResource(R.string.settings_library_grouping),
-                options = Grouping.entries,
-                selected = state.settings.grouping,
-                labelRes = ::groupingLabelRes,
-                onPick = viewModel::onSetDefaultGrouping,
-                subtitle = stringResource(R.string.settings_library_grouping_hint),
-            )
-        }
+        libraryDefaultsSection(state = state, viewModel = viewModel)
 
         diskLimitsSection(state = state, onPick = viewModel::onSetDiskLimit)
 
@@ -174,28 +133,11 @@ internal fun LibraryScanCategory(
             onOpenScan = onOpenScan,
         )
 
-        item(key = "header-permissions") {
-            EinkSectionHeader(title = stringResource(R.string.settings_permissions_header), count = permissions.size)
-        }
-        items(items = permissions, key = { item -> item.permission }) { item ->
-            EinkListRow(
-                title = stringResource(item.titleRes),
-                subtitle = stringResource(item.subtitleRes),
-                trailing = if (item.isGranted) {
-                    stringResource(R.string.settings_permission_granted)
-                } else {
-                    stringResource(R.string.settings_permission_request)
-                },
-                onClick = { permissionRequest.launch(item.permission) },
-            )
-        }
-        item(key = "permissions-appinfo") {
-            EinkListRow(
-                title = stringResource(R.string.settings_permission_app_info),
-                subtitle = stringResource(R.string.settings_permission_app_info_hint),
-                onClick = { context.openAppInfoSettings() },
-            )
-        }
+        permissionsSection(
+            permissions = permissions,
+            onRequest = permissionRequest::launch,
+            onOpenAppInfo = context::openAppInfoSettings,
+        )
         }
     }
 }
@@ -284,8 +226,8 @@ private fun LazyListScope.duplicatesSection(
             subtitle = when {
                 state.isChecking -> stringResource(R.string.settings_duplicates_comparing)
                 state.isDeleting -> stringResource(R.string.settings_duplicates_removing)
-                else -> state.message
-                    ?: stringResource(R.string.settings_duplicates_hint)
+                state.message.isNotEmpty() -> state.message.resolveJoined()
+                else -> stringResource(R.string.settings_duplicates_hint)
             },
             onClick = { if (!busy) onCheck() },
         )
@@ -341,4 +283,93 @@ private fun groupingLabelRes(grouping: Grouping): Int = when (grouping) {
     Grouping.AUTHOR -> R.string.settings_grouping_author
     Grouping.FOLDER -> R.string.settings_grouping_folder
     Grouping.FORMAT -> R.string.settings_grouping_format
+}
+
+
+/**
+ * Раздел умолчаний полки: вид, показ карты памяти, порядок, направление и группировка.
+ *
+ * Вынесено из `LibraryScanCategory` отдельной функцией: экран перевалил за предел длины detekt,
+ * а это цельный раздел — он зависит только от состояния настроек и ViewModel.
+ */
+private fun LazyListScope.libraryDefaultsSection(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    item(key = "view-preset") {
+        ViewPresetChooser(preset = state.settings.viewPreset, onPick = viewModel::onSetViewPreset)
+    }
+
+    item(key = "library-removable-shelf") {
+        ToggleRow(
+            title = stringResource(R.string.settings_library_removable_shelf),
+            subtitle = stringResource(R.string.settings_library_removable_shelf_hint),
+            enabled = state.settings.showRemovableShelf,
+            onToggle = { enabled ->
+                viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetShowRemovableShelf(enabled))
+            },
+        )
+    }
+
+    item(key = "default-sort") {
+        ValueChoiceRow(
+            title = stringResource(R.string.settings_library_sort),
+            options = SortOrder.entries,
+            selected = state.settings.sortOrder,
+            labelRes = ::sortOrderLabelRes,
+            onPick = viewModel::onSetDefaultSortOrder,
+            subtitle = stringResource(R.string.settings_library_sort_hint),
+        )
+    }
+
+    item(key = "default-sort-descending") {
+        ToggleRow(
+            title = stringResource(R.string.settings_library_descending),
+            subtitle = stringResource(R.string.settings_library_descending_hint),
+            enabled = state.settings.sortDescending,
+            onToggle = viewModel::onSetDefaultSortDescending,
+        )
+    }
+
+    item(key = "default-grouping") {
+        ValueChoiceRow(
+            title = stringResource(R.string.settings_library_grouping),
+            options = Grouping.entries,
+            selected = state.settings.grouping,
+            labelRes = ::groupingLabelRes,
+            onPick = viewModel::onSetDefaultGrouping,
+            subtitle = stringResource(R.string.settings_library_grouping_hint),
+        )
+    }
+}
+
+
+/** Раздел «Разрешения»: выданные права и кнопка открытия настроек приложения. */
+private fun LazyListScope.permissionsSection(
+    permissions: List<PermissionItemUi>,
+    onRequest: (String) -> Unit,
+    onOpenAppInfo: () -> Unit,
+) {
+    item(key = "header-permissions") {
+        EinkSectionHeader(title = stringResource(R.string.settings_permissions_header), count = permissions.size)
+    }
+    items(items = permissions, key = { item -> item.permission }) { item ->
+        EinkListRow(
+            title = stringResource(item.titleRes),
+            subtitle = stringResource(item.subtitleRes),
+            trailing = if (item.isGranted) {
+                stringResource(R.string.settings_permission_granted)
+            } else {
+                stringResource(R.string.settings_permission_request)
+            },
+            onClick = { onRequest(item.permission) },
+        )
+    }
+    item(key = "permissions-appinfo") {
+        EinkListRow(
+            title = stringResource(R.string.settings_permission_app_info),
+            subtitle = stringResource(R.string.settings_permission_app_info_hint),
+            onClick = onOpenAppInfo,
+        )
+    }
 }

@@ -5,6 +5,10 @@ import io.github.bookshelf.core.data.model.ReadingStatus
 
 import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
+import io.github.bookshelf.core.designsystem.R as DesignR
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.genreText
+import io.github.bookshelf.core.designsystem.text.readingStatusText
 
 /**
  * Текущий выбор пользователя по всем фасетам.
@@ -24,6 +28,8 @@ data class FilterSelectionUi(
     val statuses: Set<String> = emptySet(),
     /** Выбранные жанры и теги. */
     val tags: Set<String> = emptySet(),
+    /** Выбранные источники (папки-источники): идентификаторы `sources.id`. */
+    val sources: Set<String> = emptySet(),
 )
 
 /** Какой фасет показывает секция — по этому признаку экран понимает, выбран ли чип. */
@@ -33,14 +39,26 @@ enum class FacetKind {
     TAGS,
     FORMATS,
     STATUSES,
+    SOURCES,
 }
 
 /** Один чип фасета: подпись и число книг, которые останутся после выбора. */
 data class FacetChipUi(
     /** Идентификатор значения фасета (`authors.id`, `seriesName`, `READING`, …). */
     val id: String,
-    /** Подпись для пользователя. */
-    val label: String,
+    /**
+     * Значение подписи: имя автора или серии (данные) либо код жанра/статуса.
+     *
+     * Показывается как есть, когда [labelText] нет: имя автора — это данные, а не текст интерфейса.
+     */
+    val labelCode: String,
+    /**
+     * Подпись, выбранная интерфейсом, если значение — код (`genreText`, `readingStatusText`).
+     *
+     * Живёт в UI-модели, а не в `:core:data`: у слоя данных нет ресурсов, и готовая русская строка
+     * оттуда показывалась бы по-русски и в английском интерфейсе (docs/tdd.md §8).
+     */
+    val labelText: AppText? = null,
     /** Сколько книг у этого значения с учётом остальных активных фильтров. */
     val count: Int,
 )
@@ -65,37 +83,65 @@ data class FacetSectionUi(
  *
  * Единственное место, где экран касается формы доменной модели: дальше он работает
  * с [FacetSectionUi] и не зависит от изменений в `core:data`.
+ *
+ * [kinds] ограничивает набор критериев: экран правил умной полки пока не умеет условие
+ * «книги из этой папки» (его нет и в `SmartRules`), поэтому папки там не показываются.
  */
-fun FacetSet.toSectionsUi(): List<FacetSectionUi> = listOf(
+fun FacetSet.toSectionsUi(
+    kinds: Set<FacetKind> = FacetKind.entries.toSet(),
+): List<FacetSectionUi> = listOf(
     FacetSectionUi(
         kind = FacetKind.AUTHORS,
         titleRes = R.string.filters_section_authors,
-        items = authors.toChipsUi(),
+        items = authors.toChipsUi(FacetKind.AUTHORS),
     ),
     FacetSectionUi(
         kind = FacetKind.SERIES,
         titleRes = R.string.filters_section_series,
-        items = series.toChipsUi(),
+        items = series.toChipsUi(FacetKind.SERIES),
     ),
     FacetSectionUi(
         kind = FacetKind.TAGS,
         titleRes = R.string.filters_section_tags,
-        items = tags.toChipsUi(),
+        items = tags.toChipsUi(FacetKind.TAGS),
     ),
     FacetSectionUi(
         kind = FacetKind.FORMATS,
         titleRes = R.string.filters_section_formats,
-        items = formats.toChipsUi(),
+        items = formats.toChipsUi(FacetKind.FORMATS),
     ),
     FacetSectionUi(
         kind = FacetKind.STATUSES,
         titleRes = R.string.filters_section_statuses,
-        items = statuses.toChipsUi(),
+        items = statuses.toChipsUi(FacetKind.STATUSES),
     ),
-).filter { section -> section.items.isNotEmpty() }
+    FacetSectionUi(
+        kind = FacetKind.SOURCES,
+        titleRes = R.string.filters_section_sources,
+        items = sources.toChipsUi(FacetKind.SOURCES),
+    ),
+).filter { section -> section.kind in kinds && section.items.isNotEmpty() }
 
-private fun List<FacetItem>.toChipsUi(): List<FacetChipUi> = map { item ->
-    FacetChipUi(id = item.id, label = item.label, count = item.count)
+/**
+ * Чипы одной секции.
+ *
+ * Подпись выбирается по виду фасета: жанры и статусы — коды, слова для них берутся из ресурсов
+ * (`genreText`, `readingStatusText`); авторы, серии и форматы — данные, показываются как есть.
+ */
+private fun List<FacetItem>.toChipsUi(kind: FacetKind): List<FacetChipUi> = map { item ->
+    FacetChipUi(
+        id = item.id,
+        labelCode = item.labelCode,
+        labelText = when (kind) {
+            FacetKind.TAGS -> genreText(item.labelCode)
+            FacetKind.STATUSES -> readingStatusText(item.labelCode)
+            // Имя папки — данные, но у выбранного в новой версии источника имя пустое:
+            // тогда слова выбирает приложение, а не файл (docs/tdd.md §8).
+            FacetKind.SOURCES -> if (item.labelCode.isBlank()) AppText(DesignR.string.source_default_name) else null
+            else -> null
+        },
+        count = item.count,
+    )
 }
 
 /**
@@ -114,8 +160,8 @@ data class FiltersUiState(
     val resultCount: Int = 0,
     /** Идёт загрузка фасетов или пересчёт результата. */
     val isLoading: Boolean = false,
-    /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка (docs/tdd.md §5). */
+    val error: AppText? = null,
 )
 
 /** Восстановление выбора из применённого запроса: экран открывается с тем, что видит полка. */
@@ -126,6 +172,7 @@ internal fun filterSelectionFromQuery(query: BookQuery): FilterSelectionUi =
         formats = query.formats,
         statuses = query.statuses.map { it.name }.toSet(),
         tags = query.tags,
+        sources = query.sourceIds,
     )
 
 /**
@@ -140,6 +187,7 @@ internal fun FilterSelectionUi.toBookQuery(): BookQuery = BookQuery(
     formats = formats,
     statuses = statuses.mapNotNull { value -> value.toReadingStatus() }.toSet(),
     tags = tags,
+    sourceIds = sources,
 )
 
 /** Неизвестное имя статуса из старой версии не должно ронять экран. */
@@ -149,4 +197,5 @@ private fun String.toReadingStatus(): ReadingStatus? =
 /** Пуст ли запрос: у пустого набора фильтров нет отдельного предиката в `:core:data`. */
 internal fun BookQuery.isEmptyQuery(): Boolean =
     authorNames.isEmpty() && series.isEmpty() && formats.isEmpty() &&
-        statuses.isEmpty() && tags.isEmpty() && !favoritesOnly && searchTerm == null
+        statuses.isEmpty() && tags.isEmpty() && sourceIds.isEmpty() &&
+        !favoritesOnly && searchTerm == null

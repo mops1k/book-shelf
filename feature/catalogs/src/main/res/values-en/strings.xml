@@ -104,4 +104,42 @@
     <string name="catalogs_state_cancelled">Cancelled</string>
     <string name="catalogs_size_mb">%1$s MB</string>
     <string name="catalogs_size_kb">%1$d KB</string>
+
+    <!-- OPDS entry card errors: the cause is the text of the error type. -->
+    <string name="catalogs_entry_error_load_state">Could not get the download state: %1$s</string>
+    <string name="catalogs_entry_error_no_catalog">No catalog specified</string>
+    <string name="catalogs_entry_error_not_in_feed">The entry is no longer part of this feed</string>
+    <string name="catalogs_entry_error_load">Could not load the entry: %1$s</string>
+    <string name="catalogs_entry_error_no_link">The entry has no direct file link</string>
+    <string name="catalogs_entry_error_no_folder">Add a folder in the app first</string>
+    <string name="catalogs_entry_error_enqueue">Could not queue the download: %1$s</string>
+
+    <!-- OPDS catalog errors: what failed plus the cause by error type. -->
+    <string name="catalogs_error_add">Could not add the catalog: %1$s</string>
+    <string name="catalogs_error_load_feed">Could not load the feed: %1$s</string>
+    <string name="catalogs_error_open_entry">Could not open the entry: %1$s</string>
+    <string name="catalogs_error_open_section">Could not open the section: %1$s</string>
+    <string name="catalogs_error_enqueue">Could not queue the download: %1$s</string>
+    <string name="catalogs_error_search">Could not search the catalog: %1$s</string>
+    <string name="catalogs_error_delete">Could not delete the catalog: %1$s</string>
+    <string name="catalogs_error_new_address">The catalog at the new address did not open: %1$s</string>
+    <string name="catalogs_error_save">Could not save the catalog: %1$s</string>
+    <string name="catalogs_error_clear_history">Could not clear the download history: %1$s</string>
+    <string name="catalogs_error_cancel_download">Could not cancel the download: %1$s</string>
+    <string name="catalogs_error_load_catalogs">Could not load the catalogs: %1$s</string>
+    <string name="catalogs_error_load_downloads">Could not load the downloads: %1$s</string>
+    <string name="catalogs_error_load_more">Could not load the next page of the catalog: %1$s</string>
+    <string name="catalogs_error_open_catalog_feed">Could not open the catalog feed: %1$s</string>
+    <string name="catalogs_validation_address">Enter the catalog address</string>
+    <string name="catalogs_validation_query">Enter a search query</string>
+
+    <string name="catalogs_last_opened">Last time: %1$s</string>
+    <string name="catalogs_download_progress">Downloaded %1$d%%</string>
+
+    <!-- OPDS feed level labels: names come from the server, these words are chosen by the app. -->
+    <string name="catalogs_level_search">Search: %1$s</string>
+    <string name="catalogs_level_local_search">Search in the loaded feed: %1$s</string>
+    <string name="catalogs_level_catalog">Catalog</string>
+    <string name="catalogs_level_author">Author</string>
+    <string name="catalogs_level_series">Series</string>
 </resources>

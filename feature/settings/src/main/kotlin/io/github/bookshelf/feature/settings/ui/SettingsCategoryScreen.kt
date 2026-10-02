@@ -7,11 +7,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.feature.settings.SettingsSectionKind
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.defaultSettingsSections
+import io.github.bookshelf.feature.settings.readersBackLevelOf
 import io.github.bookshelf.feature.settings.ui.category.AboutCategory
 import io.github.bookshelf.feature.settings.ui.category.AppearanceCategory
 import io.github.bookshelf.feature.settings.ui.category.EinkCategory
@@ -48,17 +50,29 @@ fun SettingsCategoryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val title = stringResource(defaultSettingsSections().first { section -> section.kind == kind }.titleRes)
 
+    // Экран «Читалки» трёхуровневый: кнопка «Назад» в шапке поднимает на уровень выше, а с первого
+    // уровня выходит из раздела. Своей строки «Назад» в списке нет — её дублирование заметил
+    // Александр (01.10.2026).
+    val back: () -> Unit = if (kind == SettingsSectionKind.READERS) {
+        {
+            val up = readersBackLevelOf(state.readersLevel)
+            if (up == null) onBack() else viewModel.onReadersLevel(up)
+        }
+    } else {
+        onBack
+    }
+
     EinkScaffold(
         title = title,
         subtitle = stringResource(R.string.settings_subtitle_applied),
         modifier = modifier,
-        onBack = onBack,
-        onKeyAction = { action -> if (action == EinkAction.BACK) onBack() },
+        onBack = back,
+        onKeyAction = { action -> if (action == EinkAction.BACK) back() },
     ) {
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.settings_action_retry),
                 onAction = viewModel::onRefreshDiagnostics,
             )

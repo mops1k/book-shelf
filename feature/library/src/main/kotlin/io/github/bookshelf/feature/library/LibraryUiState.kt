@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.library
 
+
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.data.model.BookQuery
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.ReadingStatus
@@ -112,7 +114,7 @@ data class LibraryUiState(
     /** Идёт загрузка страницы. */
     val isLoading: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val error: AppText? = null,
 ) {
     /** Всего страниц при текущем размере страницы. */
     val totalPages: Int get() = pageCount(total, pageSize)
@@ -212,7 +214,19 @@ data class CategoryItemUi(
      * уровень обзора, поэтому разделитель обязан отличаться от запятой в подписи.
      */
     val id: String,
+    /**
+     * Значение подписи: имя автора, серии или набор авторов (данные) либо код жанра.
+     *
+     * Показывается как есть, когда [labelText] нет: имена — это данные, переводить нечего.
+     */
     val label: String,
+    /**
+     * Подпись, выбранная интерфейсом, если значение — код (жанр).
+     *
+     * У слоя данных ресурсов нет: готовая русская подпись оттуда показывалась бы по-русски и в
+     * английском интерфейсе, а код без перевода читается как `sf_space` (docs/tdd.md §8).
+     */
+    val labelText: AppText? = null,
     val count: Int,
 )
 
@@ -231,6 +245,14 @@ data class BrowseTitleUi(
      * раскрывать массив на каждом вызове `stringResource` (`SpreadOperator` в detekt).
      */
     val arg: String? = null,
+    /**
+     * Подставляемый текст, если аргумент переводится.
+     *
+     * Так приходит название жанра: в `arg` лежит код метаданных (`sf_space`), а слова выбирает
+     * экран (`genreText`), потому что у слоя данных нет ресурсов (docs/tdd.md §8). Имена авторов
+     * и серий остаются в [arg] — это данные, их переводить нечем.
+     */
+    val argText: AppText? = null,
 )
 
 /** Состояние обзора полки. */

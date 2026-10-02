@@ -35,10 +35,42 @@
     <string name="collections_card_error_denied">Доступ к папке носителя не выдан</string>
     <string name="collections_card_error_foreign_folder">Выбранная папка не на этом носителе</string>
     <string name="collections_card_error_failed">Не удалось получить доступ к носителю</string>
+    <!-- Сообщения ViewModel: текст рождается вне Composable, поэтому это ресурс (docs/tdd.md §5). -->
+    <string name="collections_error_create">Не удалось создать полку: %1$s</string>
+    <string name="collections_error_rename">Не удалось переименовать полку: %1$s</string>
+    <string name="collections_error_rename_empty">Имя полки не должно быть пустым</string>
+    <string name="collections_error_delete">Не удалось удалить полку: %1$s</string>
+    <string name="collections_error_save_rules">Не удалось сохранить правила: %1$s</string>
+    <string name="collections_error_rules_empty">Правила полки не должны быть пустыми</string>
+    <string name="collections_error_save_filter">Не удалось сохранить подборку: %1$s</string>
+    <string name="collections_error_filter_empty">Сначала выберите условия фильтра на полке</string>
+    <string name="collections_error_save_shelf_rules">Не удалось сохранить правила полки: %1$s</string>
+    <string name="collections_error_load">Не удалось загрузить список полок: %1$s</string>
+    <string name="collections_content_error_load">Не удалось загрузить полку: %1$s</string>
+    <string name="collections_preset_favorites_hint">Книги, отмеченные избранными</string>
+    <string name="collections_preset_unread_hint">Статус чтения: не прочитано</string>
+    <string name="collections_preset_reading_hint">Статус чтения: читаю</string>
+    <string name="collections_preset_read_hint">Статус чтения: прочитано</string>
     <plurals name="collections_book_count">
         <item quantity="one">%1$d книга</item>
         <item quantity="few">%1$d книги</item>
         <item quantity="many">%1$d книг</item>
         <item quantity="other">%1$d книг</item>
     </plurals>
+
+    <!-- Подписи полок: имена служебных полок и правила собирает экран, а не слой данных. -->
+    <string name="collections_default_name">Новая полка</string>
+    <string name="collections_default_name_numbered">Новая полка %1$d</string>
+    <string name="collections_rule_genre">жанр: %1$s</string>
+    <string name="collections_rule_author">автор: %1$s</string>
+    <string name="collections_rule_series">серия: %1$s</string>
+    <string name="collections_rule_format">формат: %1$s</string>
+    <string name="collections_rule_status">статус: %1$s</string>
+    <string name="collections_rule_favorites">избранное</string>
+    <string name="collections_rule_more">и ещё %1$d</string>
+    <string name="collections_rule_none">без условий</string>
+    <string name="collections_preset_favorites">Избранное</string>
+    <string name="collections_preset_unread">Непрочитанные</string>
+    <string name="collections_preset_reading">Читаю сейчас</string>
+    <string name="collections_preset_read">Прочитанные</string>
 </resources>

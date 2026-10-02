@@ -1,7 +1,6 @@
 package io.github.bookshelf.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -9,6 +8,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.data.backup.DatabaseBackup
 
 /**
@@ -25,12 +25,13 @@ import io.github.bookshelf.core.data.backup.DatabaseBackup
 class DatabaseBackupWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val backup: DatabaseBackup,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         val outcome = backup.backupNow(automatic = true)
-        Log.i(TAG, "бэкап базы: ${outcome.getOrNull() ?: outcome.errorOrNull()}")
+        logger.i(TAG, "бэкап базы: ${outcome.getOrNull() ?: outcome.errorOrNull()}")
         return Result.success()
     }
 

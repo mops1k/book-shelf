@@ -30,4 +30,16 @@
     <string name="scan_caption_seen">Files seen: %1$d</string>
     <string name="scan_caption_seen_total">Seen %1$d of ~%2$d</string>
     <string name="scan_status_detail">%1$s · added %2$d, errors %3$d</string>
+
+    <!-- Scan messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <string name="scan_error_no_source">There is no source to scan</string>
+    <string name="scan_error_not_started">Could not scan: the job did not start</string>
+    <string name="scan_error_pause">Could not pause the scan: %1$s</string>
+    <string name="scan_error_start">Could not start the scan: %1$s</string>
+    <string name="scan_error_refresh">Could not refresh the scan: %1$s</string>
+    <string name="scan_error_sources">Could not get the list of sources: %1$s</string>
+    <string name="scan_error_progress">Could not get the scan progress: %1$s</string>
+    <string name="scan_error_reports">Could not get the scan reports: %1$s</string>
+    <string name="scan_reason_missing">No reason recorded</string>
+    <string name="scan_duration_seconds">%1$d s</string>
 </resources>

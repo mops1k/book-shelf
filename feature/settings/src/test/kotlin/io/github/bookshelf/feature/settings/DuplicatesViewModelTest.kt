@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.settings
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.data.duplicates.DuplicateGroup
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
 import io.github.bookshelf.core.data.model.Book
@@ -59,7 +60,7 @@ class DuplicatesViewModelTest {
         val state = viewModel.uiState.value
         assertThat(state.isConfirming).isFalse()
         assertThat(state.isConfirmingBroken).isFalse()
-        assertThat(state.message).isEqualTo("Дубликатов не найдено")
+        assertThat(state.message).containsExactly(AppText(R.string.settings_duplicates_none))
     }
 
     @Test
@@ -71,10 +72,13 @@ class DuplicatesViewModelTest {
         viewModel.onCheck()
         advanceUntilIdle()
 
-        val message = viewModel.uiState.value.message.orEmpty()
         // Молчаливое «дубликатов не найдено» было бы ложью: файлы ещё не сравнены.
-        assertThat(message).contains("Поиск остановлен")
-        assertThat(message).contains("читалка")
+        assertThat(viewModel.uiState.value.message).containsExactly(
+            AppText(
+                R.string.settings_duplicates_stopped,
+                AppText(R.string.settings_duplicates_nothing_before_stop),
+            ),
+        )
         assertThat(viewModel.uiState.value.isConfirming).isFalse()
     }
 
@@ -93,8 +97,8 @@ class DuplicatesViewModelTest {
         assertThat(state.isConfirmingBroken).isTrue()
         assertThat(state.toRemove).containsExactly("copy")
         assertThat(state.broken).containsExactly("broken")
-        assertThat(state.message).contains("к удалению файлов: 1")
-        assertThat(state.message).contains("битых файлов (0 байт): 1")
+        assertThat(state.message).contains(AppText(R.string.settings_duplicates_groups, 1, 1))
+        assertThat(state.message).contains(AppText(R.string.settings_duplicates_broken, 1))
     }
 
     @Test
@@ -111,7 +115,7 @@ class DuplicatesViewModelTest {
         val state = viewModel.uiState.value
         assertThat(state.isConfirming).isFalse()
         assertThat(state.toRemove).isEmpty()
-        assertThat(state.message).isEqualTo("Удалено файлов: 1")
+        assertThat(state.message).containsExactly(AppText(R.string.settings_duplicates_deleted, 1))
     }
 
     @Test
@@ -143,7 +147,8 @@ class DuplicatesViewModelTest {
         advanceUntilIdle()
 
         // Молчать нельзя: файлы остались на диске, и пользователь обязан об этом узнать.
-        assertThat(viewModel.uiState.value.message).contains("не удалось удалить: 2")
+        assertThat(viewModel.uiState.value.message)
+            .contains(AppText(R.string.settings_duplicates_delete_failed, 2))
     }
 
     private fun report(duplicates: Int, broken: Int): DuplicateReport {

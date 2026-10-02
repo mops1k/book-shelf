@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.data.metadata.BookMetadataEditor
 import io.github.bookshelf.core.data.metadata.SaveBookMetadata
 import io.github.bookshelf.core.data.model.Book
@@ -77,7 +78,7 @@ class BookMetadataEditViewModelTest {
         assertThat(patch.title).isNull()
         assertThat(patch.authorsText).isNull()
         assertThat(editor.edits.single().seriesName).isEqualTo("Новая серия")
-        assertThat(viewModel.uiState.value.message).isEqualTo("Сохранено и записано в файл книги")
+        assertThat(viewModel.uiState.value.message).isEqualTo(AppText(R.string.book_edit_saved_to_file))
     }
 
     @Test
@@ -122,8 +123,14 @@ class BookMetadataEditViewModelTest {
         viewModel.onSave()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message)
-            .isEqualTo("Сохранено в приложении. В файл записать не удалось: Нет права записи")
+        // Экран говорит и факт, и причину: причина — текст по типу ошибки, а не строка слоя данных
+        // (docs/tdd.md §7), поэтому английский интерфейс не покажет русский отказ провайдера.
+        assertThat(viewModel.uiState.value.message).isEqualTo(
+            AppText(
+                R.string.book_edit_saved_file_failed_reason,
+                AppText(io.github.bookshelf.core.designsystem.R.string.error_io),
+            ),
+        )
     }
 
     @Test
@@ -135,7 +142,8 @@ class BookMetadataEditViewModelTest {
         viewModel.onSave()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).isEqualTo("Ничего не изменилось")
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.book_edit_nothing_changed))
         assertThat(repository.metadataPatches).isEmpty()
         assertThat(editor.edits).isEmpty()
     }
@@ -152,7 +160,8 @@ class BookMetadataEditViewModelTest {
         advanceUntilIdle()
 
         assertThat(editor.edits).isEmpty()
-        assertThat(viewModel.uiState.value.message).isEqualTo("Сохранено в приложении")
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.book_edit_saved_app_only))
     }
 
     private fun viewModel() = BookMetadataEditViewModel(

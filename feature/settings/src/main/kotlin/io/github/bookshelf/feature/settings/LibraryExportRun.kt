@@ -1,9 +1,12 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.export.LibraryExportSummary
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 
 /**
  * Что показать человеку после выгрузки библиотеки.
@@ -16,18 +19,21 @@ import io.github.bookshelf.core.data.export.LibraryExportSummary
  * который падает по нужной причине, а не по «не удалось собрать экран».
  */
 internal data class LibraryExportRun(
-    val message: String? = null,
-    val error: String? = null,
+    val message: AppText? = null,
+    val error: AppText? = null,
 )
 
 /** Итог выгрузки словами: сколько книг и полок записано, либо причина сбоя. */
 internal fun libraryExportReport(result: AppResult<LibraryExportSummary>): LibraryExportRun {
     val summary = result.getOrNull()
         ?: return LibraryExportRun(
-            error = result.errorOrNull()?.message?.takeIf { message -> message.isNotBlank() }
-                ?: "Не удалось выгрузить библиотеку",
+            // Причина — текст по типу ошибки: `AppError.message` человеку не показывается (docs/tdd.md §7).
+            error = AppText(
+                R.string.settings_export_failed,
+                (result.errorOrNull() ?: AppError.Unknown()).text(),
+            ),
         )
     return LibraryExportRun(
-        message = "Экспортировано книг: ${summary.books}, полок: ${summary.collections}",
+        message = AppText(R.string.settings_export_report, summary.books, summary.collections),
     )
 }

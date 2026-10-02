@@ -1,6 +1,9 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.covers.CoverCache
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -17,14 +20,16 @@ import kotlin.coroutines.cancellation.CancellationException
  * Ловится именно [IOException] — очистка кэша это работа с файлами; перехват шире скрыл бы и
  * ошибку программиста, а detekt считает такой перехват слишком широким справедливо.
  */
-internal suspend fun clearCoverCacheWithReport(cache: CoverCache): String {
+internal suspend fun clearCoverCacheWithReport(cache: CoverCache): AppText {
     val before = cache.sizeBytes()
     return try {
         cache.clear()
-        "Кэш обложек очищен, освобождено ${freedBytesLabel(before - cache.sizeBytes())}"
+        // Объём — переводимая часть: число считает `freedBytesText`, единицу даёт ресурс (docs/tdd.md §5).
+        AppText(R.string.settings_cover_cache_cleared, freedBytesText(before - cache.sizeBytes()))
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (io: IOException) {
-        "Не удалось очистить кэш обложек: " + (io.message ?: "ошибка ввода-вывода")
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        AppText(R.string.settings_cover_cache_failed, io.toAppError().text())
     }
 }

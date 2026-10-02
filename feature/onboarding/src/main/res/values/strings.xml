@@ -24,4 +24,15 @@
     <string name="onboarding_action_back">Назад</string>
     <string name="onboarding_action_next">Далее</string>
     <string name="onboarding_action_finish">Собрать библиотеку</string>
+
+    <!-- Сообщения онбординга: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <string name="onboarding_error_open_picker">Не удалось открыть выбор папки</string>
+    <string name="onboarding_error_empty_uri">Выбранная папка не содержит URI</string>
+    <string name="onboarding_error_add_source">Не удалось добавить папку: %1$s</string>
+    <string name="onboarding_error_remove_source">Не удалось убрать папку: %1$s</string>
+    <string name="onboarding_error_default_reader">Не удалось назначить читалку по умолчанию: %1$s</string>
+    <string name="onboarding_error_test_file">Открытие тестового файла читалки пока не поддерживается</string>
+    <string name="onboarding_error_no_source">Сначала добавьте папку с книгами</string>
+    <string name="onboarding_error_sources">Не удалось получить список папок: %1$s</string>
+    <string name="onboarding_error_readers">Не удалось получить список читалок: %1$s</string>
 </resources>

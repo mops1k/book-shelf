@@ -1,12 +1,13 @@
 package io.github.bookshelf.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.data.sync.LibrarySync
 
@@ -24,6 +25,7 @@ import io.github.bookshelf.core.data.sync.LibrarySync
 class LibrarySyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val librarySync: LibrarySync,
     /** Сессия чтения: пока читалка открыта, обход дерева не запускаем. */
     private val readerSession: ReaderSession,
@@ -34,7 +36,7 @@ class LibrarySyncWorker @AssistedInject constructor(
         // процессор, и её главный поток встаёт в сборке мусора (ANR 30.09.2026). Пропуск ничего не
         // теряет: библиотеку синхронизирует возврат в приложение, а периодический проход повторится.
         if (readerSession.isActive()) {
-            Log.w("BookShelf", "периодическая синхронизация пропущена: открыта читалка")
+            logger.w(APP_LOG_TAG, "периодическая синхронизация пропущена: открыта читалка")
             return Result.success()
         }
         // Ошибки синхронизации не роняют работу: неудачный проход повторит следующее срабатывание,

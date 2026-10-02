@@ -5,14 +5,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkListRow
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.settings.EinkDiagnosticsUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
@@ -50,42 +53,10 @@ internal fun AboutCategory(
         item(key = "about-eink-header") {
             EinkSectionHeader(title = stringResource(R.string.settings_about_diagnostics))
         }
-        item(key = "about-eink-vendor") {
-            EinkListRow(
-                title = stringResource(R.string.settings_about_vendor),
-                subtitle = stringResource(R.string.settings_about_vendor_hint),
-                trailing = diagnostics.vendorLabel,
-            )
-        }
-        item(key = "about-eink-screen") {
-            EinkListRow(
-                title = stringResource(R.string.settings_about_screen),
-                subtitle = stringResource(R.string.settings_about_screen_hint),
-                trailing = diagnostics.screenLabel,
-            )
-        }
-        item(key = "about-eink-commands") {
-            EinkListRow(
-                title = stringResource(R.string.settings_about_vendor_commands),
-                subtitle = stringResource(R.string.settings_about_vendor_commands_hint),
-                trailing = if (diagnostics.hasVendorCommands) {
-                    stringResource(R.string.settings_about_available)
-                } else {
-                    stringResource(R.string.settings_about_unavailable)
-                },
-            )
-        }
-        item(key = "about-eink-fast") {
-            EinkListRow(
-                title = stringResource(R.string.settings_about_fast_mode),
-                subtitle = stringResource(R.string.settings_about_fast_mode_hint),
-                trailing = if (diagnostics.supportsFastMode) {
-                    stringResource(R.string.settings_about_available_short)
-                } else {
-                    stringResource(R.string.settings_about_no)
-                },
-            )
-        }
+        einkDiagnosticsRows(diagnostics = diagnostics)
+
+        einkCapabilitiesRows(diagnostics = diagnostics)
+
         item(key = "about-refresh") {
             EinkListRow(
                 title = stringResource(R.string.settings_about_refresh_diagnostics),
@@ -117,4 +88,51 @@ private fun appVersion(context: Context): String {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName
     }.getOrNull()
     return version?.takeIf { it.isNotBlank() } ?: context.getString(R.string.settings_about_unknown)
+}
+
+
+/** Строки диагностики e-ink: устройство, экран и доступность вендорских команд. */
+private fun LazyListScope.einkDiagnosticsRows(diagnostics: EinkDiagnosticsUi) {
+    item(key = "about-eink-vendor") {
+        EinkListRow(
+            title = stringResource(R.string.settings_about_vendor),
+            subtitle = stringResource(R.string.settings_about_vendor_hint),
+            trailing = diagnostics.vendorLabel
+                ?: stringResource(R.string.settings_diagnostics_unknown_device),
+        )
+    }
+    item(key = "about-eink-screen") {
+        EinkListRow(
+            title = stringResource(R.string.settings_about_screen),
+            subtitle = stringResource(R.string.settings_about_screen_hint),
+            trailing = diagnostics.screenLabel.resolve(),
+        )
+    }
+}
+
+
+/** Возможности вендорского контроллера: команды обновления и быстрый режим. */
+private fun LazyListScope.einkCapabilitiesRows(diagnostics: EinkDiagnosticsUi) {
+    item(key = "about-eink-commands") {
+        EinkListRow(
+            title = stringResource(R.string.settings_about_vendor_commands),
+            subtitle = stringResource(R.string.settings_about_vendor_commands_hint),
+            trailing = if (diagnostics.hasVendorCommands) {
+                stringResource(R.string.settings_about_available)
+            } else {
+                stringResource(R.string.settings_about_unavailable)
+            },
+        )
+    }
+    item(key = "about-eink-fast") {
+        EinkListRow(
+            title = stringResource(R.string.settings_about_fast_mode),
+            subtitle = stringResource(R.string.settings_about_fast_mode_hint),
+            trailing = if (diagnostics.supportsFastMode) {
+                stringResource(R.string.settings_about_available_short)
+            } else {
+                stringResource(R.string.settings_about_no)
+            },
+        )
+    }
 }

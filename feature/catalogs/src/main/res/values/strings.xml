@@ -105,4 +105,42 @@
     <string name="catalogs_state_cancelled">Отменено</string>
     <string name="catalogs_size_mb">%1$s МБ</string>
     <string name="catalogs_size_kb">%1$d КБ</string>
+
+    <!-- Ошибки карточки записи OPDS: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <string name="catalogs_entry_error_load_state">Не удалось получить состояние загрузки: %1$s</string>
+    <string name="catalogs_entry_error_no_catalog">Каталог не указан</string>
+    <string name="catalogs_entry_error_not_in_feed">Запись больше не входит в этот фид</string>
+    <string name="catalogs_entry_error_load">Не удалось загрузить запись: %1$s</string>
+    <string name="catalogs_entry_error_no_link">У записи нет прямой ссылки на файл</string>
+    <string name="catalogs_entry_error_no_folder">Сначала добавьте папку в приложении</string>
+    <string name="catalogs_entry_error_enqueue">Не удалось поставить в очередь: %1$s</string>
+
+    <!-- Ошибки каталогов OPDS: «что не получилось» + причина по типу ошибки (docs/tdd.md §7). -->
+    <string name="catalogs_error_add">Не удалось добавить каталог: %1$s</string>
+    <string name="catalogs_error_load_feed">Не удалось загрузить фид: %1$s</string>
+    <string name="catalogs_error_open_entry">Не удалось открыть запись: %1$s</string>
+    <string name="catalogs_error_open_section">Не удалось открыть раздел: %1$s</string>
+    <string name="catalogs_error_enqueue">Не удалось поставить загрузку в очередь: %1$s</string>
+    <string name="catalogs_error_search">Не удалось выполнить поиск: %1$s</string>
+    <string name="catalogs_error_delete">Не удалось удалить каталог: %1$s</string>
+    <string name="catalogs_error_new_address">Каталог по новому адресу не открылся: %1$s</string>
+    <string name="catalogs_error_save">Не удалось сохранить каталог: %1$s</string>
+    <string name="catalogs_error_clear_history">Не удалось очистить историю загрузок: %1$s</string>
+    <string name="catalogs_error_cancel_download">Не удалось отменить загрузку: %1$s</string>
+    <string name="catalogs_error_load_catalogs">Не удалось загрузить каталоги: %1$s</string>
+    <string name="catalogs_error_load_downloads">Не удалось загрузить загрузки: %1$s</string>
+    <string name="catalogs_error_load_more">Не удалось догрузить страницу каталога: %1$s</string>
+    <string name="catalogs_error_open_catalog_feed">Не удалось открыть фид каталога: %1$s</string>
+    <string name="catalogs_validation_address">Укажите адрес каталога</string>
+    <string name="catalogs_validation_query">Введите запрос для поиска</string>
+
+    <string name="catalogs_last_opened">Последний раз: %1$s</string>
+    <string name="catalogs_download_progress">Скачано %1$d%%</string>
+
+    <!-- Подписи уровней фида OPDS: имена приходят с сервера, эти слова выбирает приложение. -->
+    <string name="catalogs_level_search">Поиск: %1$s</string>
+    <string name="catalogs_level_local_search">Поиск по загруженному фиду: %1$s</string>
+    <string name="catalogs_level_catalog">Каталог</string>
+    <string name="catalogs_level_author">Автор</string>
+    <string name="catalogs_level_series">Серия</string>
 </resources>

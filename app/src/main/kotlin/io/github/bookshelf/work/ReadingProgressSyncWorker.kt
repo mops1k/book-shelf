@@ -3,11 +3,11 @@ package io.github.bookshelf.work
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import android.util.Log
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.getOrNull
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
 
 /**
@@ -24,6 +24,7 @@ import io.github.bookshelf.core.data.sync.SyncReadingProgress
 class ReadingProgressSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val sync: SyncReadingProgress,
     private val scheduler: ReadingProgressSyncScheduler,
 ) : CoroutineWorker(appContext, params) {
@@ -32,7 +33,7 @@ class ReadingProgressSyncWorker @AssistedInject constructor(
         val outcome = sync.syncNow().getOrNull()
         // Итог пишем в журнал: без него не отличить «читалка не отдала данные» от «нечего
         // записывать», а это разные причины, и разбираться с ними приходится по устройству.
-        Log.i(TAG, "синхронизация прогресса чтения: $outcome")
+        logger.i(TAG, "синхронизация прогресса чтения: $outcome")
         // Продолжение цепочки: планировщик сам отменит её, если синхронизацию выключили.
         scheduler.scheduleNext()
         return Result.success()

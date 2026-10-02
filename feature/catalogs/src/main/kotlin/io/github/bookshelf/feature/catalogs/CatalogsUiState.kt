@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.catalogs
 
 import io.github.bookshelf.core.data.model.DownloadState
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 
 /** Какой из четырёх экранов модуля OPDS показан сейчас. */
 enum class CatalogsMode {
@@ -34,8 +36,8 @@ data class CatalogUi(
      * пароля пустое и означает «оставить прежний».
      */
     val username: String? = null,
-    /** Подпись «Последний раз: 12.03». */
-    val lastOpenedLabel: String? = null,
+    /** Подпись «Последний раз: 12.03»: дата — аргумент, слова — ресурс (docs/tdd.md §5). */
+    val lastOpenedLabel: CatalogsText? = null,
     /** false — каталог недоступен (ошибка сети или авторизации). */
     val isAvailable: Boolean = true,
 )
@@ -74,10 +76,10 @@ data class FeedEntryUi(
 
 /** Текущий фид OPDS (UI-модель). */
 data class FeedUi(
-    /** Заголовок фида. */
-    val title: String,
+    /** Заголовок фида: имя с сервера (данные) либо слова, выбранные приложением. */
+    val title: FeedLabel,
     /** Хлебные крошки от корня каталога (`rel="up"`/`start`). */
-    val breadcrumbs: List<String> = emptyList(),
+    val breadcrumbs: List<FeedLabel> = emptyList(),
     /** Записи: книги или разделы навигации. */
     val entries: List<FeedEntryUi> = emptyList(),
     /** true — навигационный фид (разделы), false — acquisition (книги). */
@@ -104,8 +106,13 @@ data class DownloadUi(
     val isActive: Boolean = false,
     /** `books.id` — появляется после постобработки завершённой загрузки. */
     val bookId: String? = null,
-    /** Причина ошибки, если загрузка не удалась. */
-    val error: String? = null,
+    /**
+     * Причина отказа словами по коду из базы; `null` — загрузка не падала.
+     *
+     * Диагностика (`opds_downloads.error`: ответ сервера, отказ провайдера) на экран не выводится
+     * (docs/tdd.md §7) — она уходит в журнал.
+     */
+    val failure: CatalogsText? = null,
 )
 
 /**
@@ -192,5 +199,5 @@ data class CatalogsUiState(
      */
     val isConfirmingClearHistory: Boolean = false,
     /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val error: AppText? = null,
 )

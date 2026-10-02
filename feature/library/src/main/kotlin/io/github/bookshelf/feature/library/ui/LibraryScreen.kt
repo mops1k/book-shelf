@@ -38,13 +38,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.SortOrder
-import io.github.bookshelf.core.data.model.badge
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkMenuButton
 import io.github.bookshelf.core.designsystem.component.EinkChip
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
@@ -52,6 +52,7 @@ import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
+import io.github.bookshelf.core.designsystem.text.readingStatusBadge
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.library.R
@@ -93,6 +94,8 @@ fun LibraryScreen(
     val listState = rememberLazyListState()
     // Корень обзора и уровень жанра — это списки категорий, а не сетка книг; от этого зависит,
     // что листать. Уровень жанра устроен так же: сверху авторы жанра, книг здесь нет.
+    // Корень обзора и уровень жанра — списки категорий, а не сетка книг: от этого зависит, что
+    // листать. Уровень жанра устроен так же — сверху авторы жанра, книг здесь нет.
     val rootCategories = state.browse.showsCategories &&
         (state.browse.level == BrowseLevel.Root || state.browse.level is BrowseLevel.Genre)
     val scrollByPage = rememberPageScroller(gridState, listState) { rootCategories }
@@ -106,56 +109,32 @@ fun LibraryScreen(
         // В шапке — только частые команды. Кнопки в шапке не переносятся на вторую строку:
         // каждый ряд шапки отнимает у сетки строку книг (docs/eink-ux.md §6.2), остальное — в меню.
         actions = {
-            EinkButton(
-                text = stringResource(R.string.library_filters, state.activeFilters.activeCount),
-                onClick = onOpenFilters,
+            LibraryHeaderActions(
+                filtersLabel = stringResource(R.string.library_filters, state.activeFilters.activeCount),
+                onOpenFilters = onOpenFilters,
+                onOpenSearch = onOpenSearch,
             )
-            EinkButton(text = stringResource(R.string.library_search), onClick = onOpenSearch)
         },
         menuTitle = stringResource(R.string.library_title),
         menu = { close ->
-            // Каталоги и настройки раньше были недостижимы из кода — из меню в них можно войти.
-            EinkMenuButton(text = stringResource(R.string.library_menu_collections)) {
-                onOpenCollections()
-                close()
-            }
-            EinkMenuButton(text = stringResource(R.string.library_menu_catalogs)) {
-                onOpenCatalogs()
-                close()
-            }
-            EinkMenuButton(text = stringResource(R.string.library_menu_settings)) {
-                onOpenSettings()
-                close()
-            }
-            // Виды полки (сетка/список/компактно и обзор по авторам/сериям) живут в строке видов
-            // на самой полке: пять кнопок рядом с книгами ближе, чем те же пункты в меню.
-            //
-            // Кнопки «Пересканировать» здесь больше нет: библиотека обновляется сама (при возврате
-            // в приложение и раз в 15 минут), а кнопка означала «забудь всё и собери заново» —
-            // такой команде место в настройках рядом с папками, а не рядом с книгами (решение
-            // Александра, 28.09.2026).
+            LibraryMenu(
+                close = close,
+                onOpenCollections = onOpenCollections,
+                onOpenCatalogs = onOpenCatalogs,
+                onOpenSettings = onOpenSettings,
+            )
         },
         onKeyAction = { action ->
-            when (action) {
-                EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
-                EinkAction.NEXT_PAGE -> scrollByPage(1)
-                EinkAction.SEARCH -> onOpenSearch()
-                // Корень графа: аппаратный BACK выходит из приложения (или сворачивает его).
-                EinkAction.BACK -> onExit()
-                // MENU открывает меню «Ещё» — этим занимается каркас экрана (EinkScaffold).
-                else -> Unit
-            }
+            libraryKeyAction(
+                action = action,
+                scrollByPage = scrollByPage,
+                onOpenSearch = onOpenSearch,
+                onExit = onExit,
+            )
         },
         footer = { LibraryFooter(state = state, onPickSort = { sortStep = SortStep.Field }) },
     ) {
-        val error = state.error
-        if (error != null) {
-            EinkErrorBanner(
-                message = error,
-                actionLabel = stringResource(R.string.library_action_retry),
-                onAction = viewModel::onRefresh,
-            )
-        }
+        LibraryErrorBanner(state = state, onRetry = viewModel::onRefresh)
 
         // Обзор по категориям: уровень и его содержимое заменяют плоский список книг.
         if (state.browse.isActive) {
@@ -163,66 +142,66 @@ fun LibraryScreen(
         }
         // Строка видов видна всегда — она же выход из обзора: без неё в корне «Авторов» не было
         // бы ни кнопки «Серии», ни способа вернуться к книгам (docs/eink-ux.md §6.2).
-        if (sortStep == SortStep.Field) {
-            SortPicker(
-                current = state.sort,
-                onPick = { candidate ->
-                    viewModel.onSetSort(candidate)
-                    // Второй шаг, а не закрытие: направление — часть решения «как смотреть полку»,
-                    // и без него подпись «Сначала те, что открывали недавно» оставалась обещанием.
-                    sortStep = SortStep.Direction
-                },
-                onClose = { sortStep = SortStep.Hidden },
-            )
-        } else if (sortStep == SortStep.Direction) {
-            SortDirectionPicker(
-                descending = state.descending,
-                onPick = { descending ->
-                    viewModel.onSetSortDirection(descending)
-                    sortStep = SortStep.Hidden
-                },
-                onBack = { sortStep = SortStep.Field },
-                onClose = { sortStep = SortStep.Hidden },
-            )
-        } else if (state.browse.showsViewSwitch) {
-            // Строка видов живёт только на корне обзора: зашли в жанр, автора или серию — кнопок
-            // нет, назад возвращает шапка (решение Александра 29.09.2026).
-            LibraryControls(
-                preset = viewPresetOf(state.browse.mode),
-                onPick = viewModel::onSetViewPreset,
-            )
-        }
+        LibraryViewControls(
+            state = state,
+            sortStep = sortStep,
+            onSortStep = { sortStep = it },
+            viewModel = viewModel,
+        )
 
-        when {
-            // Корень обзора — категории: авторы или серии с числом книг.
-            rootCategories -> CategoryList(
-                categories = state.browse.categories,
-                listState = listState,
-                onOpen = viewModel::onOpenCategory,
-            )
+        LibraryBrowseBody(
+            state = state,
+            rootCategories = rootCategories,
+            gridState = gridState,
+            listState = listState,
+            onOpenBook = onOpenBook,
+            onOpenScan = onOpenScan,
+            viewModel = viewModel,
+        )
+    }
+}
 
-            // Уровень автора и уровень набора — один и тот же совмещённый экран: серии
-            // категориями, ниже книги вне серий. Разница только в том, что фильтр набора —
-            // точный состав авторов, а не «все книги человека».
-            state.browse.level is BrowseLevel.Author || state.browse.level is BrowseLevel.AuthorSet ->
-                AuthorBrowseContent(
-                    categories = state.browse.categories,
-                    books = state.books,
-                    gridState = gridState,
-                    onOpenCategory = viewModel::onOpenCategory,
-                    onOpenBook = onOpenBook,
-                )
-
-            else -> LibraryContent(
-                state = state,
-                columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
-                gridState = gridState,
-                listState = listState,
-                onOpenBook = onOpenBook,
-                onOpenScan = onOpenScan,
-                onClearFilters = viewModel::onClearFilters,
-            )
-        }
+/**
+ * Выбор порядка и вида полки: шаг «поле → направление» и строка видов обзора.
+ *
+ * Вынесено из `LibraryScreen` отдельной функцией: экран перевалил за предел длины detekt, а это
+ * цельный кусок — он зависит только от состояния и колбэков ViewModel.
+ */
+@Composable
+private fun LibraryViewControls(
+    state: LibraryUiState,
+    sortStep: SortStep,
+    onSortStep: (SortStep) -> Unit,
+    viewModel: LibraryViewModel,
+) {
+    if (sortStep == SortStep.Field) {
+        SortPicker(
+            current = state.sort,
+            onPick = { candidate ->
+                viewModel.onSetSort(candidate)
+                // Второй шаг, а не закрытие: направление — часть решения «как смотреть полку»,
+                // и без него подпись «Сначала те, что открывали недавно» оставалась обещанием.
+                onSortStep(SortStep.Direction)
+            },
+            onClose = { onSortStep(SortStep.Hidden) },
+        )
+    } else if (sortStep == SortStep.Direction) {
+        SortDirectionPicker(
+            descending = state.descending,
+            onPick = { descending ->
+                viewModel.onSetSortDirection(descending)
+                onSortStep(SortStep.Hidden)
+            },
+            onBack = { onSortStep(SortStep.Field) },
+            onClose = { onSortStep(SortStep.Hidden) },
+        )
+    } else if (state.browse.showsViewSwitch) {
+        // Строка видов живёт только на корне обзора: зашли в жанр, автора или серию — кнопок
+        // нет, назад возвращает шапка (решение Александра 29.09.2026).
+        LibraryControls(
+            preset = viewPresetOf(state.browse.mode),
+            onPick = viewModel::onSetViewPreset,
+        )
     }
 }
 
@@ -329,7 +308,7 @@ private fun CategoryRow(
     onClick: (CategoryItemUi) -> Unit,
 ) {
     EinkListRow(
-        title = category.label,
+        title = category.labelText?.resolve() ?: category.label,
         trailing = category.count.toString(),
         onClick = { onClick(category) },
     )
@@ -363,8 +342,11 @@ private fun BrowseHeader(
         Text(
             // Без раскрытия массива: у подписи уровня либо нет аргумента, либо он один.
             text = title?.let { spec ->
-                spec.arg?.let { arg -> stringResource(spec.titleRes, arg) }
-                    ?: stringResource(spec.titleRes)
+                when {
+                    spec.argText != null -> stringResource(spec.titleRes, spec.argText.resolve())
+                    spec.arg != null -> stringResource(spec.titleRes, spec.arg)
+                    else -> stringResource(spec.titleRes)
+                }
             }.orEmpty(),
             style = MaterialTheme.typography.titleMedium,
             color = colors.foreground,
@@ -384,7 +366,7 @@ private fun CategoryList(
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         listItems(items = categories, key = { category -> category.id }) { category ->
             EinkListRow(
-                title = category.label,
+                title = category.labelText?.resolve() ?: category.label,
                 trailing = category.count.toString(),
                 onClick = { onOpen(category) },
             )
@@ -639,7 +621,9 @@ private fun BookGridItem(
                 book.authors,
             ),
             formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
-            statusBadge = book.readingStatus.badge(book.progressPercent),
+            statusBadge = readingStatusBadge(book.readingStatus.name, book.progressPercent)
+                ?.resolve()
+                .orEmpty(),
         )
         Text(
             text = book.title,
@@ -747,3 +731,140 @@ private fun sortHintRes(sort: SortOrder): Int = when (sort) {
     SortOrder.PROGRESS -> R.string.library_sort_hint_progress
     SortOrder.YEAR -> R.string.library_sort_hint_year
 }
+
+
+/**
+ * Кнопки шапки полки.
+ *
+ * Вынесены из `LibraryScreen`: функция перевалила за предел длины detekt, а шапка — цельный кусок,
+ * который не зависит от состояния прокрутки и обзора.
+ */
+@Composable
+private fun LibraryHeaderActions(
+    filtersLabel: String,
+    onOpenFilters: () -> Unit,
+    onOpenSearch: () -> Unit,
+) {
+    // Кнопки в шапке не переносятся на вторую строку: каждый ряд шапки отнимает у сетки строку
+    // книг (docs/eink-ux.md §6.2), остальное — в меню.
+    EinkButton(text = filtersLabel, onClick = onOpenFilters)
+    EinkButton(text = stringResource(R.string.library_search), onClick = onOpenSearch)
+}
+
+/**
+ * Меню «Ещё» на полке.
+ *
+ * Каталоги и настройки раньше были недостижимы из кода — из меню в них можно войти. Виды полки
+ * (сетка/список/компактно и обзор по авторам/сериям) живут в строке видов на самой полке: пять
+ * кнопок рядом с книгами ближе, чем те же пункты в меню.
+ *
+ * Кнопки «Пересканировать» здесь больше нет: библиотека обновляется сама (при возврате в приложение
+ * и раз в 15 минут), а кнопка означала «забудь всё и собери заново» — такой команде место
+ * в настройках рядом с папками, а не рядом с книгами (решение Александра, 28.09.2026).
+ */
+@Composable
+private fun LibraryMenu(
+    close: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenCatalogs: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    EinkMenuButton(text = stringResource(R.string.library_menu_collections)) {
+        onOpenCollections()
+        close()
+    }
+    EinkMenuButton(text = stringResource(R.string.library_menu_catalogs)) {
+        onOpenCatalogs()
+        close()
+    }
+    EinkMenuButton(text = stringResource(R.string.library_menu_settings)) {
+        onOpenSettings()
+        close()
+    }
+}
+
+
+/** Баннер ошибки на полке: переводимый текст и кнопка «Повторить». */
+@Composable
+private fun LibraryErrorBanner(state: LibraryUiState, onRetry: () -> Unit) {
+    val error = state.error ?: return
+    EinkErrorBanner(
+        message = error.resolve(),
+        actionLabel = stringResource(R.string.library_action_retry),
+        onAction = onRetry,
+    )
+}
+
+
+/**
+ * Тело полки: категории обзора, уровень автора или обычный список книг.
+ *
+ * Вынесено из `LibraryScreen` отдельной функцией: экран перевалил за предел длины detekt, а выбор
+ * содержимого — цельный кусок, зависящий от уровня обзора и состояния прокрутки.
+ */
+@Composable
+private fun ColumnScope.LibraryBrowseBody(
+    state: LibraryUiState,
+    rootCategories: Boolean,
+    gridState: LazyGridState,
+    listState: LazyListState,
+    onOpenBook: (String) -> Unit,
+    onOpenScan: () -> Unit,
+    viewModel: LibraryViewModel,
+) {
+    val dimens = LocalEinkDimens.current
+    when {
+        // Корень обзора — категории: авторы или серии с числом книг.
+        rootCategories -> CategoryList(
+            categories = state.browse.categories,
+            listState = listState,
+            onOpen = viewModel::onOpenCategory,
+        )
+
+        // Уровень автора и уровень набора — один и тот же совмещённый экран: серии
+        // категориями, ниже книги вне серий. Разница только в том, что фильтр набора —
+        // точный состав авторов, а не «все книги человека».
+        state.browse.level is BrowseLevel.Author || state.browse.level is BrowseLevel.AuthorSet ->
+            AuthorBrowseContent(
+                categories = state.browse.categories,
+                books = state.books,
+                gridState = gridState,
+                onOpenCategory = viewModel::onOpenCategory,
+                onOpenBook = onOpenBook,
+            )
+
+        else -> LibraryContent(
+            state = state,
+            columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
+            gridState = gridState,
+            listState = listState,
+            onOpenBook = onOpenBook,
+            onOpenScan = onOpenScan,
+            onClearFilters = viewModel::onClearFilters,
+        )
+    }
+}
+
+
+/**
+ * Что делает аппаратная клавиша на полке.
+ *
+ * Вынесено из `LibraryScreen` отдельной функцией: та перевалила за предел длины detekt. Корень
+ * графа: аппаратный BACK выходит из приложения (или сворачивает его), а MENU открывает меню «Ещё» —
+ * этим занимается каркас экрана (`EinkScaffold`), поэтому здесь `else`.
+ */
+private fun libraryKeyAction(
+    action: EinkAction,
+    scrollByPage: (Int) -> Unit,
+    onOpenSearch: () -> Unit,
+    onExit: () -> Unit,
+) {
+    when (action) {
+        EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+        EinkAction.NEXT_PAGE -> scrollByPage(1)
+        EinkAction.SEARCH -> onOpenSearch()
+        EinkAction.BACK -> onExit()
+        else -> Unit
+    }
+}
+

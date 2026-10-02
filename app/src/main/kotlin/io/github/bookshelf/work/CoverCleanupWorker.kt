@@ -1,7 +1,6 @@
 package io.github.bookshelf.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import io.github.bookshelf.core.covers.cache.CoverCacheCleaner
 import io.github.bookshelf.core.common.reader.ReaderSession
@@ -12,6 +11,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.log.AppLogger
 
 /**
  * Уборка кэша обложек по лимиту диска.
@@ -25,11 +26,20 @@ import dagger.assisted.AssistedInject
 class CoverCleanupWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val cleaner: CoverCacheCleaner,
     private val settingsRepository: SettingsRepository,
     /** Сессия чтения: уборка читает и удаляет файлы, читалке это мешает так же, как скан. */
     private val readerSession: ReaderSession,
 ) : CoroutineWorker(appContext, params) {
+
+    companion object {
+        /** Имя уникальной периодической работы: по нему расписание ставят и снимают. */
+        const val WORK_NAME: String = "cover-cleanup"
+
+        /** Метка для отладки и фильтрации работ в WorkManager. */
+        const val WORK_TAG: String = "cover-cleanup"
+    }
 
     /**
      * Чистка кэша обложек по лимиту.
@@ -45,7 +55,7 @@ class CoverCleanupWorker @AssistedInject constructor(
         // Открыта читалка — уборку откладываем: она ходит по файлам кэша, а читалке нужен процессор.
         // Работа периодическая, поэтому пропуск ничего не ломает: следующий проход сделает своё.
         if (readerSession.isActive()) {
-            Log.w("BookShelf", "уборка кэша обложек пропущена: открыта читалка")
+            logger.w(APP_LOG_TAG, "уборка кэша обложек пропущена: открыта читалка")
             return@runCatching Result.success()
         }
         val library = runCatching { settingsRepository.current().library }.getOrNull()

@@ -1,24 +1,28 @@
 package io.github.bookshelf.feature.bookdetails
 
+import android.database.SQLException
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.app.FolderOpener
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
-import io.github.bookshelf.core.common.app.FolderOpener
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
-import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.repository.ReaderRepository
+import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.sync.MetadataScheduler
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -31,7 +35,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import android.database.SQLException
 
 /**
  * ViewModel карточки книги (docs/eink-ux.md §6.4).
@@ -89,7 +92,7 @@ class BookDetailsViewModel @Inject constructor(
                     it.copy(
                         isDeleting = false,
                         isConfirmingDelete = false,
-                        error = failure.message ?: "Не удалось удалить книгу",
+                        error = AppText(R.string.book_error_delete, failure.text()),
                     )
                 }
 
@@ -97,7 +100,7 @@ class BookDetailsViewModel @Inject constructor(
                     it.copy(
                         isDeleting = false,
                         isConfirmingDelete = false,
-                        error = "Файл удалить не удалось: нет доступа к папке. Книга осталась",
+                        error = AppText(R.string.book_error_delete_file_access),
                     )
                 }
 
@@ -181,7 +184,6 @@ class BookDetailsViewModel @Inject constructor(
      */
     fun onAddToCollection(collectionId: String) {
         runBookCommand(
-            successMessage = null,
             onSuccess = { _uiState.update { it.copy(isPickingCollection = false) } },
         ) { collectionRepository.addBook(collectionId, bookId) }
     }
@@ -239,7 +241,7 @@ class BookDetailsViewModel @Inject constructor(
                     when {
                         failure != null -> state.copy(
                             isOptimizing = false,
-                            error = failure.message ?: "Оптимизировать книгу не удалось",
+                            error = AppText(R.string.book_error_optimize, failure.text()),
                         )
 
                         result != null -> state.copy(
@@ -256,7 +258,7 @@ class BookDetailsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isOptimizing = false,
-                        error = error.message ?: "Оптимизировать книгу не удалось",
+                        error = AppText(R.string.book_error_optimize, error.toAppError().text()),
                     )
                 }
             }
@@ -295,7 +297,7 @@ class BookDetailsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось поставить книгу на разбор",
+                        error = AppText(R.string.book_error_schedule_parse, error.toAppError().text()),
                     )
                 }
             }
@@ -313,11 +315,13 @@ class BookDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             val book = bookRepository.getById(bookId).getOrNull()
             if (book == null) {
-                _uiState.update { it.copy(error = "Книга не найдена") }
+                _uiState.update { it.copy(error = AppText(R.string.book_error_not_found)) }
                 return@launch
             }
-            folderOpener.openFolder(book.documentUri).errorOrNull()?.let { error ->
-                _uiState.update { state -> state.copy(error = error.message ?: "Папку открыть не удалось") }
+            folderOpener.openFolder(book.documentUri).errorOrNull()?.let { failure ->
+                _uiState.update { state ->
+                    state.copy(error = AppText(R.string.book_error_open_folder, failure.text()))
+                }
             }
         }
     }
@@ -333,7 +337,7 @@ class BookDetailsViewModel @Inject constructor(
                         _uiState.value = BookDetailsUiState(
                             bookId = bookId,
                             isLoading = false,
-                            error = "Книга не найдена",
+                            error = AppText(R.string.book_error_not_found),
                         )
                     } else {
                         val sourceName = sourceNameOf(book.sourceId)
@@ -343,7 +347,9 @@ class BookDetailsViewModel @Inject constructor(
                     }
                 }
                 if (!receivedBook) {
-                    _uiState.update { it.copy(isLoading = false, error = "Книга не найдена") }
+                    _uiState.update {
+                        it.copy(isLoading = false, error = AppText(R.string.book_error_not_found))
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -351,7 +357,7 @@ class BookDetailsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось загрузить карточку книги",
+                        error = AppText(R.string.book_error_load, error.toAppError().text()),
                     )
                 }
             }
@@ -359,7 +365,6 @@ class BookDetailsViewModel @Inject constructor(
     }
 
     private fun runBookCommand(
-        successMessage: String? = null,
         onSuccess: () -> Unit = {},
         command: suspend () -> AppResult<Unit>,
     ) {
@@ -369,9 +374,9 @@ class BookDetailsViewModel @Inject constructor(
                 val result = command()
                 if (result.isFailure) {
                     val error = result.errorOrNull() ?: AppError.Unknown()
-                    _uiState.update { it.copy(isLoading = false, error = error.toUserMessage()) }
+                    _uiState.update { it.copy(isLoading = false, error = error.text()) }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, error = successMessage) }
+                    _uiState.update { it.copy(isLoading = false, error = null) }
                     onSuccess()
                 }
             } catch (cancellation: CancellationException) {
@@ -380,7 +385,7 @@ class BookDetailsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось выполнить действие с книгой",
+                        error = AppText(R.string.book_error_action, error.toAppError().text()),
                     )
                 }
             }
@@ -408,7 +413,7 @@ private fun BookDetailsUiState.withBook(book: Book, sourceName: String): BookDet
     coverPath = book.coverPath,
     readingStatus = book.readingStatus,
     isFavorite = book.favorite,
-    parseError = book.parseError,
+    parseFailure = book.parseFailure?.text(),
     canOptimize = book.extension.lowercase() in OPTIMIZABLE_EXTENSIONS,
     isLoading = false,
     error = null,
@@ -430,11 +435,19 @@ private val OPTIMIZABLE_EXTENSIONS = setOf("fb2", "fb2.zip")
  * ничего не говорит о том, была ли книга большой. Отсутствие выигрыша — тоже результат, и он
  * формулируется как «заменять нечего», а не как пустая строка.
  */
-private fun optimizationReport(result: BookOptimizationResult): String = when {
-    result.alreadyOptimized -> "Уже оптимизирована — эту версию файла проверяли"
-    result.changed -> "Сэкономлено ${formatSize(result.savedBytes.toLong())} " +
-        "(было ${formatSize(result.beforeBytes.toLong())}, стало ${formatSize(result.afterBytes.toLong())})"
-    else -> "Файл уже оптимален — заменять нечего"
+private fun optimizationReport(result: BookOptimizationResult): AppText = when {
+    result.alreadyOptimized -> AppText(R.string.book_optimized_earlier)
+    result.changed -> AppText(
+        R.string.book_optimized_saved,
+        formatSize(result.savedBytes.toLong()),
+        AppText(
+            R.string.book_optimized_sizes,
+            formatSize(result.beforeBytes.toLong()),
+            formatSize(result.afterBytes.toLong()),
+        ),
+    )
+
+    else -> AppText(R.string.book_optimized_nothing)
 }
 
 private fun Book.seriesLabel(): String? = seriesName?.let { name ->
@@ -445,16 +458,15 @@ private fun Book.seriesLabel(): String? = seriesName?.let { name ->
     } ?: name
 }
 
-private fun formatSize(bytes: Long): String = when {
-    bytes < KIBIBYTE -> "$bytes Б"
-    bytes < MEBIBYTE -> {
-        String.format(Locale.getDefault(), "%.1f КБ", bytes.toDouble() / KIBIBYTE)
-    }
-    bytes < GIBIBYTE -> {
-        String.format(Locale.getDefault(), "%.1f МБ", bytes.toDouble() / MEBIBYTE)
-    }
-    else -> String.format(Locale.getDefault(), "%.1f ГБ", bytes.toDouble() / GIBIBYTE)
+private fun formatSize(bytes: Long): AppText = when {
+    bytes < KIBIBYTE -> AppText(R.string.book_size_bytes, bytes)
+    bytes < MEBIBYTE -> AppText(R.string.book_size_kb, decimal(bytes.toDouble() / KIBIBYTE))
+    bytes < GIBIBYTE -> AppText(R.string.book_size_mb, decimal(bytes.toDouble() / MEBIBYTE))
+    else -> AppText(R.string.book_size_gb, decimal(bytes.toDouble() / GIBIBYTE))
 }
+
+/** Число с одной десятой по локали: число считает код, единицу измерения даёт ресурс. */
+private fun decimal(value: Double): String = String.format(Locale.getDefault(), "%.1f", value)
 
 private const val KIBIBYTE = 1024L
 private const val MEBIBYTE = KIBIBYTE * 1024L
@@ -463,15 +475,3 @@ private const val GIBIBYTE = MEBIBYTE * 1024L
 private fun formatDate(timestamp: Long): String =
     DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(Date(timestamp))
 
-private fun AppError.toUserMessage(): String = message ?: when (this) {
-    is AppError.NotFound -> "Не найдено: $what"
-    is AppError.InvalidArgument -> "Некорректное значение: $what"
-    is AppError.PermissionDenied -> "Нет доступа к ресурсу"
-    AppError.AccessLost -> "Доступ к источнику потерян"
-    is AppError.Io -> "Ошибка чтения или записи данных"
-    is AppError.Parse -> "Не удалось разобрать файл ($format)"
-    is AppError.Network -> "Ошибка сети"
-    is AppError.Unauthorized -> "Требуется авторизация"
-    is AppError.Unsupported -> "Операция не поддерживается: $what"
-    is AppError.Unknown -> "Неизвестная ошибка"
-}

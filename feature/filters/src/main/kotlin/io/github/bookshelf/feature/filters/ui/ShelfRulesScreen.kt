@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
@@ -28,8 +29,10 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.ShelfRulesViewModel
 import io.github.bookshelf.feature.filters.R
+import io.github.bookshelf.feature.filters.ShelfRulesUiState
 import io.github.bookshelf.feature.filters.activeFilterCount
 import io.github.bookshelf.feature.filters.hasActiveFilters
+import io.github.bookshelf.feature.filters.FacetKind
 import io.github.bookshelf.feature.filters.toSectionsUi
 
 /**
@@ -50,7 +53,9 @@ fun ShelfRulesScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
-    val sections = remember(state.facets) { state.facets?.toSectionsUi().orEmpty() }
+    val sections = remember(state.facets) {
+        state.facets?.toSectionsUi(kinds = RULE_KINDS).orEmpty()
+    }
     val listState = rememberLazyListState()
     val scrollByPage = rememberEinkListPageScroller(listState)
 
@@ -74,55 +79,12 @@ fun ShelfRulesScreen(
                 else -> Unit
             }
         },
-        footer = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(
-                            R.string.shelf_rules_conditions,
-                            activeFilterCount(state.selected),
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.foreground,
-                    )
-                    Text(
-                        text = stringResource(R.string.shelf_rules_matching, state.resultCount),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.foreground,
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                ) {
-                    EinkButton(
-                        text = stringResource(R.string.filters_action_reset),
-                        onClick = viewModel::onReset,
-                        enabled = hasActiveFilters(state.selected),
-                        modifier = Modifier.weight(1f),
-                    )
-                    EinkButton(
-                        text = stringResource(R.string.shelf_rules_action_save),
-                        onClick = viewModel::onSave,
-                        primary = true,
-                        enabled = hasActiveFilters(state.selected),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        },
+        footer = { ShelfRulesFooter(state = state, viewModel = viewModel) },
     ) {
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.shelf_rules_action_retry),
                 onAction = viewModel::onLoadFacets,
             )
@@ -147,3 +109,66 @@ fun ShelfRulesScreen(
         }
     }
 }
+
+
+/**
+ * Подвал редактора правил полки: счётчики и кнопки «Сбросить»/«Сохранить».
+ *
+ * Вынесен из `ShelfRulesScreen` отдельной функцией: экран перевалил за предел длины detekt, а
+ * подвал — цельный кусок, зависящий только от состояния и ViewModel.
+ */
+@Composable
+private fun ShelfRulesFooter(state: ShelfRulesUiState, viewModel: ShelfRulesViewModel) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.shelf_rules_conditions,
+                        activeFilterCount(state.selected),
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = stringResource(R.string.shelf_rules_matching, state.resultCount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.foreground,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+            ) {
+                EinkButton(
+                    text = stringResource(R.string.filters_action_reset),
+                    onClick = viewModel::onReset,
+                    enabled = hasActiveFilters(state.selected),
+                    modifier = Modifier.weight(1f),
+                )
+                EinkButton(
+                    text = stringResource(R.string.shelf_rules_action_save),
+                    onClick = viewModel::onSave,
+                    primary = true,
+                    enabled = hasActiveFilters(state.selected),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+}
+
+/**
+ * Критерии, которые умеет правило умной полки.
+ *
+ * Папок здесь нет: условие «книги из этой папки» в `SmartRules` не выражается, и показывать
+ * в правилах то, что не сохранится, нельзя — человек решил бы, что полка фильтрует по папке.
+ */
+private val RULE_KINDS: Set<FacetKind> = FacetKind.entries.toSet() - FacetKind.SOURCES

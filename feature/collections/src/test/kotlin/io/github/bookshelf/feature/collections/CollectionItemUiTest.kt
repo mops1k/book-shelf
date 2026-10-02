@@ -3,7 +3,8 @@ package io.github.bookshelf.feature.collections
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReadingStatus
-import io.github.bookshelf.core.data.model.badge
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.readingStatusBadge
 import org.junit.Test
 
 /**
@@ -49,7 +50,11 @@ class CollectionItemUiTest {
 
         // Бейдж на обложке показывает «читаю 42%»: дробь читалке не важна, а «42.4%» не влезает.
         assertThat(item.progressPercent).isEqualTo(42)
-        assertThat(item.readingStatus.badge(item.progressPercent)).isEqualTo("читаю 42%")
+        // Слова бейджа выбирает интерфейс, а не слой данных (docs/tdd.md §8).
+        assertThat(readingStatusBadge(item.readingStatus.name, item.progressPercent))
+            .isEqualTo(
+                AppText(io.github.bookshelf.core.designsystem.R.string.status_reading_progress, 42),
+            )
     }
 
     @Test

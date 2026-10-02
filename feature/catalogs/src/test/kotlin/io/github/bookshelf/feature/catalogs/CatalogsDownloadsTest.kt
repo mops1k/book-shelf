@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.catalogs
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.DownloadFailure
 import io.github.bookshelf.core.data.model.DownloadState
 import io.github.bookshelf.core.data.model.OpdsDownload
 import org.junit.Test
@@ -21,6 +22,27 @@ class CatalogsDownloadsTest {
         assertThat(
             entryDownloadOf(entryId = "entry-1", downloads = listOf(download(id = "d1", entryId = "other"))),
         ).isNull()
+    }
+
+    @Test
+    fun `a failed download shows words chosen by code`() {
+        val download = OpdsDownload(
+            id = "d1",
+            catalogId = "c1",
+            entryId = "entry-1",
+            title = "Солярис",
+            downloadUrl = "https://host/1.fb2",
+            state = DownloadState.FAILED,
+            failure = DownloadFailure.NO_WRITE_PERMISSION,
+            error = "Permission Denial: writing ... requires MANAGE_DOCUMENTS",
+        )
+
+        val ui = download.toDownloadUi()
+
+        // Причина приходит кодом и переводится на экране; диагностика provider'а в UI не идёт.
+        assertThat(ui.failure).isEqualTo(
+            CatalogsText(io.github.bookshelf.core.designsystem.R.string.download_failure_no_write_permission),
+        )
     }
 
     @Test

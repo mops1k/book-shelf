@@ -4,6 +4,7 @@ import android.view.View
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.covers.CoverCache
 import io.github.bookshelf.core.covers.CoverCache.CoverKind
 import io.github.bookshelf.core.data.duplicates.DuplicateReport
@@ -136,6 +137,19 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `an unknown vendor leaves the words to the screen`() = runTest(dispatcher) {
+        // Ядро текста не отдаёт: у неизвестного вендора подписи нет, а слова «неизвестное
+        // устройство» выбирает экран из своих ресурсов. Иначе русская строка из core осталась бы
+        // русской и в английском интерфейсе (дефект 01.10.2026).
+        detector.device = detector.device.copy(vendor = EinkVendor.UNKNOWN)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.diagnostics.vendorLabel).isNull()
+    }
+
+    @Test
     fun `paper without vendor commands still reports its vendor and screen`() = runTest(dispatcher) {
         // Ровно случай Bigme: вендорского контроллера нет, но экран — цветная бумага.
         val viewModel = viewModel()
@@ -143,7 +157,9 @@ class SettingsSettersTest {
 
         val diagnostics = viewModel.uiState.value.diagnostics
         assertThat(diagnostics.vendorLabel).isEqualTo("Bigme")
-        assertThat(diagnostics.screenLabel).contains("цветная")
+        // Слова выбирает экран приложения: ядро отдаёт только вид (docs/tdd.md §5).
+        assertThat(diagnostics.screenLabel)
+            .isEqualTo(AppText(R.string.settings_screen_eink_color))
         assertThat(diagnostics.hasVendorCommands).isFalse()
     }
 
@@ -256,7 +272,9 @@ class SettingsSettersTest {
         viewModel.onReaderProgress(ReaderProgressAction.CheckApi)
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.readerApiStatus).contains("Книга")
+        // Статус — переводимый текст: название открытой книги передаётся аргументом ресурса.
+        assertThat(viewModel.uiState.value.readerApiStatus)
+            .isEqualTo(AppText(R.string.settings_reader_api_open, "Книга"))
         // Сессию закрываем всегда: незакрытая привязка держала бы чужой сервис поднятым.
         assertThat(fbReader.disconnectCalls).isEqualTo(1)
     }
@@ -269,7 +287,8 @@ class SettingsSettersTest {
         viewModel.onReaderProgress(ReaderProgressAction.CheckApi)
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.readerApiStatus).contains("не отвечает")
+        assertThat(viewModel.uiState.value.readerApiStatus)
+            .isEqualTo(AppText(R.string.settings_reader_api_unavailable))
     }
 
     @Test
@@ -326,6 +345,8 @@ class SettingsSettersTest {
         override fun installedReaders(): Flow<List<ReaderProfileSummary>> = flowOf(emptyList())
 
         override fun defaultForFormat(format: String): Flow<String?> = flowOf(null)
+
+        override fun readerDefaults(): Flow<Map<String, String>> = flowOf(emptyMap())
 
         override suspend fun setDefault(format: String, profileId: String?): AppResult<Unit> =
             AppResult.success(Unit)

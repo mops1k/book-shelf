@@ -4,6 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.repository.BookOptimizationBatch
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.testing.fake.FakeBookRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -63,31 +65,35 @@ class BookOptimizationViewModelTest {
         assertThat(state.isRunning).isFalse()
         assertThat(state.done).isEqualTo(3)
         assertThat(state.total).isEqualTo(3)
-        assertThat(state.message).contains("Оптимизировано книг: 2")
-        assertThat(state.message).contains("сэкономлено 2,0 МБ")
-        assertThat(state.message).contains("уже оптимальных: 1")
+        // Итог собран из переводимых частей: у каждой своё число (docs/tdd.md §5).
+        assertThat(state.message).contains(AppText(R.string.settings_optimization_optimized, 2))
+        assertThat(state.message).contains(
+            AppText(R.string.settings_optimization_saved, freedBytesText(2_097_152)),
+        )
+        assertThat(state.message).contains(AppText(R.string.settings_optimization_already_best, 1))
     }
 
     @Test
     fun `a run stopped by the reader says so`() = runTest(dispatcher) {
         books.batchProgress = listOf(0 to 5, 1 to 5)
-        books.optimizationBatch = AppResult.success(
-            BookOptimizationBatch(
-                total = 5,
-                optimized = 1,
-                skipped = 0,
-                failed = 0,
-                savedBytes = 1024,
-                stoppedByReader = true,
-            ),
+        val batch = BookOptimizationBatch(
+            total = 5,
+            optimized = 1,
+            skipped = 0,
+            failed = 0,
+            savedBytes = 1024,
+            stoppedByReader = true,
         )
+        books.optimizationBatch = AppResult.success(batch)
         val viewModel = BookOptimizationViewModel(books)
 
         viewModel.onStart()
         advanceUntilIdle()
 
-        // «Готово» здесь было бы ложью: обработана одна книга из пяти.
-        assertThat(viewModel.uiState.value.message).contains("открыта читалка")
+        // «Готово» здесь было бы ложью: обработана одна книга из пяти, и это сказано первой частью.
+        assertThat(viewModel.uiState.value.message).contains(
+            AppText(R.string.settings_optimization_stopped_by_reader, batch.processed, batch.total),
+        )
     }
 
     @Test
@@ -108,7 +114,8 @@ class BookOptimizationViewModelTest {
         viewModel.onStart()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("Книг FB2 в библиотеке нет")
+        assertThat(viewModel.uiState.value.message)
+            .containsExactly(AppText(R.string.settings_optimization_no_books))
     }
 
     @Test
@@ -126,7 +133,7 @@ class BookOptimizationViewModelTest {
         assertThat(books.batchCancelled).isTrue()
         val state = viewModel.uiState.value
         assertThat(state.isRunning).isFalse()
-        assertThat(state.message).contains("остановлена")
+        assertThat(state.message).contains(AppText(R.string.settings_optimization_stopped, 0, 4))
         // Общее число книг сохраняется в сообщении: «обработано 0 из 4» честнее, чем «остановлено».
         assertThat(state.total).isEqualTo(4)
     }
@@ -165,7 +172,8 @@ class BookOptimizationViewModelTest {
         advanceUntilIdle()
 
         // «Книг FB2 нет» здесь было бы ложью: книги есть, их просто уже проверяли.
-        assertThat(viewModel.uiState.value.message).contains("уже проверены")
+        assertThat(viewModel.uiState.value.message)
+            .containsExactly(AppText(R.string.settings_optimization_all_checked))
     }
 
     @Test
@@ -187,13 +195,16 @@ class BookOptimizationViewModelTest {
 
     @Test
     fun `a failure is shown with its reason`() = runTest(dispatcher) {
-        books.optimizationBatch = AppResult.failure(AppError.Unknown(message = "Не удалось прочитать файл"))
+        val failure = AppError.Unknown(message = "Не удалось прочитать файл")
+        books.optimizationBatch = AppResult.failure(failure)
         val viewModel = BookOptimizationViewModel(books)
 
         viewModel.onStart()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.error).contains("Не удалось прочитать файл")
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        assertThat(viewModel.uiState.value.error)
+            .isEqualTo(AppText(R.string.settings_optimization_failed, failure.text()))
         assertThat(viewModel.uiState.value.isRunning).isFalse()
     }
 
@@ -215,6 +226,7 @@ class BookOptimizationViewModelTest {
         viewModel.onStart()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("не удалось: 1")
+        assertThat(viewModel.uiState.value.message)
+            .contains(AppText(R.string.settings_optimization_failed_count, 1))
     }
 }

@@ -3,9 +3,14 @@ package io.github.bookshelf.feature.collections
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.data.model.Collection
+import io.github.bookshelf.core.data.model.CollectionType
+import io.github.bookshelf.core.data.model.SmartRules
 import io.github.bookshelf.core.data.removable.RemovableShelf
 import io.github.bookshelf.core.data.removable.volumeTreeUri
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.storage.volume.RemovableVolume
 import io.github.bookshelf.core.testing.fake.FakeCollectionRepository
 import io.github.bookshelf.core.testing.fake.FakeRemovableShelfRepository
@@ -166,6 +171,81 @@ class CollectionsViewModelTest {
         assertThat(viewModel.uiState.value.cardAccessRequest).isNull()
     }
 
+    @Test
+    fun `a failed action names both the action and the reason as resources`() = runTest(dispatcher) {
+        shelves.updateResult = AppResult.failure(AppError.PermissionDenied(message = "URI permission expired"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onDelete(SHELF_ID)
+        advanceUntilIdle()
+
+        // Оба текста — ресурсы (docs/tdd.md §5), а техническое сообщение нижнего слоя не показывается (§7):
+        // иначе на английском интерфейсе в баннере была бы русская диагностика провайдера.
+        assertThat(viewModel.uiState.value.error).isEqualTo(
+            AppText(R.string.collections_error_delete, AppError.PermissionDenied().text()),
+        )
+    }
+
+    @Test
+    fun `a blank name is refused with its own text`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onRename(SHELF_ID, "   ")
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.error).isEqualTo(AppText(R.string.collections_error_rename_empty))
+        // До репозитория дело не дошло: переименовывать нечем.
+        assertThat(shelves.renamed).isEmpty()
+    }
+
+    @Test
+    fun `an empty draft filter is refused with its own text`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onSaveCurrentFilter()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.error).isEqualTo(AppText(R.string.collections_error_filter_empty))
+        assertThat(shelves.created).isEmpty()
+    }
+
+    @Test
+    fun `adding a preset writes no name into the database`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onAddPreset("favorites")
+        advanceUntilIdle()
+
+        // В базу уходит пустое имя: слова для строки полки собирает экран (docs/tdd.md §8).
+        // Раньше здесь лежало «Избранное» — русский текст, который не переводится.
+        assertThat(shelves.created.map { (name, _) -> name }).containsExactly("")
+        assertThat(shelves.created.single().second).isEqualTo(CollectionType.SMART)
+    }
+
+    @Test
+    fun `a recipe already in the database is not offered again`() = runTest(dispatcher) {
+        // Полка с пустым именем и правилом «избранное»: имя её не выдаёт, выдаёт правило.
+        shelves.shelves = listOf(
+            Collection(
+                id = "c1",
+                name = "",
+                type = CollectionType.SMART,
+                bookCount = 3,
+                rulesJson = SmartRules(favoritesOnly = true).toJson(),
+            ),
+        )
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.presets.map { preset -> preset.id })
+            .doesNotContain("favorites")
+    }
+
     private fun viewModel() = CollectionsViewModel(
         collectionRepository = shelves,
         filterSelection = FilterSelection(),
@@ -180,6 +260,8 @@ class CollectionsViewModelTest {
     )
 
     private companion object {
+        const val SHELF_ID = "shelf-1"
+
         val CARD = RemovableVolume(uuid = "1A2B-3C4D", label = "SD-карта", path = "/storage/1A2B-3C4D")
     }
 }

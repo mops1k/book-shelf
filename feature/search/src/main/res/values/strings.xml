@@ -27,4 +27,8 @@
     <string name="search_empty_press_find_message">Подсказки появляются по ходу набора, а поиск по всей библиотеке запускает кнопка «Найти». До неё результатов нет — и это не значит, что совпадений нет.</string>
     <string name="search_empty_nothing_found">Ничего не найдено</string>
     <string name="search_empty_nothing_found_message">По запросу «%1$s» совпадений нет. Попробуйте другое слово или часть слова.</string>
+
+    <!-- Сообщения поиска: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <string name="search_error_suggestions">Не удалось получить подсказки: %1$s</string>
+    <string name="search_error_search">Не удалось выполнить поиск: %1$s</string>
 </resources>

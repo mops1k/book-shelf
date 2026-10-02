@@ -1,17 +1,20 @@
 package io.github.bookshelf.feature.filters
 
+import android.database.SQLException
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.fold
-import io.github.bookshelf.core.common.error.uiText
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.SmartRules
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -21,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import android.database.SQLException
 
 /**
  * ViewModel редактора правил умной полки.
@@ -65,6 +67,9 @@ class ShelfRulesViewModel @Inject constructor(
             FacetKind.TAGS -> selection.copy(tags = selection.tags.toggle(facetId))
             FacetKind.FORMATS -> selection.copy(formats = selection.formats.toggle(facetId))
             FacetKind.STATUSES -> selection.copy(statuses = selection.statuses.toggle(facetId))
+            // Папки в правилах не показываются (`RULE_KINDS`), но ветка обязана быть: `when`
+            // по перечислению проверяется компилятором, и новая ветка не должна пройти незамеченной.
+            FacetKind.SOURCES -> selection.copy(sources = selection.sources.toggle(facetId))
         }
         _uiState.update { it.copy(selected = updated) }
         observeSelection()
@@ -81,17 +86,15 @@ class ShelfRulesViewModel @Inject constructor(
         val rules = SmartRules.fromQuery(_uiState.value.selected.toBookQuery())
         if (rules.isEmpty) {
             // Пустые правила означают пустую полку: показать 72 книги вместо подборки — соврать.
-            showError(
-                "Не удалось сохранить правила",
-                AppError.InvalidArgument("rules", "выберите хотя бы одно условие"),
-            )
+            // Своё сообщение вместо текста ошибки: здесь человеку важно, что именно не так с черновиком.
+            _uiState.update { it.copy(error = AppText(R.string.shelf_rules_error_empty)) }
             return
         }
         viewModelScope.launch {
             collectionRepository.updateSmartRules(collectionId = collectionId, rulesJson = rules.toJson())
                 .fold(
                     onSuccess = { _uiState.update { it.copy(saved = true, error = null) } },
-                    onFailure = { showError("Не удалось сохранить правила", it) },
+                    onFailure = { showError(R.string.shelf_rules_error_save, it) },
                 )
         }
     }
@@ -113,7 +116,7 @@ class ShelfRulesViewModel @Inject constructor(
                 val shelf = shelves.firstOrNull { collection -> collection.id == collectionId }
                 if (shelf == null) {
                     _uiState.update { state ->
-                        state.copy(isLoading = false, error = "Полка не найдена")
+                        state.copy(isLoading = false, error = AppText(R.string.shelf_rules_error_not_found))
                     }
                     return@collect
                 }
@@ -162,15 +165,23 @@ class ShelfRulesViewModel @Inject constructor(
                 throw cancellation
             } catch (error: SQLException) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = error.message ?: "Не удалось загрузить условия")
+                    it.copy(
+                        isLoading = false,
+                        error = AppText(R.string.shelf_rules_error_load, error.toAppError().text()),
+                    )
                 }
             }
         }
     }
 
-    /** Показать ошибку действия: что не получилось и почему, в терминах [AppError]. */
-    private fun showError(action: String, error: AppError) {
-        _uiState.update { it.copy(error = "$action: ${error.uiText()}") }
+    /**
+     * Показать ошибку действия: что не получилось (ресурс экрана) и почему (текст по типу [AppError]).
+     *
+     * Оба текста — ресурсы, поэтому сообщение переводится целиком; готовой строки в состоянии нет
+     * (docs/tdd.md §5), а `AppError.message` человеку не показывается (§7).
+     */
+    private fun showError(actionRes: Int, error: AppError) {
+        _uiState.update { it.copy(error = AppText(actionRes, error.text())) }
     }
 
     private companion object {

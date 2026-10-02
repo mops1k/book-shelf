@@ -2,7 +2,11 @@ package io.github.bookshelf.feature.settings
 
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.covers.CoverCache
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import java.io.File
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
@@ -24,7 +28,9 @@ class CoverCacheClearingTest {
 
         val report = clearCoverCacheWithReport(cache)
 
-        assertThat(report).isEqualTo("Кэш обложек очищен, освобождено 5,0 МБ")
+        assertThat(report).isEqualTo(
+            AppText(R.string.settings_cover_cache_cleared, freedBytesText(5L * 1024L * 1024L)),
+        )
         assertThat(cache.cleared).isTrue()
     }
 
@@ -34,8 +40,14 @@ class CoverCacheClearingTest {
 
         val report = clearCoverCacheWithReport(cache)
 
-        // Текст не выдаёт сбой за успех: иначе пользователь считал бы кэш очищенным.
-        assertThat(report).isEqualTo("Не удалось очистить кэш обложек: нет места на диске")
+        // Текст не выдаёт сбой за успех, а причина — по типу ошибки (docs/tdd.md §7):
+        // сообщение IOException («нет места на диске») человеку не показывают.
+        assertThat(report).isEqualTo(
+            AppText(
+                R.string.settings_cover_cache_failed,
+                IOException("нет места на диске").toAppError().text(),
+            ),
+        )
     }
 
     @Test

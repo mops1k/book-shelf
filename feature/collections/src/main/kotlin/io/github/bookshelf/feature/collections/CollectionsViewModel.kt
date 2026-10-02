@@ -1,12 +1,13 @@
 package io.github.bookshelf.feature.collections
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.errorOrNull
-import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.fold
+import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.Collection
 import io.github.bookshelf.core.data.model.CollectionType
@@ -17,7 +18,10 @@ import io.github.bookshelf.core.data.removable.RemovableShelfRepository
 import io.github.bookshelf.core.data.removable.volumeTreeUri
 import io.github.bookshelf.core.data.repository.CollectionRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.storage.volume.RemovableVolume
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,10 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /** Имя новой полки, пока в экране нет отдельного поля ввода названия. */
-private const val DEFAULT_COLLECTION_NAME = "Новая полка"
 
 /**
  * Сколько условий правила показывать в строке полки.
@@ -99,17 +101,19 @@ class CollectionsViewModel @Inject constructor(
     /**
      * Создать новую ручную полку.
      *
-     * Названия пока нет где спросить: кнопка «Создать» вызывает метод без аргументов, поэтому
-     * берётся [DEFAULT_COLLECTION_NAME] с номером, если такая полка уже есть. Когда появится
-     * диалог ввода, сюда должен прийти текст пользователя (см. [onRename]).
+     * Имени пока нет где спросить: кнопка «Создать» вызывает метод без аргументов, поэтому в базу
+     * уходит ПУСТОЕ имя, а слова подставляет экран («Новая полка», «Новая полка 2» — номер
+     * считается по порядку безымянных полок). Так в базе не остаётся русского текста, который
+     * не переводится (docs/tdd.md §8). Когда появится диалог ввода, сюда придёт текст человека
+     * (см. [onRename]).
      */
     fun onCreate() {
-        val name = nextCollectionName()
+        val name = ""
         viewModelScope.launch {
             collectionRepository.create(name = name, type = CollectionType.MANUAL)
                 .fold(
                     onSuccess = { clearError() },
-                    onFailure = { showError("Не удалось создать полку", it) },
+                    onFailure = { showError(R.string.collections_error_create, it) },
                 )
         }
     }
@@ -139,14 +143,15 @@ class CollectionsViewModel @Inject constructor(
 
     fun onRename(collectionId: String, name: String) {
         if (name.isBlank()) {
-            showError("Не удалось переименовать полку", AppError.InvalidArgument("name", "имя не должно быть пустым"))
+            // Своё сообщение вместо общего: человеку важно, что именно не так с именем.
+            _uiState.update { it.copy(error = AppText(R.string.collections_error_rename_empty)) }
             return
         }
         viewModelScope.launch {
             collectionRepository.rename(collectionId = collectionId, name = name.trim())
                 .fold(
                     onSuccess = { clearError() },
-                    onFailure = { showError("Не удалось переименовать полку", it) },
+                    onFailure = { showError(R.string.collections_error_rename, it) },
                 )
         }
     }
@@ -157,7 +162,7 @@ class CollectionsViewModel @Inject constructor(
             collectionRepository.delete(collectionId)
                 .fold(
                     onSuccess = { clearError() },
-                    onFailure = { showError("Не удалось удалить полку", it) },
+                    onFailure = { showError(R.string.collections_error_delete, it) },
                 )
         }
     }
@@ -165,17 +170,14 @@ class CollectionsViewModel @Inject constructor(
     /** Настроить правила умной полки; [rulesJson] — в том же формате, что у фильтров. */
     fun onEditRules(collectionId: String, rulesJson: String) {
         if (rulesJson.isBlank()) {
-            showError(
-                "Не удалось сохранить правила",
-                AppError.InvalidArgument("rulesJson", "правила не должны быть пустыми"),
-            )
+            _uiState.update { it.copy(error = AppText(R.string.collections_error_rules_empty)) }
             return
         }
         viewModelScope.launch {
             collectionRepository.updateSmartRules(collectionId = collectionId, rulesJson = rulesJson)
                 .fold(
                     onSuccess = { clearError() },
-                    onFailure = { showError("Не удалось сохранить правила", it) },
+                    onFailure = { showError(R.string.collections_error_save_rules, it) },
                 )
         }
     }
@@ -188,7 +190,8 @@ class CollectionsViewModel @Inject constructor(
      */
     fun onAddPreset(presetId: String) {
         val preset = SmartPreset.entries.firstOrNull { it.id == presetId } ?: return
-        viewModelScope.launch { createSmartShelf(preset.title, preset.rules) }
+        // Имени не пишем: слова собирает экран из правила (docs/tdd.md §8).
+        viewModelScope.launch { createSmartShelf(name = "", rules = preset.rules) }
     }
 
     /**
@@ -201,13 +204,12 @@ class CollectionsViewModel @Inject constructor(
         val query = filterSelection.query.value
         val rules = SmartRules.fromQuery(query)
         if (rules.isEmpty) {
-            showError(
-                "Не удалось сохранить подборку",
-                AppError.InvalidArgument("filter", "сначала выберите фильтры на полке"),
-            )
+            _uiState.update { it.copy(error = AppText(R.string.collections_error_filter_empty)) }
             return
         }
-        viewModelScope.launch { createSmartShelf(rules.defaultName(), rules) }
+        // Имени у подборки нет: подпись правила собирает экран из частей (`rulesSummary`),
+        // и в базе не остаётся русского текста, который не переводится (docs/tdd.md §8).
+        viewModelScope.launch { createSmartShelf(name = "", rules = rules) }
     }
 
     /**
@@ -220,12 +222,12 @@ class CollectionsViewModel @Inject constructor(
         val created = collectionRepository.create(name, CollectionType.SMART)
         val collection = created.getOrNull()
         if (collection == null) {
-            showError("Не удалось создать полку", created.errorOrNull() ?: AppError.Unknown())
+            showError(R.string.collections_error_create, created.errorOrNull() ?: AppError.Unknown())
             return
         }
         collectionRepository.updateSmartRules(collection.id, rules.toJson()).fold(
             onSuccess = { clearError() },
-            onFailure = { showError("Не удалось сохранить правила полки", it) },
+            onFailure = { showError(R.string.collections_error_save_shelf_rules, it) },
         )
     }
 
@@ -317,17 +319,21 @@ class CollectionsViewModel @Inject constructor(
             collectionRepository.observeCollections()
                 .catch { throwable ->
                     _uiState.value = _uiState.value.copy(isLoading = false)
-                    showError("Не удалось загрузить список полок", throwable.toAppError())
+                    showError(R.string.collections_error_load, throwable.toAppError())
                 }
                 .collect { collections ->
-                    val rows = collections.map { it.toUi() }
+                    val rows = collections.toUiList()
                     _uiState.value = _uiState.value.copy(
                         collections = rows,
                         // «Доступные автополки» — готовые правила, которых в списке ещё нет.
-                        // Совпадение по названию: отдельного признака «пресет уже добавлен» в
-                        // модели полки нет, а плодить его ради подсказки не стоит.
+                        // Совпадение по ПРАВИЛАМ, а не по названию: у служебных полок имя пустое
+                        // (его собирает экран), а правила — это и есть то, чем полка отличается.
                         presets = SmartPreset.entries
-                            .filter { preset -> rows.none { row -> row.name == preset.title } }
+                            .filter { preset ->
+                                collections.none { row ->
+                                    SmartRules.fromJson(row.rulesJson) == preset.rules
+                                }
+                            }
                             .map { preset -> preset.toUi() },
                         isLoading = false,
                     )
@@ -360,22 +366,15 @@ class CollectionsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Имя для новой полки: «Новая полка», «Новая полка 2» и так далее.
-     *
-     * Номер подбирается по уже загруженному списку, чтобы в списке не было двух одинаковых названий.
-     */
-    private fun nextCollectionName(): String {
-        val existing = _uiState.value.collections.map { it.name }.toSet()
-        if (DEFAULT_COLLECTION_NAME !in existing) return DEFAULT_COLLECTION_NAME
-        var number = 2
-        while ("$DEFAULT_COLLECTION_NAME $number" in existing) number += 1
-        return "$DEFAULT_COLLECTION_NAME $number"
-    }
 
-    /** Показать ошибку действия: что не получилось и почему, в терминах [AppError]. */
-    private fun showError(action: String, error: AppError) {
-        _uiState.value = _uiState.value.copy(error = "$action: ${error.uiText()}")
+    /**
+     * Показать ошибку действия: что не получилось (ресурс экрана) и почему (текст по типу [AppError]).
+     *
+     * Оба текста — ресурсы, поэтому сообщение переводится целиком; готовой строки в состоянии нет
+     * (docs/tdd.md §5), а `AppError.message` человеку не показывается (§7) — он остаётся диагностикой.
+     */
+    private fun showError(actionRes: Int, error: AppError) {
+        _uiState.update { it.copy(error = AppText(actionRes, error.text())) }
     }
 
     /** Убрать баннер ошибки после успешного действия. */
@@ -384,42 +383,52 @@ class CollectionsViewModel @Inject constructor(
     }
 
     /**
-     * Человекочитаемый текст ошибки.
-     *
-     * [AppError.message] пуст у части ошибок, поэтому для них берётся описание по типу — иначе
-     * пользователь увидит пустой баннер.
-     */
-    private fun AppError.uiText(): String = message ?: when (this) {
-        is AppError.Unsupported -> "пока не поддерживается ($what)"
-        is AppError.NotFound -> "не найдено: $what"
-        is AppError.InvalidArgument -> "неверное значение: $what"
-        is AppError.PermissionDenied -> "нет доступа"
-        is AppError.Io -> "ошибка ввода-вывода"
-        is AppError.Parse -> "не удалось разобрать данные: $format"
-        is AppError.Network -> "ошибка сети" + (httpCode?.let { " (HTTP $it)" } ?: "")
-        is AppError.Unauthorized -> "нужна авторизация"
-        AppError.AccessLost -> "доступ к источнику потерян"
-        is AppError.Unknown -> "неизвестная ошибка"
-    }
-
-    /**
      * Полка для списка экрана.
      *
      * Правила умной полки приходят JSON-ом, а разборщика правил в контракте нет, поэтому вместо
      * длинного JSON в подписи стоит короткая отметка: разбор шаблонов появится вместе с редактором.
      */
-    private fun Collection.toUi(): CollectionUi = CollectionUi(
+    /**
+     * Полки для экрана.
+     *
+     * Безымянным полкам номер подставляется по порядку: в базе у них пустое имя, а «Новая полка»
+     * и «Новая полка 2» собирает экран. Номер считается по уже загруженному списку, чтобы в строке
+     * не было двух одинаковых названий.
+     */
+    private fun List<Collection>.toUiList(): List<CollectionUi> {
+        var unnamedSeen = 0
+        return map { collection ->
+            val number = if (collection.name.isBlank()) {
+                unnamedSeen += 1
+                unnamedSeen
+            } else {
+                null
+            }
+            collection.toUi(defaultNumber = number)
+        }
+    }
+
+    private fun Collection.toUi(defaultNumber: Int? = null): CollectionUi = CollectionUi(
         id = id,
         name = name,
         bookCount = bookCount,
         isSmart = type == CollectionType.SMART,
-        // Подпись правила читается человеком: «жанр: Космическая фантастика», а не «правила заданы».
-        // В строке списка показывается одно условие: с двумя подпись обрывалась многоточием.
+        // Подпись правила читается человеком, но слова выбирает экран: слой данных отдаёт части
+        // правила. В строке списка показывается одно условие — с двумя подпись обрывалась.
         rulesSummary = SmartRules.fromJson(rulesJson)
             ?.takeIf { !it.isEmpty }
-            ?.describe(maxParts = ROW_RULES_PARTS),
+            ?.parts()
+            ?.toSummaryText(maxParts = ROW_RULES_PARTS),
+        defaultTitle = defaultNumber?.let { number -> defaultCollectionTitle(number) },
         previewCovers = previewCovers,
     )
+
+    /** Подпись безымянной полки: первая — «Новая полка», следующие — с номером. */
+    private fun defaultCollectionTitle(number: Int): AppText = if (number <= 1) {
+        AppText(R.string.collections_default_name)
+    } else {
+        AppText(R.string.collections_default_name_numbered, number)
+    }
 
     /**
      * Полка носителя для экрана.
@@ -433,9 +442,6 @@ class CollectionsViewModel @Inject constructor(
         needsAccess = needsAccess,
     )
 
-    /** Имя подборки, собранной из текущего фильтра: по нему видно, что внутри. */
-    private fun SmartRules.defaultName(): String = "Подборка: ${describe()}"
-
     /**
      * Готовые умные полки.
      *
@@ -444,30 +450,37 @@ class CollectionsViewModel @Inject constructor(
      */
     private enum class SmartPreset(
         val id: String,
-        val title: String,
-        val hint: String,
+        /** Название полки на экране — ресурс; в базу имя не пишется (docs/tdd.md §8). */
+        @StringRes val titleRes: Int,
+        /** Подпись правила на экране — ресурс. */
+        @StringRes val hintRes: Int,
         val rules: SmartRules,
     ) {
-        FAVORITES("favorites", "Избранное", "Книги, отмеченные избранными", SmartRules(favoritesOnly = true)),
+        FAVORITES(
+            "favorites",
+            R.string.collections_preset_favorites,
+            R.string.collections_preset_favorites_hint,
+            SmartRules(favoritesOnly = true),
+        ),
         UNREAD(
             "unread",
-            "Непрочитанные",
-            "Статус чтения: не прочитано",
+            R.string.collections_preset_unread,
+            R.string.collections_preset_unread_hint,
             SmartRules(statuses = setOf(ReadingStatus.UNREAD.name)),
         ),
         READING(
             "reading",
-            "Читаю сейчас",
-            "Статус чтения: читаю",
+            R.string.collections_preset_reading,
+            R.string.collections_preset_reading_hint,
             SmartRules(statuses = setOf(ReadingStatus.READING.name)),
         ),
         READ(
             "read",
-            "Прочитанные",
-            "Статус чтения: прочитано",
+            R.string.collections_preset_read,
+            R.string.collections_preset_read_hint,
             SmartRules(statuses = setOf(ReadingStatus.READ.name)),
         );
 
-        fun toUi(): SmartPresetUi = SmartPresetUi(id = id, title = title, hint = hint)
+        fun toUi(): SmartPresetUi = SmartPresetUi(id = id, titleRes = titleRes, hint = AppText(hintRes))
     }
 }

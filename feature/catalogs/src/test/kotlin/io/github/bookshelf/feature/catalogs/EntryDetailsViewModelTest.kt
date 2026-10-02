@@ -100,7 +100,7 @@ class EntryDetailsViewModelTest {
 
         assertThat(request.request.value?.feedUrl).isEqualTo(SERIES_FEED_URL)
         // Подпись уровня — название серии: в хлебных крошках браузера видно, куда пришли.
-        assertThat(request.request.value?.title).isEqualTo("Ксили")
+        assertThat(request.request.value?.title).isEqualTo(FeedLabel.Named("Ксили"))
     }
 
     @Test
@@ -114,7 +114,7 @@ class EntryDetailsViewModelTest {
         viewModel.onOpenAuthor()
 
         assertThat(request.request.value?.feedUrl).isEqualTo(AUTHOR_FEED_URL)
-        assertThat(request.request.value?.title).isEqualTo("Бакстер Стивен")
+        assertThat(request.request.value?.title).isEqualTo(FeedLabel.Named("Бакстер Стивен"))
     }
 
     @Test

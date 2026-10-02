@@ -3,10 +3,13 @@ package io.github.bookshelf.feature.filters
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -56,6 +59,7 @@ class FiltersViewModel @Inject constructor(
             FacetKind.TAGS -> selection.copy(tags = selection.tags.toggle(facetId))
             FacetKind.FORMATS -> selection.copy(formats = selection.formats.toggle(facetId))
             FacetKind.STATUSES -> selection.copy(statuses = selection.statuses.toggle(facetId))
+            FacetKind.SOURCES -> selection.copy(sources = selection.sources.toggle(facetId))
         }
         _uiState.update { it.copy(selected = updated) }
         filterSelection.apply(updated.toBookQuery())
@@ -118,7 +122,9 @@ class FiltersViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось загрузить фильтры",
+                        // Причина — текст по типу ошибки: `message` нижнего слоя человеку не показывают
+                        // (docs/tdd.md §7), иначе в баннер попадал бы технический текст, в том числе английский.
+                        error = AppText(R.string.filters_error_load, error.toAppError().text()),
                     )
                 }
             }

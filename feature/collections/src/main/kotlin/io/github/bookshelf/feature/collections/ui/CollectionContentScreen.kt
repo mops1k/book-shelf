@@ -21,7 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.bookshelf.core.data.model.badge
 import io.github.bookshelf.core.designsystem.component.BookCover
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
@@ -29,8 +28,11 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
+import io.github.bookshelf.core.designsystem.text.readingStatusBadge
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.collections.CollectionContentUiState
 import io.github.bookshelf.feature.collections.CollectionContentViewModel
 import io.github.bookshelf.feature.collections.CollectionItemUi
 import io.github.bookshelf.feature.collections.R
@@ -63,7 +65,7 @@ fun CollectionContentScreen(
 
     EinkScaffold(
         title = state.name.ifEmpty { stringResource(R.string.collections_content_title) },
-        subtitle = state.subtitle,
+        subtitle = state.subtitle?.resolve(),
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
@@ -74,25 +76,9 @@ fun CollectionContentScreen(
                 else -> Unit
             }
         },
-        footer = {
-            Text(
-                text = bookCountLabel(state.books.size),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.foreground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            )
-        },
+        footer = { CollectionCountFooter(count = state.books.size) },
     ) {
-        val error = state.error
-        if (error != null) {
-            EinkErrorBanner(
-                message = error,
-                actionLabel = stringResource(R.string.collections_action_retry),
-                onAction = viewModel::onRefresh,
-            )
-        }
+        CollectionErrorBanner(state = state, onRetry = viewModel::onRefresh)
 
         if (state.books.isEmpty() && !state.isLoading) {
             EinkEmptyState(
@@ -146,7 +132,9 @@ private fun ShelfBookItem(
             // Формат — в углу обложки, статус — полосой внизу: отдельная строка под плиткой
             // отнимала у полки целый ряд книг (docs/eink-ux.md §6.2).
             formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
-            statusBadge = book.readingStatus.badge(book.progressPercent),
+            statusBadge = readingStatusBadge(book.readingStatus.name, book.progressPercent)
+                ?.resolve()
+                .orEmpty(),
         )
         Text(
             text = book.title,
@@ -174,3 +162,28 @@ private fun bookCountLabel(count: Int): String =
     pluralStringResource(R.plurals.collections_book_count, count, count)
 
 
+/** Подвал содержимого полки: сколько книг. */
+@Composable
+private fun CollectionCountFooter(count: Int) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Text(
+        text = bookCountLabel(count),
+        style = MaterialTheme.typography.labelMedium,
+        color = colors.foreground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+    )
+}
+
+/** Баннер ошибки содержимого полки: перевод текста и кнопка «Повторить». */
+@Composable
+private fun CollectionErrorBanner(state: CollectionContentUiState, onRetry: () -> Unit) {
+    val error = state.error ?: return
+    EinkErrorBanner(
+        message = error.resolve(),
+        actionLabel = stringResource(R.string.collections_action_retry),
+        onAction = onRetry,
+    )
+}

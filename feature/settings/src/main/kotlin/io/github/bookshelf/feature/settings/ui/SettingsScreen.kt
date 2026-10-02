@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
@@ -60,7 +61,7 @@ fun SettingsScreen(
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.settings_action_retry),
                 onAction = viewModel::onRefreshDiagnostics,
             )

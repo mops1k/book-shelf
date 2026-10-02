@@ -1,9 +1,13 @@
 package io.github.bookshelf.feature.library
 
+import android.database.SQLException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.author.authorSetNames
+import io.github.bookshelf.core.data.mapper.LibraryQueryDefaults
+import io.github.bookshelf.core.data.mapper.toLibraryQueryDefaults
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.Book
@@ -12,15 +16,15 @@ import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.Grouping
 import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.SortOrder
-import io.github.bookshelf.core.data.mapper.LibraryQueryDefaults
-import io.github.bookshelf.core.data.mapper.toLibraryQueryDefaults
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.FilterRepository
 import io.github.bookshelf.core.data.repository.FilterSelection
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.datastore.SettingsRepository
-import io.github.bookshelf.core.data.tag.genreDisplayName
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.genreText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
@@ -35,7 +39,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import android.database.SQLException
 
 /**
  * ViewModel полки (docs/eink-ux.md §6.2).
@@ -358,36 +361,22 @@ class LibraryViewModel @Inject constructor(
     /** Вернуться на уровень выше; из корня обзор выключается. */
     fun onBrowseBack() {
         val browse = _uiState.value.browse
-        val parent = when (val level = browse.level) {
-            // Из серии возвращаемся туда, откуда пришли: в набор авторов, если заходили в него,
-            // иначе к автору из карточки книги.
-            is BrowseLevel.Series -> if (browse.mode == BrowseMode.AUTHORS ||
-                browse.mode == BrowseMode.GENRES
-            ) {
+        // Условия считаются заранее: каждое сравнение с режимом — это ветка для
+        // `CyclomaticComplexMethod`, а решений здесь всего два — «обзор по жанрам» и «по авторам».
+        val inGenres = browse.mode == BrowseMode.GENRES
+        val inAuthorsOrGenres = browse.mode == BrowseMode.AUTHORS || inGenres
+        val parent = when (browse.level) {
+            // Из серии — в набор авторов, если заходили в него, иначе к автору из карточки книги.
+            is BrowseLevel.Series -> if (inAuthorsOrGenres) {
                 currentAuthorSet ?: BrowseLevel.Author(currentAuthorName().orEmpty())
             } else {
                 BrowseLevel.Root
             }
-
-            // Из автора возвращаемся туда, откуда пришли: в обзоре по жанрам — в его жанр,
-            // в обзоре по авторам — к списку авторов. Решает режим, а не фильтр: фильтр по жанру
-            // мог остаться с экрана фильтров, и в обзоре по авторам он не повод уводить в жанр.
-            is BrowseLevel.Author -> if (browse.mode == BrowseMode.GENRES) {
-                currentGenreLevel() ?: BrowseLevel.Root
-            } else {
-                BrowseLevel.Root
-            }
-
-            // Уровень набора устроен как уровень автора: сверху серии набора, снизу его книги
-            // вне серий. Назад — в жанр (обзор по жанрам) или к списку категорий.
-            is BrowseLevel.AuthorSet -> if (browse.mode == BrowseMode.GENRES) {
-                currentGenreLevel() ?: BrowseLevel.Root
-            } else {
-                BrowseLevel.Root
-            }
-
+            // Уровень автора и уровень набора устроены одинаково: сверху серии, снизу книги вне
+            // серий. В обзоре по жанрам назад ведёт в жанр, иначе — к списку категорий.
+            is BrowseLevel.Author, is BrowseLevel.AuthorSet ->
+                if (inGenres) currentGenreLevel() ?: BrowseLevel.Root else BrowseLevel.Root
             is BrowseLevel.Genre -> BrowseLevel.Root
-
             BrowseLevel.Root -> {
                 onSetBrowse(BrowseMode.OFF)
                 return
@@ -573,7 +562,8 @@ class LibraryViewModel @Inject constructor(
      */
     private fun currentGenreLevel(): BrowseLevel.Genre? {
         val code = currentGenreCode() ?: return null
-        return BrowseLevel.Genre(code = code, label = genreDisplayName(code))
+        // label — код жанра: слова выберет экран (docs/tdd.md §8).
+        return BrowseLevel.Genre(code = code, label = code)
     }
 
     /**
@@ -584,48 +574,14 @@ class LibraryViewModel @Inject constructor(
         categoryJob?.cancel()
         val browse = _uiState.value.browse
         val level = browse.level
-        val categories: Flow<List<CategoryItemUi>> = when {
-            // Корень «Авторы» — категории-наборы: «Александр Тарарев, Юрий Тарарев» и
-            // «Юрий Тарарев, Александр Тарарев» обязаны быть одной категорией.
-            browse.mode == BrowseMode.AUTHORS && level == BrowseLevel.Root ->
-                filterRepository.observeAuthorSets(query.bookQuery)
-                    .map { sets -> sets.map { it.toCategoryUi() } }
-
-            browse.mode == BrowseMode.SERIES && level == BrowseLevel.Root ->
-                filterRepository.observeFacets(query.bookQuery)
-                    .map { facets -> facets.series.map { it.toCategoryUi() } }
-
-            // Жанры: `id` — код из метаданных (по нему фильтрует SQL), подпись уже переведена
-            // в фасете («sf_space» → «Космическая фантастика»).
-            browse.mode == BrowseMode.GENRES && level == BrowseLevel.Root ->
-                filterRepository.observeFacets(query.bookQuery)
-                    .map { facets -> facets.tags.map { it.toCategoryUi() } }
-
-            // Внутри жанра категориями идут наборы авторов этого жанра: запрос уже несёт тег,
-            // поэтому фасет считается только по книгам этого жанра.
-            browse.mode == BrowseMode.GENRES && level is BrowseLevel.Genre ->
-                filterRepository.observeAuthorSets(query.bookQuery)
-                    .map { sets -> sets.map { it.toCategoryUi() } }
-
-            // Сериями уровня набора служат серии его книг — не серии соавтора целиком.
-            browse.mode == BrowseMode.GENRES && level is BrowseLevel.AuthorSet ->
-                filterRepository.observeAuthorSetSeries(
-                    authorNames = authorSetNames(level.key),
-                    genreCode = currentGenreCode(),
-                ).map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
-
-            // На уровне автора и набора категориями идут ТОЛЬКО их серии: книги вне серий
-            // показываются ниже обычным списком/сеткой полки, поэтому отдельной категории нет.
-            browse.mode == BrowseMode.AUTHORS && level is BrowseLevel.Author ->
-                filterRepository.observeAuthorSeries(level.name)
-                    .map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
-
-            browse.mode == BrowseMode.AUTHORS && level is BrowseLevel.AuthorSet ->
-                filterRepository.observeAuthorSetSeries(authorNames = authorSetNames(level.key))
-                    .map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
-
-            else -> flowOf(emptyList())
-        }
+        val categories = categoryFlow(
+            mode = browse.mode,
+            level = level,
+            query = query.bookQuery,
+            filterRepository = filterRepository,
+            authorSetNames = ::authorSetNames,
+            genreCode = ::currentGenreCode,
+        )
         categoryJob = viewModelScope.launch {
             categories.collect { items ->
                 _uiState.update { it.copy(browse = it.browse.copy(categories = items)) }
@@ -638,7 +594,8 @@ class LibraryViewModel @Inject constructor(
         level == BrowseLevel.Root && mode == BrowseMode.AUTHORS -> BrowseTitleUi(R.string.library_browse_authors)
         level == BrowseLevel.Root && mode == BrowseMode.GENRES -> BrowseTitleUi(R.string.library_browse_genres)
         level == BrowseLevel.Root -> BrowseTitleUi(R.string.library_browse_series)
-        level is BrowseLevel.Genre -> BrowseTitleUi(R.string.library_browse_genre, level.label)
+        level is BrowseLevel.Genre ->
+            BrowseTitleUi(R.string.library_browse_genre, argText = genreText(level.label))
         level is BrowseLevel.Author -> BrowseTitleUi(R.string.library_browse_author, level.name)
         // «Автор» для одного имени и «Авторы» для набора: подпись набора перечисляет людей
         // через запятую, и единственное число на ней читалось бы как ошибка.
@@ -695,7 +652,7 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось загрузить полку",
+                        error = AppText(R.string.library_error_load, error.toAppError().text()),
                     )
                 }
             }
@@ -730,7 +687,20 @@ class LibraryViewModel @Inject constructor(
 }
 
 /** Фасет → строка категории: подпись и число книг приходят из БД. */
-private fun FacetItem.toCategoryUi(): CategoryItemUi = CategoryItemUi(id = id, label = label, count = count)
+private fun FacetItem.toCategoryUi(): CategoryItemUi = CategoryItemUi(id = id, label = labelCode, count = count)
+
+/**
+ * Жанр как категория обзора: код остаётся значением фильтра, подпись выбирает экран.
+ *
+ * Нужна отдельно от [toCategoryUi]: у авторов и серий подпись — это данные (имя), переводить
+ * нечего, а у жанра в базе лежит код (`sf_space`), и без перевода он и показывался.
+ */
+private fun FacetItem.toGenreCategoryUi(): CategoryItemUi = CategoryItemUi(
+    id = id,
+    label = labelCode,
+    labelText = genreText(labelCode),
+    count = count,
+)
 
 /**
  * Набор авторов → строка категории.
@@ -740,3 +710,79 @@ private fun FacetItem.toCategoryUi(): CategoryItemUi = CategoryItemUi(id = id, l
  */
 private fun AuthorSet.toCategoryUi(): CategoryItemUi =
     CategoryItemUi(id = key, label = label, count = count)
+
+
+/**
+ * Поток категорий текущего уровня обзора: авторы, серии, жанры или их сочетания.
+ *
+ * Свободная функция, а не метод `LibraryViewModel`: у класса уже тридцать методов при пороге
+ * detekt 30, и вынос в файл — единственный способ разгрузить `refreshCategories`, не ослабляя
+ * порог. Зависимости приходят параметрами: сам ViewModel ей не нужен.
+ */
+private fun categoryFlow(
+    mode: BrowseMode,
+    level: BrowseLevel,
+    query: BookQuery,
+    filterRepository: FilterRepository,
+    authorSetNames: (String) -> List<String>,
+    genreCode: () -> String?,
+): Flow<List<CategoryItemUi>> = when (mode) {
+    BrowseMode.AUTHORS -> categoriesForAuthors(level, query, filterRepository, authorSetNames)
+    BrowseMode.GENRES -> categoriesForGenres(level, query, filterRepository, authorSetNames, genreCode)
+    BrowseMode.SERIES -> categoriesForSeries(level, query, filterRepository)
+    else -> flowOf(emptyList())
+}
+
+/** Категории обзора по авторам: наборы авторов, серии автора и серии набора. */
+private fun categoriesForAuthors(
+    level: BrowseLevel,
+    query: BookQuery,
+    filterRepository: FilterRepository,
+    authorSetNames: (String) -> List<String>,
+): Flow<List<CategoryItemUi>> = when (level) {
+    BrowseLevel.Root -> filterRepository.observeAuthorSets(query)
+        .map { sets -> sets.map { it.toCategoryUi() } }
+
+    is BrowseLevel.Author -> filterRepository.observeAuthorSeries(level.name)
+        .map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
+
+    is BrowseLevel.AuthorSet -> filterRepository.observeAuthorSetSeries(
+        authorNames = authorSetNames(level.key),
+    ).map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
+
+    else -> flowOf(emptyList())
+}
+
+/** Категории обзора по жанрам: сами жанры, наборы авторов жанра и серии набора в жанре. */
+private fun categoriesForGenres(
+    level: BrowseLevel,
+    query: BookQuery,
+    filterRepository: FilterRepository,
+    authorSetNames: (String) -> List<String>,
+    genreCode: () -> String?,
+): Flow<List<CategoryItemUi>> = when (level) {
+    BrowseLevel.Root -> filterRepository.observeFacets(query)
+        .map { facets -> facets.tags.map { it.toGenreCategoryUi() } }
+
+    is BrowseLevel.Genre -> filterRepository.observeAuthorSets(query)
+        .map { sets -> sets.map { it.toCategoryUi() } }
+
+    is BrowseLevel.AuthorSet -> filterRepository.observeAuthorSetSeries(
+        authorNames = authorSetNames(level.key),
+        genreCode = genreCode(),
+    ).map { authorSeries -> authorSeries.series.map { it.toCategoryUi() } }
+
+    else -> flowOf(emptyList())
+}
+
+/** Категории обзора по сериям: на корне — серии библиотеки. */
+private fun categoriesForSeries(
+    level: BrowseLevel,
+    query: BookQuery,
+    filterRepository: FilterRepository,
+): Flow<List<CategoryItemUi>> =
+    if (level == BrowseLevel.Root) {
+        filterRepository.observeFacets(query).map { facets -> facets.series.map { it.toCategoryUi() } }
+    } else {
+        flowOf(emptyList())
+    }

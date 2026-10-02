@@ -1,5 +1,6 @@
 package io.github.bookshelf.feature.settings.ui.category
 
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +32,9 @@ import java.util.Date
 import java.util.Locale
 import io.github.bookshelf.feature.settings.R
 import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.resolveJoined
+import io.github.bookshelf.feature.settings.DatabaseBackupUiState
+import io.github.bookshelf.feature.settings.LibraryExportUiState
 
 /**
  * Категория «Хранилище и кэш».
@@ -123,77 +127,27 @@ internal fun StorageCategory(
     val optimizationState by optimizationViewModel.uiState.collectAsStateWithLifecycle()
     val copiesState by copiesViewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE),
-    ) { destination -> destination?.let(exportViewModel::onExport) }
+    val exportLauncher = rememberExportLauncher(onExport = exportViewModel::onExport)
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = dimens.gutter),
     ) {
-        item(key = "storage-cover-cache") {
-            EinkListRow(
-                title = stringResource(R.string.settings_storage_clear_covers),
-                subtitle = when {
-                    state.isClearingCoverCache -> stringResource(R.string.settings_storage_clearing)
-                    else -> state.coverCacheMessage
-                        ?: stringResource(R.string.settings_storage_clear_covers_hint)
-                },
-                onClick = viewModel::onClearCoverCache,
-            )
-        }
+        storageCoverCacheRow(state = state, onClear = viewModel::onClearCoverCache)
+
         storageCopiesSection(state = copiesState, viewModel = copiesViewModel)
-        item(key = "storage-export") {
-            EinkListRow(
-                title = stringResource(R.string.settings_storage_export),
-                subtitle = when {
-                    exportState.isExporting -> stringResource(R.string.settings_storage_exporting)
-                    exportState.error != null -> exportState.error.orEmpty()
-                    else -> exportState.message
-                        ?: stringResource(R.string.settings_storage_export_hint)
-                },
-                onClick = {
-                    // Имя файла предлагает приложение, а место выбирает человек: диалог SAF отдаёт
-                    // готовый документ, и записывать в него можно без дополнительных разрешений.
-                    exportLauncher.launch(exportViewModel.suggestedFileName())
-                },
-            )
-        }
+        storageExportRow(
+            state = exportState,
+            // Имя файла предлагает приложение, а место выбирает человек: диалог SAF отдаёт готовый
+            // документ, и записывать в него можно без дополнительных разрешений.
+            onExport = { exportLauncher.launch(exportViewModel.suggestedFileName()) },
+        )
+
         fb2OptimizationRows(state = optimizationState, viewModel = optimizationViewModel)
-        item(key = "storage-backup-auto") {
-            ToggleRow(
-                title = stringResource(R.string.settings_storage_backup),
-                subtitle = stringResource(R.string.settings_storage_backup_hint),
-                enabled = backupState.isAutoEnabled,
-                onToggle = backupViewModel::onSetAutoEnabled,
-            )
-        }
-        item(key = "storage-backup-now") {
-            EinkListRow(
-                title = stringResource(R.string.settings_storage_backup_now),
-                subtitle = when {
-                    backupState.isWorking -> stringResource(R.string.settings_working)
-                    backupState.selected == null -> backupState.message
-                        ?: stringResource(R.string.settings_storage_backup_now_hint)
-                    else -> stringResource(R.string.settings_storage_answer_first)
-                },
-                onClick = backupViewModel::onCreateBackup,
-            )
-        }
-        item(key = "storage-backup-restore") {
-            EinkListRow(
-                title = stringResource(R.string.settings_storage_restore),
-                subtitle = when {
-                    backupState.backups.isEmpty() ->
-                        stringResource(R.string.settings_storage_no_backups)
-                    else -> stringResource(
-                        R.string.settings_backups_available,
-                        backupState.backups.size,
-                    )
-                },
-                onClick = backupViewModel::onLoadBackups,
-            )
-        }
+        storageBackupToggleRow(state = backupState, onToggle = backupViewModel::onSetAutoEnabled)
+        storageBackupNowRow(state = backupState, onCreate = backupViewModel::onCreateBackup)
+        storageRestoreRow(state = backupState, onLoad = backupViewModel::onLoadBackups)
+
         items(
             items = backupState.backups,
             key = { entry -> entry.documentUri },
@@ -256,8 +210,10 @@ private fun LazyListScope.fb2OptimizationRows(
                     state.done,
                     state.total,
                 )
-                state.error != null -> state.error.orEmpty()
-                else -> state.message ?: stringResource(OPTIMIZATION_HINT_RES)
+                state.error != null -> state.error.resolve()
+                // Итог собран из частей: разделитель между ними — тоже ресурс (docs/tdd.md §5).
+                state.message.isNotEmpty() -> state.message.resolveJoined()
+                else -> stringResource(OPTIMIZATION_HINT_RES)
             },
             trailing = if (state.isRunning) stringResource(R.string.settings_in_progress) else null,
             onClick = {
@@ -298,3 +254,122 @@ private const val EXPORT_MIME_TYPE = "application/json"
  * файлы, была бы неприятным сюрпризом.
  */
 private val OPTIMIZATION_HINT_RES = R.string.settings_storage_optimize_note
+
+
+/**
+ * Строка выгрузки библиотеки в JSON.
+ *
+ * Вынесена из `StorageCategory` отдельной функцией: экран перевалил за предел длины detekt, а
+ * строка зависит только от состояния выгрузки и колбэка запуска.
+ */
+private fun LazyListScope.storageExportRow(
+    state: LibraryExportUiState,
+    onExport: () -> Unit,
+) {
+    item(key = "storage-export") {
+        EinkListRow(
+            title = stringResource(R.string.settings_storage_export),
+            subtitle = when {
+                state.isExporting -> stringResource(R.string.settings_storage_exporting)
+                // `let` вместо проверки на null: состояние — делегированное свойство, и
+                // компилятор не может сузить его тип после проверки (smart cast невозможен).
+                state.error != null -> state.error?.resolve().orEmpty()
+                state.message != null -> state.message?.resolve().orEmpty()
+                else -> stringResource(R.string.settings_storage_export_hint)
+            },
+            onClick = onExport,
+        )
+    }
+}
+
+
+/** Строка уборки кэша обложек: вынесена ради предела длины `StorageCategory`. */
+private fun LazyListScope.storageCoverCacheRow(
+    state: SettingsUiState,
+    onClear: () -> Unit,
+) {
+    item(key = "storage-cover-cache") {
+        EinkListRow(
+            title = stringResource(R.string.settings_storage_clear_covers),
+            subtitle = when {
+                state.isClearingCoverCache -> stringResource(R.string.settings_storage_clearing)
+                else -> state.coverCacheMessage?.resolve()
+                    ?: stringResource(R.string.settings_storage_clear_covers_hint)
+            },
+            onClick = onClear,
+        )
+    }
+}
+
+
+/** Строка автоматической резервной копии: вынесена ради предела длины `StorageCategory`. */
+private fun LazyListScope.storageBackupToggleRow(
+    state: DatabaseBackupUiState,
+    onToggle: (Boolean) -> Unit,
+) {
+    item(key = "storage-backup-auto") {
+        ToggleRow(
+            title = stringResource(R.string.settings_storage_backup),
+            subtitle = stringResource(R.string.settings_storage_backup_hint),
+            enabled = state.isAutoEnabled,
+            onToggle = onToggle,
+        )
+    }
+}
+
+
+/** Строка ручной резервной копии: вынесена ради предела длины `StorageCategory`. */
+private fun LazyListScope.storageBackupNowRow(
+    state: DatabaseBackupUiState,
+    onCreate: () -> Unit,
+) {
+    item(key = "storage-backup-now") {
+        EinkListRow(
+            title = stringResource(R.string.settings_storage_backup_now),
+            subtitle = when {
+                state.isWorking -> stringResource(R.string.settings_working)
+                state.selected == null -> state.message?.resolve()
+                    ?: stringResource(R.string.settings_storage_backup_now_hint)
+                else -> stringResource(R.string.settings_storage_answer_first)
+            },
+            onClick = onCreate,
+        )
+    }
+}
+
+
+/** Строка восстановления из резервной копии: видно, сколько копий доступно. */
+private fun LazyListScope.storageRestoreRow(
+    state: DatabaseBackupUiState,
+    onLoad: () -> Unit,
+) {
+    item(key = "storage-backup-restore") {
+        EinkListRow(
+            title = stringResource(R.string.settings_storage_restore),
+            subtitle = when {
+                state.backups.isEmpty() ->
+                    stringResource(R.string.settings_storage_no_backups)
+                else -> stringResource(
+                    R.string.settings_backups_available,
+                    state.backups.size,
+                )
+            },
+            onClick = onLoad,
+        )
+    }
+}
+
+
+/**
+ * Лаунчер выбора файла для выгрузки библиотеки.
+ *
+ * Вынесено из `StorageCategory` ради предела длины detekt: место выбирает человек, а имя файла
+ * предлагает приложение (`LibraryExportViewModel.suggestedFileName`).
+ */
+@Composable
+private fun rememberExportLauncher(
+    onExport: (android.net.Uri) -> Unit,
+): ManagedActivityResultLauncher<String, android.net.Uri?> =
+    rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE),
+    ) { destination -> destination?.let(onExport) }

@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.scan
 
+
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.data.model.ScanStatus
 
 /** Какой из трёх экранов модуля показан. */
@@ -40,8 +42,11 @@ data class ProblemFileUi(
     val id: String,
     /** Имя файла или путь внутри источника. */
     val fileName: String,
-    /** Причина: «не удалось разобрать: повреждён ZIP». */
-    val reason: String,
+    /**
+     * Причина отказа разбора словами по коду из базы (`books.parseFailure`) или `null`, если кода
+     * нет (старая запись): тогда экран подставляет общее переводимое «причина не записана».
+     */
+    val parseFailure: AppText?,
 )
 
 /** Отчёт по завершённому сканированию (UI-модель). */
@@ -55,7 +60,7 @@ data class ScanReportUi(
     /** Не разобрано. */
     val failed: Int = 0,
     /** Длительность скана подписью: «1 мин 20 с». */
-    val durationLabel: String? = null,
+    val durationLabel: AppText? = null,
     /** Проблемные файлы с причинами. */
     val problemFiles: List<ProblemFileUi> = emptyList(),
 )
@@ -80,7 +85,7 @@ data class ScanUiState(
     /** Состояние прогона: идёт, пауза, завершён. Экран различает их по нему, а не по флагу. */
     val status: ScanStatus = ScanStatus.IDLE,
     /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val error: AppText? = null,
 ) {
     /** Скан выполняется прямо сейчас. */
     val isRunning: Boolean

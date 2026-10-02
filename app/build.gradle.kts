@@ -28,11 +28,23 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.okhttp)
 
-    // Проба внешних API на живом устройстве (спайк FBReader): обычные юнит-тесты привязку
-    // к чужому сервису и запросы к чужому провайдеру проверить не могут.
+    // Инструментальные тесты: провайдер SAF, FileProvider, запуск приложения и пробуждение
+    // чужих activity обычными юнит-тестами не проверить — нужен живой Android и настоящие
+    // системные службы (docs/tdd.md §4). Раннер задан в convention-плагине
+    // (`androidx.test.runner.AndroidJUnitRunner`).
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.core.ktx)
+    // Truth подключается к androidTest отдельно: `:core:testing` даёт его только юнит-тестам,
+    // а проверки в инструментальных тестах пишутся тем же стилем, что и везде в проекте.
+    androidTestImplementation(libs.truth)
+    androidTestImplementation(libs.espresso.core)
+    // Compose-артефакты версий не несут: их задаёт BOM, а он в convention-плагине подключён
+    // только к `implementation` и `testImplementation`, поэтому для androidTest — здесь.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // `createComposeRule` без своей activity берёт её из этого артефакта (только debug).
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // features
     implementation(project(":feature:onboarding"))
@@ -49,4 +61,6 @@ dependencies {
     // Только testImplementation: :core:testing тянет через api() junit, truth, turbine, mockk
     // и robolectric — в production APK им места нет.
     testImplementation(project(":core:testing"))
+    // Тестовый WorkManager: проверка, что расписание действительно поставлено.
+    testImplementation(libs.androidx.work.testing)
 }

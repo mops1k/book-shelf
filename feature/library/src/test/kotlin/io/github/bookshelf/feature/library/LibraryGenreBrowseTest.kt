@@ -10,6 +10,8 @@ import io.github.bookshelf.core.data.model.FacetItem
 import io.github.bookshelf.core.data.model.FacetSet
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.AppSettings
+import io.github.bookshelf.core.designsystem.R as DesignR
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.testing.fake.FakeBookRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,7 +44,7 @@ class LibraryGenreBrowseTest {
         authorSetSeries = mapOf(
             "Лем Станислав" to AuthorSeries(
                 series = listOf(
-                    FacetItem(id = "Приключения Флинкса", label = "Приключения Флинкса", count = 1),
+                    FacetItem(id = "Приключения Флинкса", labelCode = "Приключения Флинкса", count = 1),
                 ),
                 withoutSeries = 1,
             ),
@@ -62,7 +64,7 @@ class LibraryGenreBrowseTest {
     @Test
     fun `genre root lists genres with their names and counts`() = runTest(dispatcher) {
         filters.tagFacets.value = listOf(
-            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
         )
         val viewModel = viewModel()
 
@@ -72,8 +74,11 @@ class LibraryGenreBrowseTest {
         val browse = viewModel.uiState.value.browse
         assertThat(browse.mode).isEqualTo(BrowseMode.GENRES)
         assertThat(browse.level).isEqualTo(BrowseLevel.Root)
-        // Подпись — название жанра, а не код из метаданных.
-        assertThat(browse.categories.map { it.label }).containsExactly("Космическая фантастика")
+        // В коде лежит код жанра (по нему фильтрует SQL), а подпись выбирает экран: в базе
+        // русского текста нет, иначе он не переводится (docs/tdd.md §8).
+        assertThat(browse.categories.map { it.label }).containsExactly("sf_space")
+        assertThat(browse.categories.map { it.labelText })
+            .containsExactly(AppText(DesignR.string.genre_sf_space))
         assertThat(browse.categories.single().count).isEqualTo(43)
         assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_genres))
     }
@@ -81,7 +86,7 @@ class LibraryGenreBrowseTest {
     @Test
     fun `opening a genre filters by its code and shows the authors of that genre`() = runTest(dispatcher) {
         filters.tagFacets.value = listOf(
-            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
         )
         val viewModel = viewModel()
         viewModel.onSetBrowse(BrowseMode.GENRES)
@@ -97,16 +102,19 @@ class LibraryGenreBrowseTest {
         // В запрос ушёл именно код жанра: по нему фильтрует SQL.
         assertThat(books.pageQueries.last().bookQuery.tags).containsExactly("sf_space")
         val browse = viewModel.uiState.value.browse
-        assertThat(browse.level).isEqualTo(BrowseLevel.Genre(code = "sf_space", label = "Космическая фантастика"))
+        assertThat(browse.level).isEqualTo(BrowseLevel.Genre(code = "sf_space", label = "sf_space"))
         assertThat(browse.categories.map { it.label }).containsExactly("Лем Станислав")
-        assertThat(browse.title).isEqualTo(BrowseTitleUi(R.string.library_browse_genre, "Космическая фантастика"))
+        assertThat(browse.title).isEqualTo(BrowseTitleUi(
+                R.string.library_browse_genre,
+                argText = AppText(DesignR.string.genre_sf_space),
+            ))
         assertThat(browse.canGoBack).isTrue()
     }
 
     @Test
     fun `opening an author keeps the genre and asks only that genre's series`() = runTest(dispatcher) {
         filters.tagFacets.value = listOf(
-            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
         )
         val viewModel = viewModel()
         viewModel.onSetBrowse(BrowseMode.GENRES)
@@ -135,7 +143,7 @@ class LibraryGenreBrowseTest {
     fun `back from an author returns to the genre, then to the genre list, then leaves browse`() =
         runTest(dispatcher) {
             filters.tagFacets.value = listOf(
-                FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+                FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
             )
             val viewModel = viewModel()
             viewModel.onSetBrowse(BrowseMode.GENRES)
@@ -152,7 +160,7 @@ class LibraryGenreBrowseTest {
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.browse.level)
-                .isEqualTo(BrowseLevel.Genre(code = "sf_space", label = "Космическая фантастика"))
+                .isEqualTo(BrowseLevel.Genre(code = "sf_space", label = "sf_space"))
 
             viewModel.onBrowseBack()
             advanceUntilIdle()
@@ -169,7 +177,7 @@ class LibraryGenreBrowseTest {
     @Test
     fun `going back to the genre root drops the genre from the query`() = runTest(dispatcher) {
         filters.tagFacets.value = listOf(
-            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
         )
         val viewModel = viewModel()
         viewModel.onSetBrowse(BrowseMode.GENRES)
@@ -189,7 +197,7 @@ class LibraryGenreBrowseTest {
     @Test
     fun `switching the view inside a genre drops the genre as a safety net`() = runTest(dispatcher) {
         filters.tagFacets.value = listOf(
-            FacetItem(id = "sf_space", label = "Космическая фантастика", count = 43),
+            FacetItem(id = "sf_space", labelCode = "sf_space", count = 43),
         )
         val viewModel = viewModel()
         viewModel.onSetBrowse(BrowseMode.GENRES)

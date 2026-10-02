@@ -4,10 +4,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.CollectionType
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.repository.CollectionRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -67,16 +70,16 @@ private const val MAX_PROGRESS_PERCENT = 100
 data class CollectionContentUiState(
     /** Название полки — в заголовке экрана. */
     val name: String = "",
-    /** «Ручная полка» или «Умная полка · правила». */
-    val subtitle: String? = null,
+    /** «Ручная полка» или «Умная полка» — ресурс, а не готовая строка (docs/tdd.md §5). */
+    val subtitle: AppText? = null,
     /** Книги полки. */
     val books: List<CollectionItemUi> = emptyList(),
     /** Идёт загрузка. */
     val isLoading: Boolean = false,
     /** Умная ли полка: от этого зависит пустое состояние. */
     val isSmart: Boolean = false,
-    /** Текст ошибки. */
-    val error: String? = null,
+    /** Текст ошибки: ресурс с причиной (docs/tdd.md §5, §7). */
+    val error: AppText? = null,
 )
 
 /**
@@ -126,8 +129,8 @@ class CollectionContentViewModel @Inject constructor(
                         name = collection?.name.orEmpty(),
                         subtitle = when {
                             collection == null -> null
-                            isSmart -> "Умная полка"
-                            else -> "Ручная полка"
+                            isSmart -> AppText(R.string.collections_kind_smart_empty)
+                            else -> AppText(R.string.collections_kind_manual)
                         },
                         books = books.map { book -> book.toCollectionItemUi() },
                         isLoading = false,
@@ -141,7 +144,9 @@ class CollectionContentViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Не удалось загрузить полку",
+                        // Причина — текст по типу ошибки: сообщение SQLite (часто английское) человеку
+                        // не показывают (docs/tdd.md §7).
+                        error = AppText(R.string.collections_content_error_load, error.toAppError().text()),
                     )
                 }
             }

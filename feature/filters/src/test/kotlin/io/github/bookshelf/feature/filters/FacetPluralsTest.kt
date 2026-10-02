@@ -38,6 +38,8 @@ class FacetPluralsTest {
         assertThat(word(R.plurals.filters_word_statuses, 12)).isEqualTo("12 статусов")
         assertThat(word(R.plurals.filters_word_tags, 3)).isEqualTo("3 жанра")
         assertThat(word(R.plurals.filters_word_formats, 0)).isEqualTo("0 форматов")
+        assertThat(word(R.plurals.filters_word_sources, 12)).isEqualTo("12 папок")
+        assertThat(word(R.plurals.filters_word_sources, 1)).isEqualTo("1 папка")
     }
 
     private fun word(id: Int, count: Int): String = resources.getQuantityString(id, count, count)

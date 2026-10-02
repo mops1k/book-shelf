@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Заглушки для инструментальных тестов. Только debug-сборка: в release их нет.
+
+  * DebugDocumentsProvider — отвечает на URI и колонки DocumentsContract, чтобы проверить
+    обход SAF. Не DocumentsProvider: Android разрешает приложению держать настоящий
+    DocumentsProvider только с системной подписью (MANAGE_DOCUMENTS).
+  * DebugReaderActivity — «читалка», которая ловит ACTION_VIEW с книжным MIME и запоминает
+    намерение, чтобы тест проверил, что книга уходит наружу с нужным URI и типом.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <provider
+            android:name="io.github.bookshelf.debug.DebugDocumentsProvider"
+            android:authorities="${applicationId}.debug.saf"
+            android:exported="true"
+            android:grantUriPermissions="true" />
+
+        <activity
+            android:name="io.github.bookshelf.debug.DebugReaderActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/fb2" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

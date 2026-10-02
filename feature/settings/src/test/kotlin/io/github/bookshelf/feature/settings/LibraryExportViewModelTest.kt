@@ -4,6 +4,8 @@ import android.net.Uri
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.export.LibraryExportContent
 import io.github.bookshelf.core.data.export.LibraryExportRepository
@@ -61,7 +63,7 @@ class LibraryExportViewModelTest {
         advanceUntilIdle()
 
         assertThat(export.destinations).containsExactly(destination)
-        assertThat(viewModel.uiState.value.message).isEqualTo("Экспортировано книг: 74, полок: 3")
+        assertThat(viewModel.uiState.value.message).isEqualTo(AppText(R.string.settings_export_report, 74, 3))
         assertThat(viewModel.uiState.value.isExporting).isFalse()
         assertThat(viewModel.uiState.value.error).isNull()
     }
@@ -69,13 +71,15 @@ class LibraryExportViewModelTest {
     @Test
     fun `failed export is an error, not a finished export`() = runTest(dispatcher) {
         val viewModel = viewModel()
-        export.result = AppResult.failure(AppError.Io(message = "Нет места на диске"))
+        val failure = AppError.Io(message = "Нет места на диске")
+        export.result = AppResult.failure(failure)
 
         viewModel.onExport(mockk<Uri>())
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.message).isNull()
-        assertThat(viewModel.uiState.value.error).isEqualTo("Нет места на диске")
+        assertThat(viewModel.uiState.value.error)
+            .isEqualTo(AppText(R.string.settings_export_failed, failure.text()))
         assertThat(viewModel.uiState.value.isExporting).isFalse()
     }
 

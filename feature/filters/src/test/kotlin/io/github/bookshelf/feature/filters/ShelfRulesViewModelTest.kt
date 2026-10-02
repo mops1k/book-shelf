@@ -2,7 +2,10 @@ package io.github.bookshelf.feature.filters
 
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.BookQuery
@@ -111,7 +114,8 @@ class ShelfRulesViewModelTest {
         // Пустые правила означают пустую полку: сохранить их значило бы «стереть» полку молча.
         assertThat(fixture.updateCalls).isEqualTo(0)
         assertThat(viewModel.uiState.value.saved).isFalse()
-        assertThat(viewModel.uiState.value.error).contains("хотя бы одно условие")
+        // В баннер идёт ресурс, а не техническое пояснение нижнего слоя: оно не переводится.
+        assertThat(viewModel.uiState.value.error).isEqualTo(AppText(R.string.shelf_rules_error_empty))
     }
 
     @Test
@@ -139,7 +143,22 @@ class ShelfRulesViewModelTest {
         val viewModel = fixture.viewModel()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.error).isEqualTo("Полка не найдена")
+        assertThat(viewModel.uiState.value.error).isEqualTo(AppText(R.string.shelf_rules_error_not_found))
+    }
+
+    @Test
+    fun `a failed save shows a translatable text, not the technical one`() = runTest(dispatcher) {
+        val failure = AppError.Unknown(message = "SQLiteException: disk I/O error (code 778)")
+        val fixture = Fixture(SmartRules(tags = setOf("sf_space")).toJson(), AppResult.failure(failure))
+
+        val viewModel = fixture.viewModel()
+        advanceUntilIdle()
+        viewModel.onSave()
+        advanceUntilIdle()
+
+        // Причина — текст по типу ошибки: сообщение нижнего слоя («SQLiteException…») человеку не показывают.
+        assertThat(viewModel.uiState.value.error)
+            .isEqualTo(AppText(R.string.shelf_rules_error_save, failure.text()))
     }
 
     /** Полка, репозитории и записанные вызовы — в одном месте, чтобы тесты читались как сценарий. */
@@ -182,7 +201,9 @@ class ShelfRulesViewModelTest {
             collections.updateResult = updateResult
             filters.facetsFlow = flowOf(
                 FacetSet(
-                    authors = listOf(FacetItem(id = "Лем Станислав", label = "Лем Станислав", count = 2)),
+                    authors = listOf(
+                        FacetItem(id = "Лем Станислав", labelCode = "Лем Станислав", count = 2),
+                    ),
                 ),
             )
         }

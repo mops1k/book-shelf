@@ -4,12 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.app.AppRestarter
+import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.backup.BackupEntry
 import io.github.bookshelf.core.data.backup.DatabaseBackup
 import io.github.bookshelf.core.data.backup.DatabaseBackupSchedule
 import io.github.bookshelf.core.datastore.SettingsRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +35,8 @@ data class DatabaseBackupUiState(
     val isWorking: Boolean = false,
     val backups: List<BackupEntry> = emptyList(),
     val selected: BackupEntry? = null,
-    val message: String? = null,
+    /** Итог и причины для строки настроек: переводимые части (docs/tdd.md §5, §7). */
+    val message: AppText? = null,
 )
 
 /**
@@ -75,11 +79,13 @@ class DatabaseBackupViewModel @Inject constructor(
             schedule.review()
             _uiState.update { state ->
                 state.copy(
-                    message = if (enabled) {
-                        "Ежедневный бэкап включён"
-                    } else {
-                        "Ежедневный бэкап выключен"
-                    },
+                    message = AppText(
+                        if (enabled) {
+                            R.string.settings_backup_auto_on
+                        } else {
+                            R.string.settings_backup_auto_off
+                        },
+                    ),
                 )
             }
         }
@@ -96,10 +102,20 @@ class DatabaseBackupViewModel @Inject constructor(
                 state.copy(
                     isWorking = false,
                     message = if (created != null) {
-                        "Копия сделана: ${created.fileName}" +
-                            if (created.removed > 0) ", удалено старых: ${created.removed}" else ""
+                        if (created.removed > 0) {
+                            AppText(
+                                R.string.settings_backup_created_removed,
+                                created.fileName,
+                                created.removed,
+                            )
+                        } else {
+                            AppText(R.string.settings_backup_created, created.fileName)
+                        }
                     } else {
-                        result.errorOrNull()?.message ?: "Копию не удалось сделать"
+                        AppText(
+                            R.string.settings_backup_failed,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
+                        )
                     },
                 )
             }
@@ -114,8 +130,9 @@ class DatabaseBackupViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     backups = listed.getOrNull().orEmpty(),
-                    message = state.message
-                        ?: listed.errorOrNull()?.let { error -> error.message },
+                    message = state.message ?: listed.errorOrNull()?.let { error ->
+                        AppText(R.string.settings_backup_list_failed, error.text())
+                    },
                 )
             }
         }
@@ -150,14 +167,20 @@ class DatabaseBackupViewModel @Inject constructor(
             val result = backup.restore(entry)
             if (result.getOrNull() != null) {
                 _uiState.update { state ->
-                    state.copy(isWorking = false, message = "База восстановлена, перезапускаем…")
+                    state.copy(
+                        isWorking = false,
+                        message = AppText(R.string.settings_backup_restored),
+                    )
                 }
                 restarter.restart()
             } else {
                 _uiState.update { state ->
                     state.copy(
                         isWorking = false,
-                        message = result.errorOrNull()?.message ?: "Восстановление не удалось",
+                        message = AppText(
+                            R.string.settings_backup_restore_failed,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
+                        ),
                     )
                 }
             }
@@ -184,9 +207,12 @@ class DatabaseBackupViewModel @Inject constructor(
                 state.copy(
                     isWorking = false,
                     message = if (result.getOrNull() != null) {
-                        "Копия удалена: ${entry.fileName}"
+                        AppText(R.string.settings_backup_removed, entry.fileName)
                     } else {
-                        result.errorOrNull()?.message ?: "Копию удалить не удалось"
+                        AppText(
+                            R.string.settings_backup_remove_failed,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
+                        )
                     },
                 )
             }

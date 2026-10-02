@@ -63,6 +63,6 @@ class FacetOverviewTest {
     private fun section(kind: FacetKind, vararg ids: String) = FacetSectionUi(
         kind = kind,
         titleRes = R.string.filters_section_authors,
-        items = ids.map { id -> FacetChipUi(id = id, label = id, count = 1) },
+        items = ids.map { id -> FacetChipUi(id = id, labelCode = id, count = 1) },
     )
 }

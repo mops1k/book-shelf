@@ -26,7 +26,7 @@ class CatalogFeedRequest @Inject constructor() {
     val request: StateFlow<Request?> = _request.asStateFlow()
 
     /** Попросить браузер открыть фид; [title] — подпись уровня в хлебных крошках. */
-    fun open(catalogId: String, feedUrl: String, title: String) {
+    fun open(catalogId: String, feedUrl: String, title: FeedLabel) {
         _request.value = Request(catalogId = catalogId, feedUrl = feedUrl, title = title)
     }
 
@@ -44,6 +44,6 @@ class CatalogFeedRequest @Inject constructor() {
     data class Request(
         val catalogId: String,
         val feedUrl: String,
-        val title: String,
+        val title: FeedLabel,
     )
 }

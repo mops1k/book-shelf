@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.onboarding
 
+
+import io.github.bookshelf.core.designsystem.text.AppText
 /**
  * Шаги онбординга (docs/eink-ux.md §6.1).
  *
@@ -75,5 +77,14 @@ data class OnboardingUiState(
     /** Идёт операция (запрос SAF, проверка читалки) — кнопки блокируются. */
     val isBusy: Boolean = false,
     /** Текст ошибки для инвертированной плашки (`EinkErrorBanner`). */
-    val error: String? = null,
-)
+    val error: AppText? = null,
+) {
+    /**
+     * Текст баннера ошибки для экрана.
+     *
+     * Отдельным свойством, а не чтением [error] прямо в Composable: так у связи «отказ в состоянии →
+     * баннер на экране» есть имя и тест, а не только надежда, что экран не забудет это поле
+     * (дефект 01.10.2026: отказы онбординга не показывались вовсе).
+     */
+    val errorBanner: AppText? get() = error
+}

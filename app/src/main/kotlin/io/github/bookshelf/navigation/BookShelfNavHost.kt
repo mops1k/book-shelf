@@ -5,6 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.flow.map
 import androidx.navigation.compose.NavHost
@@ -141,6 +142,22 @@ fun BookShelfNavHost(
             onApply = { navController.popBackStack() },
         )
 
+        systemRoutes(navController = navController, onExit = onExit)
+
+    }
+}
+
+/**
+ * Системные маршруты: скан, онбординг, каталоги OPDS, настройки и их категории.
+ *
+ * Вынесено из `BookShelfNavHost` отдельной функцией: перечисление маршрутов перевалило за предел
+ * длины detekt. Полка и её окружение (карточка книги, полки, поиск, фильтры) остались в основной
+ * функции — так граф разбит по смыслу, а не по длине.
+ */
+private fun NavGraphBuilder.systemRoutes(
+    navController: NavHostController,
+    onExit: () -> Unit,
+) {
         scanScreen(
             onBack = { navController.popBackStack() },
             onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
@@ -190,8 +207,6 @@ fun BookShelfNavHost(
             // быть доступны и при живой библиотеке.
             onOpenScan = { navController.navigate(ScanRoute.route) },
         )
-
-    }
 }
 
 /**

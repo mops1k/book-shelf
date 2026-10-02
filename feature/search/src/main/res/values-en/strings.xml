@@ -26,4 +26,8 @@
     <string name="search_empty_press_find_message">Suggestions appear while you type; the search over the whole library starts with the «Find» button. Until then there are no results — and that does not mean there are no matches.</string>
     <string name="search_empty_nothing_found">Nothing found</string>
     <string name="search_empty_nothing_found_message">No matches for «%1$s». Try another word or part of a word.</string>
+
+    <!-- Search messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <string name="search_error_suggestions">Could not get the suggestions: %1$s</string>
+    <string name="search_error_search">Could not perform the search: %1$s</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +25,7 @@ import io.github.bookshelf.core.designsystem.component.EinkChip
 import io.github.bookshelf.core.designsystem.component.EinkDivider
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkTextField
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.filters.FacetChipUi
@@ -91,6 +93,7 @@ internal fun availableWordRes(kind: FacetKind): Int = when (kind) {
     FacetKind.TAGS -> R.plurals.filters_word_tags
     FacetKind.FORMATS -> R.plurals.filters_word_formats
     FacetKind.STATUSES -> R.plurals.filters_word_statuses
+    FacetKind.SOURCES -> R.plurals.filters_word_sources
 }
 
 
@@ -113,19 +116,12 @@ internal fun FacetList(
     var expandedKind by remember { mutableStateOf<FacetKind?>(null) }
     var search by remember { mutableStateOf("") }
 
+    // Подписи разрешаются здесь: `resolve()` — composable-вызов, а внутри `LazyColumn { }` его
+    // делать нельзя (там не composable-контекст), поэтому карта строится заранее и передаётся вниз.
+    val labels = rememberResolvedLabels(sections)
+
     Column(modifier = modifier.fillMaxSize()) {
-        // Живая сводка закреплена над списком и не прокручивается: числа фасетов видны в момент
-        // тапа по чипу, даже если раскрытая секция вытеснила чужие строки вниз.
-        Text(
-            text = facetOverview(sections),
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.foreground,
-            maxLines = 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-        )
-        EinkDivider()
+        FacetOverviewHeader(sections = sections)
 
         LazyColumn(
             state = state,
@@ -140,6 +136,7 @@ internal fun FacetList(
                     FacetRow(
                         section = section,
                         selected = selected,
+                        labels = labels,
                         expanded = isOpen,
                         onClick = {
                             expandedKind = if (isOpen) null else section.kind
@@ -148,52 +145,14 @@ internal fun FacetList(
                     )
                 }
                 if (isOpen) {
-                    item(key = "search:${section.kind}") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = dimens.gutterSmall),
-                        ) {
-                            EinkTextField(
-                                value = search,
-                                onValueChange = { search = it },
-                                placeholder = stringResource(
-                                    R.string.filters_search_placeholder,
-                                    stringResource(section.titleRes).lowercase(),
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                    val visible = section.items.filter { chip ->
-                        search.isBlank() || chip.label.contains(search.trim(), ignoreCase = true)
-                    }
-                    if (visible.isEmpty()) {
-                        item(key = "empty:${section.kind}") {
-                            Text(
-                                text = stringResource(R.string.filters_nothing_found),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = colors.foreground,
-                            )
-                        }
-                    }
-                    itemsIndexed(
-                        items = visible.chunked(CHIPS_PER_ROW),
-                        key = { index, _ -> "row:${section.kind}:$index" },
-                    ) { _, rowItems ->
-                        Row(
-                            modifier = Modifier.padding(vertical = dimens.gutterSmall / 2),
-                            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                        ) {
-                            rowItems.forEach { chip ->
-                                FacetChip(
-                                    chip = chip,
-                                    selected = isFacetSelected(selected, section.kind, chip.id),
-                                    onClick = { onToggle(section.kind, chip.id) },
-                                )
-                            }
-                        }
-                    }
+                    facetOpenSection(
+                        section = section,
+                        selected = selected,
+                        labels = labels,
+                        search = search,
+                        onSearchChange = { search = it },
+                        onToggle = onToggle,
+                    )
                 }
             }
         }
@@ -210,6 +169,7 @@ internal fun FacetList(
 private fun FacetRow(
     section: FacetSectionUi,
     selected: FilterSelectionUi,
+    labels: Map<String, String>,
     expanded: Boolean,
     onClick: () -> Unit,
 ) {
@@ -219,7 +179,7 @@ private fun FacetRow(
         title = stringResource(
             R.string.filters_section_row_title,
             title,
-            chosen.joinToString(", ") { chip -> chip.label }
+            chosen.joinToString(", ") { chip -> labels[chip.id] ?: chip.labelCode }
                 .ifEmpty { stringResource(R.string.filters_section_not_selected) },
         ),
         subtitle = if (chosen.isEmpty()) {
@@ -238,11 +198,12 @@ private fun FacetRow(
 @Composable
 private fun FacetChip(
     chip: FacetChipUi,
+    label: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     EinkChip(
-        label = chip.label,
+        label = label,
         count = chip.count,
         selected = selected,
         onClick = onClick,
@@ -260,4 +221,107 @@ private fun isFacetSelected(
     FacetKind.TAGS -> facetId in selection.tags
     FacetKind.FORMATS -> facetId in selection.formats
     FacetKind.STATUSES -> facetId in selection.statuses
+    FacetKind.SOURCES -> facetId in selection.sources
+}
+
+
+/**
+ * Закреплённая живая сводка над списком фасетов.
+ *
+ * Вынесена из `FacetList` отдельной функцией: та перевалила за предел длины detekt, а сводка —
+ * цельный кусок. Числа фасетов видны в момент тапа по чипу, даже если раскрытая секция вытеснила
+ * чужие строки вниз.
+ */
+@Composable
+private fun FacetOverviewHeader(sections: List<FacetSectionUi>) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Text(
+        text = facetOverview(sections),
+        style = MaterialTheme.typography.labelMedium,
+        color = colors.foreground,
+        maxLines = 2,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+    )
+    EinkDivider()
+}
+
+
+/**
+ * Содержимое раскрытой секции фасета: поиск по значениям и чипы.
+ *
+ * Вынесено из `FacetList` отдельной функцией: та перевалила за предел длины detekt, а раскрытая
+ * секция — цельный кусок, зависящий только от самой секции, выбора и строки поиска.
+ */
+private fun LazyListScope.facetOpenSection(
+    section: FacetSectionUi,
+    selected: FilterSelectionUi,
+    labels: Map<String, String>,
+    search: String,
+    onSearchChange: (String) -> Unit,
+    onToggle: (FacetKind, String) -> Unit,
+) {
+    item(key = "search:${section.kind}") {
+        val dimens = LocalEinkDimens.current
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = dimens.gutterSmall),
+                ) {
+                    EinkTextField(
+                        value = search,
+                        onValueChange = onSearchChange,
+                        placeholder = stringResource(
+                            R.string.filters_search_placeholder,
+                            stringResource(section.titleRes).lowercase(),
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            val visible = section.items.filter { chip ->
+                val label = labels[chip.id] ?: chip.labelCode
+                search.isBlank() || label.contains(search.trim(), ignoreCase = true)
+            }
+            if (visible.isEmpty()) {
+                item(key = "empty:${section.kind}") {
+            val colors = LocalEinkColors.current
+                    Text(
+                        text = stringResource(R.string.filters_nothing_found),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.foreground,
+                    )
+                }
+            }
+            itemsIndexed(
+                items = visible.chunked(CHIPS_PER_ROW),
+                key = { index, _ -> "row:${section.kind}:$index" },
+            ) { _, rowItems ->
+            val dimens = LocalEinkDimens.current
+                Row(
+                    modifier = Modifier.padding(vertical = dimens.gutterSmall / 2),
+                    horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+                ) {
+                    rowItems.forEach { chip ->
+                        FacetChip(
+                            chip = chip,
+                            label = labels[chip.id] ?: chip.labelCode,
+                            selected = isFacetSelected(selected, section.kind, chip.id),
+                            onClick = { onToggle(section.kind, chip.id) },
+                        )
+                    }
+                }
+            }
+        
+}
+
+
+/** Подписи чипов, разрешённые в тексте: `labelText` → строка, иначе значение как есть. */
+@Composable
+private fun rememberResolvedLabels(sections: List<FacetSectionUi>): Map<String, String> {
+    val resolved = sections.flatMap { section -> section.items }
+        .associate { chip -> chip.id to (chip.labelText?.resolve() ?: chip.labelCode) }
+    return resolved
 }

@@ -7,10 +7,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.metadata.MetadataSaveResult
+import io.github.bookshelf.core.data.metadata.MetadataWriteFailure
 import io.github.bookshelf.core.data.metadata.SaveBookMetadata
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,8 +38,8 @@ data class BookMetadataEditUiState(
     val description: String = "",
     val writeToFile: Boolean = true,
     val isSaving: Boolean = false,
-    val message: String? = null,
-    val error: String? = null,
+    val message: AppText? = null,
+    val error: AppText? = null,
 ) {
 
     /** Название обязательно: без него книга потерялась бы в библиотеке. */
@@ -70,7 +73,7 @@ class BookMetadataEditViewModel @Inject constructor(
             val book = bookRepository.getById(bookId).getOrNull()
             if (book == null) {
                 _uiState.update { state ->
-                    state.copy(isLoading = false, error = "Книга не найдена")
+                    state.copy(isLoading = false, error = AppText(R.string.book_error_not_found))
                 }
                 return@launch
             }
@@ -108,7 +111,7 @@ class BookMetadataEditViewModel @Inject constructor(
         if (!state.canSave) return
         val patch = patchOf(state)
         if (patch == null) {
-            _uiState.update { it.copy(message = "Ничего не изменилось") }
+            _uiState.update { it.copy(message = AppText(R.string.book_edit_nothing_changed)) }
             return
         }
         viewModelScope.launch {
@@ -119,7 +122,7 @@ class BookMetadataEditViewModel @Inject constructor(
                 _uiState.update { current ->
                     current.copy(
                         isSaving = false,
-                        error = failure.message ?: "Правку сохранить не удалось",
+                        error = AppText(R.string.book_error_save_edit, failure.text()),
                     )
                 }
                 return@launch
@@ -166,9 +169,24 @@ class BookMetadataEditViewModel @Inject constructor(
         get() = title != null || authorsText != null || seriesName != null ||
             seriesIndex != null || description != null || clearSeriesIndex
 
-    private fun MetadataSaveResult.describe(): String = when {
-        fileWritten -> "Сохранено и записано в файл книги"
-        fileReason != null -> "Сохранено в приложении. В файл записать не удалось: $fileReason"
-        else -> "Сохранено в приложении"
+    /**
+     * Итог правки словами.
+     *
+     * Отказ записи приходит кодом (`MetadataWriteFailure`) и называется по типу ошибки
+     * (docs/tdd.md §7): «сохранено в приложении, в файл записать не удалось: нет доступа» —
+     * факт и причина, оба переводимые.
+     */
+    private fun MetadataSaveResult.describe(): AppText = when (val failure = fileFailure) {
+        null -> if (fileWritten) {
+            AppText(R.string.book_edit_saved_to_file)
+        } else {
+            AppText(R.string.book_edit_saved_app_only)
+        }
+
+        MetadataWriteFailure.BookNotFound -> AppText(R.string.book_edit_saved_not_found)
+        is MetadataWriteFailure.WriteFailed -> AppText(
+            R.string.book_edit_saved_file_failed_reason,
+            failure.error.text(),
+        )
     }
 }

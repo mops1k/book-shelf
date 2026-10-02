@@ -3,6 +3,8 @@ package io.github.bookshelf.feature.settings
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.app.AppRestarter
 import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.data.backup.BackupEntry
 import io.github.bookshelf.core.data.backup.BackupResult
@@ -74,23 +76,28 @@ class DatabaseBackupViewModelTest {
         viewModel.onCreateBackup()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("bookshelf-backup-7.db")
+        // Итог — переводимая часть: имя файла передаётся аргументом ресурса (docs/tdd.md §5).
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.settings_backup_created, "bookshelf-backup-7.db"))
         assertThat(viewModel.uiState.value.isWorking).isFalse()
     }
 
     @Test
-    fun `failed copy is explained to the reader`() = runTest(dispatcher) {
-        backup.copyError = AppError.NotFound(
+    fun `failed copy is reported by the error type`() = runTest(dispatcher) {
+        val failure = AppError.NotFound(
             what = "library",
             message = "Папка библиотеки не выбрана: копию некуда положить",
         )
+        backup.copyError = failure
         val viewModel = viewModel()
         advanceUntilIdle()
 
         viewModel.onCreateBackup()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("некуда положить")
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.settings_backup_failed, failure.text()))
     }
 
     @Test
@@ -140,7 +147,8 @@ class DatabaseBackupViewModelTest {
 
     @Test
     fun `damaged copy is reported instead of a silent restart`() = runTest(dispatcher) {
-        backup.restoreError = AppError.Io(message = "Копия повреждена: database disk image is malformed")
+        val failure = AppError.Io(message = "Копия повреждена: database disk image is malformed")
+        backup.restoreError = failure
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.onSelect(entry("битая.db", createdAt = 5L))
@@ -149,7 +157,8 @@ class DatabaseBackupViewModelTest {
         viewModel.onConfirmRestore()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("повреждена")
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.settings_backup_restore_failed, failure.text()))
         assertThat(restarter.restarts).isEqualTo(0)
     }
 
@@ -194,7 +203,8 @@ class DatabaseBackupViewModelTest {
         // Список перечитывается: удалённая копия не должна остаться строкой на экране.
         assertThat(viewModel.uiState.value.backups.map { it.fileName }).containsExactly("нужная.db")
         assertThat(viewModel.uiState.value.selected).isNull()
-        assertThat(viewModel.uiState.value.message).contains("лишняя.db")
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.settings_backup_removed, "лишняя.db"))
     }
 
     @Test
@@ -212,8 +222,9 @@ class DatabaseBackupViewModelTest {
     }
 
     @Test
-    fun `failed delete is explained instead of looking like success`() = runTest(dispatcher) {
-        backup.removeError = AppError.Io(message = "Нет доступа к папке")
+    fun `failed delete is reported instead of looking like success`() = runTest(dispatcher) {
+        val failure = AppError.Io(message = "Нет доступа к папке")
+        backup.removeError = failure
         val viewModel = viewModel()
         advanceUntilIdle()
         viewModel.onSelect(entry("лишняя.db", createdAt = 5L))
@@ -222,7 +233,8 @@ class DatabaseBackupViewModelTest {
         viewModel.onDeleteSelected()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.message).contains("Нет доступа к папке")
+        assertThat(viewModel.uiState.value.message)
+            .isEqualTo(AppText(R.string.settings_backup_remove_failed, failure.text()))
         assertThat(viewModel.uiState.value.selected).isNull()
     }
 

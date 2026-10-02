@@ -1,5 +1,7 @@
 package io.github.bookshelf.feature.search
 
+
+import io.github.bookshelf.core.designsystem.text.AppText
 /**
  * Строка результата поиска (UI-модель).
  *
@@ -86,5 +88,5 @@ data class SearchUiState(
      */
     val searchedTerm: String? = null,
     /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val error: AppText? = null,
 )

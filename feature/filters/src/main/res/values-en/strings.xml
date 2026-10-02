@@ -23,6 +23,8 @@
     <string name="filters_section_formats">Formats</string>
     <string name="filters_section_statuses">Reading status</string>
 
+    <string name="filters_section_sources">Folders</string>
+
     <plurals name="filters_word_authors">
         <item quantity="one">%1$d author</item>
         <item quantity="other">%1$d authors</item>
@@ -43,6 +45,10 @@
         <item quantity="one">%1$d status</item>
         <item quantity="other">%1$d statuses</item>
     </plurals>
+    <plurals name="filters_word_sources">
+        <item quantity="one">%1$d folder</item>
+        <item quantity="other">%1$d folders</item>
+    </plurals>
 
     <string name="shelf_rules_title">Shelf rules</string>
     <string name="shelf_rules_subtitle">Smart shelf</string>
@@ -52,4 +58,9 @@
     <string name="shelf_rules_action_retry">Retry</string>
     <string name="shelf_rules_empty_title">Conditions will appear when there are books in the library</string>
     <string name="shelf_rules_empty_message">A smart shelf is built from the same conditions as the filters: authors, series, genres and tags, formats, reading status. Choose at least one — and the shelf starts counting its own contents.</string>
+    <string name="filters_error_load">Could not load the filters: %1$s</string>
+    <string name="shelf_rules_error_empty">Choose at least one condition, otherwise the collection will be empty</string>
+    <string name="shelf_rules_error_not_found">Collection not found</string>
+    <string name="shelf_rules_error_load">Could not load the rules: %1$s</string>
+    <string name="shelf_rules_error_save">Could not save the rules: %1$s</string>
 </resources>

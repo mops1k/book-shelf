@@ -204,7 +204,7 @@
     <string name="settings_cover_cache_failed">Не удалось очистить кэш обложек: %1$s</string>
     <string name="settings_io_error">ошибка ввода-вывода</string>
     <string name="settings_export_report">Экспортировано книг: %1$d, полок: %2$d</string>
-    <string name="settings_export_failed">Не удалось выгрузить библиотеку</string>
+    <string name="settings_export_failed">Не удалось выгрузить библиотеку: %1$s</string>
     <string name="settings_copies_header">Копии книг на устройстве</string>
     <string name="settings_copies_hint">Файлы, которые повторяют книги библиотеки — например, копии, созданные читалкой. Книгой такая копия не считается и на полке не показывается.</string>
     <string name="settings_copies_action">Убрать копии с устройства</string>
@@ -215,4 +215,79 @@
     <string name="settings_copies_total">Занято: %1$s</string>
     <string name="settings_library_removable_shelf">Показывать карту памяти как полку</string>
     <string name="settings_library_removable_shelf_hint">Вставили карту или флешку с книгами — в полках появится полка носителя; вынули — она исчезнет вместе с книгами. Книги не удаляются: вернув носитель, вы увидите их снова</string>
+
+    <!-- Сообщения оптимизации FB2: итог собирается из переводимых частей (docs/tdd.md §5). -->
+    <string name="settings_optimization_failed">Оптимизировать книги не удалось: %1$s</string>
+    <string name="settings_optimization_done">Оптимизация завершена</string>
+    <string name="settings_optimization_stopped">Оптимизация остановлена: обработано %1$d из %2$d</string>
+    <string name="settings_optimization_all_checked">Все книги FB2 уже проверены — новых нет</string>
+    <string name="settings_optimization_no_books">Книг FB2 в библиотеке нет</string>
+    <string name="settings_optimization_optimized">Оптимизировано книг: %1$d</string>
+    <string name="settings_optimization_saved">сэкономлено %1$s</string>
+    <string name="settings_optimization_already_best">уже оптимальных: %1$d</string>
+    <string name="settings_optimization_failed_count">не удалось: %1$d</string>
+    <string name="settings_optimization_skipped_checked">пропущено проверенных раньше: %1$d</string>
+    <string name="settings_optimization_stopped_by_reader">Остановлено: открыта читалка (обработано %1$d из %2$d)</string>
+
+    <!-- Сообщения блока «Дубли книг»: результат собирается из переводимых частей (docs/tdd.md §5). -->
+    <string name="settings_duplicates_stopped">Поиск остановлен: открыта читалка (%1$s). Закройте читалку и повторите.</string>
+    <string name="settings_duplicates_nothing_before_stop">ничего не найдено до остановки</string>
+    <string name="settings_duplicates_found_before_stop">найдено до остановки: групп дублей %1$d, битых файлов %2$d</string>
+    <string name="settings_duplicates_none">Дубликатов не найдено</string>
+    <string name="settings_duplicates_groups">групп дублей: %1$d, к удалению файлов: %2$d</string>
+    <string name="settings_duplicates_broken">битых файлов (0 байт): %1$d</string>
+    <string name="settings_duplicates_deleted">Удалено файлов: %1$d</string>
+    <string name="settings_duplicates_broken_deleted">Удалено битых файлов: %1$d</string>
+    <string name="settings_duplicates_delete_failed">не удалось удалить: %1$d (нет доступа к папке)</string>
+    <string name="settings_duplicates_cancel">Удаление дублей отменено</string>
+    <string name="settings_duplicates_broken_cancel">Удаление битых файлов отменено</string>
+    <string name="settings_duplicates_check_failed">Не удалось проверить дубли: %1$s</string>
+    <string name="settings_duplicates_delete_error">Не удалось удалить файлы: %1$s</string>
+
+    <!-- Экспорт библиотеки: итог и причина сбоя — переводимые тексты. -->
+
+    <!-- Резервные копии базы: итог и причины — переводимые тексты (docs/tdd.md §5, §7). -->
+    <string name="settings_backup_auto_on">Ежедневный бэкап включён</string>
+    <string name="settings_backup_auto_off">Ежедневный бэкап выключен</string>
+    <string name="settings_backup_created">Копия сделана: %1$s</string>
+    <string name="settings_backup_created_removed">Копия сделана: %1$s, удалено старых: %2$d</string>
+    <string name="settings_backup_failed">Копию не удалось сделать: %1$s</string>
+    <string name="settings_backup_list_failed">Не удалось прочитать список копий: %1$s</string>
+    <string name="settings_backup_restored">База восстановлена, перезапускаем…</string>
+    <string name="settings_backup_restore_failed">Восстановление не удалось: %1$s</string>
+    <string name="settings_backup_removed">Копия удалена: %1$s</string>
+    <string name="settings_backup_remove_failed">Копию удалить не удалось: %1$s</string>
+
+    <!-- Сообщения SettingsViewModel: проверки значений, статус читалки и ошибки репозиториев. -->
+    <string name="settings_error_unknown_density">Неизвестный режим плотности: %1$s</string>
+    <string name="settings_error_font_scale">Масштаб шрифта должен быть от %1$d до %2$d %%</string>
+    <string name="settings_error_unknown_refresh">Неизвестный режим обновления экрана: %1$s</string>
+    <string name="settings_error_gc_interval">Интервал полного обновления должен быть не меньше %1$d</string>
+    <string name="settings_error_file_name_template">Такой шаблон имени файла не поддерживается</string>
+    <string name="settings_error_cover_cache_limit">Лимит кэша обложек: допустимо %1$s МБ</string>
+    <string name="settings_error_temp_copy_limit">Лимит временной копии: допустимо %1$s МБ</string>
+    <string name="settings_error_feed_cache_age">Возраст кэша каталогов: допустимо %1$s мин</string>
+    <string name="settings_error_default_reader">Не удалось назначить читалку по умолчанию: %1$s</string>
+    <string name="settings_error_add_source">Не удалось добавить папку: %1$s</string>
+    <string name="settings_error_remove_source">Не удалось убрать папку: %1$s</string>
+    <string name="settings_error_rescan">Не удалось пересканировать папки: %1$s</string>
+    <string name="settings_error_reset">Не удалось сбросить настройки: %1$s</string>
+    <string name="settings_error_load">Не удалось прочитать настройки: %1$s</string>
+    <string name="settings_error_readers">Не удалось получить список читалок: %1$s</string>
+    <string name="settings_error_save">Не удалось сохранить настройку: %1$s</string>
+    <string name="settings_reader_api_unavailable">Читалка не отвечает: API недоступен</string>
+    <string name="settings_reader_api_no_book">API отвечает, книга не открыта</string>
+    <string name="settings_reader_api_open">API отвечает: открыто «%1$s»</string>
+
+    <!-- Диагностика экрана: ядро отдаёт вид, слова выбирает приложение (docs/eink-ux.md §8.5). -->
+    <string name="settings_screen_normal">обычный экран</string>
+    <string name="settings_screen_eink_color">электронная бумага, цветная</string>
+    <string name="settings_screen_eink_mono">электронная бумага, чёрно-белая</string>
+    <string name="settings_screen_eink_unknown">похоже на электронную бумагу, вендор не определён</string>
+    <string name="settings_diagnostics_unknown_device">неизвестное устройство</string>
+    <string name="settings_reader_formats_title">Чем открывать форматы</string>
+    <string name="settings_reader_format_none">не выбрано</string>
+    <string name="settings_reader_format_change">сменить</string>
+    <string name="settings_reader_category_summary">Выбрано для %1$d из %2$d формат(ов)</string>
+    <string name="settings_reader_category_open">открыть</string>
 </resources>

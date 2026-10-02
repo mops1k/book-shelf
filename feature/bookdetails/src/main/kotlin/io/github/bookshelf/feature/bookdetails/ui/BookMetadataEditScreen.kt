@@ -18,11 +18,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkCheckbox
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.input.EinkAction
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.theme.EinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.bookdetails.BookMetadataEditUiState
 import io.github.bookshelf.feature.bookdetails.BookMetadataEditViewModel
 import io.github.bookshelf.feature.bookdetails.R
 
@@ -83,64 +87,83 @@ fun BookMetadataEditScreen(
         },
     ) {
         state.error?.let { error ->
-            EinkErrorBanner(message = error)
+            EinkErrorBanner(message = error.resolve())
         }
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            verticalArrangement = Arrangement.spacedBy(dimens.gutter),
-        ) {
-            state.message?.let { message ->
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.foreground,
-                )
-            }
-            EinkTextField(
-                value = state.title,
-                onValueChange = viewModel::onTitleChange,
-                label = stringResource(R.string.edit_field_title),
-                placeholder = stringResource(R.string.edit_field_title_hint),
-                enabled = !state.isSaving,
-            )
-            EinkTextField(
-                value = state.authors,
-                onValueChange = viewModel::onAuthorsChange,
-                label = stringResource(R.string.edit_field_authors),
-                placeholder = stringResource(R.string.edit_field_authors_hint),
-                enabled = !state.isSaving,
-            )
-            EinkTextField(
-                value = state.series,
-                onValueChange = viewModel::onSeriesChange,
-                label = stringResource(R.string.edit_field_series),
-                placeholder = stringResource(R.string.edit_field_series_hint),
-                enabled = !state.isSaving,
-            )
-            EinkTextField(
-                value = state.seriesIndex,
-                onValueChange = viewModel::onSeriesIndexChange,
-                label = stringResource(R.string.edit_field_series_index),
-                placeholder = stringResource(R.string.edit_field_series_index_hint),
-                enabled = !state.isSaving,
-            )
-            EinkTextField(
-                value = state.description,
-                onValueChange = viewModel::onDescriptionChange,
-                label = stringResource(R.string.edit_field_description),
-                placeholder = stringResource(R.string.edit_field_description_hint),
-                singleLine = false,
-                enabled = !state.isSaving,
-            )
-            EinkCheckbox(
-                checked = state.writeToFile,
-                onCheckedChange = viewModel::onWriteToFileChange,
-                label = stringResource(R.string.edit_write_to_file),
-                enabled = !state.isSaving,
-            )
-        }
+        MetadataFields(state = state, viewModel = viewModel)
     }
+}
+
+
+/**
+ * Поля правки метаданных.
+ *
+ * Вынесены из `BookMetadataEditScreen` отдельной функцией: экран перевалил за предел длины detekt,
+ * а поля — цельный кусок, который зависит только от состояния и ViewModel.
+ */
+@Composable
+private fun MetadataFields(state: BookMetadataEditUiState, viewModel: BookMetadataEditViewModel) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+        verticalArrangement = Arrangement.spacedBy(dimens.gutter),
+    ) {
+        state.message?.let { message -> MessageLine(message = message, colors = colors) }
+        EinkTextField(
+            value = state.title,
+            onValueChange = viewModel::onTitleChange,
+            label = stringResource(R.string.edit_field_title),
+            placeholder = stringResource(R.string.edit_field_title_hint),
+            enabled = !state.isSaving,
+        )
+        EinkTextField(
+            value = state.authors,
+            onValueChange = viewModel::onAuthorsChange,
+            label = stringResource(R.string.edit_field_authors),
+            placeholder = stringResource(R.string.edit_field_authors_hint),
+            enabled = !state.isSaving,
+        )
+        EinkTextField(
+            value = state.series,
+            onValueChange = viewModel::onSeriesChange,
+            label = stringResource(R.string.edit_field_series),
+            placeholder = stringResource(R.string.edit_field_series_hint),
+            enabled = !state.isSaving,
+        )
+        EinkTextField(
+            value = state.seriesIndex,
+            onValueChange = viewModel::onSeriesIndexChange,
+            label = stringResource(R.string.edit_field_series_index),
+            placeholder = stringResource(R.string.edit_field_series_index_hint),
+            enabled = !state.isSaving,
+        )
+        EinkTextField(
+            value = state.description,
+            onValueChange = viewModel::onDescriptionChange,
+            label = stringResource(R.string.edit_field_description),
+            placeholder = stringResource(R.string.edit_field_description_hint),
+            singleLine = false,
+            enabled = !state.isSaving,
+        )
+        EinkCheckbox(
+            checked = state.writeToFile,
+            onCheckedChange = viewModel::onWriteToFileChange,
+            label = stringResource(R.string.edit_write_to_file),
+            enabled = !state.isSaving,
+        )
+    }
+}
+
+
+/** Строка сообщения формы правки: перевод текста и цвет берутся здесь. */
+@Composable
+private fun MessageLine(message: AppText, colors: EinkColors) {
+    Text(
+        text = message.resolve(),
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.foreground,
+    )
 }

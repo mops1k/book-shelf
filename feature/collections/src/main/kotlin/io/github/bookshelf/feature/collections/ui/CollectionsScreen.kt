@@ -5,12 +5,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,6 +39,8 @@ import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
+import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.resolveJoined
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.collections.CollectionUi
@@ -99,111 +103,26 @@ fun CollectionsScreen(
         subtitle = stringResource(R.string.collections_subtitle),
         modifier = modifier,
         onBack = onBack,
-        actions = {
-            EinkButton(
-                text = stringResource(R.string.collections_action_create),
-                onClick = viewModel::onCreate,
-            )
-        },
+        actions = { CollectionsHeaderActions(onCreate = viewModel::onCreate) },
         onKeyAction = { action ->
-            when (action) {
-                EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
-                EinkAction.NEXT_PAGE -> scrollByPage(1)
-                EinkAction.OPEN -> state.selectedId?.let(onOpenCollection)
-                EinkAction.MENU -> viewModel.onCreate()
-                EinkAction.BACK -> onBack()
-                else -> Unit
-            }
-        },
-        footer = {
-            Text(
-                text = shelfCountLabel(state),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.foreground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            collectionsKeyAction(
+                action = action,
+                scrollByPage = scrollByPage,
+                selectedId = state.selectedId,
+                onOpenCollection = onOpenCollection,
+                onCreate = viewModel::onCreate,
+                onBack = onBack,
             )
         },
+        footer = { CollectionsFooter(label = shelfCountLabel(state)) },
     ) {
-        val error = state.error ?: state.cardError?.let { failure -> cardErrorText(failure) }
-        if (error != null) {
-            EinkErrorBanner(
-                message = error,
-                actionLabel = stringResource(R.string.collections_action_retry),
-                onAction = viewModel::onRefresh,
-            )
-        }
-
-        if (state.collections.isEmpty() && state.presets.isEmpty() && state.removableShelf == null) {
-            EinkEmptyState(
-                title = stringResource(R.string.collections_empty_title),
-                message = stringResource(R.string.collections_empty_message),
-                actionLabel = stringResource(R.string.collections_action_create_collection),
-                onAction = viewModel::onCreate,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                // Полка носителя — первой: её появление и исчезновение и есть ответ на «вставил карту».
-                val card = state.removableShelf
-                if (card != null) {
-                    item(key = REMOVABLE_SHELF_KEY) {
-                        CardShelfRow(shelf = card, onGrantAccess = viewModel::onGrantCardAccess)
-                    }
-                }
-
-                items(items = state.collections, key = { collection -> collection.id }) { collection ->
-                    if (collection.id == state.renamingId) {
-                        RenameRow(state = state, viewModel = viewModel)
-                    } else {
-                        ShelfRow(
-                            collection = collection,
-                            selected = collection.id == state.selectedId,
-                            onOpen = { onOpenCollection(collection.id) },
-                            onActions = { viewModel.onSelect(collection.id) },
-                        )
-                        if (collection.id == state.selectedId) {
-                            ShelfActions(
-                                collection = collection,
-                                viewModel = viewModel,
-                                onEditRules = { onEditRules(collection.id) },
-                                onClose = { viewModel.onSelect("") },
-                            )
-                        }
-                    }
-                }
-
-                item(key = "save-filter") {
-                    EinkButton(
-                        text = stringResource(R.string.collections_save_filter),
-                        onClick = viewModel::onSaveCurrentFilter,
-                        enabled = state.canSaveCurrentFilter,
-                        modifier = Modifier.padding(
-                            horizontal = dimens.gutter,
-                            vertical = dimens.gutterSmall,
-                        ),
-                    )
-                }
-
-                if (state.presets.isNotEmpty()) {
-                    item(key = "presets-header") {
-                        EinkSectionHeader(
-                            title = stringResource(R.string.collections_auto_header),
-                            count = state.presets.size,
-                        )
-                    }
-                    items(items = state.presets, key = { preset -> "preset:${preset.id}" }) { preset ->
-                        EinkListRow(
-                            title = preset.title,
-                            subtitle = preset.hint,
-                            trailing = stringResource(R.string.collections_action_add),
-                            onClick = { viewModel.onAddPreset(preset.id) },
-                        )
-                    }
-                }
-            }
-        }
+        CollectionsContent(
+            state = state,
+            viewModel = viewModel,
+            listState = listState,
+            onOpenCollection = onOpenCollection,
+            onEditRules = onEditRules,
+        )
     }
 }
 
@@ -257,6 +176,70 @@ private fun CardShelfRow(shelf: RemovableShelfUi, onGrantAccess: () -> Unit) {
     )
 }
 
+
+/**
+ * Баннер ошибки на экране полок.
+ *
+ * Экран показывает ресурс: и сообщение ViewModel, и текст по типу ошибки доступа — переводимые
+ * тексты, а не готовые строки из состояния (docs/tdd.md §5, §7). Вынесено ради предела длины
+ * функции detekt.
+ */
+@Composable
+private fun CollectionsErrorBanner(state: CollectionsUiState, onRetry: () -> Unit) {
+    val error = state.error?.resolve()
+        ?: state.cardError?.let { failure -> cardErrorText(failure) }
+    if (error != null) {
+        EinkErrorBanner(
+            message = error,
+            actionLabel = stringResource(R.string.collections_action_retry),
+            onAction = onRetry,
+        )
+    }
+}
+
+/** Кнопка создания полки в шапке: вынесена из экрана ради предела длины функции detekt. */
+@Composable
+private fun CollectionsHeaderActions(onCreate: () -> Unit) {
+    EinkButton(
+        text = stringResource(R.string.collections_action_create),
+        onClick = onCreate,
+    )
+}
+
+/** Обработка аппаратных клавиш на экране полок: чистый `when`, вынесен из `CollectionsScreen`. */
+private fun collectionsKeyAction(
+    action: EinkAction,
+    scrollByPage: (Int) -> Unit,
+    selectedId: String?,
+    onOpenCollection: (String) -> Unit,
+    onCreate: () -> Unit,
+    onBack: () -> Unit,
+) {
+    when (action) {
+        EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+        EinkAction.NEXT_PAGE -> scrollByPage(1)
+        EinkAction.OPEN -> selectedId?.let(onOpenCollection)
+        EinkAction.MENU -> onCreate()
+        EinkAction.BACK -> onBack()
+        else -> Unit
+    }
+}
+
+/** Подвал со числом полок — тем же приёмом, что и остальные вынесенные куски экрана. */
+@Composable
+private fun CollectionsFooter(label: String) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = colors.foreground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+    )
+}
+
 /** Строка полки: открывается касанием, правка — маленькой кнопкой рядом. */
 @Composable
 private fun ShelfRow(
@@ -273,7 +256,8 @@ private fun ShelfRow(
             ShelfPreview(covers = collection.previewCovers)
         }
         EinkListRow(
-            title = collection.name,
+            // Имя, заданное человеком, — данные; у безымянной полки подпись выбирает экран.
+            title = collection.name.ifBlank { collection.defaultTitle?.resolve().orEmpty() },
             subtitle = collectionSubtitle(collection),
             trailing = collection.bookCount.toString(),
             selected = selected,
@@ -390,7 +374,7 @@ private fun RenameRow(
 @Composable
 private fun collectionSubtitle(collection: CollectionUi): String = when {
     collection.isSmart && collection.rulesSummary != null ->
-        stringResource(R.string.collections_kind_smart, collection.rulesSummary)
+        stringResource(R.string.collections_kind_smart, collection.rulesSummary.resolveJoined())
 
     collection.isSmart -> stringResource(R.string.collections_kind_smart_empty)
     else -> stringResource(R.string.collections_kind_manual)
@@ -415,4 +399,109 @@ private fun shelfCountLabel(state: CollectionsUiState): String {
     val total = state.collections.size
     val smart = state.collections.count { collection -> collection.isSmart }
     return stringResource(R.string.collections_count, total, smart)
+}
+
+
+/**
+ * Содержимое списка полок: баннер ошибки, пустое состояние, полка носителя и строки полок.
+ *
+ * Вынесено из `CollectionsScreen` отдельной функцией: экран перевалил за предел длины detekt,
+ * а содержимое — цельный кусок, зависящий от состояния, прокрутки и колбэков.
+ */
+@Composable
+private fun ColumnScope.CollectionsContent(
+    state: CollectionsUiState,
+    viewModel: CollectionsViewModel,
+    listState: LazyListState,
+    onOpenCollection: (String) -> Unit,
+    onEditRules: (String) -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    CollectionsErrorBanner(state = state, onRetry = viewModel::onRefresh)
+
+    if (state.collections.isEmpty() && state.presets.isEmpty() && state.removableShelf == null) {
+        EinkEmptyState(
+            title = stringResource(R.string.collections_empty_title),
+            message = stringResource(R.string.collections_empty_message),
+            actionLabel = stringResource(R.string.collections_action_create_collection),
+            onAction = viewModel::onCreate,
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            // Полка носителя — первой: её появление и исчезновение и есть ответ на «вставил карту».
+            val card = state.removableShelf
+            if (card != null) {
+                item(key = REMOVABLE_SHELF_KEY) {
+                    CardShelfRow(shelf = card, onGrantAccess = viewModel::onGrantCardAccess)
+                }
+            }
+
+            collectionShelfItems(
+                state = state,
+                viewModel = viewModel,
+                onOpenCollection = onOpenCollection,
+                onEditRules = onEditRules,
+            )
+
+            item(key = "save-filter") {
+                EinkButton(
+                    text = stringResource(R.string.collections_save_filter),
+                    onClick = viewModel::onSaveCurrentFilter,
+                    enabled = state.canSaveCurrentFilter,
+                    modifier = Modifier.padding(
+                        horizontal = dimens.gutter,
+                        vertical = dimens.gutterSmall,
+                    ),
+                )
+            }
+
+            if (state.presets.isNotEmpty()) {
+                item(key = "presets-header") {
+                    EinkSectionHeader(
+                        title = stringResource(R.string.collections_auto_header),
+                        count = state.presets.size,
+                    )
+                }
+                items(items = state.presets, key = { preset -> "preset:${preset.id}" }) { preset ->
+                    EinkListRow(
+                        title = stringResource(preset.titleRes),
+                        subtitle = preset.hint.resolve(),
+                        trailing = stringResource(R.string.collections_action_add),
+                        onClick = { viewModel.onAddPreset(preset.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/** Строки полок в списке: переименование, строка полки и её действия. */
+private fun LazyListScope.collectionShelfItems(
+    state: CollectionsUiState,
+    viewModel: CollectionsViewModel,
+    onOpenCollection: (String) -> Unit,
+    onEditRules: (String) -> Unit,
+) {
+        items(items = state.collections, key = { collection -> collection.id }) { collection ->
+            if (collection.id == state.renamingId) {
+                RenameRow(state = state, viewModel = viewModel)
+            } else {
+                ShelfRow(
+                    collection = collection,
+                    selected = collection.id == state.selectedId,
+                    onOpen = { onOpenCollection(collection.id) },
+                    onActions = { viewModel.onSelect(collection.id) },
+                )
+                if (collection.id == state.selectedId) {
+                    ShelfActions(
+                        collection = collection,
+                        viewModel = viewModel,
+                        onEditRules = { onEditRules(collection.id) },
+                        onClose = { viewModel.onSelect("") },
+                    )
+                }
+            }
+        }
 }

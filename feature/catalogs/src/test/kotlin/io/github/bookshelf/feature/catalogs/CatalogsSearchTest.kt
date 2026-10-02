@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.catalogs
 
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.designsystem.text.AppText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -51,8 +52,12 @@ class CatalogsSearchTest {
         assertThat(repository.searchCalls.single().query).isEqualTo("Лукьяненко")
         assertThat(repository.searchCalls.single().template).isEqualTo(SEARCH_TEMPLATE)
         // Результат — обычный уровень фида с подписью, по которой видно, что это поиск.
+        // Подпись уровня выбирает приложение: слова — ресурс, запрос — данные (docs/tdd.md §8).
         assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
-            .containsExactly("Flibusta", "Поиск: Лукьяненко")
+            .containsExactly(
+                FeedLabel.Named("Flibusta"),
+                FeedLabel.Message(AppText(R.string.catalogs_level_search, "Лукьяненко")),
+            )
         assertThat(viewModel.uiState.value.currentFeed?.entries?.map { it.title })
             .containsExactly("Черновик")
         assertThat(viewModel.uiState.value.error).isNull()
@@ -71,7 +76,8 @@ class CatalogsSearchTest {
         viewModel.onBack()
 
         // Результаты поиска не должны быть ловушкой: возврат идёт к прежнему списку без сети.
-        assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs).containsExactly("Flibusta")
+        assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
+            .containsExactly(FeedLabel.Named("Flibusta"))
         assertThat(viewModel.uiState.value.currentFeed?.entries?.map { it.title })
             .containsExactly("Черновик", "Дозор")
         assertThat(viewModel.uiState.value.mode).isEqualTo(CatalogsMode.FEED)
@@ -94,7 +100,10 @@ class CatalogsSearchTest {
             .containsExactly("Дозор")
         // Подпись честно говорит, что отбор был по загруженному фиду.
         assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
-            .containsExactly("Flibusta", "Поиск по загруженному фиду: дозор")
+            .containsExactly(
+                FeedLabel.Named("Flibusta"),
+                FeedLabel.Message(AppText(R.string.catalogs_level_local_search, "дозор")),
+            )
     }
 
     @Test
@@ -130,7 +139,9 @@ class CatalogsSearchTest {
         advanceUntilIdle()
 
         assertThat(repository.searchCalls).isEmpty()
-        assertThat(viewModel.uiState.value.error).contains("введите запрос")
+        // Пустой запрос — своё сообщение, а не «действие: причина» (docs/tdd.md §5).
+        assertThat(viewModel.uiState.value.error)
+            .isEqualTo(AppText(R.string.catalogs_validation_query))
     }
 
     private fun viewModel() = CatalogsViewModel(

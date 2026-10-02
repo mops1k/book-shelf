@@ -32,6 +32,7 @@ import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+import io.github.bookshelf.core.designsystem.text.sourceNameOrFolder
 import io.github.bookshelf.feature.settings.PermissionItemUi
 import io.github.bookshelf.feature.settings.SourceItemUi
 import io.github.bookshelf.feature.settings.R
@@ -63,7 +64,8 @@ internal fun LazyListScope.sourcesSection(
     }
     items(items = sources, key = { source -> source.id }) { source ->
         SourceRow(
-            name = source.displayName,
+            // Имя источника — данные; у источника без имени слова подставляет экран.
+            name = sourceNameOrFolder(source.displayName),
             booksLabel = source.booksCount
                 ?.let { count -> stringResource(R.string.settings_sources_books, count) }
                 ?: stringResource(R.string.settings_sources_never_scanned),

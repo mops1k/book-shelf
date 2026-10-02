@@ -21,10 +21,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
+import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
+import io.github.bookshelf.core.designsystem.text.sourceNameOrFolder
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.onboarding.R
@@ -51,26 +54,7 @@ fun OnboardingScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dimens = LocalEinkDimens.current
 
-    // Системный пикер папок. ViewModel только просит открыть пикер (событие pickerRequests) и
-    // принимает результат через onSourcePicked: запись в БД и проверка persistable-доступа —
-    // его забота, а не UI. Так экран не знает про источники, а ViewModel — про Android Intent.
-    val context = LocalContext.current
-    val folderPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
-        if (uri != null) {
-            viewModel.onSourcePicked(
-                uri = uri.toString(),
-                displayName = uri.lastPathSegment
-                    ?.substringAfterLast(':')
-                    .orEmpty()
-                    .ifBlank { context.getString(R.string.onboarding_default_source_name) },
-            )
-        }
-    }
-    LaunchedEffect(viewModel) {
-        viewModel.pickerRequests.collect { folderPicker.launch(null) }
-    }
+    SourcePickerEffect(viewModel = viewModel)
 
     EinkScaffold(
         title = stringResource(R.string.onboarding_title),
@@ -104,6 +88,12 @@ fun OnboardingScreen(
                 .padding(dimens.gutter),
             verticalArrangement = Arrangement.spacedBy(dimens.gutter),
         ) {
+            // Отказ показывается здесь: раньше поле состояния не читал никто, и человек не видел,
+            // что добавление папки или выбор читалки не удались (дефект 01.10.2026).
+            state.errorBanner?.let { banner ->
+                EinkErrorBanner(message = banner.resolve())
+            }
+
             when (state.step) {
                 OnboardingStep.WELCOME -> WelcomeStep()
 
@@ -186,7 +176,7 @@ private fun SourcesList(
     Column {
         sources.forEach { source ->
             EinkListRow(
-                title = source.displayName,
+                title = sourceNameOrFolder(source.displayName),
                 subtitle = if (source.accessLost) {
                     stringResource(R.string.onboarding_source_unavailable)
                 } else {
@@ -291,3 +281,32 @@ private fun OnboardingFooter(
     }
 }
 
+
+/**
+ * Системный пикер папок: экран только открывает его по просьбе ViewModel.
+ *
+ * ViewModel просит открыть пикер событием `pickerRequests` и принимает результат через
+ * `onSourcePicked`: запись в базу и проверка persistable-доступа — её забота, а не UI. Так экран
+ * не знает про источники, а ViewModel — про Android Intent. Вынесено из `OnboardingScreen`
+ * ради предела длины detekt.
+ */
+@Composable
+private fun SourcePickerEffect(viewModel: OnboardingViewModel) {
+    val context = LocalContext.current
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onSourcePicked(
+                uri = uri.toString(),
+                displayName = uri.lastPathSegment
+                    ?.substringAfterLast(':')
+                    .orEmpty()
+                    .ifBlank { context.getString(R.string.onboarding_default_source_name) },
+            )
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.pickerRequests.collect { folderPicker.launch(null) }
+    }
+}

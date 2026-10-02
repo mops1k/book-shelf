@@ -30,6 +30,7 @@ import io.github.bookshelf.feature.catalogs.EntryDetailsViewModel
 import io.github.bookshelf.feature.catalogs.R
 import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.text.sourceNameOrFolder
 
 /** Подпись, когда каталог не сообщил описание книги. */
 private val NO_SUMMARY_TEXT_RES = R.string.catalogs_entry_no_description
@@ -88,7 +89,7 @@ fun EntryDetailsScreen(
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.catalogs_action_retry),
                 onAction = viewModel::onRefresh,
             )
@@ -130,59 +131,9 @@ private fun EntryCardBody(
     ) {
         // Обложка и короткие факты рядом: на e-ink это одна «шапка» карточки, дальше
         // идут строки во всю ширину — по ним проще попасть пальцем.
-        Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutter)) {
-            BookCover(
-                coverPath = null,
-                coverUrl = state.coverUrl,
-                title = state.title,
-                modifier = Modifier.weight(1f),
-                contentDescription = stringResource(R.string.catalogs_cover_title, state.title),
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-            ) {
-                if (state.formatsLabel.isNotBlank()) {
-                    DetailLine(stringResource(R.string.catalogs_formats), state.formatsLabel)
-                }
-                state.sizeLabel?.let { size -> DetailLine(stringResource(R.string.catalogs_size), size.resolve()) }
-                state.issued?.let { year -> DetailLine(stringResource(R.string.catalogs_year), year) }
-                state.language?.let { language -> DetailLine(stringResource(R.string.catalogs_language), language) }
-            }
-        }
+        EntryCardHeader(state = state)
 
-        // Автор и серия — переходы в фиды каталога. Строка есть всегда, когда каталог сообщил
-        // автора или серию; подсказка появляется только там, где фид объявлен.
-        if (state.authors.isNotBlank()) {
-            FeedLinkRow(
-                label = stringResource(R.string.catalogs_author),
-                value = state.authors,
-                hint = stringResource(R.string.catalogs_author_hint),
-                onClick = if (state.authorUrl != null) {
-                    {
-                        viewModel.onOpenAuthor()
-                        onOpenFeed()
-                    }
-                } else {
-                    null
-                },
-            )
-        }
-        if (state.seriesName != null || state.seriesUrl != null) {
-            FeedLinkRow(
-                label = stringResource(R.string.catalogs_series),
-                value = state.seriesName ?: stringResource(R.string.catalogs_series_hint),
-                hint = stringResource(R.string.catalogs_series_books),
-                onClick = if (state.seriesUrl != null) {
-                    {
-                        viewModel.onOpenSeries()
-                        onOpenFeed()
-                    }
-                } else {
-                    null
-                },
-            )
-        }
+        FeedLinkRows(state = state, viewModel = viewModel, onOpenFeed = onOpenFeed)
 
         state.genresLabel?.let { genres -> DetailLine(stringResource(R.string.catalogs_genres), genres) }
         state.updated?.let { updated -> DetailLine(stringResource(R.string.catalogs_updated), updated) }
@@ -198,7 +149,8 @@ private fun EntryCardBody(
             EinkSectionHeader(title = stringResource(R.string.catalogs_save_to), count = state.folders.size)
             state.folders.forEach { folder ->
                 EinkListRow(
-                    title = folder.name,
+                    // Имя папки — данные; у папки без имени слова подставляет экран.
+                    title = sourceNameOrFolder(folder.name),
                     trailing = if (folder.id == state.selectedFolderId) {
                         stringResource(R.string.catalogs_folder_chosen)
                     } else {
@@ -253,4 +205,80 @@ private fun FeedLinkRow(
         trailing = if (onClick != null) "→" else null,
         onClick = onClick,
     )
+}
+
+
+/**
+ * Шапка карточки записи: обложка и короткие факты рядом.
+ *
+ * Вынесена из `EntryCardBody` отдельной функцией: тело перевалило за предел длины detekt, а шапка —
+ * цельный кусок, зависящий только от состояния записи.
+ */
+@Composable
+private fun EntryCardHeader(state: EntryDetailsUiState) {
+    val dimens = LocalEinkDimens.current
+    // Обложка и короткие факты рядом: на e-ink это одна «шапка» карточки, дальше идут строки
+    // во всю ширину — по ним проще попасть пальцем.
+    Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutter)) {
+        BookCover(
+            coverPath = null,
+            coverUrl = state.coverUrl,
+            title = state.title,
+            modifier = Modifier.weight(1f),
+            contentDescription = stringResource(R.string.catalogs_cover_title, state.title),
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        ) {
+            if (state.formatsLabel.isNotBlank()) {
+                DetailLine(stringResource(R.string.catalogs_formats), state.formatsLabel)
+            }
+            state.sizeLabel?.let { size -> DetailLine(stringResource(R.string.catalogs_size), size.resolve()) }
+            state.issued?.let { year -> DetailLine(stringResource(R.string.catalogs_year), year) }
+            state.language?.let { language -> DetailLine(stringResource(R.string.catalogs_language), language) }
+        }
+    }
+}
+
+
+/** Автор и серия карточки записи — переходы в фиды каталога. */
+@Composable
+private fun FeedLinkRows(
+    state: EntryDetailsUiState,
+    viewModel: EntryDetailsViewModel,
+    onOpenFeed: () -> Unit,
+) {
+    // Автор и серия — переходы в фиды каталога. Строка есть всегда, когда каталог сообщил
+    // автора или серию; подсказка появляется только там, где фид объявлен.
+    if (state.authors.isNotBlank()) {
+        FeedLinkRow(
+            label = stringResource(R.string.catalogs_author),
+            value = state.authors,
+            hint = stringResource(R.string.catalogs_author_hint),
+            onClick = if (state.authorUrl != null) {
+                {
+                    viewModel.onOpenAuthor()
+                    onOpenFeed()
+                }
+            } else {
+                null
+            },
+        )
+    }
+    if (state.seriesName != null || state.seriesUrl != null) {
+        FeedLinkRow(
+            label = stringResource(R.string.catalogs_series),
+            value = state.seriesName ?: stringResource(R.string.catalogs_series_hint),
+            hint = stringResource(R.string.catalogs_series_books),
+            onClick = if (state.seriesUrl != null) {
+                {
+                    viewModel.onOpenSeries()
+                    onOpenFeed()
+                }
+            } else {
+                null
+            },
+        )
+    }
 }

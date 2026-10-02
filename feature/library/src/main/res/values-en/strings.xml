@@ -63,7 +63,7 @@
     <string name="library_browse_authors_set">Authors: %1$s</string>
     <string name="library_browse_series_level">Series: %1$s</string>
 
-    <string name="library_error_load">Failed to load the shelf</string>
+    <string name="library_error_load">Could not load the shelf: %1$s</string>
 
     <plurals name="library_book_count">
         <item quantity="one">%1$d book</item>

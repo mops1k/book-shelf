@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.app.FolderOpener
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.ParseFailure
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ParseState
 import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.repository.LibraryBrowseRequest
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.sync.MetadataScheduler
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.testing.fake.FakeBookRepository
 import io.github.bookshelf.core.testing.fake.FakeCollectionRepository
 import io.github.bookshelf.core.testing.fake.FakeSourceRepository
@@ -60,15 +62,18 @@ class BookParseErrorTest {
                 sizeBytes = 13_670_282L,
                 addedAt = 1L,
                 parseState = ParseState.FAILED,
-                parseError = "FB2 внутри архива превышает допустимый размер XML",
+                parseFailure = ParseFailure.CORRUPT_FILE,
             ),
         )
 
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.parseError)
-            .isEqualTo("FB2 внутри архива превышает допустимый размер XML")
+        // Карточка показывает слова по коду причины, а не текст парсера (docs/tdd.md §8).
+        assertThat(viewModel.uiState.value.parseFailure)
+            .isEqualTo(
+                AppText(io.github.bookshelf.core.designsystem.R.string.parse_failure_corrupt_file),
+            )
     }
 
     @Test
@@ -88,7 +93,7 @@ class BookParseErrorTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.parseError).isNull()
+        assertThat(viewModel.uiState.value.parseFailure).isNull()
     }
 
     private fun viewModel() = BookDetailsViewModel(
@@ -107,6 +112,8 @@ class BookParseErrorTest {
         override fun installedReaders(): Flow<List<ReaderProfileSummary>> = flowOf(emptyList())
 
         override fun defaultForFormat(format: String): Flow<String?> = flowOf(null)
+
+        override fun readerDefaults(): Flow<Map<String, String>> = flowOf(emptyMap())
 
         override suspend fun setDefault(format: String, profileId: String?): AppResult<Unit> =
             AppResult.success(Unit)

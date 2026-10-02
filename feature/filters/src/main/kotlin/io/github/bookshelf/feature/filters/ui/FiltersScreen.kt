@@ -20,11 +20,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.filters.FiltersUiState
 import io.github.bookshelf.feature.filters.FiltersViewModel
 import io.github.bookshelf.feature.filters.R
 import io.github.bookshelf.feature.filters.activeFilterCount
@@ -72,53 +74,13 @@ fun FiltersScreen(
             }
         },
         footer = {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(
-                            R.string.filters_active_count,
-                            activeFilterCount(state.selected),
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.foreground,
-                    )
-                    Text(
-                        text = stringResource(R.string.filters_found_count, state.resultCount),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.foreground,
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                ) {
-                    EinkButton(
-                        text = stringResource(R.string.filters_action_reset),
-                        onClick = viewModel::onReset,
-                        enabled = hasActiveFilters(state.selected),
-                        modifier = Modifier.weight(1f),
-                    )
-                    EinkButton(
-                        text = stringResource(R.string.filters_action_apply),
-                        onClick = onApply,
-                        primary = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            FiltersFooter(state = state, viewModel = viewModel, onApply = onApply)
         },
     ) {
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.filters_action_refresh),
                 onAction = viewModel::onLoadFacets,
             )
@@ -140,6 +102,64 @@ fun FiltersScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
+    }
+}
+
+
+/**
+ * Подвал экрана фильтров: счётчики и кнопки «Сбросить»/«Применить».
+ *
+ * Вынесен из `FiltersScreen` отдельной функцией: экран перевалил за предел длины detekt, а подвал —
+ * цельный кусок, зависящий только от состояния и ViewModel.
+ */
+@Composable
+private fun FiltersFooter(
+    state: FiltersUiState,
+    viewModel: FiltersViewModel,
+    onApply: () -> Unit,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.filters_active_count,
+                    activeFilterCount(state.selected),
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.filters_found_count, state.resultCount),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        ) {
+            EinkButton(
+                text = stringResource(R.string.filters_action_reset),
+                onClick = viewModel::onReset,
+                enabled = hasActiveFilters(state.selected),
+                modifier = Modifier.weight(1f),
+            )
+            EinkButton(
+                text = stringResource(R.string.filters_action_apply),
+                onClick = onApply,
+                primary = true,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

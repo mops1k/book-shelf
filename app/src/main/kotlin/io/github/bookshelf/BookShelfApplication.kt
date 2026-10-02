@@ -9,6 +9,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
+import io.github.bookshelf.work.CoverCleanupScheduler
 import io.github.bookshelf.work.LibrarySyncScheduler
 import javax.inject.Inject
 import okhttp3.OkHttpClient
@@ -38,11 +39,17 @@ class BookShelfApplication : Application(), Configuration.Provider, SingletonIma
     @Inject
     lateinit var librarySyncScheduler: LibrarySyncScheduler
 
+    /** Расписание уборки кэша обложек: без него кэш не убирался автоматически вовсе. */
+    @Inject
+    lateinit var coverCleanupScheduler: CoverCleanupScheduler
+
     override fun onCreate() {
         super.onCreate()
         // Фоновая синхронизация ставится один раз на установку: новые и удалённые на устройстве
         // книги подхватываются без входа в приложение (сам вход синхронизирует отдельно).
         librarySyncScheduler.schedulePeriodic()
+        // Уборка кэша обложек: раз в сутки, с уважением к открытой читалке (см. CoverCleanupWorker).
+        coverCleanupScheduler.schedulePeriodic()
     }
 
     override val workManagerConfiguration: Configuration

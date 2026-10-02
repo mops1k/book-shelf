@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.collections
 
+import androidx.annotation.StringRes
 import io.github.bookshelf.core.common.error.AppError
+import io.github.bookshelf.core.designsystem.text.AppText
 
 /**
  * Полка в списке коллекций (UI-модель).
@@ -11,14 +13,25 @@ import io.github.bookshelf.core.common.error.AppError
 data class CollectionUi(
     /** `collections.id`. */
     val id: String,
-    /** Название, заданное пользователем. */
+    /** Название, заданное пользователем; пустое — полка без имени, его подставляет экран. */
     val name: String,
     /** Число книг в полке. */
     val bookCount: Int,
     /** true — умная полка, вычисляемая по правилам. */
     val isSmart: Boolean = false,
-    /** Человекочитаемая подпись правил: «статус: читаю, формат: FB2». */
-    val rulesSummary: String? = null,
+    /**
+     * Подпись правил частями: слова выбирает экран (docs/tdd.md §8).
+     *
+     * Раньше здесь лежала готовая русская строка из `:core:data` («жанр: Космическая фантастика»),
+     * и в английском интерфейсе подпись оставалась русской.
+     */
+    val rulesSummary: List<AppText>? = null,
+    /**
+     * Подставляемое название для полки без имени («Новая полка», «Новая полка 2»).
+     *
+     * `null` — имя задал человек, и его надо показывать как есть: это данные.
+     */
+    val defaultTitle: AppText? = null,
     /** Пути обложек первых книг — строка полки показывает их вместо иконки. */
     val previewCovers: List<String> = emptyList(),
 )
@@ -27,10 +40,16 @@ data class CollectionUi(
 data class SmartPresetUi(
     /** Ключ пресета для `CollectionsViewModel.onAddPreset`. */
     val id: String,
-    /** Название полки, которая появится после добавления. */
-    val title: String,
-    /** Подпись правила: «Статус чтения: не прочитано». */
-    val hint: String,
+    /**
+     * Название полки, которая появится после добавления, — ресурс, а не готовая строка.
+     *
+     * В базу имя не пишется: полка получит пустое имя, а строку подписи собирает экран из правила
+     * (docs/tdd.md §8). Иначе русское название пресета оставалось бы русским в английском
+     * интерфейсе — и его нельзя было бы перевести.
+     */
+    @StringRes val titleRes: Int,
+    /** Подпись правила: «Статус чтения: не прочитано» — ресурс, а не готовая строка (docs/tdd.md §5). */
+    val hint: AppText,
 )
 
 /**
@@ -71,8 +90,8 @@ data class CollectionsUiState(
     val canSaveCurrentFilter: Boolean = false,
     /** Идёт загрузка списка. */
     val isLoading: Boolean = false,
-    /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка (docs/tdd.md §5). */
+    val error: AppText? = null,
     /** Полка носителя; `null` — носителя нет или полка выключена настройкой. */
     val removableShelf: RemovableShelfUi? = null,
     /**

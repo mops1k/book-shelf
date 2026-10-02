@@ -203,7 +203,7 @@
     <string name="settings_cover_cache_failed">Failed to clear the cover cache: %1$s</string>
     <string name="settings_io_error">input/output error</string>
     <string name="settings_export_report">Exported books: %1$d, collections: %2$d</string>
-    <string name="settings_export_failed">Failed to export the library</string>
+    <string name="settings_export_failed">Could not export the library: %1$s</string>
     <string name="settings_copies_header">Book copies on the device</string>
     <string name="settings_copies_hint">Files that duplicate library books — for example, copies made by the reader. Such a copy is not a book and is not shown on the shelf.</string>
     <string name="settings_copies_action">Remove copies from the device</string>
@@ -214,4 +214,79 @@
     <string name="settings_copies_total">Used: %1$s</string>
     <string name="settings_library_removable_shelf">Show the memory card as a shelf</string>
     <string name="settings_library_removable_shelf_hint">Insert a card or a USB drive with books — a shelf for the medium appears in the collections; remove it — the shelf disappears together with its books. The books are not deleted: bring the medium back and you will see them again</string>
+
+    <!-- FB2 optimization messages: the summary is built from translatable parts (docs/tdd.md §5). -->
+    <string name="settings_optimization_failed">Could not optimize the books: %1$s</string>
+    <string name="settings_optimization_done">Optimization finished</string>
+    <string name="settings_optimization_stopped">Optimization stopped: %1$d of %2$d processed</string>
+    <string name="settings_optimization_all_checked">All FB2 books have been checked already — nothing new</string>
+    <string name="settings_optimization_no_books">There are no FB2 books in the library</string>
+    <string name="settings_optimization_optimized">Books optimized: %1$d</string>
+    <string name="settings_optimization_saved">saved %1$s</string>
+    <string name="settings_optimization_already_best">already optimal: %1$d</string>
+    <string name="settings_optimization_failed_count">failed: %1$d</string>
+    <string name="settings_optimization_skipped_checked">checked earlier, skipped: %1$d</string>
+    <string name="settings_optimization_stopped_by_reader">Stopped: a reader is open (%1$d of %2$d processed)</string>
+
+    <!-- Messages of the "Duplicate books" block: the result is built from translatable parts. -->
+    <string name="settings_duplicates_stopped">Search stopped: a reader is open (%1$s). Close the reader and try again.</string>
+    <string name="settings_duplicates_nothing_before_stop">nothing was found before the stop</string>
+    <string name="settings_duplicates_found_before_stop">found before the stop: %1$d duplicate groups, %2$d broken files</string>
+    <string name="settings_duplicates_none">No duplicates found</string>
+    <string name="settings_duplicates_groups">duplicate groups: %1$d, files to delete: %2$d</string>
+    <string name="settings_duplicates_broken">broken files (0 bytes): %1$d</string>
+    <string name="settings_duplicates_deleted">Files deleted: %1$d</string>
+    <string name="settings_duplicates_broken_deleted">Broken files deleted: %1$d</string>
+    <string name="settings_duplicates_delete_failed">could not delete: %1$d (no access to the folder)</string>
+    <string name="settings_duplicates_cancel">Duplicate deletion cancelled</string>
+    <string name="settings_duplicates_broken_cancel">Broken file deletion cancelled</string>
+    <string name="settings_duplicates_check_failed">Could not check for duplicates: %1$s</string>
+    <string name="settings_duplicates_delete_error">Could not delete the files: %1$s</string>
+
+    <!-- Library export: the result and the failure cause are translatable texts. -->
+
+    <!-- Database backups: results and causes are translatable texts (docs/tdd.md §5, §7). -->
+    <string name="settings_backup_auto_on">Daily backup enabled</string>
+    <string name="settings_backup_auto_off">Daily backup disabled</string>
+    <string name="settings_backup_created">Copy created: %1$s</string>
+    <string name="settings_backup_created_removed">Copy created: %1$s, old copies removed: %2$d</string>
+    <string name="settings_backup_failed">Could not create a copy: %1$s</string>
+    <string name="settings_backup_list_failed">Could not read the list of copies: %1$s</string>
+    <string name="settings_backup_restored">Database restored, restarting…</string>
+    <string name="settings_backup_restore_failed">Restore failed: %1$s</string>
+    <string name="settings_backup_removed">Copy deleted: %1$s</string>
+    <string name="settings_backup_remove_failed">Could not delete the copy: %1$s</string>
+
+    <!-- SettingsViewModel messages: value checks, reader status and repository errors. -->
+    <string name="settings_error_unknown_density">Unknown density mode: %1$s</string>
+    <string name="settings_error_font_scale">The font scale must be between %1$d and %2$d %%</string>
+    <string name="settings_error_unknown_refresh">Unknown screen refresh mode: %1$s</string>
+    <string name="settings_error_gc_interval">The full refresh interval must be at least %1$d</string>
+    <string name="settings_error_file_name_template">This file name template is not supported</string>
+    <string name="settings_error_cover_cache_limit">Cover cache limit: allowed %1$s MB</string>
+    <string name="settings_error_temp_copy_limit">Temporary copy limit: allowed %1$s MB</string>
+    <string name="settings_error_feed_cache_age">Catalog cache age: allowed %1$s min</string>
+    <string name="settings_error_default_reader">Could not set the default reader: %1$s</string>
+    <string name="settings_error_add_source">Could not add the folder: %1$s</string>
+    <string name="settings_error_remove_source">Could not remove the folder: %1$s</string>
+    <string name="settings_error_rescan">Could not rescan the folders: %1$s</string>
+    <string name="settings_error_reset">Could not reset the settings: %1$s</string>
+    <string name="settings_error_load">Could not read the settings: %1$s</string>
+    <string name="settings_error_readers">Could not get the list of readers: %1$s</string>
+    <string name="settings_error_save">Could not save the setting: %1$s</string>
+    <string name="settings_reader_api_unavailable">The reader does not respond: the API is unavailable</string>
+    <string name="settings_reader_api_no_book">The API responds, no book is open</string>
+    <string name="settings_reader_api_open">The API responds: “%1$s” is open</string>
+
+    <!-- Screen diagnostics: the core reports the kind, the app chooses the words. -->
+    <string name="settings_screen_normal">regular screen</string>
+    <string name="settings_screen_eink_color">electronic paper, colour</string>
+    <string name="settings_screen_eink_mono">electronic paper, black and white</string>
+    <string name="settings_screen_eink_unknown">looks like electronic paper, vendor not recognised</string>
+    <string name="settings_diagnostics_unknown_device">unknown device</string>
+    <string name="settings_reader_formats_title">Which reader opens each format</string>
+    <string name="settings_reader_format_none">not chosen</string>
+    <string name="settings_reader_format_change">change</string>
+    <string name="settings_reader_category_summary">Chosen for %1$d of %2$d format(s)</string>
+    <string name="settings_reader_category_open">open</string>
 </resources>

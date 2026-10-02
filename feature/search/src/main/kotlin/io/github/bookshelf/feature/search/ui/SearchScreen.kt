@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -28,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
+import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
@@ -146,38 +149,23 @@ private fun ColumnScope.SearchContent(
             .padding(horizontal = dimens.gutter),
         verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
-        // STUB(Sprint 4): автофокус в поле. EinkTextField не принимает FocusRequester,
-        //  поэтому автофокус появится вместе с доработкой компонента в дизайн-системе.
-        EinkTextField(
-            value = state.query,
-            onValueChange = viewModel::onQueryChange,
-            label = stringResource(R.string.search_field_label),
-            placeholder = stringResource(R.string.search_field_placeholder),
-            imeAction = ImeAction.Search,
-            onImeAction = onSearch,
+        // Фокус ставится сразу: на e-ink лишнее попадание по строке — заметная потеря времени,
+        // а поиск почти всегда начинается с набора запроса.
+        val focusRequester = remember { FocusRequester() }
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+        SearchFieldRow(
+            focusRequester = focusRequester,
+            query = state.query,
+            onQueryChange = viewModel::onQueryChange,
+            onFind = viewModel::onSearch,
+            onClear = viewModel::onClearQuery,
+            onSearch = onSearch,
         )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-        ) {
-            EinkButton(
-                text = stringResource(R.string.search_action_find),
-                onClick = viewModel::onSearch,
-                primary = true,
-                modifier = Modifier.weight(1f),
-            )
-            EinkButton(
-                text = stringResource(R.string.search_action_clear),
-                onClick = viewModel::onClearQuery,
-                modifier = Modifier.weight(1f),
-            )
-        }
 
         val error = state.error
         if (error != null) {
             EinkErrorBanner(
-                message = error,
+                message = error.resolve(),
                 actionLabel = stringResource(R.string.search_action_retry),
                 onAction = onSearch,
             )
@@ -191,83 +179,16 @@ private fun ColumnScope.SearchContent(
             )
         }
 
-        // Всё, что ниже кнопок, — один прокручиваемый список. Раньше подсказки, история и
-        // результаты лежали в некатящемся Column: десять подсказок вытесняли результаты за нижний
-        // край экрана, а Page Down прокручивал только список результатов, то есть ничего.
-        LazyColumn(
-            state = resultsState,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-            if (state.isSearching) {
-                item(key = "searching") {
-                    Text(
-                        text = stringResource(R.string.search_in_progress),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.foreground,
-                        modifier = Modifier.padding(vertical = dimens.gutterSmall),
-                    )
-                }
-            }
+        // Всё, что ниже кнопок, — один прокручиваемый список: подсказки, история и результаты
+        // живут в одном месте (см. `SearchResultsList`).
+        SearchResultsList(
+            state = state,
+            resultsState = resultsState,
+            onOpenBook = onOpenBook,
+            onChooseSuggestion = onChooseSuggestion,
+            viewModel = viewModel,
+        )
 
-            // Один заголовок на подсказки: раньше их было два подряд (второй со счётчиком),
-            // и пустой список подсказок выглядел как отдельный раздел.
-            if (state.suggestions.isNotEmpty()) {
-                item(key = "suggestions-header") {
-                    EinkSectionHeader(
-                        title = stringResource(R.string.search_suggestions_header),
-                        count = state.suggestions.size,
-                    )
-                }
-                items(items = state.suggestions, key = { suggestion -> "s-$suggestion" }) { suggestion ->
-                    EinkListRow(
-                        title = suggestion,
-                        onClick = { onChooseSuggestion(suggestion) },
-                    )
-                }
-            }
-
-            // История — только пока поле пустое: во время ввода она бы оттесняла результаты.
-            if (state.query.isBlank()) {
-                recentQueriesSection(
-                    recents = state.recentQueries,
-                    onChoose = onChooseSuggestion,
-                    onClear = viewModel::onClearHistory,
-                )
-            }
-
-            item(key = "results-header") {
-                EinkSectionHeader(
-                    title = stringResource(R.string.search_results_header),
-                    count = state.total,
-                )
-            }
-
-            if (state.results.isEmpty()) {
-                item(key = "empty") {
-                    // До поиска раздел пуст, но это не значит, что совпадений нет: пока человек
-                    // набирает запрос, экран обязан звать нажать «Найти», а не сообщать «Ничего
-                    // не найдено». Правило живёт в чистой функции `searchEmptyState`.
-                    val empty = searchEmptyState(state.query, state.searchedTerm)
-                    EinkEmptyState(
-                        title = stringResource(empty.titleRes),
-                        // Аргумент один (искомый термин) — раскрывать массив незачем.
-                        message = empty.messageArg?.let { arg ->
-                            stringResource(empty.messageRes, arg)
-                        } ?: stringResource(empty.messageRes),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = dimens.gutter),
-                    )
-                }
-            } else {
-                items(items = state.results, key = { result -> result.id }) { result ->
-                    EinkListRow(
-                        title = result.title,
-                        subtitle = result.snippet ?: result.authors,
-                        trailing = result.matchedFieldRes?.let { field -> stringResource(field) },
-                        onClick = { onOpenBook(result.id) },
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -302,3 +223,159 @@ private fun LazyListScope.recentQueriesSection(
 }
 
 /** Подпись числа результатов: «Найдено: 7». */
+
+
+/**
+ * Поле поиска и кнопки «Найти» и «Очистить».
+ *
+ * Вынесено из `SearchContent`: функция перевалила за предел длины detekt, а поле с кнопками —
+ * цельный кусок, который не зависит от результатов и истории.
+ */
+@Composable
+private fun SearchFieldRow(
+    focusRequester: FocusRequester,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onFind: () -> Unit,
+    onClear: () -> Unit,
+    onSearch: () -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    EinkTextField(
+        focusRequester = focusRequester,
+        value = query,
+        onValueChange = onQueryChange,
+        label = stringResource(R.string.search_field_label),
+        placeholder = stringResource(R.string.search_field_placeholder),
+        imeAction = ImeAction.Search,
+        onImeAction = onSearch,
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        EinkButton(
+            text = stringResource(R.string.search_action_find),
+            onClick = onFind,
+            primary = true,
+            modifier = Modifier.weight(1f),
+        )
+        EinkButton(
+            text = stringResource(R.string.search_action_clear),
+            onClick = onClear,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+
+/**
+ * Прокручиваемый список экрана поиска: индикатор, подсказки, история и найденные книги.
+ *
+ * Вынесено из `SearchContent` отдельной функцией: тот перевалил за предел длины detekt, а список —
+ * цельный кусок. Раньше подсказки, история и результаты лежали в некатящемся `Column`: десять
+ * подсказок вытесняли результаты за нижний край экрана, а Page Down прокручивал почти ничего.
+ */
+@Composable
+private fun ColumnScope.SearchResultsList(
+    state: SearchUiState,
+    resultsState: LazyListState,
+    onOpenBook: (String) -> Unit,
+    onChooseSuggestion: (String) -> Unit,
+    viewModel: SearchViewModel,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    LazyColumn(
+        state = resultsState,
+        modifier = Modifier.fillMaxWidth().weight(1f),
+    ) {
+        searchHints(
+            state = state,
+            onChooseSuggestion = onChooseSuggestion,
+            viewModel = viewModel,
+        )
+
+        item(key = "results-header") {
+            EinkSectionHeader(
+                title = stringResource(R.string.search_results_header),
+                count = state.total,
+            )
+        }
+
+        if (state.results.isEmpty()) {
+            item(key = "empty") {
+                // До поиска раздел пуст, но это не значит, что совпадений нет: пока человек
+                // набирает запрос, экран обязан звать нажать «Найти», а не сообщать «Ничего
+                // не найдено». Правило живёт в чистой функции `searchEmptyState`.
+                val empty = searchEmptyState(state.query, state.searchedTerm)
+                EinkEmptyState(
+                    title = stringResource(empty.titleRes),
+                    // Аргумент один (искомый термин) — раскрывать массив незачем.
+                    message = empty.messageArg?.let { arg ->
+                        stringResource(empty.messageRes, arg)
+                    } ?: stringResource(empty.messageRes),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = dimens.gutter),
+                )
+            }
+        } else {
+            items(items = state.results, key = { result -> result.id }) { result ->
+                EinkListRow(
+                    title = result.title,
+                    subtitle = result.snippet ?: result.authors,
+                    trailing = result.matchedFieldRes?.let { field -> stringResource(field) },
+                    onClick = { onOpenBook(result.id) },
+                )
+            }
+        }
+    }
+}
+
+
+/** Подсказки и история поиска: показываются, пока результаты ещё не главное на экране. */
+private fun LazyListScope.searchHints(
+    state: SearchUiState,
+    onChooseSuggestion: (String) -> Unit,
+    viewModel: SearchViewModel,
+) {
+    if (state.isSearching) {
+        item(key = "searching") {
+            // Локальные значения читаются внутри item: на уровне LazyListScope композиции нет.
+            val colors = LocalEinkColors.current
+            val dimens = LocalEinkDimens.current
+            Text(
+                text = stringResource(R.string.search_in_progress),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.foreground,
+                modifier = Modifier.padding(vertical = dimens.gutterSmall),
+            )
+        }
+    }
+
+    // Один заголовок на подсказки: раньше их было два подряд (второй со счётчиком),
+    // и пустой список подсказок выглядел как отдельный раздел.
+    if (state.suggestions.isNotEmpty()) {
+        item(key = "suggestions-header") {
+            EinkSectionHeader(
+                title = stringResource(R.string.search_suggestions_header),
+                count = state.suggestions.size,
+            )
+        }
+        items(items = state.suggestions, key = { suggestion -> "s-$suggestion" }) { suggestion ->
+            EinkListRow(
+                title = suggestion,
+                onClick = { onChooseSuggestion(suggestion) },
+            )
+        }
+    }
+
+    // История — только пока поле пустое: во время ввода она бы оттесняла результаты.
+    if (state.query.isBlank()) {
+        recentQueriesSection(
+            recents = state.recentQueries,
+            onChoose = onChooseSuggestion,
+            onClear = viewModel::onClearHistory,
+        )
+    }
+}

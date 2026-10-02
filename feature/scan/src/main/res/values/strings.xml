@@ -31,4 +31,16 @@
     <string name="scan_caption_seen">Просмотрено файлов: %1$d</string>
     <string name="scan_caption_seen_total">Просмотрено %1$d из ~%2$d</string>
     <string name="scan_status_detail">%1$s · добавлено %2$d, ошибок %3$d</string>
+
+    <!-- Сообщения сканирования: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <string name="scan_error_no_source">Нет источника для сканирования</string>
+    <string name="scan_error_not_started">Не удалось просканировать: работа не запустилась</string>
+    <string name="scan_error_pause">Не удалось поставить скан на паузу: %1$s</string>
+    <string name="scan_error_start">Не удалось запустить сканирование: %1$s</string>
+    <string name="scan_error_refresh">Не удалось обновить сканирование: %1$s</string>
+    <string name="scan_error_sources">Не удалось получить список источников: %1$s</string>
+    <string name="scan_error_progress">Не удалось получить прогресс сканирования: %1$s</string>
+    <string name="scan_error_reports">Не удалось получить отчёты сканирования: %1$s</string>
+    <string name="scan_reason_missing">Причина не записана</string>
+    <string name="scan_duration_seconds">%1$d с</string>
 </resources>

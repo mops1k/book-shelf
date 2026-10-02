@@ -4,7 +4,6 @@
     <string name="book_action_read">Read</string>
     <string name="book_action_retry">Retry</string>
     <string name="book_action_fill_manually">Fill in manually</string>
-    <string name="book_parse_error">Failed to parse: %1$s</string>
     <string name="book_collections_title">Which collection</string>
     <string name="book_collections_empty_title">No collections yet</string>
     <string name="book_collections_empty_message">Create a collection on the «Collections» screen, then come back here.</string>
@@ -57,4 +56,30 @@
     <string name="edit_field_description_hint">Annotation</string>
     <string name="edit_write_to_file">Write the edit into the book file (FB2 and EPUB) — then it survives a transfer</string>
     <string name="book_favorite_remove">Remove from favourites</string>
+
+    <!-- Book card and metadata edit errors: the cause is the text of the error type. -->
+    <string name="book_error_not_found">Book not found</string>
+    <string name="book_error_delete">Could not delete the book: %1$s</string>
+    <string name="book_error_delete_file_access">Could not delete the file: no access to the folder. The book was kept</string>
+    <string name="book_error_optimize">Could not optimize the book: %1$s</string>
+    <string name="book_error_schedule_parse">Could not schedule the book for parsing: %1$s</string>
+    <string name="book_error_open_folder">Could not open the folder: %1$s</string>
+    <string name="book_error_load">Could not load the book card: %1$s</string>
+    <string name="book_error_action">Could not perform the action on the book: %1$s</string>
+    <string name="book_error_save_edit">Could not save the change: %1$s</string>
+
+    <!-- Metadata edit and optimization results: numbers and units live in resources. -->
+    <string name="book_edit_nothing_changed">Nothing has changed</string>
+    <string name="book_edit_saved_to_file">Saved and written to the book file</string>
+    <string name="book_edit_saved_app_only">Saved in the app</string>
+    <string name="book_optimized_earlier">Already optimized — this version of the file was checked</string>
+    <string name="book_optimized_saved">Saved %1$s (%2$s)</string>
+    <string name="book_optimized_sizes">was %1$s, now %2$s</string>
+    <string name="book_optimized_nothing">The file is already optimal — nothing to replace</string>
+    <string name="book_size_bytes">%1$d B</string>
+    <string name="book_size_kb">%1$s KB</string>
+    <string name="book_size_mb">%1$s MB</string>
+    <string name="book_size_gb">%1$s GB</string>
+    <string name="book_edit_saved_not_found">Saved in the app: the book is no longer in the library</string>
+    <string name="book_edit_saved_file_failed_reason">Saved in the app, but the file could not be written: %1$s</string>
 </resources>

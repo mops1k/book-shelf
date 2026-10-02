@@ -1,7 +1,6 @@
 package io.github.bookshelf.work
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -10,6 +9,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
+import io.github.bookshelf.core.common.log.APP_LOG_TAG
+import io.github.bookshelf.core.common.log.AppLogger
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.sync.afterFileChange
@@ -28,6 +29,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.database.entity.ScanRunEntity
 import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.model.ScanRunStatus
+import io.github.bookshelf.core.metadata.model.BookMetadata
 import io.github.bookshelf.core.storage.saf.DocumentEntry
 import io.github.bookshelf.core.storage.saf.SafTreeReader
 import io.github.bookshelf.core.storage.saf.SafTreeWriter
@@ -68,6 +70,7 @@ import kotlinx.coroutines.ensureActive
 class ScanSourceWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
+    private val logger: AppLogger,
     private val sourceDao: SourceDao,
     private val scanRunDao: ScanRunDao,
     private val bookDao: BookDao,
@@ -113,7 +116,7 @@ class ScanSourceWorker @AssistedInject constructor(
         // базе осталась бы запись «идёт скан», которого нет, и экран показывал бы вечный прогресс.
         // Работа не теряется: прогон поставит следующий возврат в приложение или расписание.
         if (readerSession.isActive()) {
-            Log.w("BookShelf", "скан отложен: открыта читалка")
+            logger.w(APP_LOG_TAG, "скан отложен: открыта читалка")
             return Result.success()
         }
         val run = resumeOrCreateRun(sourceId)
@@ -137,7 +140,7 @@ class ScanSourceWorker @AssistedInject constructor(
                     // PAUSED с причиной: прогон не терминален, курсор на месте, статистика источника
                     // не переписывается — «N книг» остаётся прежним, пока обход не закончится.
                     scanRunDao.finish(run.id, ScanRunStatus.PAUSED, null, result.reason)
-                    Log.w("BookShelf", "скан остановлен: ${result.reason}")
+                    logger.w(APP_LOG_TAG, "скан остановлен: ${result.reason}")
                     Result.success()
                 }
 
@@ -250,6 +253,110 @@ class ScanSourceWorker @AssistedInject constructor(
      * содержимого на каждом скане означало бы читать 2000 файлов ради проверки, что ничего
      * не изменилось.
      */
+    /**
+     * Уже известная копия книги пришла снова?
+     *
+     * Копия книгой не считается: так ведёт себя FBReader — он копирует файл в `Books/<дата>/`
+     * внутри нашей библиотеки, и в полке появлялась вторая такая же книга (30.09–01.10.2026,
+     * 92 вместо 91). Решает содержимое, а не имя: копию читалка называет по названию книги,
+     * поэтому прежнее правило «совпали имя файла и размер» её не поймало.
+     *
+     * Вынесено из `storeEntry` отдельной функцией: та перевалила за предел длины detekt. Побочные
+     * действия (запись в `seenCopyUris`, слияние строки книги с оригиналом) остались здесь же —
+     * вызывающий узнаёт о копии по `true` и выходит.
+     *
+     * @return `true`, если файл — копия уже известной книги (разбирать его не нужно).
+     */
+    /**
+     * Копия уже известной книги: сравнение с оригиналами, которые идут РАНЬШЕ в порядке обхода.
+     *
+     * Иначе настоящая книга была бы объявлена копией более поздней — порядок задаёт запрос (дата
+     * добавления, затем путь). Совпало содержимое — копия связывается с оригиналом, строка книги
+     * убирается (копия книгой не считается), а uri запоминается, чтобы не читать файл дважды.
+     *
+     * Вынесено из `detectKnownCopy` отдельной функцией: несколько уровней вложенности внутри `if`
+     * давали порог `NestedBlockDepth`, а сравнение с оригиналами читается отдельно от проверки по uri.
+     */
+    private suspend fun compareWithEarlierBooks(
+        source: SourceEntity,
+        entry: DocumentEntry,
+        existing: BookEntity?,
+        candidateUri: String,
+        entrySize: Long,
+        sameSize: List<BookEntity>,
+    ): Boolean {
+        val candidates = existing?.let { me -> sameSize.takeWhile { book -> book.id != me.id } }
+            ?: sameSize
+        if (candidates.isEmpty()) return false
+        val match = copyDetector.findOriginal(
+            candidateUri = candidateUri,
+            candidateSize = entrySize,
+            known = candidates.map { book ->
+                KnownBookFile(
+                    id = book.id,
+                    documentUri = book.documentUri,
+                    sizeBytes = book.sizeBytes,
+                    contentHash = book.contentHash,
+                )
+            },
+            remember = { bookId, hash -> bookCopyDao.rememberContentHash(bookId, hash) },
+        ) ?: return false
+        existing?.let { copy -> dropCopy(copy, match.originalBookId) }
+        bookCopyDao.upsert(
+            BookCopyEntity(
+                copyDocumentUri = candidateUri,
+                bookId = match.originalBookId,
+                sourceId = source.id,
+                sizeBytes = entrySize,
+                lastModified = entry.lastModified ?: 0L,
+                contentHash = match.contentHash,
+            ),
+        )
+        seenCopyUris += candidateUri
+        logger.w(
+            APP_LOG_TAG,
+            "копия книги не заведена второй книгой: ${entry.displayName} → ${match.originalBookId}",
+        )
+        return true
+    }
+
+    /**
+     * Копия уже известной книги, распознанная по содержимому (SHA-256).
+     *
+     * Сначала проверка по записанной копии (её uri и размер с временем изменения): если всё совпало,
+     * файл читать заново не нужно. Иначе сравнение с оригиналами — в [compareWithEarlierBooks].
+     */
+    private suspend fun detectKnownCopy(
+        source: SourceEntity,
+        entry: DocumentEntry,
+        existing: BookEntity?,
+    ): Boolean {
+        val candidateUri = treeReader.documentUri(source.uri, entry.documentId)
+        val entrySize = entry.sizeBytes ?: return false
+        if (entrySize <= 0L) return false
+        val knownCopy = bookCopyDao.findByUri(candidateUri)
+        if (knownCopy != null && knownCopy.sizeBytes == entrySize &&
+            knownCopy.lastModified == entry.lastModified
+        ) {
+            // Раньше уже распознали: содержимое то же, читать файл заново незачем.
+            seenCopyUris += candidateUri
+            existing?.let { copy -> dropCopy(copy, knownCopy.bookId) }
+            return true
+        }
+        if (knownCopy != null) {
+            // Файл изменился — возможно, это уже другая книга: решаем заново.
+            bookCopyDao.deleteByUri(candidateUri)
+        }
+        return compareWithEarlierBooks(
+            source = source,
+            entry = entry,
+            existing = existing,
+            candidateUri = candidateUri,
+            entrySize = entrySize,
+            sameSize = bookCopyDao.findBooksBySize(entrySize),
+        )
+    }
+
     private suspend fun storeEntry(source: SourceEntity, entry: DocumentEntry) {
         // Строка ищется по адресу документа, а не только по вычисленному id: адрес уникален, а id
         // мог быть посчитан прежним способом — до 30.09.2026 OPDS-загрузка хэшировала весь URI
@@ -264,64 +371,8 @@ class ScanSourceWorker @AssistedInject constructor(
         // (30.09–01.10.2026, 92 вместо 91). Решает содержимое, а не имя: копию читалка называет по
         // названию книги — `Предыстория. Книга 1.fb2.zip` вместо `… [=Истоки].fb2.zip`, — поэтому
         // прежнее правило «совпали имя файла и размер» её не поймало.
-        val candidateUri = treeReader.documentUri(source.uri, entry.documentId)
-        val entrySize = entry.sizeBytes
-        if (entrySize != null && entrySize > 0L) {
-            val knownCopy = bookCopyDao.findByUri(candidateUri)
-            if (knownCopy != null && knownCopy.sizeBytes == entrySize &&
-                knownCopy.lastModified == entry.lastModified
-            ) {
-                // Раньше уже распознали: содержимое то же, читать файл заново незачем. Строку книги
-                // (состояние до этого исправления) убираем: копия книгой не считается.
-                seenCopyUris += candidateUri
-                existing?.let { copy -> dropCopy(copy, knownCopy.bookId) }
-                return
-            }
-            if (knownCopy != null) {
-                // Файл изменился — возможно, это уже другая книга: решаем заново.
-                bookCopyDao.deleteByUri(candidateUri)
-            }
-            // Сравниваем только с теми книгами, которые идут РАНЬШЕ в порядке оригинала: иначе
-            // настоящая книга была бы объявлена копией более поздней (порядок задаёт запрос:
-            // дата добавления, затем путь).
-            val sameSize = bookCopyDao.findBooksBySize(entrySize)
-            val candidates = existing?.let { me -> sameSize.takeWhile { book -> book.id != me.id } }
-                ?: sameSize
-            if (candidates.isNotEmpty()) {
-                copyDetector.findOriginal(
-                    candidateUri = candidateUri,
-                    candidateSize = entrySize,
-                    known = candidates.map { book ->
-                        KnownBookFile(
-                            id = book.id,
-                            documentUri = book.documentUri,
-                            sizeBytes = book.sizeBytes,
-                            contentHash = book.contentHash,
-                        )
-                    },
-                    remember = { bookId, hash -> bookCopyDao.rememberContentHash(bookId, hash) },
-                )?.let { match ->
-                    existing?.let { copy -> dropCopy(copy, match.originalBookId) }
-                    bookCopyDao.upsert(
-                        BookCopyEntity(
-                            copyDocumentUri = candidateUri,
-                            bookId = match.originalBookId,
-                            sourceId = source.id,
-                            sizeBytes = entrySize,
-                            lastModified = entry.lastModified ?: 0L,
-                            contentHash = match.contentHash,
-                        ),
-                    )
-                    seenCopyUris += candidateUri
-                    Log.w(
-                        "BookShelf",
-                        "копия книги не заведена второй книгой: ${entry.displayName} → " +
-                            match.originalBookId,
-                    )
-                    return
-                }
-            }
-        }
+        if (detectKnownCopy(source = source, entry = entry, existing = existing)) return
+
         seenIds += id
         if (existing == null) {
             bookDao.insert(newBook(source, id, entry))
@@ -362,8 +413,8 @@ class ScanSourceWorker @AssistedInject constructor(
                 // может сорваться (занятая база, отменённая корутина), и молчаливое «не сбросилось»
                 // оставило бы прежнюю оценку рядом с новым файлом, не оставив следов.
                 fileChangeHandler.onFileChanged(id).errorOrNull()?.let { error ->
-                    Log.w(
-                        "BookShelf",
+                    logger.w(
+                        APP_LOG_TAG,
                         "данные книги $id не сброшены при смене файла: ${error.message}",
                     )
                 }
@@ -384,7 +435,7 @@ class ScanSourceWorker @AssistedInject constructor(
         userDataMover.move(fromBookId = copy.id, toBookId = originalId)
         bookCleanupDao.deleteWithLinks(listOf(copy.id))
         coverCache.invalidate(copy.id)
-        Log.w("BookShelf", "копия «${copy.fileName}» слита с книгой $originalId")
+        logger.w(APP_LOG_TAG, "копия «${copy.fileName}» слита с книгой $originalId")
     }
 
     private fun newBook(source: SourceEntity, id: String, entry: DocumentEntry): BookEntity {
@@ -403,7 +454,9 @@ class ScanSourceWorker @AssistedInject constructor(
             sizeBytes = entry.sizeBytes ?: 0L,
             lastModified = entry.lastModified ?: now,
             title = title.ifEmpty { entry.displayName },
-            sortTitle = title.ifEmpty { entry.displayName },
+            // Заголовок сортировки нормализуется тем же правилом, что и после разбора: иначе
+            // неразобранная книга вроде «The Hobbit» стояла бы на «T», а разобранная — на «H».
+            sortTitle = BookMetadata(title = title.ifEmpty { entry.displayName }).sortTitleOf(),
             // Автора до разбора нет: пустая строка честнее выдуманного имени файла.
             authorsText = "",
             addedAt = now,
@@ -443,7 +496,7 @@ class ScanSourceWorker @AssistedInject constructor(
             treeWriter.delete(copy.copyDocumentUri).errorOrNull()?.let { error ->
                 // Провайдер отказал — честно сказать в журнал. Такой файл снова станет книгой:
                 // скрывать его навсегда нельзя, иначе он останется невидимым мусором.
-                Log.w("BookShelf", "копия ${copy.copyDocumentUri} не удалена: ${error.message}")
+                logger.w(APP_LOG_TAG, "копия ${copy.copyDocumentUri} не удалена: ${error.message}")
             }
         }
         gone.chunked(MARK_BATCH).forEach { batch ->

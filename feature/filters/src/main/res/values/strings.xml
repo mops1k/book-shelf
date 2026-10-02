@@ -55,6 +55,14 @@
         <item quantity="other">%1$d статусов</item>
     </plurals>
 
+    <string name="filters_section_sources">Папки</string>
+    <plurals name="filters_word_sources">
+        <item quantity="one">%1$d папка</item>
+        <item quantity="few">%1$d папки</item>
+        <item quantity="many">%1$d папок</item>
+        <item quantity="other">%1$d папок</item>
+    </plurals>
+
     <string name="shelf_rules_title">Правила полки</string>
     <string name="shelf_rules_subtitle">Умная полка</string>
     <string name="shelf_rules_conditions">Условий: %1$d</string>
@@ -63,4 +71,9 @@
     <string name="shelf_rules_action_retry">Повторить</string>
     <string name="shelf_rules_empty_title">Условия появятся, когда в библиотеке будут книги</string>
     <string name="shelf_rules_empty_message">Умная полка собирается по тем же условиям, что и фильтры: авторы, серии, жанры и теги, форматы, статус чтения. Выберите хотя бы одно — и полка начнёт считать свой состав сама.</string>
+    <string name="filters_error_load">Не удалось загрузить фильтры: %1$s</string>
+    <string name="shelf_rules_error_empty">Выберите хотя бы одно условие — иначе полка будет пустой</string>
+    <string name="shelf_rules_error_not_found">Полка не найдена</string>
+    <string name="shelf_rules_error_load">Не удалось загрузить условия: %1$s</string>
+    <string name="shelf_rules_error_save">Не удалось сохранить правила: %1$s</string>
 </resources>

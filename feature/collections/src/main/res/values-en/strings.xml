@@ -34,8 +34,40 @@
     <string name="collections_card_error_denied">Access to the storage folder was not granted</string>
     <string name="collections_card_error_foreign_folder">The chosen folder is not on this storage</string>
     <string name="collections_card_error_failed">Could not get access to the removable storage</string>
+    <!-- ViewModel messages: text is born outside a Composable, so it is a resource (docs/tdd.md §5). -->
+    <string name="collections_error_create">Could not create the collection: %1$s</string>
+    <string name="collections_error_rename">Could not rename the collection: %1$s</string>
+    <string name="collections_error_rename_empty">The collection name must not be empty</string>
+    <string name="collections_error_delete">Could not delete the collection: %1$s</string>
+    <string name="collections_error_save_rules">Could not save the rules: %1$s</string>
+    <string name="collections_error_rules_empty">The collection rules must not be empty</string>
+    <string name="collections_error_save_filter">Could not save the selection: %1$s</string>
+    <string name="collections_error_filter_empty">Choose the filter conditions on the shelf first</string>
+    <string name="collections_error_save_shelf_rules">Could not save the collection rules: %1$s</string>
+    <string name="collections_error_load">Could not load the collection list: %1$s</string>
+    <string name="collections_content_error_load">Could not load the collection: %1$s</string>
+    <string name="collections_preset_favorites_hint">Books marked as favourites</string>
+    <string name="collections_preset_unread_hint">Reading status: unread</string>
+    <string name="collections_preset_reading_hint">Reading status: reading</string>
+    <string name="collections_preset_read_hint">Reading status: read</string>
     <plurals name="collections_book_count">
         <item quantity="one">%1$d book</item>
         <item quantity="other">%1$d books</item>
     </plurals>
+
+    <!-- Shelf labels: service shelf names and rules are assembled by the app, not by the data layer. -->
+    <string name="collections_default_name">New shelf</string>
+    <string name="collections_default_name_numbered">New shelf %1$d</string>
+    <string name="collections_rule_genre">genre: %1$s</string>
+    <string name="collections_rule_author">author: %1$s</string>
+    <string name="collections_rule_series">series: %1$s</string>
+    <string name="collections_rule_format">format: %1$s</string>
+    <string name="collections_rule_status">status: %1$s</string>
+    <string name="collections_rule_favorites">favourites</string>
+    <string name="collections_rule_more">and %1$d more</string>
+    <string name="collections_rule_none">no conditions</string>
+    <string name="collections_preset_favorites">Favourites</string>
+    <string name="collections_preset_unread">Unread</string>
+    <string name="collections_preset_reading">Reading now</string>
+    <string name="collections_preset_read">Read</string>
 </resources>

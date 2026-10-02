@@ -43,14 +43,18 @@ class CatalogsFeedRequestTest {
         viewModel.onOpenCatalog(FakeOpdsRepository.CATALOG_ID)
         advanceUntilIdle()
 
-        request.open(FakeOpdsRepository.CATALOG_ID, AUTHOR_FEED_URL, "Бакстер Стивен")
+        request.open(
+            FakeOpdsRepository.CATALOG_ID,
+            AUTHOR_FEED_URL,
+            FeedLabel.Named("Бакстер Стивен"),
+        )
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.currentFeed?.entries?.map { it.title })
             .containsExactly("Ксили")
         // Подпись уровня показывает, к кому пришли, а не «Каталог».
         assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
-            .containsExactly("Flibusta", "Бакстер Стивен")
+            .containsExactly(FeedLabel.Named("Flibusta"), FeedLabel.Named("Бакстер Стивен"))
         // Просьба снята: иначе возврат в браузер снова открывал бы фид автора.
         assertThat(request.request.value).isNull()
     }
@@ -62,12 +66,13 @@ class CatalogsFeedRequestTest {
         viewModel.onOpenCatalog(FakeOpdsRepository.CATALOG_ID)
         advanceUntilIdle()
 
-        request.open(FakeOpdsRepository.CATALOG_ID, AUTHOR_FEED_URL, "Бакстер Стивен")
+        request.open(FakeOpdsRepository.CATALOG_ID, AUTHOR_FEED_URL, FeedLabel.Named("Бакстер Стивен"))
         advanceUntilIdle()
         viewModel.onBack()
 
         // Фид автора — обычный уровень: «Назад» возвращает туда, где была книга.
-        assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs).containsExactly("Flibusta")
+        assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
+            .containsExactly(FeedLabel.Named("Flibusta"))
         assertThat(viewModel.uiState.value.currentFeed?.entries?.map { it.title })
             .containsExactly("Черновик", "Дозор")
     }
@@ -79,7 +84,7 @@ class CatalogsFeedRequestTest {
         advanceUntilIdle()
         repository.urlEntries[AUTHOR_FEED_URL] = listOf(entry(id = "20", title = "Ксили"))
 
-        request.open("другой-каталог", AUTHOR_FEED_URL, "Бакстер Стивен")
+        request.open("другой-каталог", AUTHOR_FEED_URL, FeedLabel.Named("Бакстер Стивен"))
         advanceUntilIdle()
 
         // История уровней чужого каталога не должна пережить переключение: иначе «Назад» вела бы
@@ -91,7 +96,7 @@ class CatalogsFeedRequestTest {
     @Test
     fun `request is kept until the browser consumes it`() {
         // Карточка может положить просьбу раньше, чем браузер подпишется: терять её нельзя.
-        request.open("c1", AUTHOR_FEED_URL, "Бакстер Стивен")
+        request.open("c1", AUTHOR_FEED_URL, FeedLabel.Named("Бакстер Стивен"))
 
         assertThat(request.request.value?.feedUrl).isEqualTo(AUTHOR_FEED_URL)
         request.consume()

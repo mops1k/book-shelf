@@ -5,7 +5,6 @@
     <string name="book_action_read">Читать</string>
     <string name="book_action_retry">Повторить</string>
     <string name="book_action_fill_manually">Заполнить вручную</string>
-    <string name="book_parse_error">Не удалось разобрать: %1$s</string>
     <string name="book_collections_title">В какую полку</string>
     <string name="book_collections_empty_title">Полок пока нет</string>
     <string name="book_collections_empty_message">Создайте полку на экране «Полки», потом вернитесь сюда.</string>
@@ -58,4 +57,30 @@
     <string name="edit_field_description_hint">Аннотация</string>
     <string name="edit_write_to_file">Записать правку в файл книги (FB2 и EPUB) — тогда она переживёт перенос</string>
     <string name="book_favorite_remove">Убрать из избранного</string>
+
+    <!-- Ошибки карточки книги и правки: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <string name="book_error_not_found">Книга не найдена</string>
+    <string name="book_error_delete">Не удалось удалить книгу: %1$s</string>
+    <string name="book_error_delete_file_access">Файл удалить не удалось: нет доступа к папке. Книга осталась</string>
+    <string name="book_error_optimize">Оптимизировать книгу не удалось: %1$s</string>
+    <string name="book_error_schedule_parse">Не удалось поставить книгу на разбор: %1$s</string>
+    <string name="book_error_open_folder">Папку открыть не удалось: %1$s</string>
+    <string name="book_error_load">Не удалось загрузить карточку книги: %1$s</string>
+    <string name="book_error_action">Не удалось выполнить действие с книгой: %1$s</string>
+    <string name="book_error_save_edit">Правку сохранить не удалось: %1$s</string>
+
+    <!-- Итоги правки и оптимизации: числа и единицы — в ресурсах (docs/tdd.md §5). -->
+    <string name="book_edit_nothing_changed">Ничего не изменилось</string>
+    <string name="book_edit_saved_to_file">Сохранено и записано в файл книги</string>
+    <string name="book_edit_saved_app_only">Сохранено в приложении</string>
+    <string name="book_optimized_earlier">Уже оптимизирована — эту версию файла проверяли</string>
+    <string name="book_optimized_saved">Сэкономлено %1$s (%2$s)</string>
+    <string name="book_optimized_sizes">было %1$s, стало %2$s</string>
+    <string name="book_optimized_nothing">Файл уже оптимален — заменять нечего</string>
+    <string name="book_size_bytes">%1$d Б</string>
+    <string name="book_size_kb">%1$s КБ</string>
+    <string name="book_size_mb">%1$s МБ</string>
+    <string name="book_size_gb">%1$s ГБ</string>
+    <string name="book_edit_saved_not_found">Сохранено в приложении: книга не найдена в библиотеке</string>
+    <string name="book_edit_saved_file_failed_reason">Сохранено в приложении, в файл записать не удалось: %1$s</string>
 </resources>

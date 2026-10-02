@@ -7,15 +7,17 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.covers.CoverCache
 import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.repository.BookRepository
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
+import io.github.bookshelf.core.readerlink.mime.formatCategoryOf
+import io.github.bookshelf.core.readerlink.mime.ReaderFormatCategory
 import io.github.bookshelf.core.datastore.ProgressSyncInterval
 import io.github.bookshelf.core.datastore.SettingsRepository
-import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
@@ -23,13 +25,17 @@ import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.eink.EinkController
 import io.github.bookshelf.core.opds.download.DOWNLOAD_FILE_NAME_TEMPLATES
+import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
@@ -75,7 +81,7 @@ class SettingsViewModel @Inject constructor(
                 state.copy(
                     isRescanning = false,
                     error = if (result is AppResult.Failure) {
-                        result.error.message ?: "Не удалось пересканировать папки"
+                        AppText(R.string.settings_error_rescan, result.error.text())
                     } else {
                         null
                     },
@@ -121,7 +127,7 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isResetting = false,
-                        error = error.message ?: "Не удалось сбросить настройки",
+                        error = AppText(R.string.settings_error_reset, error.toAppError().text()),
                     )
                 }
             }
@@ -155,7 +161,7 @@ class SettingsViewModel @Inject constructor(
             ),
         )
         if (value == null) {
-            _uiState.showError("Неизвестный режим плотности: $density")
+            _uiState.showError(AppText(R.string.settings_error_unknown_density, density))
             return
         }
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -210,9 +216,12 @@ class SettingsViewModel @Inject constructor(
                     it.copy(
                         isCheckingReaderApi = false,
                         readerApiStatus = when {
-                            !available -> "Читалка не отвечает: API недоступен"
-                            openBook == null -> "API отвечает, книга не открыта"
-                            else -> "API отвечает: открыто «${openBook.title ?: openBook.path}»"
+                            !available -> AppText(R.string.settings_reader_api_unavailable)
+                            openBook == null -> AppText(R.string.settings_reader_api_no_book)
+                            else -> AppText(
+                                R.string.settings_reader_api_open,
+                                openBook.title ?: openBook.path,
+                            )
                         },
                     )
                 }
@@ -235,7 +244,9 @@ class SettingsViewModel @Inject constructor(
     /** Задать масштаб шрифта интерфейса в процентах. */
     fun onSetFontScale(percent: Int) {
         if (percent !in MIN_FONT_SCALE..MAX_FONT_SCALE) {
-            _uiState.showError("Масштаб шрифта должен быть от $MIN_FONT_SCALE до $MAX_FONT_SCALE %")
+            _uiState.showError(
+                AppText(R.string.settings_error_font_scale, MIN_FONT_SCALE, MAX_FONT_SCALE),
+            )
             return
         }
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -254,7 +265,7 @@ class SettingsViewModel @Inject constructor(
             ),
         )
         if (value == null) {
-            _uiState.showError("Неизвестный режим обновления экрана: $mode")
+            _uiState.showError(AppText(R.string.settings_error_unknown_refresh, mode))
             return
         }
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -323,56 +334,69 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Назначить читалку по умолчанию для формата.
+     * Привязать читалку к формату (или снять привязку, если [readerId] пуст).
      *
-     * Экран настроек ещё не передаёт формат, поэтому используется базовый `fb2`; после
-     * появления выбора формата параметр можно передать из UI без изменения репозитория.
+     * Источник истины — таблица `format_defaults`: её читает открытие книги. Зеркало
+     * `reader.defaultReaderByFormat` в настройках обновляется рядом, иначе отметка «по умолчанию»
+     * в списке читалок разошлась бы с настоящим поведением.
      */
-    fun onSetDefaultReader(readerId: String) {
+    fun onSetReaderForFormat(extension: String, readerId: String?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val result = readerRepository.setDefault(DEFAULT_READER_FORMAT, readerId)
+                val result = readerRepository.setDefault(extension, readerId)
                 if (result.isFailure) {
                     _uiState.showError(
-                        appErrorMessage(
-                            result.errorOrNull(),
-                            "Не удалось назначить читалку по умолчанию.",
+                        AppText(
+                            R.string.settings_error_default_reader,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
                         ),
                     )
-                } else {
-                    defaultReaderIds = defaultReaderIds + readerId
-                    _uiState.value = _uiState.value.copy(
-                        installedReaders = _uiState.value.installedReaders.map { reader ->
-                            reader.copy(isDefault = reader.id == readerId || reader.isDefault)
-                        },
-                        isLoading = false,
-                        error = null,
-                    )
+                    return@launch
                 }
+                // Зеркало в настройках: список читалок показывает отметку «по умолчанию» из него,
+                // и расходиться с `format_defaults` она не должна.
+                settingsRepository.update { current ->
+                    val mirror = current.reader.defaultReaderByFormat.toMutableMap()
+                    if (readerId == null) mirror.remove(extension) else mirror[extension] = readerId
+                    current.copy(reader = current.reader.copy(defaultReaderByFormat = mirror))
+                }
+                // После выбора возвращаемся к форматам категории: человек обычно настраивает
+                // несколько форматов подряд, а не уходит с экрана.
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = null,
+                    readersLevel = ReadersLevelUi.Formats(formatCategoryOf(extension)),
+                )
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                _uiState.showError(error.userMessage("Не удалось назначить читалку по умолчанию."))
+                _uiState.showError(
+                    AppText(R.string.settings_error_default_reader, error.toAppError().text()),
+                )
             }
         }
     }
 
     /**
-     * Добавить папку-источник.
+     * Перейти на уровень экрана «Читалки».
      *
-     * URI приходит из системного выборщика: приложение само знать путь не может, а
-     * `addSafSource` ещё и забирает у системы постоянное разрешение на дерево.
+     * Один метод на все переходы вперёд: экран идёт категория → форматы → читалки, и каждый шаг
+     * это просто новое состояние уровня. Методов «на каждый шаг» здесь было бы три вместо одного.
      */
+    fun onReadersLevel(level: ReadersLevelUi) {
+        _uiState.value = _uiState.value.copy(readersLevel = level)
+    }
+
     fun onAddSource(uri: String, displayName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSourceBusy = true, error = null)
             val result = sourceRepository.addSafSource(uri = uri, displayName = displayName)
             if (result.isFailure) {
                 _uiState.showError(
-                    appErrorMessage(
-                        result.errorOrNull(),
-                        "Не удалось добавить папку. Выдайте доступ заново.",
+                    AppText(
+                        R.string.settings_error_add_source,
+                        (result.errorOrNull() ?: AppError.Unknown()).text(),
                     ),
                 )
             }
@@ -392,7 +416,12 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isSourceBusy = true, error = null)
             val result = sourceRepository.removeSource(sourceId)
             if (result.isFailure) {
-                _uiState.showError(appErrorMessage(result.errorOrNull(), "Не удалось убрать папку."))
+                _uiState.showError(
+                    AppText(
+                        R.string.settings_error_remove_source,
+                        (result.errorOrNull() ?: AppError.Unknown()).text(),
+                    ),
+                )
             }
             _uiState.value = _uiState.value.copy(isSourceBusy = false)
         }
@@ -436,7 +465,7 @@ class SettingsViewModel @Inject constructor(
      */
     fun onSetGcInterval(interval: Int) {
         if (interval < MIN_GC_INTERVAL) {
-            _uiState.showError("Интервал полного обновления должен быть не меньше $MIN_GC_INTERVAL")
+            _uiState.showError(AppText(R.string.settings_error_gc_interval, MIN_GC_INTERVAL))
             return
         }
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -478,8 +507,10 @@ class SettingsViewModel @Inject constructor(
             is DiskLimitAction.SetCoverCacheMb -> {
                 if (action.limitMb !in COVER_CACHE_LIMIT_CHOICES_MB) {
                     _uiState.showError(
-                        "Лимит кэша обложек: допустимо " +
-                            COVER_CACHE_LIMIT_CHOICES_MB.joinToString(" / ") + " МБ",
+                        AppText(
+                            R.string.settings_error_cover_cache_limit,
+                            COVER_CACHE_LIMIT_CHOICES_MB.joinToString(" / "),
+                        ),
                     )
                     return
                 }
@@ -491,8 +522,10 @@ class SettingsViewModel @Inject constructor(
             is DiskLimitAction.SetTempCopyMb -> {
                 if (action.limitMb !in TEMP_COPY_LIMIT_CHOICES_MB) {
                     _uiState.showError(
-                        "Лимит временной копии: допустимо " +
-                            TEMP_COPY_LIMIT_CHOICES_MB.joinToString(" / ") + " МБ",
+                        AppText(
+                            R.string.settings_error_temp_copy_limit,
+                            TEMP_COPY_LIMIT_CHOICES_MB.joinToString(" / "),
+                        ),
                     )
                     return
                 }
@@ -539,7 +572,7 @@ class SettingsViewModel @Inject constructor(
      */
     fun onSetDownloadFileNameTemplate(template: String) {
         if (template !in DOWNLOAD_FILE_NAME_TEMPLATES) {
-            _uiState.showError("Такой шаблон имени файла не поддерживается")
+            _uiState.showError(AppText(R.string.settings_error_file_name_template))
             return
         }
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -551,8 +584,10 @@ class SettingsViewModel @Inject constructor(
     fun onSetFeedCacheMaxAgeMinutes(minutes: Int) {
         if (minutes !in FEED_CACHE_CHOICES_MINUTES) {
             _uiState.showError(
-                "Возраст кэша каталогов: допустимо " +
-                    FEED_CACHE_CHOICES_MINUTES.joinToString(" / ") + " мин",
+                AppText(
+                    R.string.settings_error_feed_cache_age,
+                    FEED_CACHE_CHOICES_MINUTES.joinToString(" / "),
+                ),
             )
             return
         }
@@ -562,7 +597,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
-        const val DEFAULT_READER_FORMAT = "fb2"
         const val MIN_FONT_SCALE = 50
         const val MAX_FONT_SCALE = 200
         const val MIN_FRONT_LIGHT = 0
@@ -589,15 +623,6 @@ private inline fun <reified T : Enum<T>> parseEnum(
 ): T? {
     val normalized = value.trim().uppercase(Locale.ROOT)
     return aliases[normalized] ?: runCatching { enumValueOf<T>(normalized) }.getOrNull()
-}
-
-/** Человеческое объяснение ошибки репозитория: у `AccessLost` и `Unsupported` свои подсказки. */
-private fun appErrorMessage(error: AppError?, fallback: String): String = when {
-    error == null -> fallback
-    error is AppError.AccessLost -> "Доступ к папке потерян, выберите её заново."
-    error is AppError.Unsupported -> error.message ?: "Операция пока не поддерживается."
-    !error.message.isNullOrBlank() -> error.message.orEmpty()
-    else -> fallback
 }
 
 private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = copy(
@@ -659,7 +684,7 @@ private fun observeSettings(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            state.showError(error.userMessage("Не удалось прочитать настройки."))
+            state.showError(AppText(R.string.settings_error_load, error.toAppError().text()))
         }
     }
 }
@@ -673,18 +698,22 @@ private fun observeReaders(
 ) {
     scope.launch {
         try {
-            repository.installedReaders().collect { readers ->
+            combine(repository.installedReaders(), repository.readerDefaults()) { readers, defaults ->
+                readers to defaults
+            }.collect { (readers, defaults) ->
+                val items = readers.map { reader -> toReaderItem(reader, defaultReaderIds()) }
+                val formats = formatReadersOf(items, defaults)
                 state.value = state.value.copy(
-                    installedReaders = readers.map { reader ->
-                        toReaderItem(reader, defaultReaderIds())
-                    },
+                    installedReaders = items,
+                    readerFormats = formats,
+                    readerCategories = readerCategoriesOf(formats),
                     error = null,
                 )
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            state.showError(error.userMessage("Не удалось получить список читалок."))
+            state.showError(AppText(R.string.settings_error_readers, error.toAppError().text()))
         }
     }
 }
@@ -741,13 +770,13 @@ private fun updateSettings(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            state.showError(error.userMessage("Не удалось сохранить настройку."))
+            state.showError(AppText(R.string.settings_error_save, error.toAppError().text()))
         }
     }
 }
 
 /** Показать баннер ошибки и снять признак загрузки: других способов сообщить о сбое у экрана нет. */
-private fun MutableStateFlow<SettingsUiState>.showError(message: String) {
+private fun MutableStateFlow<SettingsUiState>.showError(message: AppText) {
     value = value.copy(isLoading = false, error = message)
 }
 
@@ -791,7 +820,7 @@ private fun safeDiagnostics(
     current.copy(
         hasVendorCommands = controller.hasVendorCommands,
         vendorLabel = device.vendor.displayName,
-        screenLabel = device.screen.displayName,
+        screenLabel = device.screen.text(),
         supportsFastMode = controller.supportsFastMode,
         supportsFrontLight = hasFrontLight,
     )
@@ -808,15 +837,67 @@ private fun toReaderItem(reader: ReaderProfileSummary, defaultReaderIds: Set<Str
         name = reader.name,
         packageName = reader.packageName,
         isDefault = reader.id in defaultReaderIds,
+        supportedExtensions = reader.supportedExtensions,
     )
 
 /** Пересчитать признак «по умолчанию» после смены выбора: профили перечитывать не нужно. */
+/**
+ * Уровень, на который поднимает кнопка «Назад» в шапке экрана «Читалки».
+ *
+ * `null` — подниматься некуда: шапка выходит из раздела настроек. Кнопка в шапке одна, своей
+ * строки «Назад» в списке нет: её дублирование заметил Александр (01.10.2026).
+ */
+internal fun readersBackLevelOf(level: ReadersLevelUi): ReadersLevelUi? = when (level) {
+    ReadersLevelUi.Categories -> null
+    is ReadersLevelUi.Formats -> ReadersLevelUi.Categories
+    is ReadersLevelUi.ReadersOfFormat -> ReadersLevelUi.Formats(formatCategoryOf(level.extension))
+}
+
+/**
+ * Категории для первого уровня экрана «Читалки».
+ *
+ * Категория без форматов не показывается: строка «Документы» без единого документа — тупик.
+ */
+internal fun readerCategoriesOf(formats: List<FormatReaderUi>): List<ReaderCategoryUi> =
+    formats.groupBy { row -> row.category }
+        .map { (category, rows) ->
+            ReaderCategoryUi(
+                category = category,
+                formats = rows.size,
+                bound = rows.count { row -> row.readerId != null },
+            )
+        }
+        .sortedBy { row -> row.category.ordinal }
+
+/**
+ * Строки «формат → читалка»: какие форматы вообще есть и чем они открываются.
+ *
+ * Формат попадает в список, только если его умеет хотя бы одна установленная читалка: строка без
+ * вариантов была бы тупиком. Привязка к удалённой читалке показывается как «не выбрано» — строка
+ * `format_defaults` при удалении приложения остаётся, и притворяться, что выбор жив, нельзя.
+ */
+internal fun formatReadersOf(
+    readers: List<ReaderItemUi>,
+    defaults: Map<String, String>,
+): List<FormatReaderUi> = readers
+    .flatMap { reader -> reader.supportedExtensions }
+    .distinct()
+    .sorted()
+    .mapNotNull { extension ->
+        val candidates = readers.filter { reader -> extension in reader.supportedExtensions }
+        if (candidates.isEmpty()) return@mapNotNull null
+        val current = candidates.firstOrNull { reader -> reader.id == defaults[extension] }
+        FormatReaderUi(
+            extension = extension,
+            category = formatCategoryOf(extension),
+            readerName = current?.name,
+            readerId = current?.id,
+            candidates = candidates.size,
+        )
+    }
+
 private fun ReaderItemUi.withDefaultFlag(defaultReaderIds: Set<String>): ReaderItemUi =
     copy(isDefault = id in defaultReaderIds)
-
-/** Текст ошибки из исключения: пустое сообщение (или его отсутствие) важнее заменить подсказкой. */
-private fun Throwable.userMessage(fallback: String): String =
-    message?.takeIf { it.isNotBlank() } ?: fallback
 
 /**
  * Что меняет пользователь в блоке «Прогресс чтения».

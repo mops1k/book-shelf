@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.fold
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.OpdsEntry
 import io.github.bookshelf.core.data.repository.OpdsRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,8 +29,6 @@ data class FolderOptionUi(
 )
 
 /** Подписи уровней, если каталог не дал ни имени автора, ни названия серии. */
-private const val AUTHOR_FALLBACK_TITLE = "Автор"
-private const val SERIES_FALLBACK_TITLE = "Серия"
 
 /** Длина даты в ISO-8601 (`2026-09-28`): время и часовой пояс в карточке не нужны. */
 private const val ISO_DATE_LENGTH = 10
@@ -92,7 +93,7 @@ data class EntryDetailsUiState(
     /** Состояние загрузки этой записи; `null` — книгу ещё не качали. */
     val download: EntryDownloadUi? = null,
     /** Текст ошибки. */
-    val error: String? = null,
+    val error: AppText? = null,
 ) {
     /**
      * Можно нажать «Скачать».
@@ -154,7 +155,10 @@ class EntryDetailsViewModel @Inject constructor(
             opdsRepository.observeDownloads()
                 .catch { throwable ->
                     _uiState.update { state ->
-                        state.copy(error = "Не удалось получить состояние загрузки: $throwable")
+                        state.copy(error = AppText(
+                            R.string.catalogs_entry_error_load_state,
+                            throwable.toAppError().text(),
+                        ))
                     }
                 }
                 .collect { downloads ->
@@ -204,7 +208,12 @@ class EntryDetailsViewModel @Inject constructor(
     fun onOpenAuthor() {
         val target = entry ?: return
         val url = target.authorUrl ?: return
-        val title = target.authorsText.orEmpty().ifBlank { AUTHOR_FALLBACK_TITLE }
+        // Имя автора — данные; если сервер его не дал, слова «Автор» выбирает приложение.
+        val title = target.authorsText
+            .orEmpty()
+            .takeIf { it.isNotBlank() }
+            ?.let(FeedLabel::Named)
+            ?: FeedLabel.Message(AppText(R.string.catalogs_level_author))
         catalogFeedRequest.open(catalogId, url, title)
     }
 
@@ -212,13 +221,16 @@ class EntryDetailsViewModel @Inject constructor(
     fun onOpenSeries() {
         val target = entry ?: return
         val url = target.seriesUrl ?: return
-        catalogFeedRequest.open(catalogId, url, target.seriesName ?: SERIES_FALLBACK_TITLE)
+        val title = target.seriesName
+            ?.let(FeedLabel::Named)
+            ?: FeedLabel.Message(AppText(R.string.catalogs_level_series))
+        catalogFeedRequest.open(catalogId, url, title)
     }
 
     /** Перечитать фид и найти запись по id. */
     fun onRefresh() {
         if (catalogId.isEmpty()) {
-            _uiState.update { it.copy(error = "Каталог не указан") }
+            _uiState.update { it.copy(error = AppText(R.string.catalogs_entry_error_no_catalog)) }
             return
         }
         viewModelScope.launch {
@@ -229,7 +241,7 @@ class EntryDetailsViewModel @Inject constructor(
                     val found = entries.firstOrNull { it.id == entryId }
                     entry = found
                     _uiState.value = if (found == null) {
-                        EntryDetailsUiState(error = "Запись больше не входит в этот фид")
+                        EntryDetailsUiState(error = AppText(R.string.catalogs_entry_error_not_in_feed))
                     } else {
                         // Список папок не теряется: refresh перезаписывает состояние целиком,
                         // а папки приходят отдельной подпиской — иначе карточка показывала
@@ -261,7 +273,10 @@ class EntryDetailsViewModel @Inject constructor(
                 },
                 onFailure = {
                     _uiState.update { state ->
-                        state.copy(isLoading = false, error = "Не удалось загрузить запись: $it")
+                        state.copy(isLoading = false, error = AppText(
+                            R.string.catalogs_entry_error_load,
+                            it.text(),
+                        ))
                     }
                 },
             )
@@ -278,11 +293,11 @@ class EntryDetailsViewModel @Inject constructor(
         val target = entry
         val folderId = _uiState.value.selectedFolderId
         if (target == null || !_uiState.value.canStartDownload) {
-            _uiState.update { it.copy(error = "У записи нет прямой ссылки на файл") }
+            _uiState.update { it.copy(error = AppText(R.string.catalogs_entry_error_no_link)) }
             return
         }
         if (folderId == null) {
-            _uiState.update { it.copy(error = "Сначала добавьте папку в приложении") }
+            _uiState.update { it.copy(error = AppText(R.string.catalogs_entry_error_no_folder)) }
             return
         }
         viewModelScope.launch {
@@ -297,7 +312,10 @@ class EntryDetailsViewModel @Inject constructor(
                 onSuccess = { },
                 onFailure = {
                     _uiState.update { state ->
-                        state.copy(isLoading = false, error = "Не удалось поставить в очередь: $it")
+                        state.copy(isLoading = false, error = AppText(
+                            R.string.catalogs_entry_error_enqueue,
+                            it.text(),
+                        ))
                     }
                 },
             )

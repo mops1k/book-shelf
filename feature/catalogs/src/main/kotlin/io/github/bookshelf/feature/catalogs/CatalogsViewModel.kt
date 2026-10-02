@@ -14,21 +14,22 @@ import io.github.bookshelf.core.data.model.OpdsEntry
 import io.github.bookshelf.core.data.model.OpdsPage
 import io.github.bookshelf.core.data.repository.OpdsRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
+import java.text.SimpleDateFormat
+import java.util.Date
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import javax.inject.Inject
 
 /** Формат даты последнего открытия каталога в списке. */
 private const val DATE_PATTERN = "dd.MM"
 
 /** Подпись уровня результатов серверного поиска в хлебных крошках. */
-private const val SEARCH_PREFIX = "Поиск: "
 
 /**
  * Подпись локального отбора.
@@ -36,7 +37,6 @@ private const val SEARCH_PREFIX = "Поиск: "
  * Отличается от [SEARCH_PREFIX] намеренно: здесь сервер о запросе не знает, и одинаковые подписи
  * обещали бы поиск по всему каталогу там, где просмотрены только загруженные страницы.
  */
-private const val LOCAL_SEARCH_PREFIX = "Поиск по загруженному фиду: "
 
 /**
  * ViewModel модуля OPDS (docs/opds.md §3, Sprint 8).
@@ -179,7 +179,7 @@ class CatalogsViewModel @Inject constructor(
         // Название не обязательно: оно выводится из фида, а если того нет — из хоста.
         // Требовать его здесь значило заставлять вводить то, что сервер знает лучше нас.
         if (form.url.isBlank()) {
-            showError("Не удалось добавить каталог", AppError.InvalidArgument("addForm", "укажите адрес каталога"))
+            showError(R.string.catalogs_error_add, AppError.InvalidArgument("addForm", "укажите адрес каталога"))
             return
         }
         viewModelScope.launch {
@@ -201,7 +201,7 @@ class CatalogsViewModel @Inject constructor(
                     )
                     if (form.openImmediately) onOpenCatalog(catalog.id)
                 },
-                onFailure = { showError("Не удалось добавить каталог", it) },
+                onFailure = { showError(R.string.catalogs_error_add, it) },
             )
         }
     }
@@ -229,7 +229,7 @@ class CatalogsViewModel @Inject constructor(
                         searchUrl = page.searchUrl,
                     )
                 },
-                onFailure = { showError("Не удалось загрузить фид", it) },
+                onFailure = { showError(R.string.catalogs_error_load_feed, it) },
             )
         }
     }
@@ -253,7 +253,7 @@ class CatalogsViewModel @Inject constructor(
         val catalogId = currentCatalogId
         val entry = currentEntries[entryId]
         if (catalogId == null || entry == null) {
-            showError("Не удалось открыть запись", AppError.NotFound(entryId, "запись не найдена"))
+            showError(R.string.catalogs_error_open_entry, AppError.NotFound(entryId, "запись не найдена"))
             return
         }
         val sectionHref = entry.sectionHref
@@ -278,12 +278,12 @@ class CatalogsViewModel @Inject constructor(
                     showFeed(
                         catalogId = catalogId,
                         entries = page.entries,
-                        parentTitle = entry.title,
+                        parentTitle = FeedLabel.Named(entry.title),
                         nextUrl = page.nextUrl,
                         searchUrl = page.searchUrl,
                     )
                 },
-                onFailure = { showError("Не удалось открыть раздел", it) },
+                onFailure = { showError(R.string.catalogs_error_open_section, it) },
             )
         }
     }
@@ -305,7 +305,7 @@ class CatalogsViewModel @Inject constructor(
         val catalogId = currentCatalogId
         if (catalogId == null) {
             showError(
-                "Не удалось поставить загрузку в очередь",
+                R.string.catalogs_error_enqueue,
                 AppError.NotFound(entryId, "сначала откройте каталог"),
             )
             return
@@ -313,7 +313,7 @@ class CatalogsViewModel @Inject constructor(
         val entry = currentEntries[entryId]
         if (entry == null) {
             showError(
-                "Не удалось поставить загрузку в очередь",
+                R.string.catalogs_error_enqueue,
                 AppError.NotFound(entryId, "запись не найдена в загруженном фиде, обновите фид"),
             )
             return
@@ -334,7 +334,7 @@ class CatalogsViewModel @Inject constructor(
             setLoading(false)
             result.fold(
                 onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
-                onFailure = { showError("Не удалось поставить загрузку в очередь", it) },
+                onFailure = { showError(R.string.catalogs_error_enqueue, it) },
             )
         }
     }
@@ -357,7 +357,7 @@ class CatalogsViewModel @Inject constructor(
         if (_uiState.value.isLoading) return
         val query = _uiState.value.feedQuery.trim()
         if (query.isEmpty()) {
-            showError("Поиск по каталогу", AppError.InvalidArgument("query", "введите запрос"))
+            showError(AppText(R.string.catalogs_validation_query))
             return
         }
         val template = currentSearchUrl
@@ -376,7 +376,9 @@ class CatalogsViewModel @Inject constructor(
                     showFeed(
                         catalogId = catalogId,
                         entries = page.entries,
-                        parentTitle = "$SEARCH_PREFIX$query",
+                        parentTitle = FeedLabel.Message(
+                            AppText(R.string.catalogs_level_search, query),
+                        ),
                         nextUrl = page.nextUrl,
                         searchUrl = page.searchUrl,
                     )
@@ -388,7 +390,7 @@ class CatalogsViewModel @Inject constructor(
                     if (error is AppError.Unsupported) {
                         searchLoadedFeed(catalogId, query)
                     } else {
-                        showError("Не удалось выполнить поиск", error)
+                        showError(R.string.catalogs_error_search, error)
                     }
                 },
             )
@@ -411,7 +413,9 @@ class CatalogsViewModel @Inject constructor(
         showFeed(
             catalogId = catalogId,
             entries = matches,
-            parentTitle = LOCAL_SEARCH_PREFIX + query,
+            parentTitle = FeedLabel.Message(
+                AppText(R.string.catalogs_level_local_search, query),
+            ),
         )
     }
 
@@ -440,7 +444,7 @@ class CatalogsViewModel @Inject constructor(
                         searchUrl = page.searchUrl,
                     )
                 },
-                onFailure = { showError("Не удалось загрузить фид", it) },
+                onFailure = { showError(R.string.catalogs_error_load_feed, it) },
             )
         }
     }
@@ -507,7 +511,7 @@ class CatalogsViewModel @Inject constructor(
             viewModelScope.launch {
                 opdsRepository.removeCatalog(catalogId).fold(
                     onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
-                    onFailure = { showError("Не удалось удалить каталог", it) },
+                    onFailure = { showError(R.string.catalogs_error_delete, it) },
                 )
             }
         }
@@ -519,7 +523,7 @@ class CatalogsViewModel @Inject constructor(
             val form = _uiState.value.addForm
             val url = form.url.trim()
             if (url.isBlank()) {
-                showError("Изменение каталога", AppError.InvalidArgument("url", "укажите адрес каталога"))
+                showError(AppText(R.string.catalogs_validation_address))
                 return
             }
             if (_uiState.value.isLoading) return
@@ -531,7 +535,7 @@ class CatalogsViewModel @Inject constructor(
                     val checked = opdsRepository.browsePage(catalogId, url)
                     if (checked is AppResult.Failure) {
                         setLoading(false)
-                        showError("Каталог по новому адресу не открылся", checked.error)
+                        showError(R.string.catalogs_error_new_address, checked.error)
                         return@launch
                     }
                 }
@@ -551,7 +555,7 @@ class CatalogsViewModel @Inject constructor(
                             error = null,
                         )
                     },
-                    onFailure = { showError("Не удалось сохранить каталог", it) },
+                    onFailure = { showError(R.string.catalogs_error_save, it) },
                 )
             }
         }
@@ -585,7 +589,7 @@ class CatalogsViewModel @Inject constructor(
         viewModelScope.launch {
             opdsRepository.clearDownloadHistory().fold(
                 onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
-                onFailure = { showError("Не удалось очистить историю загрузок", it) },
+                onFailure = { showError(R.string.catalogs_error_clear_history, it) },
             )
         }
     }
@@ -595,7 +599,7 @@ class CatalogsViewModel @Inject constructor(
             val result = opdsRepository.cancelDownload(downloadId)
             result.fold(
                 onSuccess = { _uiState.value = _uiState.value.copy(error = null) },
-                onFailure = { showError("Не удалось отменить загрузку", it) },
+                onFailure = { showError(R.string.catalogs_error_cancel_download, it) },
             )
         }
     }
@@ -609,14 +613,14 @@ class CatalogsViewModel @Inject constructor(
     private fun observeState() {
         viewModelScope.launch {
             opdsRepository.observeCatalogs()
-                .catch { throwable -> showError("Не удалось загрузить каталоги", throwable.toAppError()) }
+                .catch { throwable -> showError(R.string.catalogs_error_load_catalogs, throwable.toAppError()) }
                 .collect { catalogs ->
                     _uiState.value = _uiState.value.copy(catalogs = catalogs.map { it.toCatalogUi() })
                 }
         }
         viewModelScope.launch {
             opdsRepository.observeDownloads()
-                .catch { throwable -> showError("Не удалось загрузить загрузки", throwable.toAppError()) }
+                .catch { throwable -> showError(R.string.catalogs_error_load_downloads, throwable.toAppError()) }
                 .collect { downloads ->
                     val mapped = downloads.map { it.toDownloadUi() }
                     // Состояние загрузок проставляется и записям текущего фида: пользователь
@@ -638,9 +642,9 @@ class CatalogsViewModel @Inject constructor(
     private fun showFeed(
         catalogId: String,
         entries: List<OpdsEntry>,
-        parentTitle: String? = null,
+        parentTitle: FeedLabel? = null,
         nextUrl: String? = null,
-        breadcrumbs: List<String>? = null,
+        breadcrumbs: List<FeedLabel>? = null,
         searchUrl: String? = null,
     ) {
         // Шаблон поиска обновляется, если фид его объявил; иначе остаётся прежний: в разделах
@@ -655,13 +659,15 @@ class CatalogsViewModel @Inject constructor(
         val catalog = _uiState.value.catalogs.firstOrNull { it.id == catalogId }
         _uiState.value = _uiState.value.copy(
             currentFeed = FeedUi(
-                title = catalog?.title ?: "Каталог",
+                title = catalog?.title
+                    ?.let(FeedLabel::Named)
+                    ?: FeedLabel.Message(AppText(R.string.catalogs_level_catalog)),
                 // Хлебные крошки копятся при переходе в раздел: без них в глубоком фиде
                 // непонятно, где вы находитесь и куда возвращаться. При догрузке страницы
                 // крошки приходят готовыми: дописывать текущий уровень второй раз нельзя —
                 // получалось «… / Все новинки / Все новинки».
                 breadcrumbs = breadcrumbs ?: if (parentTitle == null) {
-                    listOfNotNull(catalog?.title)
+                    listOfNotNull(catalog?.title?.let(FeedLabel::Named))
                 } else {
                     _uiState.value.currentFeed?.breadcrumbs.orEmpty() + parentTitle
                 },
@@ -697,7 +703,7 @@ class CatalogsViewModel @Inject constructor(
                 onSuccess = { page ->
                     appendFeed(catalogId, page)
                 },
-                onFailure = { showError("Не удалось догрузить страницу каталога", it) },
+                onFailure = { showError(R.string.catalogs_error_load_more, it) },
             )
         }
     }
@@ -767,7 +773,7 @@ class CatalogsViewModel @Inject constructor(
                         searchUrl = page.searchUrl,
                     )
                 },
-                onFailure = { showError("Не удалось открыть фид каталога", it) },
+                onFailure = { showError(R.string.catalogs_error_open_catalog_feed, it) },
             )
         }
     }
@@ -778,20 +784,14 @@ class CatalogsViewModel @Inject constructor(
      * У части ошибок [AppError.message] пуст, поэтому для них текст берётся по типу — баннер
      * не должен оставаться пустым.
      */
-    private fun showError(action: String, error: AppError) {
-        val detail = error.message ?: when (error) {
-            is AppError.Unsupported -> "пока не поддерживается (${error.what})"
-            is AppError.NotFound -> "не найдено: ${error.what}"
-            is AppError.InvalidArgument -> "неверное значение: ${error.what}"
-            is AppError.PermissionDenied -> "нет доступа"
-            is AppError.Io -> "ошибка ввода-вывода"
-            is AppError.Parse -> "не удалось разобрать данные: ${error.format}"
-            is AppError.Network -> "ошибка сети" + (error.httpCode?.let { " (HTTP $it)" } ?: "")
-            is AppError.Unauthorized -> "нужна авторизация"
-            AppError.AccessLost -> "доступ к источнику потерян"
-            is AppError.Unknown -> "неизвестная ошибка"
-        }
-        _uiState.value = _uiState.value.copy(error = "$action: $detail")
+    /** Ошибка действия: «что не получилось» — ресурс, «почему» — текст по типу ошибки (docs/tdd.md §7). */
+    private fun showError(actionRes: Int, error: AppError) {
+        _uiState.value = _uiState.value.copy(error = AppText(actionRes, error.text()))
+    }
+
+    /** Ошибка без причины: сама формулировка уже полная («укажите адрес каталога»). */
+    private fun showError(message: AppText) {
+        _uiState.value = _uiState.value.copy(error = message)
     }
 }
 
@@ -808,7 +808,10 @@ private fun OpdsCatalog.toCatalogUi(): CatalogUi = CatalogUi(
     requiresAuth = requiresAuth,
     username = username,
     lastOpenedLabel = lastOpenedAt?.let { openedAt ->
-        "Последний раз: " + SimpleDateFormat(DATE_PATTERN, russianLocale).format(Date(openedAt))
+        AppText(
+            R.string.catalogs_last_opened,
+            SimpleDateFormat(DATE_PATTERN, russianLocale).format(Date(openedAt)),
+        )
     },
     isAvailable = enabled,
 )

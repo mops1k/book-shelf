@@ -27,6 +27,7 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
+import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.scan.ProblemFileUi
@@ -38,7 +39,9 @@ import io.github.bookshelf.feature.scan.scanProgressCaption
 import io.github.bookshelf.feature.scan.scanProgressFraction
 import io.github.bookshelf.feature.scan.scanStatusLabel
 import io.github.bookshelf.core.designsystem.text.resolve
+import io.github.bookshelf.core.designsystem.theme.EinkDimens
 import io.github.bookshelf.feature.scan.R
+import io.github.bookshelf.feature.scan.ScanProgressUi
 
 /**
  * Сканирование: прогресс, отчёт и дубликаты (docs/eink-ux.md §6.6–6.7).
@@ -77,6 +80,64 @@ fun ScanScreen(
     }
 }
 
+
+/** Счётчики прогона сканирования: «увидено», «добавлено», «обновлено», «удалено», «с ошибкой». */
+@Composable
+private fun ScanCounters(progress: ScanProgressUi, dimens: EinkDimens) {
+    Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
+        EinkListRow(
+            title = stringResource(R.string.scan_row_files_seen),
+            trailing = progress.filesSeen.toString(),
+        )
+        EinkListRow(
+            title = stringResource(R.string.scan_row_added),
+            trailing = progress.added.toString(),
+        )
+        EinkListRow(
+            title = stringResource(R.string.scan_row_updated),
+            trailing = progress.updated.toString(),
+        )
+        EinkListRow(
+            title = stringResource(R.string.scan_row_removed),
+            trailing = progress.removed.toString(),
+        )
+        EinkListRow(
+            title = stringResource(R.string.scan_row_failed),
+            trailing = progress.failed.toString(),
+        )
+    }
+}
+
+/** Баннер ошибки на экране прогресса: вынесен ради предела длины `ProgressScreen`. */
+@Composable
+private fun ScanErrorBanner(error: AppText?, onRefresh: () -> Unit) {
+    if (error == null) return
+    EinkErrorBanner(
+        message = error.resolve(),
+        actionLabel = stringResource(R.string.scan_action_refresh),
+        onAction = onRefresh,
+    )
+}
+
+/** Аппаратные клавиши экрана прогресса сканирования. */
+private fun progressKeyAction(
+    action: EinkAction,
+    canResume: Boolean,
+    onResume: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onShowReport: () -> Unit,
+    onBack: () -> Unit,
+) {
+    when (action) {
+        // Центральная кнопка продолжает скан, когда он стоит на паузе, и уходит на полку,
+        // когда продолжать нечего.
+        EinkAction.OPEN -> if (canResume) onResume() else onOpenLibrary()
+        EinkAction.MENU -> onShowReport()
+        EinkAction.BACK -> onBack()
+        else -> Unit
+    }
+}
+
 /** Прогресс сканирования: пауза во время прогона, продолжение с сохранённого места. */
 @Composable
 private fun ProgressScreen(
@@ -94,24 +155,18 @@ private fun ProgressScreen(
         modifier = modifier,
         onBack = onBack,
         onKeyAction = { action ->
-            when (action) {
-                // Центральная кнопка продолжает скан, когда он стоит на паузе, и уходит на полку,
-                // когда продолжать нечего.
-                EinkAction.OPEN -> if (state.canResume) viewModel.onResume() else viewModel.onOpenLibrary()
-                EinkAction.MENU -> viewModel.onShowReport()
-                EinkAction.BACK -> onBack()
-                else -> Unit
-            }
+            progressKeyAction(
+                action = action,
+                canResume = state.canResume,
+                onResume = viewModel::onResume,
+                onOpenLibrary = viewModel::onOpenLibrary,
+                onShowReport = viewModel::onShowReport,
+                onBack = onBack,
+            )
         },
     ) {
         val error = state.error
-        if (error != null) {
-            EinkErrorBanner(
-                message = error,
-                actionLabel = stringResource(R.string.scan_action_refresh),
-                onAction = viewModel::onRefresh,
-            )
-        }
+        ScanErrorBanner(error = error, onRefresh = viewModel::onRefresh)
 
         if (progress == null) {
             EinkEmptyState(
@@ -132,68 +187,12 @@ private fun ProgressScreen(
                     progress.failed,
                 ),
             )
-            Column(modifier = Modifier.padding(horizontal = dimens.gutter)) {
-                EinkListRow(
-                    title = stringResource(R.string.scan_row_files_seen),
-                    trailing = progress.filesSeen.toString(),
-                )
-                EinkListRow(
-                    title = stringResource(R.string.scan_row_added),
-                    trailing = progress.added.toString(),
-                )
-                EinkListRow(
-                    title = stringResource(R.string.scan_row_updated),
-                    trailing = progress.updated.toString(),
-                )
-                EinkListRow(
-                    title = stringResource(R.string.scan_row_removed),
-                    trailing = progress.removed.toString(),
-                )
-                EinkListRow(
-                    title = stringResource(R.string.scan_row_failed),
-                    trailing = progress.failed.toString(),
-                )
-            }
+            ScanCounters(progress = progress, dimens = dimens)
             // Кнопки по состоянию прогона: во время скана — «Пауза», на паузе — «Продолжить».
             // «К полке» есть всегда: скан идёт в фоне, и держать пользователя на этом экране
             // незачем. Кнопки «Отменить» нет намеренно — скан прерываемый и возобновляемый.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-            ) {
-                if (state.actions.canPause) {
-                    EinkButton(
-                        text = stringResource(R.string.scan_action_pause),
-                        onClick = viewModel::onPause,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (state.actions.canResume) {
-                    EinkButton(
-                        text = stringResource(R.string.scan_action_resume),
-                        onClick = viewModel::onResume,
-                        primary = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (canOpenReport(state.report, state.actions.canPause)) {
-                    EinkButton(
-                        text = stringResource(R.string.scan_action_report),
-                        onClick = viewModel::onShowReport,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (state.actions.canOpenLibrary) {
-                    EinkButton(
-                        text = stringResource(R.string.scan_action_shelf),
-                        onClick = viewModel::onOpenLibrary,
-                        primary = !state.actions.canPause && !state.actions.canResume,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            ScanActionButtons(state = state, viewModel = viewModel)
+
         }
     }
 }
@@ -215,21 +214,19 @@ private fun ReportScreen(
 
     EinkScaffold(
         title = stringResource(R.string.scan_report_title),
-        subtitle = report?.durationLabel,
+        subtitle = report?.durationLabel?.resolve(),
         modifier = modifier,
         onBack = onBack,
         // Кнопки «Дубликаты» здесь нет: поиск дублей живёт в настройках («Библиотека и
         // сканирование» → «Проверить на дубли»), а второй вход вёл на экран, где кнопки отвечали
         // «пока не поддерживается», и список групп никто не заполнял.
         onKeyAction = { action ->
-            when (action) {
-                EinkAction.PREVIOUS_PAGE -> scrollProblems(-1)
-                EinkAction.NEXT_PAGE -> scrollProblems(1)
-                EinkAction.OPEN -> viewModel.onShowProgress()
-                EinkAction.MENU -> viewModel.onShowProgress()
-                EinkAction.BACK -> onBack()
-                else -> Unit
-            }
+            reportKeyAction(
+                action = action,
+                scrollByPage = scrollProblems,
+                onShowProgress = viewModel::onShowProgress,
+                onBack = onBack,
+            )
         },
     ) {
         if (report == null) {
@@ -282,6 +279,71 @@ private fun ProblemFileRow(
     file: ProblemFileUi,
     onClick: () -> Unit,
 ) {
-    EinkListRow(title = file.fileName, subtitle = file.reason, onClick = onClick)
+    // Причина из базы показывается как есть; если её не записали — переводимый текст (docs/tdd.md §5).
+    EinkListRow(
+        title = file.fileName,
+        subtitle = file.parseFailure?.resolve() ?: stringResource(R.string.scan_reason_missing),
+        onClick = onClick,
+    )
 }
 
+
+/** Кнопки управления прогоном сканирования: «Пауза», «Продолжить», «К полке», «Отчёт». */
+@Composable
+private fun ScanActionButtons(state: ScanUiState, viewModel: ScanViewModel) {
+    val dimens = LocalEinkDimens.current
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        ) {
+            if (state.actions.canPause) {
+                EinkButton(
+                    text = stringResource(R.string.scan_action_pause),
+                    onClick = viewModel::onPause,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (state.actions.canResume) {
+                EinkButton(
+                    text = stringResource(R.string.scan_action_resume),
+                    onClick = viewModel::onResume,
+                    primary = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (canOpenReport(state.report, state.actions.canPause)) {
+                EinkButton(
+                    text = stringResource(R.string.scan_action_report),
+                    onClick = viewModel::onShowReport,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (state.actions.canOpenLibrary) {
+                EinkButton(
+                    text = stringResource(R.string.scan_action_shelf),
+                    onClick = viewModel::onOpenLibrary,
+                    primary = !state.actions.canPause && !state.actions.canResume,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+}
+
+
+/** Что делает аппаратная клавиша на отчёте сканирования. */
+private fun reportKeyAction(
+    action: EinkAction,
+    scrollByPage: (Int) -> Unit,
+    onShowProgress: () -> Unit,
+    onBack: () -> Unit,
+) {
+    when (action) {
+        EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+        EinkAction.NEXT_PAGE -> scrollByPage(1)
+        EinkAction.OPEN, EinkAction.MENU -> onShowProgress()
+        EinkAction.BACK -> onBack()
+        else -> Unit
+    }
+}

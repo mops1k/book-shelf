@@ -7,6 +7,8 @@ import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.data.repository.BookOptimizationBatch
 import io.github.bookshelf.core.data.repository.BookRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -31,8 +33,10 @@ data class BookOptimizationUiState(
     val isStopping: Boolean = false,
     val done: Int = 0,
     val total: Int = 0,
-    val message: String? = null,
-    val error: String? = null,
+    /** Итог словами: переводимые части, экран склеивает их через `resolveJoined` (docs/tdd.md §5). */
+    val message: List<AppText> = emptyList(),
+    /** Ошибка: текст по типу причины, а не `AppError.message` (docs/tdd.md §7). */
+    val error: AppText? = null,
 )
 
 /**
@@ -61,7 +65,14 @@ class BookOptimizationViewModel @Inject constructor(
     fun onStart() {
         if (job?.isActive == true) return
         _uiState.update {
-            it.copy(isRunning = true, isStopping = false, done = 0, total = 0, message = null, error = null)
+            it.copy(
+                isRunning = true,
+                isStopping = false,
+                done = 0,
+                total = 0,
+                message = emptyList(),
+                error = null,
+            )
         }
         job = viewModelScope.launch {
             try {
@@ -74,7 +85,7 @@ class BookOptimizationViewModel @Inject constructor(
                         it.copy(
                             isRunning = false,
                             isStopping = false,
-                            error = failure.message ?: "Оптимизировать книги не удалось",
+                            error = AppText(R.string.settings_optimization_failed, failure.text()),
                         )
                     }
                     return@launch
@@ -84,7 +95,8 @@ class BookOptimizationViewModel @Inject constructor(
                     state.copy(
                         isRunning = false,
                         isStopping = false,
-                        message = batch?.let(::report) ?: "Оптимизация завершена",
+                        message = batch?.let(::report)
+                            ?: listOf(AppText(R.string.settings_optimization_done)),
                     )
                 }
             } catch (cancellation: CancellationException) {
@@ -94,7 +106,9 @@ class BookOptimizationViewModel @Inject constructor(
                     state.copy(
                         isRunning = false,
                         isStopping = false,
-                        message = "Оптимизация остановлена: обработано ${state.done} из ${state.total}",
+                        message = listOf(
+                            AppText(R.string.settings_optimization_stopped, state.done, state.total),
+                        ),
                     )
                 }
                 throw cancellation
@@ -123,27 +137,40 @@ class BookOptimizationViewModel @Inject constructor(
 /**
  * Итог прогона словами.
  *
- * Отдельно называются три разные вещи, которые легко слить в одно «готово»: сколько книг
- * уменьшено, сколько проверено без выигрыша и сколько не удалось. Остановка читалкой называется
- * прямо и с числами: без этого «оптимизировано 1» при пяти книгах читалось бы как полный успех.
+ * Отдельно называются разные вещи, которые легко слить в одно «готово»: сколько книг уменьшено,
+ * сколько проверено без выигрыша, сколько не удалось и сколько было проверено раньше. Остановка
+ * читалкой называется первой частью и с числами: без этого «оптимизировано 1» при пяти книгах
+ * читалось бы как полный успех.
+ *
+ * Части — переводимые тексты ([AppText]), а не готовая строка: в итоге бывает до пяти чисел, и
+ * экран склеивает части разделителем из ресурса (`resolveJoined`).
  */
-private fun report(batch: BookOptimizationBatch): String {
+private fun report(batch: BookOptimizationBatch): List<AppText> {
     if (batch.total == 0) {
-        return if (batch.alreadyOptimized > 0) {
-            "Все книги FB2 уже проверены — новых нет"
-        } else {
-            "Книг FB2 в библиотеке нет"
-        }
+        return listOf(
+            if (batch.alreadyOptimized > 0) {
+                AppText(R.string.settings_optimization_all_checked)
+            } else {
+                AppText(R.string.settings_optimization_no_books)
+            },
+        )
     }
-    val parts = mutableListOf("Оптимизировано книг: ${batch.optimized}")
-    if (batch.savedBytes > 0) parts += "сэкономлено ${freedBytesLabel(batch.savedBytes)}"
-    if (batch.skipped > 0) parts += "уже оптимальных: ${batch.skipped}"
-    if (batch.failed > 0) parts += "не удалось: ${batch.failed}"
-    if (batch.alreadyOptimized > 0) parts += "пропущено проверенных раньше: ${batch.alreadyOptimized}"
-    val summary = parts.joinToString(", ")
-    return if (batch.stoppedByReader) {
-        "Остановлено: открыта читалка (обработано ${batch.processed} из ${batch.total}). $summary"
-    } else {
-        summary
+    return buildList {
+        if (batch.stoppedByReader) {
+            add(AppText(R.string.settings_optimization_stopped_by_reader, batch.processed, batch.total))
+        }
+        add(AppText(R.string.settings_optimization_optimized, batch.optimized))
+        if (batch.savedBytes > 0) {
+            add(AppText(R.string.settings_optimization_saved, freedBytesText(batch.savedBytes)))
+        }
+        if (batch.skipped > 0) {
+            add(AppText(R.string.settings_optimization_already_best, batch.skipped))
+        }
+        if (batch.failed > 0) {
+            add(AppText(R.string.settings_optimization_failed_count, batch.failed))
+        }
+        if (batch.alreadyOptimized > 0) {
+            add(AppText(R.string.settings_optimization_skipped_checked, batch.alreadyOptimized))
+        }
     }
 }

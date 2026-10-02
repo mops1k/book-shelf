@@ -4,7 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.app.FolderOpener
 import io.github.bookshelf.core.common.error.AppError
+import java.util.Locale
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import io.github.bookshelf.core.data.model.Book
 import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.repository.BookOptimizationResult
@@ -68,8 +71,14 @@ class BookOptimizationActionTest {
 
         val state = viewModel.uiState.value
         assertThat(state.isOptimizing).isFalse()
-        assertThat(state.optimizationMessage).contains("Сэкономлено 1,0 МБ")
-        assertThat(state.optimizationMessage).contains("было 4,0 МБ")
+        // Итог — переводимые части: экономия и «было/стало» (docs/tdd.md §5).
+        assertThat(state.optimizationMessage).isEqualTo(
+            AppText(
+                R.string.book_optimized_saved,
+                mb(1.0),
+                AppText(R.string.book_optimized_sizes, mb(4.0), mb(3.0)),
+            ),
+        )
         assertThat(repository.optimized).containsExactly(BOOK_ID)
     }
 
@@ -85,7 +94,8 @@ class BookOptimizationActionTest {
         viewModel.onOptimize()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.optimizationMessage).contains("уже оптимален")
+        assertThat(viewModel.uiState.value.optimizationMessage)
+            .isEqualTo(AppText(R.string.book_optimized_nothing))
     }
 
     @Test
@@ -106,7 +116,8 @@ class BookOptimizationActionTest {
         viewModel.onOptimize()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.optimizationMessage).contains("Уже оптимизирована")
+        assertThat(viewModel.uiState.value.optimizationMessage)
+            .isEqualTo(AppText(R.string.book_optimized_earlier))
     }
 
     @Test
@@ -130,9 +141,8 @@ class BookOptimizationActionTest {
     @Test
     fun `a refusal is shown with its reason`() = runTest(dispatcher) {
         givenBook(extension = "fb2")
-        repository.optimization = AppResult.failure(
-            AppError.PermissionDenied(message = "Открыта читалка — оптимизация подождёт"),
-        )
+        val refusal = AppError.PermissionDenied(message = "Открыта читалка — оптимизация подождёт")
+        repository.optimization = AppResult.failure(refusal)
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -140,9 +150,14 @@ class BookOptimizationActionTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertThat(state.error).contains("Открыта читалка")
+        // Причина — текст по типу ошибки, а не сообщение слоя данных (docs/tdd.md §7).
+        assertThat(state.error).isEqualTo(AppText(R.string.book_error_optimize, refusal.text()))
         assertThat(state.optimizationMessage).isNull()
     }
+
+    /** Мегабайты так, как их считает код: число форматируется по локали, единицу даёт ресурс. */
+    private fun mb(value: Double): AppText =
+        AppText(R.string.book_size_mb, String.format(Locale.getDefault(), "%.1f", value))
 
     private fun viewModel() = BookDetailsViewModel(
         savedStateHandle = SavedStateHandle(mapOf(BookDetailsRoute.ARG_BOOK_ID to BOOK_ID)),
@@ -173,6 +188,8 @@ class BookOptimizationActionTest {
         override fun installedReaders(): Flow<List<ReaderProfileSummary>> = flowOf(emptyList())
 
         override fun defaultForFormat(format: String): Flow<String?> = flowOf(null)
+
+        override fun readerDefaults(): Flow<Map<String, String>> = flowOf(emptyMap())
 
         override suspend fun setDefault(format: String, profileId: String?): AppResult<Unit> =
             AppResult.success(Unit)

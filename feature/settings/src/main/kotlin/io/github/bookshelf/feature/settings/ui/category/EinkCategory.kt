@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
+import io.github.bookshelf.feature.settings.AppSettingsUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.CategoryPending
@@ -71,38 +73,7 @@ internal fun EinkCategory(
                 subtitle = stringResource(R.string.settings_eink_refresh_mode_hint),
             )
         }
-        item(key = "eink-refresh-screen") {
-            ToggleRow(
-                title = stringResource(R.string.settings_eink_full_on_screen),
-                subtitle = stringResource(R.string.settings_eink_full_on_screen_hint),
-                enabled = settings.fullRefreshOnScreenChange,
-                onToggle = viewModel::onSetRefreshOnScreenChange,
-            )
-        }
-        item(key = "eink-refresh-dialog") {
-            ToggleRow(
-                title = stringResource(R.string.settings_eink_full_on_dialog),
-                subtitle = stringResource(R.string.settings_eink_full_on_dialog_hint),
-                enabled = settings.fullRefreshOnDialog,
-                onToggle = viewModel::onSetRefreshOnDialog,
-            )
-        }
-        item(key = "eink-refresh-page") {
-            ToggleRow(
-                title = stringResource(R.string.settings_eink_full_on_page),
-                subtitle = stringResource(R.string.settings_eink_full_on_page_hint),
-                enabled = settings.fullRefreshOnPage,
-                onToggle = viewModel::onSetFullRefreshOnPage,
-            )
-        }
-        item(key = "eink-volume-keys") {
-            ToggleRow(
-                title = stringResource(R.string.settings_eink_volume_keys),
-                subtitle = stringResource(R.string.settings_eink_volume_keys_hint),
-                enabled = settings.volumeKeysAsPageTurn,
-                onToggle = viewModel::onSetVolumeKeysAsPageTurn,
-            )
-        }
+        einkRefreshToggles(settings = settings, viewModel = viewModel)
         item(key = "eink-gc-interval") {
             ValueChoiceRow(
                 title = stringResource(R.string.settings_eink_gc_interval),
@@ -147,3 +118,43 @@ private val GC_INTERVAL_CHOICES = listOf(5, 10, 20, 50)
 
 /** Уровни подсветки: пять шагов от выключенной до максимальной. */
 private val FRONT_LIGHT_CHOICES = listOf(0, 25, 50, 75, 100)
+
+
+/** Тумблеры полного обновления и клавиш громкости: вынесены ради предела длины `EinkCategory`. */
+private fun LazyListScope.einkRefreshToggles(
+    settings: AppSettingsUi,
+    viewModel: SettingsViewModel,
+) {
+    item(key = "eink-refresh-screen") {
+        ToggleRow(
+            title = stringResource(R.string.settings_eink_full_on_screen),
+            subtitle = stringResource(R.string.settings_eink_full_on_screen_hint),
+            enabled = settings.fullRefreshOnScreenChange,
+            onToggle = viewModel::onSetRefreshOnScreenChange,
+        )
+    }
+    item(key = "eink-refresh-dialog") {
+        ToggleRow(
+            title = stringResource(R.string.settings_eink_full_on_dialog),
+            subtitle = stringResource(R.string.settings_eink_full_on_dialog_hint),
+            enabled = settings.fullRefreshOnDialog,
+            onToggle = viewModel::onSetRefreshOnDialog,
+        )
+    }
+    item(key = "eink-refresh-page") {
+        ToggleRow(
+            title = stringResource(R.string.settings_eink_full_on_page),
+            subtitle = stringResource(R.string.settings_eink_full_on_page_hint),
+            enabled = settings.fullRefreshOnPage,
+            onToggle = viewModel::onSetFullRefreshOnPage,
+        )
+    }
+    item(key = "eink-volume-keys") {
+        ToggleRow(
+            title = stringResource(R.string.settings_eink_volume_keys),
+            subtitle = stringResource(R.string.settings_eink_volume_keys_hint),
+            enabled = settings.volumeKeysAsPageTurn,
+            onToggle = viewModel::onSetVolumeKeysAsPageTurn,
+        )
+    }
+}

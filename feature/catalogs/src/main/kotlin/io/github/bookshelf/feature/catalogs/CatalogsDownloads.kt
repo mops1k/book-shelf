@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.catalogs
 
 import io.github.bookshelf.core.data.model.DownloadState
 import io.github.bookshelf.core.data.model.OpdsDownload
+import io.github.bookshelf.core.designsystem.text.text
 
 /**
  * Состояние загрузок в браузере каталога.
@@ -99,6 +100,6 @@ internal fun OpdsDownload.toDownloadUi(): DownloadUi {
         progressPercent = percent,
         isActive = isActive,
         bookId = bookId,
-        error = error,
+        failure = failure?.text(),
     )
 }

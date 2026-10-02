@@ -1,5 +1,9 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.readerlink.mime.ReaderFormatCategory
+
+import io.github.bookshelf.core.designsystem.text.AppText
+
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
@@ -52,6 +56,53 @@ data class ReaderItemUi(
     val packageName: String,
     /** true — читалка по умолчанию хотя бы для одного формата. */
     val isDefault: Boolean = false,
+    /** Форматы, которые эта читалка умеет открывать: по ним строится выбор «формат → читалка». */
+    val supportedExtensions: Set<String> = emptySet(),
+)
+
+/**
+ * Строка категории на первом уровне экрана «Читалки».
+ *
+ * @param formats сколько форматов в категории
+ * @param bound у скольких из них уже выбрана читалка
+ */
+data class ReaderCategoryUi(
+    val category: ReaderFormatCategory,
+    val formats: Int,
+    val bound: Int,
+)
+
+/** Уровень экрана «Читалки»: категории → форматы → читалки формата. */
+sealed interface ReadersLevelUi {
+
+    /** Первый уровень: книги, документы, манги, другое. */
+    data object Categories : ReadersLevelUi
+
+    /** Второй уровень: форматы выбранной категории. */
+    data class Formats(val category: ReaderFormatCategory) : ReadersLevelUi
+
+    /** Третий уровень: читалки, которые умеют выбранный формат. */
+    data class ReadersOfFormat(val extension: String) : ReadersLevelUi
+}
+
+/**
+ * Строка «формат → читалка»: чем открывается формат.
+ *
+ * Александр (01.10.2026): «надо сделать, чтобы пользователь мог выбрать, какому формату какую
+ * читалку привязать, если читалка поддерживает конечно этот формат». Список вариантов уже
+ * ограничен поддерживаемыми форматами, поэтому в строке нет читалок, которые формат не умеют.
+ */
+data class FormatReaderUi(
+    /** Расширение формата: `fb2`, `epub`, `pdf`. */
+    val extension: String,
+    /** Категория формата: книги, документы, манги, другое. */
+    val category: ReaderFormatCategory = ReaderFormatCategory.OTHER,
+    /** Подпись текущей читалки; `null` — формат ни за кем не закреплён. */
+    val readerName: String?,
+    /** id текущей читалки; `null` — формат ни за кем не закреплён. */
+    val readerId: String?,
+    /** Сколько читалок умеют этот формат: если ноль, строку показывать незачем. */
+    val candidates: Int,
 )
 
 /**
@@ -101,10 +152,13 @@ data class EinkDiagnosticsUi(
      * обычным экраном только потому, что вендорского контроллера для него нет.
      */
     val hasVendorCommands: Boolean = false,
-    /** Подпись вендора: «Onyx Boox», «Bigme», «Неизвестное устройство». */
-    val vendorLabel: String = "Неизвестное устройство",
-    /** Тип экрана словами: «обычный экран», «электронная бумага, цветная». */
-    val screenLabel: String = "обычный экран",
+    /**
+     * Имя производителя: «Onyx Boox», «Bigme». `null` — вендор не определён, и экран показывает
+     * переводимое «неизвестное устройство» из своих ресурсов.
+     */
+    val vendorLabel: String? = null,
+    /** Тип экрана словами: ресурс выбирает [EinkScreen.text], показывает экран. */
+    val screenLabel: AppText = AppText(R.string.settings_screen_normal),
     /** Доступен быстрый режим обновления. */
     val supportsFastMode: Boolean = false,
     /** Управляемая подсветка. */
@@ -209,6 +263,12 @@ data class SettingsUiState(
     val settings: AppSettingsUi = AppSettingsUi(),
     /** Установленные читалки. */
     val installedReaders: List<ReaderItemUi> = emptyList(),
+    /** Строки «формат → читалка»: чем открывается каждый формат. */
+    val readerFormats: List<FormatReaderUi> = emptyList(),
+    /** Категории форматов: первый уровень экрана «Читалки». */
+    val readerCategories: List<ReaderCategoryUi> = emptyList(),
+    /** Где сейчас человек на экране «Читалки». */
+    val readersLevel: ReadersLevelUi = ReadersLevelUi.Categories,
     /** Папки-источники, в которых приложение ищет книги. */
     val sources: List<SourceItemUi> = emptyList(),
     /** Идёт добавление или удаление папки. */
@@ -225,14 +285,14 @@ data class SettingsUiState(
     val isResetting: Boolean = false,
     /** Идёт очистка кэша обложек («Очистить кэш обложек» в «Хранилище и кэш»). */
     val isClearingCoverCache: Boolean = false,
-    /** Результат очистки кэша обложек: «освобождено 12,4 МБ» или причина сбоя. */
-    val coverCacheMessage: String? = null,
+    /** Результат очистки кэша обложек: «освобождено 12,4 МБ» или причина сбоя — переводимый текст. */
+    val coverCacheMessage: AppText? = null,
     /** Идёт проверка связи с читалкой (API-сервис FBReader). */
     val isCheckingReaderApi: Boolean = false,
     /** Результат проверки связи: «API отвечает…» или причина отказа. `null` — ещё не проверяли. */
-    val readerApiStatus: String? = null,
-    /** Текст ошибки для `EinkErrorBanner`. */
-    val error: String? = null,
+    val readerApiStatus: AppText? = null,
+    /** Текст ошибки для `EinkErrorBanner`: ресурс, а не готовая строка (docs/tdd.md §5). */
+    val error: AppText? = null,
 )
 
 /** Список разделов настроек в порядке отображения — чистые данные, без обращений к хранилищу. */

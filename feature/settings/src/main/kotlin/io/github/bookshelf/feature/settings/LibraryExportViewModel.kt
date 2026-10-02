@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.time.AppClock
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.export.libraryExportFileName
+import io.github.bookshelf.core.designsystem.text.AppText
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,8 +24,8 @@ import kotlinx.coroutines.launch
  */
 data class LibraryExportUiState(
     val isExporting: Boolean = false,
-    val message: String? = null,
-    val error: String? = null,
+    val message: AppText? = null,
+    val error: AppText? = null,
 )
 
 /**

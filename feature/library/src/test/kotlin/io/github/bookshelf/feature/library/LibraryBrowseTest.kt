@@ -55,17 +55,17 @@ class LibraryBrowseTest {
             AuthorSet(names = listOf("Лев Толстой"), label = "Лев Толстой", count = 3),
             AuthorSet(names = listOf("Фёдор Достоевский"), label = "Фёдор Достоевский", count = 1),
         ),
-        series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
+        series = listOf(FacetItem(id = "Классика", labelCode = "Классика", count = 2)),
         // Серии отдаются по обоим путям: категория обзора спрашивает набор, карточка книги — имя.
         authorSetSeries = mapOf(
             "Лев Толстой" to AuthorSeries(
-                series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
+                series = listOf(FacetItem(id = "Классика", labelCode = "Классика", count = 2)),
                 withoutSeries = 1,
             ),
         ),
         authorSeries = mapOf(
             "Лев Толстой" to AuthorSeries(
-                series = listOf(FacetItem(id = "Классика", label = "Классика", count = 2)),
+                series = listOf(FacetItem(id = "Классика", labelCode = "Классика", count = 2)),
                 withoutSeries = 1,
             ),
         ),

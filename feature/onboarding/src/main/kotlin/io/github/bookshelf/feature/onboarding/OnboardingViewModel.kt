@@ -6,10 +6,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import io.github.bookshelf.core.data.model.Source
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.data.repository.SourceRepository
+import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -65,7 +68,7 @@ class OnboardingViewModel @Inject constructor(
     fun onAddSource() {
         _uiState.value = _uiState.value.copy(error = null)
         if (!_sourcePickerRequests.tryEmit(Unit)) {
-            showError("Не удалось открыть выбор папки")
+            showError(AppText(R.string.onboarding_error_open_picker))
         }
     }
 
@@ -78,21 +81,22 @@ class OnboardingViewModel @Inject constructor(
     fun onSourcePicked(uri: String, displayName: String) {
         val safeUri = uri.trim()
         if (safeUri.isEmpty()) {
-            showError("Выбранная папка не содержит URI")
+            showError(AppText(R.string.onboarding_error_empty_uri))
             return
         }
-        val safeName = displayName.trim().ifBlank {
-            safeUri.substringAfterLast('/').ifBlank { DEFAULT_SOURCE_NAME }
-        }
+        // Имя папки — данные: берём то, что дала система, иначе последний сегмент адреса, иначе
+        // ПУСТО. Слова («Папка») подставит экран (`settings_sources_default_name`): в базе русского
+        // текста быть не должно, иначе он не переводится (docs/tdd.md §8).
+        val safeName = displayName.trim().ifBlank { safeUri.substringAfterLast('/') }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, error = null)
             try {
                 val result = sourceRepository.addSafSource(safeUri, safeName)
                 if (result.isFailure) {
                     showError(
-                        appErrorMessage(
-                            result.errorOrNull(),
-                            "Не удалось добавить папку.",
+                        AppText(
+                            R.string.onboarding_error_add_source,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
                         ),
                     )
                 } else {
@@ -101,7 +105,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось добавить папку."))
+                showError(AppText(R.string.onboarding_error_add_source, error.toAppError().text()))
             }
         }
     }
@@ -114,9 +118,9 @@ class OnboardingViewModel @Inject constructor(
                 val result = sourceRepository.removeSource(sourceId)
                 if (result.isFailure) {
                     showError(
-                        appErrorMessage(
-                            result.errorOrNull(),
-                            "Не удалось убрать папку.",
+                        AppText(
+                            R.string.onboarding_error_remove_source,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
                         ),
                     )
                 } else {
@@ -125,7 +129,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось убрать папку."))
+                showError(AppText(R.string.onboarding_error_remove_source, error.toAppError().text()))
             }
         }
     }
@@ -143,9 +147,9 @@ class OnboardingViewModel @Inject constructor(
                 val result = readerRepository.setDefault(DEFAULT_READER_FORMAT, readerId)
                 if (result.isFailure) {
                     showError(
-                        appErrorMessage(
-                            result.errorOrNull(),
-                            "Не удалось назначить читалку по умолчанию.",
+                        AppText(
+                            R.string.onboarding_error_default_reader,
+                            (result.errorOrNull() ?: AppError.Unknown()).text(),
                         ),
                     )
                 } else {
@@ -160,7 +164,9 @@ class OnboardingViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось назначить читалку по умолчанию."))
+                showError(
+                    AppText(R.string.onboarding_error_default_reader, error.toAppError().text()),
+                )
             }
         }
     }
@@ -172,7 +178,7 @@ class OnboardingViewModel @Inject constructor(
      * ограничение и не выбрасывает исключение из обработчика Compose.
      */
     fun onCheckReader(readerId: String) {
-        showError("Открытие тестового файла читалки пока не поддерживается")
+        showError(AppText(R.string.onboarding_error_test_file))
     }
 
     /**
@@ -184,7 +190,7 @@ class OnboardingViewModel @Inject constructor(
     fun onFinish() {
         val current = _uiState.value
         val error = if (current.sources.isEmpty()) {
-            "Сначала добавьте папку с книгами"
+            AppText(R.string.onboarding_error_no_source)
         } else {
             null
         }
@@ -204,7 +210,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось получить список папок."))
+                showError(AppText(R.string.onboarding_error_sources, error.toAppError().text()))
             }
         }
     }
@@ -220,7 +226,7 @@ class OnboardingViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                showError(error.userMessage("Не удалось получить список читалок."))
+                showError(AppText(R.string.onboarding_error_readers, error.toAppError().text()))
             }
         }
     }
@@ -242,23 +248,11 @@ class OnboardingViewModel @Inject constructor(
         },
     )
 
-    private fun showError(message: String) {
+    private fun showError(message: AppText) {
         _uiState.value = _uiState.value.copy(isBusy = false, error = message)
     }
 
-    private fun appErrorMessage(error: AppError?, fallback: String): String = when {
-        error == null -> fallback
-        error is AppError.AccessLost -> "Доступ к папке потерян, выберите её заново."
-        error is AppError.Unsupported -> error.message ?: "Операция пока не поддерживается."
-        !error.message.isNullOrBlank() -> error.message.orEmpty()
-        else -> fallback
-    }
-
-    private fun Throwable.userMessage(fallback: String): String =
-        message?.takeIf { it.isNotBlank() } ?: fallback
-
     private companion object {
         const val DEFAULT_READER_FORMAT = "fb2"
-        const val DEFAULT_SOURCE_NAME = "Папка"
     }
 }
