@@ -216,7 +216,7 @@
     <string name="settings_library_removable_shelf">Показывать карту памяти как полку</string>
     <string name="settings_library_removable_shelf_hint">Вставили карту или флешку с книгами — в полках появится полка носителя; вынули — она исчезнет вместе с книгами. Книги не удаляются: вернув носитель, вы увидите их снова</string>
 
-    <!-- Сообщения оптимизации FB2: итог собирается из переводимых частей (docs/tdd.md §5). -->
+    <!-- Сообщения оптимизации FB2: итог собирается из переводимых частей («TDD» §5). -->
     <string name="settings_optimization_failed">Оптимизировать книги не удалось: %1$s</string>
     <string name="settings_optimization_done">Оптимизация завершена</string>
     <string name="settings_optimization_stopped">Оптимизация остановлена: обработано %1$d из %2$d</string>
@@ -229,7 +229,7 @@
     <string name="settings_optimization_skipped_checked">пропущено проверенных раньше: %1$d</string>
     <string name="settings_optimization_stopped_by_reader">Остановлено: открыта читалка (обработано %1$d из %2$d)</string>
 
-    <!-- Сообщения блока «Дубли книг»: результат собирается из переводимых частей (docs/tdd.md §5). -->
+    <!-- Сообщения блока «Дубли книг»: результат собирается из переводимых частей («TDD» §5). -->
     <string name="settings_duplicates_stopped">Поиск остановлен: открыта читалка (%1$s). Закройте читалку и повторите.</string>
     <string name="settings_duplicates_nothing_before_stop">ничего не найдено до остановки</string>
     <string name="settings_duplicates_found_before_stop">найдено до остановки: групп дублей %1$d, битых файлов %2$d</string>
@@ -246,7 +246,7 @@
 
     <!-- Экспорт библиотеки: итог и причина сбоя — переводимые тексты. -->
 
-    <!-- Резервные копии базы: итог и причины — переводимые тексты (docs/tdd.md §5, §7). -->
+    <!-- Резервные копии базы: итог и причины — переводимые тексты («TDD» §5, §7). -->
     <string name="settings_backup_auto_on">Ежедневный бэкап включён</string>
     <string name="settings_backup_auto_off">Ежедневный бэкап выключен</string>
     <string name="settings_backup_created">Копия сделана: %1$s</string>
@@ -279,7 +279,7 @@
     <string name="settings_reader_api_no_book">API отвечает, книга не открыта</string>
     <string name="settings_reader_api_open">API отвечает: открыто «%1$s»</string>
 
-    <!-- Диагностика экрана: ядро отдаёт вид, слова выбирает приложение (docs/eink-ux.md §8.5). -->
+    <!-- Диагностика экрана: ядро отдаёт вид, слова выбирает приложение («E-ink UX» §8.5). -->
     <string name="settings_screen_normal">обычный экран</string>
     <string name="settings_screen_eink_color">электронная бумага, цветная</string>
     <string name="settings_screen_eink_mono">электронная бумага, чёрно-белая</string>

@@ -19,7 +19,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Преобразование «ключи DataStore ↔ [AppSettings]» (docs/eink-ux.md §6.8).
+ * Преобразование «ключи DataStore ↔ [AppSettings]» («E-ink UX» §6.8).
  *
  * Вынесено из репозитория намеренно: правил здесь больше, чем поместится в класс, а detekt
  * ограничивает число функций. Побочная выгода — правила читаются как таблица, а не как код

@@ -10,7 +10,7 @@ import io.github.bookshelf.core.eink.device.EinkScreen
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 
 /**
- * Безопасная реализация по умолчанию (docs/eink-ux.md §8.4).
+ * Безопасная реализация по умолчанию («E-ink UX» §8.4).
  *
  * Это дефолт для любого устройства, которое не распознано как e-ink, и фолбэк для распознанного
  * устройства, на котором вендорский SDK недоступен. Ключевое свойство: **ничего не ломает** —

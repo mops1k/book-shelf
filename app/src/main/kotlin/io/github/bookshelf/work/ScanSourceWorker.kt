@@ -48,7 +48,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 /**
- * Сканирование источника (docs/architecture.md §4.5, ADR-010).
+ * Сканирование источника («Архитектура» §4.5, ADR-010).
  *
  * Четыре решения, ради которых работа написана именно так:
  *

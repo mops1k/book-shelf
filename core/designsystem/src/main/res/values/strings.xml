@@ -9,7 +9,7 @@
     <string name="eink_action_close">Закрыть</string>
     <string name="eink_action_more">Ещё</string>
     <string name="eink_menu_title">Действия</string>
-    <!-- Тексты ошибок по типу: AppError.message в баннер не выводится (docs/tdd.md §7). -->
+    <!-- Тексты ошибок по типу: AppError.message в баннер не выводится («TDD» §7). -->
     <string name="error_not_found">не найдено</string>
     <string name="error_invalid_argument">неверное значение</string>
     <string name="error_permission_denied">нет доступа</string>
@@ -24,7 +24,7 @@
     <!-- Разделитель частей сообщения: итог собирается из переводимых кусков. -->
     <string name="app_text_parts_separator">, </string>
 
-    <!-- Причины отказа разбора: код живёт в базе, слова выбирает приложение (docs/tdd.md §8). -->
+    <!-- Причины отказа разбора: код живёт в базе, слова выбирает приложение («TDD» §8). -->
     <string name="parse_failure_format_unsupported">Формат не поддерживается</string>
     <string name="parse_failure_corrupt_file">Файл повреждён или не соответствует формату</string>
     <string name="parse_failure_empty_file">Файл пуст</string>
@@ -39,7 +39,7 @@
     <string name="download_failure_failed">Не удалось скачать книгу</string>
     <string name="download_failure_unknown">Причина отказа загрузки не определена</string>
 
-    <!-- Названия жанров FB2: код — значение фильтра, подпись — ресурс (docs/tdd.md §8). -->
+    <!-- Названия жанров FB2: код — значение фильтра, подпись — ресурс («TDD» §8). -->
     <string name="genre_sf">Фантастика</string>
     <string name="genre_sf_history">Историческая фантастика</string>
     <string name="genre_sf_action">Боевая фантастика</string>

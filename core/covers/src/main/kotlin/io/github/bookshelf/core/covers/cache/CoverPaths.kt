@@ -4,7 +4,7 @@ import io.github.bookshelf.core.covers.CoverCache.CoverKind
 import java.io.File
 
 /**
- * Имена и расположение файлов кэша обложек (docs/architecture.md §5).
+ * Имена и расположение файлов кэша обложек («Архитектура» §5).
  *
  * Чистые функции без ввода-вывода: их использует и дисковый кэш, и Coil (через
  * [io.github.bookshelf.core.covers.CoverCache.fileFor]), и тесты.
@@ -19,7 +19,7 @@ object CoverPaths {
     /** Каталог кэша внутри `filesDir` (сам каталог создаёт `:app`, см. `AppModule`). */
     const val DIRECTORY_NAME = "covers"
 
-    /** Единственный формат кэша: WebP даёт лучший размер при lossy q80 (docs/architecture.md §4.4). */
+    /** Единственный формат кэша: WebP даёт лучший размер при lossy q80 («Архитектура» §4.4). */
     const val EXTENSION = "webp"
 
     /** Суффикс тайла сетки. */

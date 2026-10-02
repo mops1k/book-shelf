@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel фасетных фильтров (docs/architecture.md §3.5, ADR-008).
+ * ViewModel фасетных фильтров («Архитектура» §3.5, ADR-008).
  *
  * Фасеты и число найденных книг наблюдаются одновременно в [viewModelScope]. Оба запроса
  * используют одну и ту же [BookQuery], поэтому цифры на чипах и итоговый счётчик не расходятся.
@@ -123,7 +123,7 @@ class FiltersViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         // Причина — текст по типу ошибки: `message` нижнего слоя человеку не показывают
-                        // (docs/tdd.md §7), иначе в баннер попадал бы технический текст, в том числе английский.
+                        // («TDD» §7), иначе в баннер попадал бы технический текст, в том числе английский.
                         error = AppText(R.string.filters_error_load, error.toAppError().text()),
                     )
                 }

@@ -51,8 +51,8 @@ import kotlinx.coroutines.launch
  *
  * Здесь сходятся три вещи, которые больше нигде не должны встречаться:
  * * тема применяется ко всему приложению — смена плотности/кегля/тёмного режима работает
- *   без перезапуска (docs/eink-ux.md §2);
- * * `EinkRefreshBridge` связывает дизайн-систему с вендорским слоем e-ink (docs/architecture.md §6);
+ *   без перезапуска («E-ink UX» §2);
+ * * `EinkRefreshBridge` связывает дизайн-систему с вендорским слоем e-ink («Архитектура» §6);
  * * навигационный граф собирается из feature-модулей, сама Activity про экраны не знает.
  */
 @AndroidEntryPoint
@@ -271,7 +271,7 @@ private fun ThemeMode.isDarkTheme(): Boolean = when (this) {
  * Все вызовы в `runCatching` осознанно: вендорские реализации пока бросают `NotImplementedError`
  * из заглушек (`OnyxEinkController`), а подсветки на конкретном устройстве может не быть вовсе.
  * Настройка не должна ронять приложение — правила вызова прямо разрешают деградацию до no-op
- * (docs/eink-ux.md §8.4).
+ * («E-ink UX» §8.4).
  */
 @Composable
 private fun ApplyEinkSettings(

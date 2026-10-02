@@ -136,7 +136,7 @@ class OpdsDownloadWorker @AssistedInject constructor(
      * Пометить загрузку неудачной.
      *
      * Человеку — код ([DownloadFailure]), диагностика ([detail]) остаётся в записи и пишется в
-     * журнал: по ней ищут причину, но в интерфейсе она не показывается (docs/tdd.md §7).
+     * журнал: по ней ищут причину, но в интерфейсе она не показывается («TDD» §7).
      */
     private suspend fun fail(
         downloadId: String,

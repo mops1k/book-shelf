@@ -8,7 +8,7 @@ import io.github.bookshelf.core.common.error.AppResult
  * Пароль **никогда** не хранится в БД открытым текстом: в `opds_catalogs` лежит только
  * `passwordAlias` — ключ в шифрованном хранилище. Пароль не попадает в логи, в экспорт настроек и
  * в бэкап; при экспорте каталог выгружается без пароля, с пометкой «требуется авторизация»
- * (docs/opds.md §2, §5).
+ * («OPDS» §2, §5).
  */
 data class OpdsCredentials(
     val username: String,

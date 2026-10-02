@@ -44,7 +44,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 
             // Одно flavor-измерение `store`: от него зависят разрешения, наличие CBR
             // и способ доступа к файлам. Ветвлений `if (flavor == ...)` в коде быть не должно —
-            // только флаги BuildConfig. См. docs/architecture.md §9 и ADR-007.
+            // только флаги BuildConfig. См. «Архитектура» §9 и ADR-007.
             flavorDimensions += STORE_FLAVOR_DIMENSION
             productFlavors {
                 create("full") {
@@ -68,7 +68,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     buildConfigField("boolean", "ENABLE_OPDS", "true")
                 }
                 // 4-й flavor `play-files` (Play + доступ ко всем файлам) сознательно не создан:
-                // решение зависит от площадки публикации (открытый вопрос № 5 в docs/decisions.md).
+                // решение зависит от площадки публикации (открытый вопрос № 5 в «ADR»).
             }
 
             // Подпись релиза: локально ключ из `keystore.properties`, в CI — из переменных

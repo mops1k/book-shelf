@@ -6,7 +6,7 @@ import io.github.bookshelf.core.opds.model.OpdsFeed
 /**
  * Разбор тела OPDS-фида в доменную модель.
  *
- * Требования к реализации (docs/opds.md §4.1, §5):
+ * Требования к реализации («OPDS» §4.1, §5):
  * * **XmlPullParser, без DOM** — потоковый разбор не даёт «бомбе вложенности» съесть память;
  * * **DTD и внешние сущности отключены** (`FEATURE_PROCESS_DOCDECL = false`,
  *   `FEATURE_VALIDATION = false`) — защита от XXE и «billion laughs»;

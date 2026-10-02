@@ -57,7 +57,7 @@ class LibrarySettingsMapperTest {
 
     @Test
     fun `documented defaults are not inverted`() {
-        // Умолчание — «Название», прямой порядок, без группировки (docs/eink-ux.md §6.2):
+        // Умолчание — «Название», прямой порядок, без группировки («E-ink UX» §6.2):
         // обратный порядок по умолчанию показал бы библиотеку с конца.
         val defaults = LibrarySettings().toLibraryQueryDefaults()
 

@@ -62,7 +62,7 @@ interface BookDao {
 
     /**
      * Найти книгу по `documentUri` — основной шаг инкрементального сканирования
-     * (docs/architecture.md §4.3). `documentUri` уникален, поэтому результат один.
+     * («Архитектура» §4.3). `documentUri` уникален, поэтому результат один.
      */
     @Query("SELECT * FROM books WHERE documentUri = :documentUri LIMIT 1")
     suspend fun findByDocumentUri(documentUri: String): BookEntity?

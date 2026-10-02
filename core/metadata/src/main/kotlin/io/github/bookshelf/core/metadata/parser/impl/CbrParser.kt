@@ -7,11 +7,11 @@ import io.github.bookshelf.core.metadata.parser.ParseResult
 import io.github.bookshelf.core.metadata.rar.RarArchive
 
 /**
- * CBR — RAR-архив с комиксом (docs/formats.md §7).
+ * CBR — RAR-архив с комиксом («Форматы» §7).
  *
  * **Только flavor `full`.** Единственная библиотека — `com.github.junrar:junrar`, она под
  * несвободной UnRar License, которую не принимает F-Droid; сборки `fdroid` и `play`
- * собираются без CBR под build-флагом `ENABLE_CBR` (ADR-007, docs/architecture.md §9).
+ * собираются без CBR под build-флагом `ENABLE_CBR` (ADR-007, «Архитектура» §9).
  *
  * О флейворах парсер узнаёт через [FeatureFlags], а не через `BuildConfig`: так поведение
  * «CBR выключен» проверяется тестом с фейковыми флагами, а бизнес-логика не знает о сборках.

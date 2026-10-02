@@ -42,7 +42,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel полки (docs/eink-ux.md §6.2).
+ * ViewModel полки («E-ink UX» §6.2).
  *
  * Страница наблюдается через [BookRepository.observePage] в [viewModelScope]. Смена сортировки,
  * группировки или номера страницы отменяет предыдущую подписку и создаёт новый запрос, поэтому
@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val bookRepository: BookRepository,
-    /** Настройки нужны для вида полки по умолчанию (docs/eink-ux.md §6.8). */
+    /** Настройки нужны для вида полки по умолчанию («E-ink UX» §6.8). */
     private val settingsRepository: SettingsRepository,
     private val filterSelection: FilterSelection,
     private val browseRequest: LibraryBrowseRequest,
@@ -119,7 +119,7 @@ class LibraryViewModel @Inject constructor(
                     applyViewPreset(preset)
                 }
         }
-        // Сортировка, направление и группировка по умолчанию — тоже настройки (docs/eink-ux.md
+        // Сортировка, направление и группировка по умолчанию — тоже настройки («E-ink UX»
         // §6.2). Это подписка, а не разовое чтение: изменение настройки перестраивает уже
         // открытую полку, без перезапуска приложения («применяется сразу»). `distinctUntilChanged`
         // по самой тройке значений нужен, чтобы смена посторонней настройки (например, лимита
@@ -567,7 +567,7 @@ class LibraryViewModel @Inject constructor(
      */
     private fun currentGenreLevel(): BrowseLevel.Genre? {
         val code = currentGenreCode() ?: return null
-        // label — код жанра: слова выберет экран (docs/tdd.md §8).
+        // label — код жанра: слова выберет экран («TDD» §8).
         return BrowseLevel.Genre(code = code, label = code)
     }
 

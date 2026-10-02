@@ -3,7 +3,7 @@ package io.github.bookshelf.core.opds.search
 import java.net.URLEncoder
 
 /**
- * Подстановка запроса в шаблон OpenSearch (docs/opds.md §3.2).
+ * Подстановка запроса в шаблон OpenSearch («OPDS» §3.2).
  *
  * Каталог объявляет поиск ссылкой `rel="search"`, в которой вместо запроса стоит маркер
  * `{searchTerms}` — например у Флибусты `/opds/search?searchTerm={searchTerms}`. Ссылку нельзя

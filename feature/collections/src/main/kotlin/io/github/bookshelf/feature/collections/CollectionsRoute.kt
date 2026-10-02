@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.collections.ui.CollectionsScreen
 
-/** Маршрут коллекций и умных полок (docs/eink-ux.md §6.3). */
+/** Маршрут коллекций и умных полок («E-ink UX» §6.3). */
 object CollectionsRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "collections"

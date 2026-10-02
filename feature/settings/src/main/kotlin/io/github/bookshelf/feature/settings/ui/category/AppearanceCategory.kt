@@ -22,7 +22,7 @@ import io.github.bookshelf.feature.settings.R
  *
  * У всех настроек раздела есть живой потребитель, поэтому переключатели здесь не обманывают:
  * тема, плотность и кегль применяются через `EinkTheme`, инверсию обложек читает `BookCover`
- * из `LocalInvertCovers` — всё без перезапуска приложения (docs/eink-ux.md §2).
+ * из `LocalInvertCovers` — всё без перезапуска приложения («E-ink UX» §2).
  *
  * `textOnlyMode` намеренно не показывается: потребителя у настройки нет (проверено аудитом),
  * а выключенное поле без действия читается как сломанное.
@@ -100,5 +100,5 @@ private fun densityLabelRes(density: EinkDensityLike): Int = when (density) {
     EinkDensityLike.COMPACT -> R.string.settings_density_compact
 }
 
-/** Допустимые проценты из docs/eink-ux.md §2.2: другие значения маппинг не знает. */
+/** Допустимые проценты из «E-ink UX» §2.2: другие значения маппинг не знает. */
 private val FONT_SCALE_CHOICES = listOf(100, 115, 130, 150)

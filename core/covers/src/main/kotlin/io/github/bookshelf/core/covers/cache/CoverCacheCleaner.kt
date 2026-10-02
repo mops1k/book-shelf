@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.covers.cache
 
 /**
- * Очистка кэша обложек (docs/architecture.md §5).
+ * Очистка кэша обложек («Архитектура» §5).
  *
  * Отдельный контракт от [io.github.bookshelf.core.covers.CoverCache] нужен потому, что очисткой
  * пользуются фоновые работы (`CoverCleanupWorker`) и настройки, а им не нужен доступ к чтению и

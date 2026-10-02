@@ -12,7 +12,7 @@ import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.model.ThemeMode
 
-/** Разделы настроек (docs/eink-ux.md §6.8) — каждый открывается отдельным экраном. */
+/** Разделы настроек («E-ink UX» §6.8) — каждый открывается отдельным экраном. */
 enum class SettingsSectionKind {
     /** Плотность, сетка/список, обложки, сортировка и группировка по умолчанию. */
     APPEARANCE,
@@ -142,7 +142,7 @@ data class PermissionItemUi(
     val isGranted: Boolean,
 )
 
-/** Диагностика e-ink для раздела «О приложении» (docs/eink-ux.md §8.5). */
+/** Диагностика e-ink для раздела «О приложении» («E-ink UX» §8.5). */
 data class EinkDiagnosticsUi(
     /**
      * Доступны ли команды вендора: ими управляет блок «Экран» в настройках.
@@ -291,7 +291,7 @@ data class SettingsUiState(
     val isCheckingReaderApi: Boolean = false,
     /** Результат проверки связи: «API отвечает…» или причина отказа. `null` — ещё не проверяли. */
     val readerApiStatus: AppText? = null,
-    /** Текст ошибки для `EinkErrorBanner`: ресурс, а не готовая строка (docs/tdd.md §5). */
+    /** Текст ошибки для `EinkErrorBanner`: ресурс, а не готовая строка («TDD» §5). */
     val error: AppText? = null,
 )
 

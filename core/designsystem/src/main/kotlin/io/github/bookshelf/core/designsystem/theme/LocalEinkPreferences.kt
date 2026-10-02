@@ -20,7 +20,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * Инвертировать ли обложки книг.
  *
  * Отдельная настройка, а не следствие тёмной темы: на e-ink цветная обложка в негативе читается
- * лучше, но интерфейс вокруг неё может остаться светлым (docs/eink-ux.md §2.1, §5).
+ * лучше, но интерфейс вокруг неё может остаться светлым («E-ink UX» §2.1, §5).
  */
 val LocalInvertCovers = staticCompositionLocalOf { false }
 

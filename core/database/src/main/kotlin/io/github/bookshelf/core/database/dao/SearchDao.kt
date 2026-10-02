@@ -6,7 +6,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Полнотекстовый поиск по FTS4 (docs/architecture.md §3.2).
+ * Полнотекстовый поиск по FTS4 («Архитектура» §3.2).
  *
  * Таблица `books_fts` — внешнее содержимое `books`, связь идёт по `rowid`: у [BookEntity]
  * строковый первичный ключ, поэтому собственного `rowid`-столбца в сущности нет.

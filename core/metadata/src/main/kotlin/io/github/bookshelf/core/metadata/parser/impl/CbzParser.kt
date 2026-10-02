@@ -9,7 +9,7 @@ import io.github.bookshelf.core.metadata.zip.ZipEntries
 import io.github.bookshelf.core.metadata.zip.ZipLimits
 
 /**
- * CBZ — обычный ZIP с `ComicInfo.xml` (docs/formats.md §7).
+ * CBZ — обычный ZIP с `ComicInfo.xml` («Форматы» §7).
  *
  * Правила разбора комикса общие с CBR и живут в [ComicArchiveParser]; здесь только архив.
  * ZIP читается потоком и дважды (метаданные и обложка), поэтому ни временная копия файла,

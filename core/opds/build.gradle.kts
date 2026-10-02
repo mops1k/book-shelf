@@ -19,7 +19,7 @@ dependencies {
     api(project(":core:database"))
 
     api(project(":core:common"))
-    // Единственный модуль с сетью. В офлайн-сборке отсутствует (docs/opds.md)
+    // Единственный модуль с сетью. В офлайн-сборке отсутствует («OPDS»)
     implementation(libs.okhttp)
     // Запись скачанного файла в дерево SAF — без него очередь загрузок ничего не делала.
     implementation(project(":core:storage"))

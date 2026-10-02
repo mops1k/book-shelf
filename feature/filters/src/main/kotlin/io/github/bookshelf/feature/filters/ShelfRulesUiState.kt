@@ -23,6 +23,6 @@ data class ShelfRulesUiState(
     val isLoading: Boolean = false,
     /** Правила сохранены: экран можно закрывать. */
     val saved: Boolean = false,
-    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка (docs/tdd.md §5). */
+    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка («TDD» §5). */
     val error: AppText? = null,
 )

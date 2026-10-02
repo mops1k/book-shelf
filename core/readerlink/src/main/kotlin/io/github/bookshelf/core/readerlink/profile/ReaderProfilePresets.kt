@@ -4,7 +4,7 @@ package io.github.bookshelf.core.readerlink.profile
  * Встроенные presets читалок.
  *
  * FBReader — главная читалка проекта, поэтому его preset содержит все константы интеграции
- * из docs/reader-integration.md: action'ы открытия (L1), сервис API (L2) и сервис библиотеки (L3).
+ * из «Читалки»: action'ы открытия (L1), сервис API (L2) и сервис библиотеки (L3).
  * Константы объявлены своими (ADR-005): мы не вендорим код FBReader, а только фиксируем строки,
  * которые публично декларирует его манифест.
  *
@@ -107,7 +107,7 @@ object FbReaderPreset {
         "text/plain",
     )
 
-    /** Расширения, которые FBReader принимает по `pathPattern` (docs/reader-integration.md §2.1). */
+    /** Расширения, которые FBReader принимает по `pathPattern` («Читалки» §2.1). */
     val EXTENSIONS: List<String> = listOf(
         "fb2",
         "fb2.zip",
@@ -172,7 +172,7 @@ object FbReaderPreset {
  */
 object ReaderProfilePresets {
 
-    // STUB(Sprint 0): подтвердить пакет KOReader на живом устройстве; в docs/reader-integration.md
+    // STUB(Sprint 0): подтвердить пакет KOReader на живом устройстве; в «Читалки»
     // §5 указан кандидат org.koreader.launcher — как непроверенный он намеренно не проставлен.
 
     /** Заготовка KOReader: пакет и MIME пусты до проверки в Sprint 0. */
@@ -203,7 +203,7 @@ object ReaderProfilePresets {
         enabled = false,
     )
 
-    // STUB(Sprint 0): подтвердить пакет Librera на живом устройстве; в docs/reader-integration.md
+    // STUB(Sprint 0): подтвердить пакет Librera на живом устройстве; в «Читалки»
     // §5 указан кандидат com.foobnix.pdf.info — как непроверенный он намеренно не проставлен.
 
     /** Заготовка Librera: пакет и MIME пусты до проверки в Sprint 0. */

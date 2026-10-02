@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 private const val ROW_RULES_PARTS = 1
 
 /**
- * ViewModel коллекций (docs/eink-ux.md §6.3, Sprint 7).
+ * ViewModel коллекций («E-ink UX» §6.3, Sprint 7).
  *
  * Список полок живёт по подписке на [CollectionRepository.observeCollections] в [viewModelScope]:
  * успешные create/rename/delete/обновление правил не перечитывают базу, потому что новое
@@ -104,7 +104,7 @@ class CollectionsViewModel @Inject constructor(
      * Имени пока нет где спросить: кнопка «Создать» вызывает метод без аргументов, поэтому в базу
      * уходит ПУСТОЕ имя, а слова подставляет экран («Новая полка», «Новая полка 2» — номер
      * считается по порядку безымянных полок). Так в базе не остаётся русского текста, который
-     * не переводится (docs/tdd.md §8). Когда появится диалог ввода, сюда придёт текст человека
+     * не переводится («TDD» §8). Когда появится диалог ввода, сюда придёт текст человека
      * (см. [onRename]).
      */
     fun onCreate() {
@@ -190,7 +190,7 @@ class CollectionsViewModel @Inject constructor(
      */
     fun onAddPreset(presetId: String) {
         val preset = SmartPreset.entries.firstOrNull { it.id == presetId } ?: return
-        // Имени не пишем: слова собирает экран из правила (docs/tdd.md §8).
+        // Имени не пишем: слова собирает экран из правила («TDD» §8).
         viewModelScope.launch { createSmartShelf(name = "", rules = preset.rules) }
     }
 
@@ -208,7 +208,7 @@ class CollectionsViewModel @Inject constructor(
             return
         }
         // Имени у подборки нет: подпись правила собирает экран из частей (`rulesSummary`),
-        // и в базе не остаётся русского текста, который не переводится (docs/tdd.md §8).
+        // и в базе не остаётся русского текста, который не переводится («TDD» §8).
         viewModelScope.launch { createSmartShelf(name = "", rules = rules) }
     }
 
@@ -371,7 +371,7 @@ class CollectionsViewModel @Inject constructor(
      * Показать ошибку действия: что не получилось (ресурс экрана) и почему (текст по типу [AppError]).
      *
      * Оба текста — ресурсы, поэтому сообщение переводится целиком; готовой строки в состоянии нет
-     * (docs/tdd.md §5), а `AppError.message` человеку не показывается (§7) — он остаётся диагностикой.
+     * («TDD» §5), а `AppError.message` человеку не показывается (§7) — он остаётся диагностикой.
      */
     private fun showError(actionRes: Int, error: AppError) {
         _uiState.update { it.copy(error = AppText(actionRes, error.text())) }
@@ -450,7 +450,7 @@ class CollectionsViewModel @Inject constructor(
      */
     private enum class SmartPreset(
         val id: String,
-        /** Название полки на экране — ресурс; в базу имя не пишется (docs/tdd.md §8). */
+        /** Название полки на экране — ресурс; в базу имя не пишется («TDD» §8). */
         @StringRes val titleRes: Int,
         /** Подпись правила на экране — ресурс. */
         @StringRes val hintRes: Int,

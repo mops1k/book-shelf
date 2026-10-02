@@ -40,7 +40,7 @@ class CoverCacheClearingTest {
 
         val report = clearCoverCacheWithReport(cache)
 
-        // Текст не выдаёт сбой за успех, а причина — по типу ошибки (docs/tdd.md §7):
+        // Текст не выдаёт сбой за успех, а причина — по типу ошибки («TDD» §7):
         // сообщение IOException («нет места на диске») человеку не показывают.
         assertThat(report).isEqualTo(
             AppText(

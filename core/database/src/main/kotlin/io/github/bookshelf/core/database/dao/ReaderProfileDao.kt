@@ -6,7 +6,7 @@ import androidx.room.Upsert
 import io.github.bookshelf.core.database.entity.ReaderProfileEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Профили внешних читалок (docs/reader-integration.md). */
+/** Профили внешних читалок («Читалки»). */
 @Dao
 interface ReaderProfileDao {
 

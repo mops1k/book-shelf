@@ -31,9 +31,9 @@ import kotlinx.coroutines.launch
  *
  * @param themeMode выбор пользователя, а не готовое «тёмно/светло»: `SYSTEM` разрешается при
  *   отрисовке (`MainActivity`), потому что для этого нужен `isSystemInDarkTheme()`.
- * @param refresh какие события заканчиваются полным кадром (`EinkRefreshSettings`, docs/eink-ux.md §4).
+ * @param refresh какие события заканчиваются полным кадром (`EinkRefreshSettings`, «E-ink UX» §4).
  * @param refreshMode режим обновления экрана для `EinkController.setRefreshMode`.
- * @param gcInterval полный GC каждые N частичных обновлений (docs/eink-ux.md §4).
+ * @param gcInterval полный GC каждые N частичных обновлений («E-ink UX» §4).
  * @param frontLightLevel уровень подсветки 0..100; `null` — пользователь её не настраивал.
  */
 data class ThemeState(
@@ -61,7 +61,7 @@ data class ThemeState(
  * Настройки отображения на уровне приложения.
  *
  * Подписка, а не одноразовое чтение: DoD Sprint 5 требует, чтобы смена темы, плотности, кегля
- * и режима экрана применялась без перезапуска (docs/roadmap.md). Поэтому [themeState] — это
+ * и режима экрана применялась без перезапуска («План работ»). Поэтому [themeState] — это
  * `Flow` из DataStore, переведённый в состояние экрана.
  */
 @HiltViewModel
@@ -129,7 +129,7 @@ private fun densityOf(density: EinkDensityLike): EinkDensity = when (density) {
 }
 
 /**
- * Масштаб шрифта в процентах → кегль дизайн-системы (docs/eink-ux.md §2.2).
+ * Масштаб шрифта в процентах → кегль дизайн-системы («E-ink UX» §2.2).
  *
  * Неизвестное значение — не повод падать: оно может прийти из более новой версии приложения или
  * из импортированного JSON. Показываем базовый кегль, как и предписано для неподдерживаемого
@@ -142,7 +142,7 @@ private fun fontScaleOf(percent: Int): FontScale = when (percent) {
     else -> FontScale.S100
 }
 
-/** Проценты масштаба из docs/eink-ux.md §2.2: имена нужны, чтобы числа не считались «магией». */
+/** Проценты масштаба из «E-ink UX» §2.2: имена нужны, чтобы числа не считались «магией». */
 private const val FONT_SCALE_115 = 115
 private const val FONT_SCALE_130 = 130
 private const val FONT_SCALE_150 = 150

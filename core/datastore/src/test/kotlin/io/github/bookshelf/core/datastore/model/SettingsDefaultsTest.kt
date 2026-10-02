@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * Тест значений по умолчанию [AppSettings] (docs/eink-ux.md §2, §4, §6.8).
+ * Тест значений по умолчанию [AppSettings] («E-ink UX» §2, §4, §6.8).
  *
  * Значения зафиксированы здесь буквально, а не ссылками на `SettingsKeys.Defaults`: смысл теста —
  * поймать случайное изменение документально согласованного дефолта (плотность «Крупный», кегль

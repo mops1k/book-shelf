@@ -66,7 +66,7 @@ class ScanReportProblemFilesTest {
         assertThat(files).hasSize(2)
         assertThat(files.map { file -> file.fileName })
             .containsExactly("Проверка_1.docx", "Уткин.fb2")
-        // Причина — код из базы, слова выбирает экран (docs/tdd.md §8).
+        // Причина — код из базы, слова выбирает экран («TDD» §8).
         assertThat(files.map { file -> file.parseFailure }).containsExactly(
             AppText(io.github.bookshelf.core.designsystem.R.string.parse_failure_format_unsupported),
             AppText(io.github.bookshelf.core.designsystem.R.string.parse_failure_archive_limit),
@@ -85,7 +85,7 @@ class ScanReportProblemFilesTest {
 
         val file = viewModel.uiState.value.report?.problemFiles?.single()
         // Молчать о такой книге нельзя: она в списке. Причина не записана — значит `null`,
-        // а переводимый текст подставляет экран (docs/tdd.md §5); хранить готовую строку нельзя.
+        // а переводимый текст подставляет экран («TDD» §5); хранить готовую строку нельзя.
         assertThat(file?.fileName).isEqualTo("Странный.mobi")
         assertThat(file?.parseFailure).isNull()
     }

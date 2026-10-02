@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.datastore.serialization
 
 /**
- * Хранилище профилей читалок в виде JSON (docs/architecture.md §7, ADR-005).
+ * Хранилище профилей читалок в виде JSON («Архитектура» §7, ADR-005).
  *
  * Профили (id, имя, package/activity, поддерживаемые MIME, extras) сериализуются
  * kotlinx-serialization и лежат рядом с настройками. Так встроенные presets можно обновлять

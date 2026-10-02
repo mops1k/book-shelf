@@ -7,11 +7,11 @@ import io.github.bookshelf.core.database.entity.MetadataOverrideEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Хранение ручных правок метаданных (docs/architecture.md §3.1).
+ * Хранение ручных правок метаданных («Архитектура» §3.1).
  *
  * Строк на книгу ровно одна, поэтому `@Upsert` — это и есть «сохранить или заменить»: отдельного
  * `insert с ON CONFLICT` не требуется. `clear` нужен, чтобы пользователь мог вернуть книгу к
- * метаданным файла одной кнопкой (docs/eink-ux.md §6.7).
+ * метаданным файла одной кнопкой («E-ink UX» §6.7).
  */
 @Dao
 interface MetadataOverrideDao {

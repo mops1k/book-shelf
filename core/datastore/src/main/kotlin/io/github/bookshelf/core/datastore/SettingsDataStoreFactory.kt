@@ -24,7 +24,7 @@ import kotlinx.coroutines.SupervisorJob
  *
  * @param produceFile файл хранилища; в бою — `context.preferencesDataStoreFile(...)`;
  * @param dispatchers диспетчеры приложения: свой `Dispatchers.IO` в main-коде запрещён
- *   (docs/tdd.md §5), а область корутин собирается здесь — с [SupervisorJob], чтобы падение
+ *   («TDD» §5), а область корутин собирается здесь — с [SupervisorJob], чтобы падение
  *   одной записи не убивало последующие.
  */
 internal fun createSettingsDataStore(

@@ -70,7 +70,7 @@ private const val MAX_PROGRESS_PERCENT = 100
 data class CollectionContentUiState(
     /** Название полки — в заголовке экрана. */
     val name: String = "",
-    /** «Ручная полка» или «Умная полка» — ресурс, а не готовая строка (docs/tdd.md §5). */
+    /** «Ручная полка» или «Умная полка» — ресурс, а не готовая строка («TDD» §5). */
     val subtitle: AppText? = null,
     /** Книги полки. */
     val books: List<CollectionItemUi> = emptyList(),
@@ -78,7 +78,7 @@ data class CollectionContentUiState(
     val isLoading: Boolean = false,
     /** Умная ли полка: от этого зависит пустое состояние. */
     val isSmart: Boolean = false,
-    /** Текст ошибки: ресурс с причиной (docs/tdd.md §5, §7). */
+    /** Текст ошибки: ресурс с причиной («TDD» §5, §7). */
     val error: AppText? = null,
 )
 
@@ -145,7 +145,7 @@ class CollectionContentViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         // Причина — текст по типу ошибки: сообщение SQLite (часто английское) человеку
-                        // не показывают (docs/tdd.md §7).
+                        // не показывают («TDD» §7).
                         error = AppText(R.string.collections_content_error_load, error.toAppError().text()),
                     )
                 }

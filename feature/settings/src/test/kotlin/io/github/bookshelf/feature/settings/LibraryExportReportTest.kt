@@ -31,7 +31,7 @@ class LibraryExportReportTest {
         val run = libraryExportReport(AppResult.failure(failure))
 
         assertThat(run.message).isNull()
-        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают («TDD» §7).
         assertThat(run.error).isEqualTo(AppText(R.string.settings_export_failed, failure.text()))
     }
 

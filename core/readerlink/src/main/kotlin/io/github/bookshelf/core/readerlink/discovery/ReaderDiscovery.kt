@@ -16,8 +16,8 @@ import javax.inject.Singleton
  * Поиск установленных читалок.
  *
  * Реализация обязана работать через `PackageManager.queryIntentActivities` и `<queries>` в
- * манифесте: `QUERY_ALL_PACKAGES` не используется в play-flavor (docs/reader-integration.md §2.4,
- * docs/architecture.md §9). Пустой результат — нормальная ситуация, а не ошибка.
+ * манифесте: `QUERY_ALL_PACKAGES` не используется в play-flavor («Читалки» §2.4,
+ * «Архитектура» §9). Пустой результат — нормальная ситуация, а не ошибка.
  */
 interface ReaderDiscovery {
 

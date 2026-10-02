@@ -5,7 +5,7 @@ import io.github.bookshelf.core.data.model.ReaderProfileSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Внешние читалки (docs/architecture.md §7, ADR-005).
+ * Внешние читалки («Архитектура» §7, ADR-005).
  *
  * Резолвер выбора профиля (override книги → дефолт формата → последняя использованная → диалог
  * «Открыть в…») живёт в `:core:readerlink`; `:core:data` только хранит выбор пользователя и

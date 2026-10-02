@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.settings.ui.SettingsScreen
 
-/** Маршрут настроек (docs/eink-ux.md §6.8). */
+/** Маршрут настроек («E-ink UX» §6.8). */
 object SettingsRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "settings"

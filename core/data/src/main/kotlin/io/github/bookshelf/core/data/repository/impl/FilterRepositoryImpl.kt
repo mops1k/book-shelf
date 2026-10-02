@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
- * Фасеты полки (docs/architecture.md §3.5, ADR-008).
+ * Фасеты полки («Архитектура» §3.5, ADR-008).
  *
  * **Считаются запросами к БД, а не в памяти.** Причина прямая: на 10 000 книг фильтрация в
  * памяти не масштабируется, а выбранный автор должен показывать только те серии, которые у него
@@ -49,7 +49,7 @@ class FilterRepositoryImpl @Inject constructor(
     override fun observeFacets(query: BookQuery): Flow<FacetSet> = combine(
         // Фасеты считаются тем же предикатом, что и список книг, и без собственного фильтра:
         // выбранный автор сужает серии и жанры, но список авторов остаётся полным, чтобы можно
-        // было выбрать второго (docs/architecture.md §3.5, ADR-008).
+        // было выбрать второго («Архитектура» §3.5, ADR-008).
         facetDao.observeAuthors(FacetSql.authors(query)),
         facetDao.observeSeries(FacetSql.series(query)),
         facetDao.observeFormats(FacetSql.formats(query)),
@@ -69,7 +69,7 @@ class FilterRepositoryImpl @Inject constructor(
                 // чип «UNREAD» читался бы как код, а не как состояние чтения.
                 .map { facet ->
                     FacetItem(
-                        // Подпись статуса — имя значения: слова выбирает экран (docs/tdd.md §8).
+                        // Подпись статуса — имя значения: слова выбирает экран («TDD» §8).
                         id = facet.readingStatus.name,
                         labelCode = facet.readingStatus.name,
                         count = facet.bookCount,

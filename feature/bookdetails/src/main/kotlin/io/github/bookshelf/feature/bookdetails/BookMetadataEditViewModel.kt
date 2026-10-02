@@ -173,7 +173,7 @@ class BookMetadataEditViewModel @Inject constructor(
      * Итог правки словами.
      *
      * Отказ записи приходит кодом (`MetadataWriteFailure`) и называется по типу ошибки
-     * (docs/tdd.md §7): «сохранено в приложении, в файл записать не удалось: нет доступа» —
+     * («TDD» §7): «сохранено в приложении, в файл записать не удалось: нет доступа» —
      * факт и причина, оба переводимые.
      */
     private fun MetadataSaveResult.describe(): AppText = when (val failure = fileFailure) {

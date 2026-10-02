@@ -4,7 +4,7 @@ import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.designsystem.text.AppText
 
 /**
- * Состояние карточки книги (docs/eink-ux.md §6.4).
+ * Состояние карточки книги («E-ink UX» §6.4).
  *
  * Все поля — примитивы и подписи: экран не должен зависеть от формы доменной `Book`,
  * поэтому метаданные приходят сюда уже приведёнными к строкам (размер, дата, серия).

@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * «Магия» байт — чистая таблица сигнатур (docs/formats.md §2), поэтому проверяется без Android.
+ * «Магия» байт — чистая таблица сигнатур («Форматы» §2), поэтому проверяется без Android.
  */
 class MagicBytesTest {
 

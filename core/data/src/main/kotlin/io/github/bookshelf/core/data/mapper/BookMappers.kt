@@ -10,7 +10,7 @@ import io.github.bookshelf.core.data.paging.PageRequest
 import io.github.bookshelf.core.database.entity.BookEntity
 
 /**
- * Маппинг entity ↔ доменная модель (docs/architecture.md §2, §3.1).
+ * Маппинг entity ↔ доменная модель («Архитектура» §2, §3.1).
  *
  * Правила, которые нельзя нарушать:
  * * **никаких entity-типов в публичных API** `:core:data`: наружу уходят только
@@ -20,7 +20,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
  * * неизвестное значение не роняет приложение, а откатывается к безопасному дефолту
  *   (`UNREAD` / `PENDING` / `NONE`) — битая или старая запись лучше падения.
  *
- * Ожидаемый контракт `BookEntity` (docs/architecture.md §3.1): поля `id`, `title`, `authorsText`,
+ * Ожидаемый контракт `BookEntity` («Архитектура» §3.1): поля `id`, `title`, `authorsText`,
  * `seriesName`, `seriesIndex`, `coverPath`, `extension`, `sizeBytes`, `language`, `publishedYear`,
  * `publisher`, `description`, `pageCount`, `readingStatus`, `favorite`, `rating`, `isMissing`,
  * `addedAt`, `lastOpenedAt`, а также `metadataSource`/`parseState`. Если имена в `:core:database`
@@ -31,7 +31,7 @@ import io.github.bookshelf.core.database.entity.BookEntity
  * Собрать доменную модель из entity.
  *
  * [authors] передаётся отдельно: в `books` лежит только `authorsText`, полный список — результат
- * соединения с `book_authors` (docs/architecture.md §3.3).
+ * соединения с `book_authors` («Архитектура» §3.3).
  */
 fun BookEntity.toDomain(authors: List<String>): Book = bookToDomain(
     id = id,

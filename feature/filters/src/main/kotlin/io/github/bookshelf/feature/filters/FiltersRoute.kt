@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.filters.ui.FiltersScreen
 
-/** Маршрут фасетных фильтров (docs/architecture.md §3.5, docs/eink-ux.md §6.2). */
+/** Маршрут фасетных фильтров («Архитектура» §3.5, «E-ink UX» §6.2). */
 object FiltersRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "filters"

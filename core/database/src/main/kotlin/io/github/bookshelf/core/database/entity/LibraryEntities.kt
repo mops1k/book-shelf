@@ -11,7 +11,7 @@ import io.github.bookshelf.core.database.model.SourceKind
  * Авторы и связи «книга — автор», коллекции, теги, источники, прогоны сканирования
  * и лёгкая таблица LRU для кэша обложек.
  *
- * Состав повторяет `docs/architecture.md` §3.3.
+ * Состав повторяет `«Архитектура»` §3.3.
  */
 
 /** Автор. `bookCount` — денормализованный счётчик для экрана автора и фасетов. */
@@ -51,7 +51,7 @@ data class CollectionEntity(
     /** Порядок полок в списке. */
     val position: Int = 0,
     val createdAt: Long,
-    /** JSON-правила умной полки; `null` для ручной (docs/architecture.md §3.3). */
+    /** JSON-правила умной полки; `null` для ручной («Архитектура» §3.3). */
     val rulesJson: String? = null,
 )
 
@@ -90,7 +90,7 @@ data class BookTagCrossRef(
  * Источник библиотеки.
  *
  * `accessLost` — persistable-разрешение SAF потеряно: скан по источнику не падает, UI показывает
- * «Папка недоступна — выбрать заново», книги помечаются `isMissing` (docs/architecture.md §4.1).
+ * «Папка недоступна — выбрать заново», книги помечаются `isMissing` («Архитектура» §4.1).
  */
 @Entity(tableName = "sources")
 data class SourceEntity(
@@ -112,7 +112,7 @@ data class SourceEntity(
  * Прогон сканирования источника.
  *
  * `cursorDocumentId` — последний обработанный `documentId`: с него продолжается прерванный скан
- * (Android 15 ограничивает `dataSync` шестью часами, docs/architecture.md §4.5).
+ * (Android 15 ограничивает `dataSync` шестью часами, «Архитектура» §4.5).
  */
 @Entity(
     tableName = "scan_runs",
@@ -134,7 +134,7 @@ data class ScanRunEntity(
 )
 
 /**
- * Лёгкая запись о файле обложки для LRU-очистки дискового кэша (docs/architecture.md §5).
+ * Лёгкая запись о файле обложки для LRU-очистки дискового кэша («Архитектура» §5).
  *
  * Хранится отдельно от `books`, чтобы eviction не трогал тяжёлую центральную таблицу.
  */

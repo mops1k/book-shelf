@@ -2,7 +2,7 @@ package io.github.bookshelf.core.data.model
 
 import io.github.bookshelf.core.common.error.ParseFailure
 /**
- * Доменная модель книги для UI (docs/architecture.md §3.1).
+ * Доменная модель книги для UI («Архитектура» §3.1).
  *
  * Это **не** Room-entity: feature-модули видят только `:core:data` и не знают про БД. Отсюда
  * следствия:
@@ -12,7 +12,7 @@ import io.github.bookshelf.core.common.error.ParseFailure
  * * enum'ы — свои ([ReadingStatus]), а не entity-перечисления (см. [MetadataOrigin], [ParseState]).
  *
  * @param authorsText денормализованная строка авторов «Фамилия И. О., …» для быстрой отрисовки;
- * @param coverPath путь к файлу в кэше обложек (docs/architecture.md §5) или `null`;
+ * @param coverPath путь к файлу в кэше обложек («Архитектура» §5) или `null`;
  * @param extension расширение без точки в нижнем регистре;
  * @param isMissing файл исчез, но запись сохранена (история чтения и коллекции не теряются);
  * @param progressPercent прогресс чтения 0..100, если читалка его отдаёт.
@@ -75,7 +75,7 @@ data class Book(
     val parseFailure: ParseFailure? = null,
     /**
      * Диагностика разбора от парсера: путь, лимит, ответ провайдера. В интерфейс не выводится
-     * (docs/tdd.md §7) — человеку показывается [parseFailure], а подробность уходит в журнал.
+     * («TDD» §7) — человеку показывается [parseFailure], а подробность уходит в журнал.
      */
     val parseError: String? = null,
 )

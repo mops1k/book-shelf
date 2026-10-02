@@ -26,7 +26,7 @@ import io.github.bookshelf.feature.settings.R
  * Все настройки раздела подключены к потребителям: режим обновления, интервал GC и подсветку
  * применяет `MainActivity` через `EinkController`, события полного кадра читает
  * `ViewEinkRefreshHost`, клавиши громкости — `EinkScaffold` через `LocalVolumeKeysAsPageTurn`.
- * Ничего не перезапускается: подписка на настройки живёт в `MainViewModel` (docs/eink-ux.md §4).
+ * Ничего не перезапускается: подписка на настройки живёт в `MainViewModel` («E-ink UX» §4).
  *
  * Тап-зоны не показываются: `TapZoneLayout` в проекте нигде не используется, и настройка не на что
  * не влияет, а переключатель без действия — обман.

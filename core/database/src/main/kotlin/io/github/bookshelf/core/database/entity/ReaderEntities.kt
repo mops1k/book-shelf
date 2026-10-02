@@ -6,8 +6,8 @@ import androidx.room.PrimaryKey
 import io.github.bookshelf.core.database.model.BookmarkKind
 
 /**
- * Профили внешних читалок, прогресс чтения и закладки (docs/architecture.md §3.3,
- * `docs/reader-integration.md`).
+ * Профили внешних читалок, прогресс чтения и закладки («Архитектура» §3.3,
+ * `«Читалки»`).
  *
  * Профили хранятся в БД, но их JSON-представление (presets) живёт в `:core:datastore`;
  * модуль БД про формат JSON ничего не знает и хранит его строкой.

@@ -69,7 +69,7 @@ class ScanRepositoryImpl @Inject constructor(
      * Прогресс текущего либо последнего прогона источника.
      *
      * `throttleLatest` ограничивает UI не чаще раза в секунду: на e-ink частая перерисовка строки
-     * «Сканирование… 412/1200» вызывает ghosting и расходует батарею (docs/eink-ux.md §5).
+     * «Сканирование… 412/1200» вызывает ghosting и расходует батарею («E-ink UX» §5).
      * `distinctUntilChanged` дополнительно отсекает повторные запросы Room с тем же значением.
      */
     override fun observeProgress(sourceId: String): Flow<ScanProgress> =
@@ -126,7 +126,7 @@ class ScanRepositoryImpl @Inject constructor(
          * Период троттлинга прогресса, мс.
          *
          * На e-ink перерисовка кадра ощутима, поэтому прогресс не должен обновляться чаще: без
-         * троттлинга быстрый скан обновлял бы экран десятки раз в секунду (docs/eink-ux.md §5).
+         * троттлинга быстрый скан обновлял бы экран десятки раз в секунду («E-ink UX» §5).
          */
         const val PROGRESS_EMIT_INTERVAL_MILLIS = 1000L
     }

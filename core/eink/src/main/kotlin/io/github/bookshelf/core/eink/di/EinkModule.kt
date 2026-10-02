@@ -15,7 +15,7 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
 import javax.inject.Singleton
 
 /**
- * DI-обвязка e-ink слоя (docs/architecture.md §6, ADR-009).
+ * DI-обвязка e-ink слоя («Архитектура» §6, ADR-009).
  *
  * Детектор определяет вендора один раз при старте, контроллер выбирается по вендору. Сами
  * контроллеры — заглушки Sprint 10, поэтому выбор оформлен через `when`, а не через динамический

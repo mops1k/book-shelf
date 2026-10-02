@@ -9,7 +9,7 @@ import io.github.bookshelf.core.common.error.DownloadFailure
  * ответ провайдера, код ответа сервера. Отдельным кодом помечается только отказ в записи — тот
  * случай, который человек может исправить сам (дефект 29.09.2026: в очереди был сырой
  * `Permission Denial`, по которому нельзя понять, что делать). Всё остальное — общий код: подробность
- * остаётся в `opds_downloads.error` и в журнале (docs/tdd.md §7).
+ * остаётся в `opds_downloads.error` и в журнале («TDD» §7).
  */
 internal fun downloadFailureOf(raw: String?): DownloadFailure =
     if (PERMISSION_DENIAL_MARKERS.any { marker -> raw?.contains(marker, ignoreCase = true) == true }) {

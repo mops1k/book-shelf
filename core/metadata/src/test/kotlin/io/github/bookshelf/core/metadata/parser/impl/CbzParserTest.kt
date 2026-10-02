@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * CBZ — ZIP с `ComicInfo.xml` (Anansi v2.0) и страницами-картинками (docs/formats.md §7).
+ * CBZ — ZIP с `ComicInfo.xml` (Anansi v2.0) и страницами-картинками («Форматы» §7).
  *
  * Дефект, ради которого парсер реализован: формат распознавался (`supports`), но разбора не было —
  * книга получала заголовок из имени файла и пометку «формат не поддерживается», хотя метаданные

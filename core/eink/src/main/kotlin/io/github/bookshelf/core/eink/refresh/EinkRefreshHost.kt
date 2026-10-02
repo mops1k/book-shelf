@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.eink.refresh
 
 /**
- * Причина, по которой нужен полный перерисон (docs/eink-ux.md §4).
+ * Причина, по которой нужен полный перерисон («E-ink UX» §4).
  *
  * Копия перечисления из дизайн-системы сделана осознанно (`LOCAL`): `:core:eink` не должен зависеть
  * от Compose и `:core:designsystem`. Дизайн-система объявляет `LocalEinkRefresh`, а `:app` связывает
@@ -19,7 +19,7 @@ enum class RefreshReason {
 }
 
 /**
- * Точка приёма событий «нужен полный refresh» (docs/architecture.md §6).
+ * Точка приёма событий «нужен полный refresh» («Архитектура» §6).
  *
  * Реализация держит корневой контейнер экрана и вызывает
  * [io.github.bookshelf.core.eink.EinkController.fullRefresh] по событиям навигации и диалогов.

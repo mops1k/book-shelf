@@ -13,7 +13,7 @@ import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
 
 /**
- * Ключи DataStore Preferences и документированные значения по умолчанию (docs/eink-ux.md §2, §4, §6.8).
+ * Ключи DataStore Preferences и документированные значения по умолчанию («E-ink UX» §2, §4, §6.8).
  *
  * Здесь **только имена и типы ключей** — никакой логики чтения/записи: она в
  * [DataStoreSettingsRepository] (Sprint 1). Имена ключей с префиксом группы (`appearance.`,
@@ -107,7 +107,7 @@ object SettingsKeys {
     val DB_BACKUP_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("advanced.db_backup_enabled")
 
     /**
-     * Значения по умолчанию (docs/eink-ux.md §2, §4; docs/architecture.md §4.4, §5).
+     * Значения по умолчанию («E-ink UX» §2, §4; «Архитектура» §4.4, §5).
      *
      * Числовые и булевы — `const val`: их видно на этапе компиляции и нельзя случайно поменять
      * «на месте». Enum-значения — обычные `val`.

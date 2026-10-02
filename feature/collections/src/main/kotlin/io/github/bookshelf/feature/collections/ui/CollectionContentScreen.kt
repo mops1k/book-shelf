@@ -130,7 +130,7 @@ private fun ShelfBookItem(
                 book.authors,
             ),
             // Формат — в углу обложки, статус — полосой внизу: отдельная строка под плиткой
-            // отнимала у полки целый ряд книг (docs/eink-ux.md §6.2).
+            // отнимала у полки целый ряд книг («E-ink UX» §6.2).
             formatBadge = book.extension.uppercase().takeIf { extension -> extension.isNotEmpty() },
             statusBadge = readingStatusBadge(book.readingStatus.name, book.progressPercent)
                 ?.resolve()

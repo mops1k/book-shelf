@@ -4,14 +4,14 @@ import io.github.bookshelf.core.common.error.AppResult
 import java.io.File
 
 /**
- * Кэш обложек (docs/architecture.md §5).
+ * Кэш обложек («Архитектура» §5).
  *
  * Двухуровневый: файлы WebP на диске (источник истины) и `LruCache` в памяти (быстрый доступ при
  * пагинации). Контракт намеренно ничего не знает про Coil и `Bitmap` — им пользуется слой
  * декодирования ([io.github.bookshelf.core.covers.decode.CoverDecoder]).
  *
  * Формат файлов: `filesDir/covers/{bookId}.webp` — полная обложка, `.../{bookId}_t.webp` — тайл
- * сетки (docs/architecture.md §5). Имена и проверка `bookId` — в
+ * сетки («Архитектура» §5). Имена и проверка `bookId` — в
  * [io.github.bookshelf.core.covers.cache.CoverPaths].
  *
  * Инвалидация выполняется при изменении файла книги (`quickHash`); ручное редактирование метаданных

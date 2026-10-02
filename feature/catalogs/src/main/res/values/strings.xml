@@ -106,7 +106,7 @@
     <string name="catalogs_size_mb">%1$s МБ</string>
     <string name="catalogs_size_kb">%1$d КБ</string>
 
-    <!-- Ошибки карточки записи OPDS: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <!-- Ошибки карточки записи OPDS: причина — текст по типу ошибки («TDD» §7). -->
     <string name="catalogs_entry_error_load_state">Не удалось получить состояние загрузки: %1$s</string>
     <string name="catalogs_entry_error_no_catalog">Каталог не указан</string>
     <string name="catalogs_entry_error_not_in_feed">Запись больше не входит в этот фид</string>
@@ -115,7 +115,7 @@
     <string name="catalogs_entry_error_no_folder">Сначала добавьте папку в приложении</string>
     <string name="catalogs_entry_error_enqueue">Не удалось поставить в очередь: %1$s</string>
 
-    <!-- Ошибки каталогов OPDS: «что не получилось» + причина по типу ошибки (docs/tdd.md §7). -->
+    <!-- Ошибки каталогов OPDS: «что не получилось» + причина по типу ошибки («TDD» §7). -->
     <string name="catalogs_error_add">Не удалось добавить каталог: %1$s</string>
     <string name="catalogs_error_load_feed">Не удалось загрузить фид: %1$s</string>
     <string name="catalogs_error_open_entry">Не удалось открыть запись: %1$s</string>

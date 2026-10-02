@@ -71,7 +71,7 @@ class BookOptimizationActionTest {
 
         val state = viewModel.uiState.value
         assertThat(state.isOptimizing).isFalse()
-        // Итог — переводимые части: экономия и «было/стало» (docs/tdd.md §5).
+        // Итог — переводимые части: экономия и «было/стало» («TDD» §5).
         assertThat(state.optimizationMessage).isEqualTo(
             AppText(
                 R.string.book_optimized_saved,
@@ -150,7 +150,7 @@ class BookOptimizationActionTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        // Причина — текст по типу ошибки, а не сообщение слоя данных (docs/tdd.md §7).
+        // Причина — текст по типу ошибки, а не сообщение слоя данных («TDD» §7).
         assertThat(state.error).isEqualTo(AppText(R.string.book_error_optimize, refusal.text()))
         assertThat(state.optimizationMessage).isNull()
     }

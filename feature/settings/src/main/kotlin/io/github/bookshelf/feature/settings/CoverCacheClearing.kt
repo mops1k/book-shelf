@@ -24,12 +24,12 @@ internal suspend fun clearCoverCacheWithReport(cache: CoverCache): AppText {
     val before = cache.sizeBytes()
     return try {
         cache.clear()
-        // Объём — переводимая часть: число считает `freedBytesText`, единицу даёт ресурс (docs/tdd.md §5).
+        // Объём — переводимая часть: число считает `freedBytesText`, единицу даёт ресурс («TDD» §5).
         AppText(R.string.settings_cover_cache_cleared, freedBytesText(before - cache.sizeBytes()))
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (io: IOException) {
-        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают («TDD» §7).
         AppText(R.string.settings_cover_cache_failed, io.toAppError().text())
     }
 }

@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Тот же гейт, что в CI (docs/tdd.md §9): релиз не собирается на красных тестах.
+  # Тот же гейт, что в CI («TDD» §9): релиз не собирается на красных тестах.
   gate:
     name: Гейт (тесты и detekt)
     runs-on: ubuntu-latest

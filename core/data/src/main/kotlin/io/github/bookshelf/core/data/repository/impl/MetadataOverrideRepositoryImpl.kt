@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Хранение ручных правок метаданных (docs/architecture.md §3.1, §4.4).
+ * Хранение ручных правок метаданных («Архитектура» §3.1, §4.4).
  *
  * Репозиторий **не трогает `books`**. Это не оптимизация, а требование: пересканирование
  * изменённого файла перезаписывает встроенные метаданные, и правка пользователя, лежащая в
@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.map
  * выполняет вызывающий код, читая обе таблицы.
  *
  * Исключения Room наружу не пробрасываются: они превращаются в [AppError], как требует правило
- * проекта (docs/architecture.md §1).
+ * проекта («Архитектура» §1).
  */
 @Singleton
 class MetadataOverrideRepositoryImpl @Inject constructor(

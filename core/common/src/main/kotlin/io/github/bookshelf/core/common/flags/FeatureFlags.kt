@@ -4,7 +4,7 @@ package io.github.bookshelf.core.common.flags
  * Возможности, которые зависят от **flavor-сборки**, а не от настроек пользователя.
  *
  * Зачем отдельный тип: `:core:*` и `:feature:*` не видят `BuildConfig` приложения, а различать
- * сборки через `if (flavor == …)` в бизнес-логике запрещено (docs/architecture.md §9).
+ * сборки через `if (flavor == …)` в бизнес-логике запрещено («Архитектура» §9).
  * Поэтому flavor-различия приходят одной зависимостью, а в тестах подменяются фейком —
  * то есть поведение «CBR выключен» можно проверить тестом, а не только вручную в другой сборке.
  *
@@ -21,11 +21,11 @@ interface FeatureFlags {
 
     /**
      * Доступ ко всем файлам (`MANAGE_EXTERNAL_STORAGE`). В `play`-flavor выключен: разрешение
-     * требует Declaration Form (docs/architecture.md §4.1, §9).
+     * требует Declaration Form («Архитектура» §4.1, §9).
      */
     val allowAllFilesAccess: Boolean
 
-    /** OPDS. Выключен в офлайн-сборке (docs/opds.md). */
+    /** OPDS. Выключен в офлайн-сборке («OPDS»). */
     val opdsEnabled: Boolean
 }
 

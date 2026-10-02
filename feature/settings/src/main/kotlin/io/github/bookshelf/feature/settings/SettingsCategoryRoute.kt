@@ -7,7 +7,7 @@ import androidx.navigation.navArgument
 import io.github.bookshelf.feature.settings.ui.SettingsCategoryScreen
 
 /**
- * Маршрут экрана одной категории настроек (docs/eink-ux.md §6.8).
+ * Маршрут экрана одной категории настроек («E-ink UX» §6.8).
  *
  * Категория передаётся именем [SettingsSectionKind], а не индексом: список разделов можно
  * переставить или дополнить, и сохранённый в бэкстеке маршрут после этого не откроет чужой экран.

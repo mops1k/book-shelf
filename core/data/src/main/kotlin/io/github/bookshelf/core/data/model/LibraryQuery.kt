@@ -3,7 +3,7 @@ package io.github.bookshelf.core.data.model
 import io.github.bookshelf.core.data.paging.PageRequest
 
 /**
- * Запрос страницы полки: фильтры + сортировка + группировка + пагинация (docs/architecture.md §3.5).
+ * Запрос страницы полки: фильтры + сортировка + группировка + пагинация («Архитектура» §3.5).
  *
  * @param page номер страницы с нуля (так удобнее считать `offset = page * pageSize`);
  * @param pageSize размер страницы; по умолчанию [PageRequest.DEFAULT_PAGE_SIZE].
@@ -18,7 +18,7 @@ data class LibraryQuery(
 )
 
 /**
- * Набор активных фильтров (docs/architecture.md §3.5, ADR-008).
+ * Набор активных фильтров («Архитектура» §3.5, ADR-008).
  *
  * Семантика множественного выбора: **ИЛИ внутри одного фасета, И между разными**. Пустые множества
  * означают «фильтр не задан», а не «ничего не найдено» — это важно для [isEmpty] и для того,
@@ -80,7 +80,7 @@ private fun BookQuery.hasNoValueFilters(): Boolean =
 /**
  * Добавить авторов к фильтру (копирование: [BookQuery] — неизменяемое значение).
  *
- * Множественный выбор — требование заказчика: «несколько авторов, несколько серий» (docs/architecture.md §3.5).
+ * Множественный выбор — требование заказчика: «несколько авторов, несколько серий» («Архитектура» §3.5).
  */
 fun BookQuery.withAuthor(vararg authorNames: String): BookQuery =
     copy(authorNames = this.authorNames + authorNames)

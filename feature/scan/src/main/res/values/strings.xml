@@ -32,7 +32,7 @@
     <string name="scan_caption_seen_total">Просмотрено %1$d из ~%2$d</string>
     <string name="scan_status_detail">%1$s · добавлено %2$d, ошибок %3$d</string>
 
-    <!-- Сообщения сканирования: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <!-- Сообщения сканирования: причина — текст по типу ошибки («TDD» §7). -->
     <string name="scan_error_no_source">Нет источника для сканирования</string>
     <string name="scan_error_not_started">Не удалось просканировать: работа не запустилась</string>
     <string name="scan_error_pause">Не удалось поставить скан на паузу: %1$s</string>

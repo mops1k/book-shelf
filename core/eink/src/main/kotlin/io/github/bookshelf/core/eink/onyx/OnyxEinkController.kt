@@ -8,7 +8,7 @@ import io.github.bookshelf.core.eink.noop.NoopEinkController
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 
 /**
- * Контроллер для устройств Onyx Boox через публичный Onyx SDK (docs/eink-ux.md §8.1, ADR-009).
+ * Контроллер для устройств Onyx Boox через публичный Onyx SDK («E-ink UX» §8.1, ADR-009).
  *
  * **Параметры SDK**
  * * Maven-репозиторий: `http://repo.boox.com/repository/maven-public/` (только `http`: https-эндпоинт

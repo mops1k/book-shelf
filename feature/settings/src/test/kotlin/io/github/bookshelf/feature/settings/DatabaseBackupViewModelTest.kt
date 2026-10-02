@@ -76,7 +76,7 @@ class DatabaseBackupViewModelTest {
         viewModel.onCreateBackup()
         advanceUntilIdle()
 
-        // Итог — переводимая часть: имя файла передаётся аргументом ресурса (docs/tdd.md §5).
+        // Итог — переводимая часть: имя файла передаётся аргументом ресурса («TDD» §5).
         assertThat(viewModel.uiState.value.message)
             .isEqualTo(AppText(R.string.settings_backup_created, "bookshelf-backup-7.db"))
         assertThat(viewModel.uiState.value.isWorking).isFalse()
@@ -95,7 +95,7 @@ class DatabaseBackupViewModelTest {
         viewModel.onCreateBackup()
         advanceUntilIdle()
 
-        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают («TDD» §7).
         assertThat(viewModel.uiState.value.message)
             .isEqualTo(AppText(R.string.settings_backup_failed, failure.text()))
     }

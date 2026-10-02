@@ -8,7 +8,7 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    // Coil без сетевого модуля: обложки только локальные (docs/architecture.md §5)
+    // Coil без сетевого модуля: обложки только локальные («Архитектура» §5)
     api(libs.coil.core)
     api(libs.coil.compose)
 }

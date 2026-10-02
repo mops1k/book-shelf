@@ -6,7 +6,7 @@ import androidx.room.Upsert
 import io.github.bookshelf.core.database.entity.OpdsCatalogEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Каталоги OPDS (docs/opds.md). */
+/** Каталоги OPDS («OPDS»). */
 @Dao
 interface OpdsCatalogDao {
 

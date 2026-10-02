@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /**
  * Запись фида OPDS (`atom:entry`).
  *
- * Поля собраны из метаданных, обязательных по docs/opds.md §1: `title`, `author/name`,
+ * Поля собраны из метаданных, обязательных по «OPDS» §1: `title`, `author/name`,
  * `dc:language`, `dc:issued`, `dc:identifier` (ISBN), `dc:publisher`, `summary`/`content`,
  * `category`, `dcterms:extent`. Здесь оставлены только те, что нужны полке; остальное
  * сохраняется парсером при необходимости.

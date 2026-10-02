@@ -56,7 +56,7 @@ data class FacetChipUi(
      * Подпись, выбранная интерфейсом, если значение — код (`genreText`, `readingStatusText`).
      *
      * Живёт в UI-модели, а не в `:core:data`: у слоя данных нет ресурсов, и готовая русская строка
-     * оттуда показывалась бы по-русски и в английском интерфейсе (docs/tdd.md §8).
+     * оттуда показывалась бы по-русски и в английском интерфейсе («TDD» §8).
      */
     val labelText: AppText? = null,
     /** Сколько книг у этого значения с учётом остальных активных фильтров. */
@@ -136,7 +136,7 @@ private fun List<FacetItem>.toChipsUi(kind: FacetKind): List<FacetChipUi> = map 
             FacetKind.TAGS -> genreText(item.labelCode)
             FacetKind.STATUSES -> readingStatusText(item.labelCode)
             // Имя папки — данные, но у выбранного в новой версии источника имя пустое:
-            // тогда слова выбирает приложение, а не файл (docs/tdd.md §8).
+            // тогда слова выбирает приложение, а не файл («TDD» §8).
             FacetKind.SOURCES -> if (item.labelCode.isBlank()) AppText(DesignR.string.source_default_name) else null
             else -> null
         },
@@ -160,7 +160,7 @@ data class FiltersUiState(
     val resultCount: Int = 0,
     /** Идёт загрузка фасетов или пересчёт результата. */
     val isLoading: Boolean = false,
-    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка (docs/tdd.md §5). */
+    /** Текст ошибки для `EinkErrorBanner`: ресурс с причиной, а не готовая строка («TDD» §5). */
     val error: AppText? = null,
 )
 

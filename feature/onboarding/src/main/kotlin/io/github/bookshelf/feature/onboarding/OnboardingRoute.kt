@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.onboarding.ui.OnboardingScreen
 
-/** Маршрут онбординга — первый запуск приложения (docs/eink-ux.md §6.1). */
+/** Маршрут онбординга — первый запуск приложения («E-ink UX» §6.1). */
 object OnboardingRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "onboarding"

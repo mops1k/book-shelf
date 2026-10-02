@@ -9,7 +9,7 @@ import java.nio.charset.CodingErrorAction
  * Определение кодировки текста FB2/TXT.
  *
  * Порядок: BOM → явно объявленная кодировка → XML-декларация → «валидный UTF-8?» →
- * windows-1251 для кириллицы (docs/architecture.md §4.4, docs/formats.md §3).
+ * windows-1251 для кириллицы («Архитектура» §4.4, «Форматы» §3).
  * ICU4J не подключаем: ~15 МБ до R8 ради одной задачи неоправданно.
  */
 interface CharsetDetector {
@@ -53,7 +53,7 @@ class DefaultCharsetDetector : CharsetDetector {
      * Кодировка из `<?xml version="1.0" encoding="..."?>`.
      *
      * Пролог декодируется как ISO-8859-1: декларация всегда лежит в ASCII-совместимой части,
-     * поэтому её можно прочитать до того, как кодировка определена (docs/formats.md §3).
+     * поэтому её можно прочитать до того, как кодировка определена («Форматы» §3).
      */
     private fun declaredInXmlPrologue(prefix: ByteArray): String? {
         val head = String(prefix.take(XML_DECLARATION_LIMIT).toByteArray(), Charsets.ISO_8859_1)

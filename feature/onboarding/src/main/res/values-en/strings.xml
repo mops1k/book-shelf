@@ -24,7 +24,7 @@
     <string name="onboarding_action_next">Next</string>
     <string name="onboarding_action_finish">Build the library</string>
 
-    <!-- Onboarding messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <!-- Onboarding messages: the cause is the text of the error type («TDD» §7). -->
     <string name="onboarding_error_open_picker">Could not open the folder picker</string>
     <string name="onboarding_error_empty_uri">The chosen folder has no URI</string>
     <string name="onboarding_error_add_source">Could not add the folder: %1$s</string>

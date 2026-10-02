@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.search.ui.SearchScreen
 
-/** Маршрут поиска по библиотеке (docs/eink-ux.md §6.5). */
+/** Маршрут поиска по библиотеке («E-ink UX» §6.5). */
 object SearchRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "search"

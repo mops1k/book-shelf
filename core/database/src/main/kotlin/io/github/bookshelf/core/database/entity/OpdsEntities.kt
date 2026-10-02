@@ -6,8 +6,8 @@ import androidx.room.PrimaryKey
 import io.github.bookshelf.core.database.model.OpdsDownloadState
 
 /**
- * Модель OPDS: каталоги, загрузки и кэш разобранных фидов (docs/architecture.md §3.3,
- * `docs/opds.md`).
+ * Модель OPDS: каталоги, загрузки и кэш разобранных фидов («Архитектура» §3.3,
+ * `«OPDS»`).
  *
  * `:core:database` про сеть ничего не знает: здесь только состояние, которое переживает
  * перезапуск процесса.
@@ -17,7 +17,7 @@ import io.github.bookshelf.core.database.model.OpdsDownloadState
  * Каталог OPDS.
  *
  * Пароль в БД не хранится: лежит `passwordAlias` — ключ шифрованного хранилища, сам секрет
- * живёт вне Room (docs/opds.md).
+ * живёт вне Room («OPDS»).
  */
 @Entity(tableName = "opds_catalogs", indices = [Index(value = ["url"], unique = true)])
 data class OpdsCatalogEntity(

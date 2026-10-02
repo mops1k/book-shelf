@@ -4,7 +4,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import io.github.bookshelf.feature.scan.ui.ScanScreen
 
-/** Маршрут экрана сканирования: прогресс, отчёт, дубликаты (docs/eink-ux.md §6.6–6.7). */
+/** Маршрут экрана сканирования: прогресс, отчёт, дубликаты («E-ink UX» §6.6–6.7). */
 object ScanRoute {
     /** Путь маршрута в навигационном графе. */
     const val route: String = "scan"

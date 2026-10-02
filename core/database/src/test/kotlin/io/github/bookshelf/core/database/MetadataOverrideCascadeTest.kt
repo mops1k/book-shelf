@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Поведение внешних ключей в боевом пути (docs/architecture.md §3.1).
+ * Поведение внешних ключей в боевом пути («Архитектура» §3.1).
  *
  * Отдельный файл от `BookshelfDatabaseMigrationTest` не из-за логики, а из-за окружения: там база
  * открывается через `MigrationTestHelper` как «сырая» `SupportSQLiteDatabase`, где

@@ -27,7 +27,7 @@
     <string name="search_empty_nothing_found">Nothing found</string>
     <string name="search_empty_nothing_found_message">No matches for «%1$s». Try another word or part of a word.</string>
 
-    <!-- Search messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <!-- Search messages: the cause is the text of the error type («TDD» §7). -->
     <string name="search_error_suggestions">Could not get the suggestions: %1$s</string>
     <string name="search_error_search">Could not perform the search: %1$s</string>
 </resources>

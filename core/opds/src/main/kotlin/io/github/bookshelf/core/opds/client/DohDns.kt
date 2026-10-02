@@ -23,7 +23,7 @@ fun interface HostResolver {
 }
 
 /**
- * Резолвер DNS-over-HTTPS (docs/opds.md).
+ * Резолвер DNS-over-HTTPS («OPDS»).
  *
  * Зачем: у части провайдеров имена библиотечных зеркал не резолвятся системным DNS
  * (на Bigme B6 `flibusta.is` даёт «unknown host», при этом сеть работает). Менять системные

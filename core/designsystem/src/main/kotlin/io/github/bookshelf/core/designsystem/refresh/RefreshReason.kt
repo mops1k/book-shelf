@@ -8,7 +8,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * Причина, по которой нужен полный перерисон экрана.
  *
  * Список закрытый: `EinkRefreshHost` в `:core:eink` знает, какие события действительно
- * требуют полного обновления, а какие можно отрисовать частично (docs/eink-ux.md §4).
+ * требуют полного обновления, а какие можно отрисовать частично («E-ink UX» §4).
  */
 enum class RefreshReason {
     SCREEN_CHANGED,

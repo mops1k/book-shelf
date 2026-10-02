@@ -11,7 +11,7 @@ import java.nio.charset.Charset
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * RTF — текст с группой `{\info …}` (docs/formats.md §7).
+ * RTF — текст с группой `{\info …}` («Форматы» §7).
  *
  * Метаданные лежат в первых сотнях байт, поэтому читается только префикс файла: документ может
  * занимать десятки мегабайт. Префикс разбирается как ISO-8859-1 — байт в байт, потому что

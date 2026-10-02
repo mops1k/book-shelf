@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * ODT — ZIP с `meta.xml` (docs/formats.md §7).
+ * ODT — ZIP с `meta.xml` («Форматы» §7).
  *
  * Дефект тот же, что у DOCX: формат распознавался, но не разбирался. Из ODF читаются
  * `dc:title`, `dc:creator` (или `meta:initial-creator`), `dc:language` и число страниц из

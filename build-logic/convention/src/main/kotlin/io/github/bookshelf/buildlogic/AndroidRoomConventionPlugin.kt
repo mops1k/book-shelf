@@ -12,7 +12,7 @@ import org.gradle.kotlin.dsl.getByType
  * Room (KSP) с экспортом схемы.
  *
  * Экспорт схемы обязателен: миграции проверяются тестом `MigrationTestHelper`, а не «на глаз»
- * (docs/tdd.md §4). Каталог `schemas/` лежит в репозитории вместе с кодом.
+ * («TDD» §4). Каталог `schemas/` лежит в репозитории вместе с кодом.
  */
 class AndroidRoomConventionPlugin : Plugin<Project> {
 

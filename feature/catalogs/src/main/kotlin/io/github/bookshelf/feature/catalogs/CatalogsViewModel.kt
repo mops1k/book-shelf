@@ -39,7 +39,7 @@ private const val DATE_PATTERN = "dd.MM"
  */
 
 /**
- * ViewModel модуля OPDS (docs/opds.md §3, Sprint 8).
+ * ViewModel модуля OPDS («OPDS» §3, Sprint 8).
  *
  * Списки каталогов и загрузок приходят по подпискам [OpdsRepository.observeCatalogs] и
  * [OpdsRepository.observeDownloads] в [viewModelScope], а сеть дёргается только по действиям
@@ -342,7 +342,7 @@ class CatalogsViewModel @Inject constructor(
     /**
      * Поиск по каталогу.
      *
-     * Два пути, и оба нужны (docs/opds.md §3.2):
+     * Два пути, и оба нужны («OPDS» §3.2):
      * 1. каталог объявил OpenSearch (`rel="search"` с `{searchTerms}`) — запрос уходит на сервер
      *    через [OpdsRepository.search], результат становится обычным уровнем фида;
      * 2. шаблона нет — ищем по уже загруженным записям и говорим об этом в хлебных крошках, а не
@@ -784,7 +784,7 @@ class CatalogsViewModel @Inject constructor(
      * У части ошибок [AppError.message] пуст, поэтому для них текст берётся по типу — баннер
      * не должен оставаться пустым.
      */
-    /** Ошибка действия: «что не получилось» — ресурс, «почему» — текст по типу ошибки (docs/tdd.md §7). */
+    /** Ошибка действия: «что не получилось» — ресурс, «почему» — текст по типу ошибки («TDD» §7). */
     private fun showError(actionRes: Int, error: AppError) {
         _uiState.value = _uiState.value.copy(error = AppText(actionRes, error.text()))
     }

@@ -11,7 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /**
- * MOBI / AZW3 / PRC — Palm DB → PalmDOC → MOBI → EXTH (docs/formats.md §6).
+ * MOBI / AZW3 / PRC — Palm DB → PalmDOC → MOBI → EXTH («Форматы» §6).
  *
  * Дефект, ради которого парсер реализован: формат распознавался, но разбора не было — книги
  * MOBI/AZW3 в библиотеке получали заголовок из имени файла и пометку «формат не поддерживается»,

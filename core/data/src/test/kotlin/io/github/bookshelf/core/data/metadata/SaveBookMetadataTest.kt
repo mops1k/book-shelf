@@ -52,7 +52,7 @@ class SaveBookMetadataTest {
 
         val saved = result.getOrNull()
         assertThat(saved?.fileWritten).isFalse()
-        // Причина — типизированный код: строку выбирает экран (docs/tdd.md §8).
+        // Причина — типизированный код: строку выбирает экран («TDD» §8).
         assertThat(saved?.fileFailure).isEqualTo(
             MetadataWriteFailure.WriteFailed(AppError.Io(message = "Нет права записи в папку")),
         )

@@ -7,7 +7,7 @@ package io.github.bookshelf.core.storage.scan
  */
 object BookFileFilter {
 
-    /** Форматы, которые библиотека показывает пользователю (docs/formats.md §1). */
+    /** Форматы, которые библиотека показывает пользователю («Форматы» §1). */
     val SUPPORTED_EXTENSIONS: Set<String> = setOf(
         "fb2",
         "fb2.zip",
@@ -29,14 +29,14 @@ object BookFileFilter {
      * Форматы, доступные только во flavor `full`.
      *
      * CBR сейчас единственный: `junrar` распространяется под несвободной UnRar License,
-     * поэтому `fdroid` и `play` собираются без него (ADR-007, docs/architecture.md §9).
+     * поэтому `fdroid` и `play` собираются без него (ADR-007, «Архитектура» §9).
      */
     val FULL_FLAVOR_ONLY_EXTENSIONS: Set<String> = setOf("cbr")
 
     /**
      * Форматы, которые мы сознательно оставляем без парсера.
      *
-     * DJVU: Android/JVM-артефактов нет, нужна NDK-сборка DjVuLibre (docs/formats.md §1).
+     * DJVU: Android/JVM-артефактов нет, нужна NDK-сборка DjVuLibre («Форматы» §1).
      * Книга видна в библиотеке с заголовком из имени файла и пометкой «формат не поддерживается».
      */
     val EXTENSIONS_WITHOUT_PARSER: Set<String> = setOf("djvu")
@@ -69,7 +69,7 @@ object BookFileFilter {
      *
      * `DocumentEntry.extension` отдаёт только последний сегмент, а для FB2.ZIP важен именно
      * `fb2.zip`: архив опознаётся по первой записи `.fb2` или сигнатуре `<FictionBook`
-     * (docs/formats.md §3).
+     * («Форматы» §3).
      */
     fun detectExtension(fileName: String): String {
         val lower = fileName.lowercase()

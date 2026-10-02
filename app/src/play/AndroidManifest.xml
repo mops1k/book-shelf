@@ -4,6 +4,6 @@
   MANAGE_EXTERNAL_STORAGE и QUERY_ALL_PACKAGES здесь отсутствуют осознанно: оба требуют
   Declaration Form, а второй большинству приложений вообще не разрешён (ADR-007).
   Практическое следствие: если книги лежат в Download или в корне накопителя, экран выбора
-  папки предлагает перенести их в обычную папку (docs/architecture.md §4.1).
+  папки предлагает перенести их в обычную папку («Архитектура» §4.1).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" />

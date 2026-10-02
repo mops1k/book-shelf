@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * События приходят широковещательно на `android.fbreader.action.API_CALLBACK` с `int`-дополнительным
  * полем `event.type`; подписка оформляется через `ApiListener`. События не гарантированы:
  * если сервис не exported или `bindService` вернул `false`, клиент молча деградирует до L1 и
- * публикует [FbReaderEvent.ApiUnavailable] (docs/reader-integration.md §3, §4.2).
+ * публикует [FbReaderEvent.ApiUnavailable] («Читалки» §3, §4.2).
  *
  * Таймаут привязки — 3 с, после чего привязка отменяется и фиксируется деградация до L1.
  */

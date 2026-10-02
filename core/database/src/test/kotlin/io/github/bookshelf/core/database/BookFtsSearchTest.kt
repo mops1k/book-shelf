@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Полнотекстовый поиск по FTS4 (docs/architecture.md §3.2).
+ * Полнотекстовый поиск по FTS4 («Архитектура» §3.2).
  *
  * Тест гоняется на **API 24** намеренно. `minSdk` проекта — 24, а системный SQLite там заметно
  * старее того, что стоит на стендах разработки. KDoc сущности раньше сомневался, поддерживает ли

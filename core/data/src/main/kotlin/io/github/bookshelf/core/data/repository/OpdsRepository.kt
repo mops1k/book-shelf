@@ -8,7 +8,7 @@ import io.github.bookshelf.core.data.model.OpdsPage
 import kotlinx.coroutines.flow.Flow
 
 /**
- * OPDS: каталоги, браузер фидов и загрузки (docs/architecture.md §3.3, ADR-006).
+ * OPDS: каталоги, браузер фидов и загрузки («Архитектура» §3.3, ADR-006).
  *
  * Сеть — только по явному действию пользователя с добавленным им каталогом. Каталог добавляется
  * вручную по URL (с опциональной Basic/Digest-авторизацией; пароль хранится зашифрованным и здесь
@@ -54,7 +54,7 @@ interface OpdsRepository {
     suspend fun browsePage(catalogId: String, url: String? = null): AppResult<OpdsPage>
 
     /**
-     * Поиск по каталогу через OpenSearch (docs/opds.md §3.2).
+     * Поиск по каталогу через OpenSearch («OPDS» §3.2).
      *
      * [searchTemplate] — то, что каталог объявил ссылкой `rel="search"`: готовый шаблон с
      * `{searchTerms}` либо дескриптор OpenSearch, внутри которого шаблон лежит. Второй случай

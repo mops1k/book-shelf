@@ -90,7 +90,7 @@ class BookMappersTest {
             parseError = "FB2 внутри архива превышает допустимый размер XML",
         )
 
-        // Причина отказа разбора — код, а не строка: слова выбирает экран (docs/tdd.md §8).
+        // Причина отказа разбора — код, а не строка: слова выбирает экран («TDD» §8).
         // Подробный текст парсера остаётся диагностикой и в интерфейс не идёт.
         assertThat(book.parseState).isEqualTo(ParseState.FAILED)
         assertThat(book.parseFailure).isEqualTo(ParseFailure.CORRUPT_FILE)

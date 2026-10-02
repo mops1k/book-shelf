@@ -65,7 +65,7 @@ class BookOptimizationViewModelTest {
         assertThat(state.isRunning).isFalse()
         assertThat(state.done).isEqualTo(3)
         assertThat(state.total).isEqualTo(3)
-        // Итог собран из переводимых частей: у каждой своё число (docs/tdd.md §5).
+        // Итог собран из переводимых частей: у каждой своё число («TDD» §5).
         assertThat(state.message).contains(AppText(R.string.settings_optimization_optimized, 2))
         assertThat(state.message).contains(
             AppText(R.string.settings_optimization_saved, freedBytesText(2_097_152)),
@@ -202,7 +202,7 @@ class BookOptimizationViewModelTest {
         viewModel.onStart()
         advanceUntilIdle()
 
-        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают (docs/tdd.md §7).
+        // Причина — текст по типу ошибки: сообщение нижнего слоя человеку не показывают («TDD» §7).
         assertThat(viewModel.uiState.value.error)
             .isEqualTo(AppText(R.string.settings_optimization_failed, failure.text()))
         assertThat(viewModel.uiState.value.isRunning).isFalse()

@@ -85,7 +85,7 @@ class SmartRulesTest {
     @Test
     fun `parts name the conditions without text from the data layer`() {
         // Подпись собирает экран: здесь только значения и коды, никакого русского текста
-        // (иначе в английском интерфейсе подпись правила была бы русской, docs/tdd.md §8).
+        // (иначе в английском интерфейсе подпись правила была бы русской, «TDD» §8).
         assertThat(SmartRules(tags = setOf("sf_space")).parts())
             .containsExactly(SmartRulePart.Genre("sf_space"))
         assertThat(SmartRules(favoritesOnly = true).parts())

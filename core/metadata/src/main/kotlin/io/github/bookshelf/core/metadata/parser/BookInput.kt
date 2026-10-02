@@ -4,12 +4,12 @@ import java.io.InputStream
 import io.github.bookshelf.core.common.io.SeekableFile
 
 /**
- * Входные данные парсера — ровно тот контракт, что зафиксирован в docs/architecture.md §4.4.
+ * Входные данные парсера — ровно тот контракт, что зафиксирован в «Архитектура» §4.4.
  *
  * [openStream] отдаёт одноразовый поток (FB2/TXT/OPF читаются потоково), [openSeekable] —
  * канал с произвольным доступом для MOBI/AZW3, PDF и CBZ/CBR. Для облачных DocumentsProvider
  * канал недоступен, и парсер обязан деградировать до `Partial` без обложки, но не падать
- * (docs/formats.md §2, §7).
+ * («Форматы» §2, §7).
  *
  * @param fileName имя файла как его видит пользователь — источник заголовка при `Partial`;
  * @param extension расширение в нижнем регистре, возможно составное (`fb2.zip`);

@@ -40,7 +40,7 @@ data class LaunchRequest(
 )
 
 /**
- * Ошибки запуска читалки (docs/reader-integration.md §7).
+ * Ошибки запуска читалки («Читалки» §7).
  *
  * Наследоваться от [AppError] нельзя: это `sealed`-иерархия, закрытая в модуле `:core:common`,
  * а Kotlin требует объявлять наследников sealed-типа в том же модуле. Поэтому здесь своя
@@ -100,7 +100,7 @@ fun ReaderLaunchError.toAppError(): AppError = when (this) {
  * 3. копия файла: в общий каталог (`full`-flavor) либо в `cacheDir/export` + FileProvider.
  *
  * При `ActivityNotFoundException` собирается понятное сообщение и предлагается выбор другой
- * читалки; при `SecurityException` — автоповтор с копией (docs/reader-integration.md §7).
+ * читалки; при `SecurityException` — автоповтор с копией («Читалки» §7).
  */
 @Singleton
 class DefaultReaderLauncher @Inject constructor(
@@ -108,7 +108,7 @@ class DefaultReaderLauncher @Inject constructor(
 ) : ReaderLauncher {
 
     /**
-     * Запуск книги в выбранной читалке (L1, docs/reader-integration.md §7).
+     * Запуск книги в выбранной читалке (L1, «Читалки» §7).
      *
      * **Каждая попытка ограничена пакетом профиля.** Общего `ACTION_VIEW` без пакета здесь
      * нет намеренно: под книжные MIME-типы подходит не только читалка (на устройстве подходили

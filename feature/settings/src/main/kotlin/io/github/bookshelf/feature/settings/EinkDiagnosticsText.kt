@@ -8,7 +8,7 @@ import io.github.bookshelf.core.eink.device.EinkScreen
  *
  * Живёт в модуле настроек, а не в `:core:eink`: у ядра нет ресурсов, и готовая русская строка
  * оттуда оставалась русской в английском интерфейсе. Чистая функция без `Context` — сравнивается
- * с ресурсом в JUnit (docs/tdd.md §3).
+ * с ресурсом в JUnit («TDD» §3).
  */
 internal fun EinkScreen.text(): AppText = when (this) {
     EinkScreen.NORMAL -> AppText(R.string.settings_screen_normal)

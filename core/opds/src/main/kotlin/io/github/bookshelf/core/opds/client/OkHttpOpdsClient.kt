@@ -21,7 +21,7 @@ import okhttp3.Response
 import okio.Buffer
 
 /**
- * HTTP-клиент каталогов на OkHttp (docs/opds.md §2).
+ * HTTP-клиент каталогов на OkHttp («OPDS» §2).
  *
  * Три решения, каждое из которых иначе дало бы тихую поломку:
  *
@@ -45,9 +45,9 @@ import okio.Buffer
  */
 @Singleton
 class OkHttpOpdsClient @Inject constructor(
-    /** Резолвер для случаев, когда системный DNS имя не отдал (docs/opds.md). */
+    /** Резолвер для случаев, когда системный DNS имя не отдал («OPDS»). */
     private val doh: HostResolver,
-    /** Диспетчеры приложения: свой `Dispatchers.IO` в модуле запрещён (docs/tdd.md §5). */
+    /** Диспетчеры приложения: свой `Dispatchers.IO` в модуле запрещён («TDD» §5). */
     private val dispatchers: AppDispatchers,
 ) : OpdsHttpClient {
 
@@ -197,7 +197,7 @@ class OkHttpOpdsClient @Inject constructor(
      * Ошибка транспорта — с именем хоста и причиной.
      *
      * Общее «сервер недоступен» не даёт понять, что случилось: блокировка DNS, TLS или таймаут —
-     * это разные проблемы и лечатся по-разному (docs/opds.md).
+     * это разные проблемы и лечатся по-разному («OPDS»).
      */
     private fun Throwable.toAppError(host: String): AppError = when (this) {
         is java.net.SocketTimeoutException -> AppError.Network(

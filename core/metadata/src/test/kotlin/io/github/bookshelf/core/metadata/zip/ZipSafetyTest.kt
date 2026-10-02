@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * Лимиты распаковки — чистая арифметика zip-bomb-защиты (docs/formats.md §9).
+ * Лимиты распаковки — чистая арифметика zip-bomb-защиты («Форматы» §9).
  */
 class ZipSafetyTest {
 

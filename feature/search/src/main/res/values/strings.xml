@@ -28,7 +28,7 @@
     <string name="search_empty_nothing_found">Ничего не найдено</string>
     <string name="search_empty_nothing_found_message">По запросу «%1$s» совпадений нет. Попробуйте другое слово или часть слова.</string>
 
-    <!-- Сообщения поиска: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <!-- Сообщения поиска: причина — текст по типу ошибки («TDD» §7). -->
     <string name="search_error_suggestions">Не удалось получить подсказки: %1$s</string>
     <string name="search_error_search">Не удалось выполнить поиск: %1$s</string>
 </resources>

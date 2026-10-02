@@ -35,7 +35,7 @@ data class DatabaseBackupUiState(
     val isWorking: Boolean = false,
     val backups: List<BackupEntry> = emptyList(),
     val selected: BackupEntry? = null,
-    /** Итог и причины для строки настроек: переводимые части (docs/tdd.md §5, §7). */
+    /** Итог и причины для строки настроек: переводимые части («TDD» §5, §7). */
     val message: AppText? = null,
 )
 

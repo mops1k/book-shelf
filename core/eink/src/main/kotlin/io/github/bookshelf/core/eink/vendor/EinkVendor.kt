@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.eink.vendor
 
 /**
- * Вендор e-ink устройства (docs/eink-ux.md §8).
+ * Вендор e-ink устройства («E-ink UX» §8).
  *
  * Список закрытый: от вендора зависит, какой контроллер обновления экрана доступен
  * ([io.github.bookshelf.core.eink.onyx.OnyxEinkController] или
@@ -10,7 +10,7 @@ package io.github.bookshelf.core.eink.vendor
  * [displayName] — имя производителя для экрана «О приложении» («Onyx Boox», «Bigme»). Это данные,
  * а не текст интерфейса: названия брендов не переводятся. Неизвестный вендор даёт `null`, а слова
  * «неизвестное устройство» выбирает экран приложения из своих ресурсов — раньше строка приходила
- * отсюда готовой и оставалась русской в английском интерфейсе (docs/eink-ux.md §8.5).
+ * отсюда готовой и оставалась русской в английском интерфейсе («E-ink UX» §8.5).
  */
 enum class EinkVendor(val displayName: String?) {
     ONYX("Onyx Boox"),

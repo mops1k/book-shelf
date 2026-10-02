@@ -16,7 +16,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * ODT — ZIP с `meta.xml` (docs/formats.md §7).
+ * ODT — ZIP с `meta.xml` («Форматы» §7).
  *
  * `dc:title`, `dc:creator` (или `meta:initial-creator`), `dc:language` и число страниц из
  * `meta:document-statistic`. `odfdom-java` заброшена, поэтому разбор свой: потоковое чтение ZIP

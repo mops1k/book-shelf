@@ -1,7 +1,7 @@
 package io.github.bookshelf.feature.onboarding
 
 /**
- * Чистая логика шагов онбординга (docs/eink-ux.md §6.1).
+ * Чистая логика шагов онбординга («E-ink UX» §6.1).
  *
  * Вынесена из ViewModel и Composable отдельным файлом: переходы по шагам — единственная
  * часть экрана, которую можно и нужно проверить тестом без устройства.
@@ -15,6 +15,6 @@ fun OnboardingStep.previous(): OnboardingStep = OnboardingStep.entries.getOrElse
 
 /**
  * Собрать библиотеку можно только когда выбрана хотя бы одна папка: без источника
- * сканировать нечего (docs/architecture.md §4.1).
+ * сканировать нечего («Архитектура» §4.1).
  */
 fun canFinishOnboarding(sources: List<SourceListItem>): Boolean = sources.isNotEmpty()

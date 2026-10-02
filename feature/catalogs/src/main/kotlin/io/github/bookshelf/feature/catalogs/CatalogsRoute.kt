@@ -7,7 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import io.github.bookshelf.feature.catalogs.ui.CatalogsScreen
 
-/** Маршрут OPDS-каталогов (docs/opds.md §3). */
+/** Маршрут OPDS-каталогов («OPDS» §3). */
 object CatalogsRoute {
     /** Необязательный аргумент: каталог, который нужно открыть сразу. */
     const val ARG_CATALOG_ID: String = "catalogId"

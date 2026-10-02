@@ -11,11 +11,11 @@ import io.github.bookshelf.core.data.paging.PageResult
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Книги: чтение страницами и изменение пользовательских полей (docs/architecture.md §3.1).
+ * Книги: чтение страницами и изменение пользовательских полей («Архитектура» §3.1).
  *
  * Единственная точка, через которую feature-модули видят книги: Room-entity и DAO наружу не
  * выходят. Все методы либо `Flow` (наблюдение), либо `suspend` + [AppResult] (команда) — правило
- * проекта: исключения наружу не пробрасываются (docs/architecture.md §1).
+ * проекта: исключения наружу не пробрасываются («Архитектура» §1).
  *
  * Патч метаданных отделён от «прочитать/записать»: `updateMetadata` меняет только переданные поля
  * и не трогает `lastOpenedAt`/прогресс.
@@ -67,7 +67,7 @@ interface BookRepository {
         source: String = ReadingProgressOrigins.MANUAL,
     ): AppResult<Unit>
 
-    /** Удалить запись из библиотеки. Файл книги не удаляется никогда (docs/eink-ux.md §6.7). */
+    /** Удалить запись из библиотеки. Файл книги не удаляется никогда («E-ink UX» §6.7). */
     suspend fun delete(bookId: String): AppResult<Unit>
 
     /**

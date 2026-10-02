@@ -13,7 +13,7 @@ import io.github.bookshelf.core.eink.refresh.RefreshReason as EinkRefreshReason
 
 /**
  * Мост между UI-слоем и e-ink-слоем — единственное место, где они встречаются
- * (docs/architecture.md §6).
+ * («Архитектура» §6).
  *
  * Дизайн-система объявляет только «здесь нужен полный кадр» (`LocalEinkRefresh`), а что делать —
  * решает контроллер устройства: на Onyx это вендорский режим обновления, на Rockchip — рефлексия,
@@ -34,7 +34,7 @@ fun EinkRefreshBridge(
     CompositionLocalProvider(LocalEinkRefresh provides requestRefresh, content = content)
 }
 
-/** Какие события пользователь считает достойными полного перерисона (настройка, docs/eink-ux.md §4). */
+/** Какие события пользователь считает достойными полного перерисона (настройка, «E-ink UX» §4). */
 data class EinkRefreshSettings(
     val onScreenChange: Boolean = true,
     val onDialog: Boolean = true,

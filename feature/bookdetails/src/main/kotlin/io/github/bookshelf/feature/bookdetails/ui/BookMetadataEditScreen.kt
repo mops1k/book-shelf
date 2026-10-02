@@ -31,7 +31,7 @@ import io.github.bookshelf.feature.bookdetails.BookMetadataEditViewModel
 import io.github.bookshelf.feature.bookdetails.R
 
 /**
- * Правка метаданных книги (docs/eink-ux.md §6.4).
+ * Правка метаданных книги («E-ink UX» §6.4).
  *
  * Пять полей, которые человек правит чаще всего: название, авторы, серия, номер в серии, описание.
  * Серия и номер — то, ради чего экран и появился: в EPUB серии часто нет, а на полке по сериям

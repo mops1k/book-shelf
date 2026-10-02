@@ -6,7 +6,7 @@ import io.github.bookshelf.core.designsystem.text.AppText
  * Строка результата поиска (UI-модель).
  *
  * Подсветка совпадения делается рамкой, а не цветом: цвет не может быть единственным
- * носителем смысла на grayscale-панели (docs/eink-ux.md §1).
+ * носителем смысла на grayscale-панели («E-ink UX» §1).
  */
 data class SearchResultUi(
     /** `books.id` — для перехода в карточку. */
@@ -62,7 +62,7 @@ fun searchEmptyState(query: String, searchedTerm: String?): SearchEmptyState = w
  *
  * На этапе каркаса заполнено значением по умолчанию: запросов к FTS нет. После Sprint 4
  * [suggestions] приходят из префиксного запроса (`term*`), [results] — из `books_fts`,
- * [recentQueries] — история последних десяти запросов (docs/architecture.md §3.2).
+ * [recentQueries] — история последних десяти запросов («Архитектура» §3.2).
  */
 data class SearchUiState(
     /** Введённый запрос. */

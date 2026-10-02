@@ -52,7 +52,7 @@ class CatalogsSearchTest {
         assertThat(repository.searchCalls.single().query).isEqualTo("Лукьяненко")
         assertThat(repository.searchCalls.single().template).isEqualTo(SEARCH_TEMPLATE)
         // Результат — обычный уровень фида с подписью, по которой видно, что это поиск.
-        // Подпись уровня выбирает приложение: слова — ресурс, запрос — данные (docs/tdd.md §8).
+        // Подпись уровня выбирает приложение: слова — ресурс, запрос — данные («TDD» §8).
         assertThat(viewModel.uiState.value.currentFeed?.breadcrumbs)
             .containsExactly(
                 FeedLabel.Named("Flibusta"),
@@ -139,7 +139,7 @@ class CatalogsSearchTest {
         advanceUntilIdle()
 
         assertThat(repository.searchCalls).isEmpty()
-        // Пустой запрос — своё сообщение, а не «действие: причина» (docs/tdd.md §5).
+        // Пустой запрос — своё сообщение, а не «действие: причина» («TDD» §5).
         assertThat(viewModel.uiState.value.error)
             .isEqualTo(AppText(R.string.catalogs_validation_query))
     }

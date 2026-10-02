@@ -27,7 +27,7 @@ internal data class LibraryExportRun(
 internal fun libraryExportReport(result: AppResult<LibraryExportSummary>): LibraryExportRun {
     val summary = result.getOrNull()
         ?: return LibraryExportRun(
-            // Причина — текст по типу ошибки: `AppError.message` человеку не показывается (docs/tdd.md §7).
+            // Причина — текст по типу ошибки: `AppError.message` человеку не показывается («TDD» §7).
             error = AppText(
                 R.string.settings_export_failed,
                 (result.errorOrNull() ?: AppError.Unknown()).text(),

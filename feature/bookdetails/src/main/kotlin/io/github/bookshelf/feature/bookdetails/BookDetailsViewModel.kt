@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel карточки книги (docs/eink-ux.md §6.4).
+ * ViewModel карточки книги («E-ink UX» §6.4).
  *
  * Карточка наблюдает книгу через [BookRepository.observeById], а команды чтения и изменения
  * пользовательских полей выполняются в [viewModelScope]. Ошибки команд и потоков остаются в

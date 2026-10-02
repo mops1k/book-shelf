@@ -5,7 +5,7 @@
     <string name="eink_action_close">Close</string>
     <string name="eink_action_more">More</string>
     <string name="eink_menu_title">Actions</string>
-    <!-- Error texts by type: AppError.message is never shown (docs/tdd.md §7). -->
+    <!-- Error texts by type: AppError.message is never shown («TDD» §7). -->
     <string name="error_not_found">not found</string>
     <string name="error_invalid_argument">invalid value</string>
     <string name="error_permission_denied">no access</string>

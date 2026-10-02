@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Миграции схемы БД (docs/architecture.md §3.4, docs/tdd.md §4).
+ * Миграции схемы БД («Архитектура» §3.4, «TDD» §4).
  *
  * Проверяется ровно то, что обязано выполняться и чего не видно в обычных тестах: у пользователя с
  * уже установленной версией миграция обязана сохранить библиотеку. Поэтому тест создаёт базу
@@ -196,7 +196,7 @@ class BookshelfDatabaseMigrationTest {
         helper.runMigrationsAndValidate(TEST_DB, 8, true, MIGRATION_7_8).use { db ->
             // Имена служебных полок писали мы сами по-русски: раньше «Новая полка», «Подборка: …»,
             // «Избранное». Теперь в базе для них пусто, а слова собирает экран («Новая полка»,
-            // «Новая полка 2», подпись правила) — docs/tdd.md §8.
+            // «Новая полка 2», подпись правила) — «TDD» §8.
             assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", NEW_SHELF_ID)).isEmpty()
             assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", SECOND_SHELF_ID)).isEmpty()
             assertThat(db.stringOf("SELECT name FROM collections WHERE id = ?", FILTER_SHELF_ID)).isEmpty()

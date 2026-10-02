@@ -6,7 +6,7 @@ package io.github.bookshelf.core.metadata.parser
  * **Парсер обязан ловить `Throwable` (кроме `CancellationException`) и никогда не бросать
  * наружу.** Отмена корутины — единственное исключение: её пробрасываем, иначе скан нельзя
  * остановить. Любая ошибка — это `FAILED`/`PARTIAL` у книги, а не падение приложения
- * (docs/architecture.md §1, §4.4; docs/formats.md §2).
+ * («Архитектура» §1, §4.4; «Форматы» §2).
  *
  * Реализации живут в `parser.impl`, регистрируются в DI (`Set<BookMetadataParser>`)
  * и выбираются [io.github.bookshelf.core.metadata.registry.ParserRegistry].
@@ -16,7 +16,7 @@ interface BookMetadataParser {
     /** Идентификатор формата: `"fb2"`, `"epub"`, `"mobi"`, … Стабилен, попадает в диагностику. */
     val id: String
 
-    /** Спринт, в котором парсер получает реализацию (docs/roadmap.md). */
+    /** Спринт, в котором парсер получает реализацию («План работ»). */
     val sprint: Int
 
     /**

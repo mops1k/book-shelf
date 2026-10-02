@@ -12,7 +12,7 @@ org/geometerplus/android/fbreader/libraryService/LibraryInterface.aidl
 ## Почему их здесь нет сейчас
 
 * Этап каркаса: AIDL-файлы — это уже интеграция уровня L2/L3, а не структура модуля.
-* Перед вендорингом обязателен чек-лист Sprint 0 (docs/reader-integration.md §8): нужно убедиться,
+* Перед вендорингом обязателен чек-лист Sprint 0 («Читалки» §8): нужно убедиться,
   что актуальная версия FBReader из Google Play действительно экспортирует сервисы
   `android.fbreader.action.API` и `android.fbreader.action.LIBRARY_SERVICE`.
 * Пока AIDL не подключён, `FbReaderApi`/`FbReaderLibraryApi` в
@@ -35,7 +35,7 @@ org/geometerplus/android/fbreader/libraryService/LibraryInterface.aidl
    ```
 
    (в файле уже стоит `TODO(Sprint 7)` на этот счёт).
-3. Сохранить пометку об лицензии public domain в `NOTICE`/`licenses` (docs/reader-integration.md §4.2).
+3. Сохранить пометку об лицензии public domain в `NOTICE`/`licenses` («Читалки» §4.2).
 4. Написать адаптеры от сгенерированных AIDL-типов к `FbReaderApi`/`FbReaderLibraryApi`; никакие
    данные из FBReader не отправляются в сеть.
 

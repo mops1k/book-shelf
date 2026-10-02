@@ -8,7 +8,7 @@ import org.xmlpull.v1.XmlPullParser
  * Дескриптор OpenSearch: `rel="search"` типа `application/opensearchdescription+xml`.
  *
  * Часть каталогов объявляет поиск именно так, а рабочий шаблон держит внутри дескриптора
- * (docs/opds.md §1). Так устроен Project Gutenberg: в корневом фиде только ссылка на
+ * («OPDS» §1). Так устроен Project Gutenberg: в корневом фиде только ссылка на
  * `osd-books.xml`, а `{searchTerms}` появляется лишь после его загрузки. Без разбора дескриптора
  * поиск на таком каталоге не работал бы вовсе.
  *

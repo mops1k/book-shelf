@@ -15,7 +15,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * DOCX — ZIP с `docProps/core.xml` (docs/formats.md §7).
+ * DOCX — ZIP с `docProps/core.xml` («Форматы» §7).
  *
  * `dc:title`, `dc:creator`, `dc:language`, `dcterms:created` (из него — год). Apache POI не нужен:
  * хватает потокового чтения ZIP и `XmlPullParser`. Обложки у DOCX обычно нет: картинка обложки

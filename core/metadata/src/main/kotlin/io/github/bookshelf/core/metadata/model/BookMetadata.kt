@@ -3,7 +3,7 @@ package io.github.bookshelf.core.metadata.model
 /**
  * Метаданные книги, извлечённые парсером или введённые вручную.
  *
- * Набор полей — из docs/formats.md (FB2 `title-info`/`publish-info`, EPUB Dublin Core,
+ * Набор полей — из «Форматы» (FB2 `title-info`/`publish-info`, EPUB Dublin Core,
  * MOBI EXTH, CBZ `ComicInfo`, DOCX/ODT core.xml/meta.xml). Репозиторий в `:core:data`
  * раскладывает их по колонкам `books` и денормализует авторов/серию.
  *
@@ -29,7 +29,7 @@ data class BookMetadata(
      * Заголовок для сортировки: без ведущих «А/A/An/The», с нормализацией регистра.
      *
      * Нужен отдельным полем `sortTitle` в БД, чтобы «Три мушкетёра» и «The Three Musketeers»
-     * не разъезжались по разным концам списка (docs/architecture.md §3.1).
+     * не разъезжались по разным концам списка («Архитектура» §3.1).
      *
      * Имя группы или персонажа с «The» попадёт под следующую букву (`The Beatles` → `Beatles`):
      * отличить имя собственное от заглавия по тексту нельзя, а предсказуемость поиска важнее.

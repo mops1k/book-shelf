@@ -44,7 +44,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel настроек (docs/eink-ux.md §6.8, Sprint 5).
+ * ViewModel настроек («E-ink UX» §6.8, Sprint 5).
  *
  * Настройки читаются одним снимком и записываются транзакционно через [SettingsRepository].
  * Так значения, сохранённые в одном разделе, не могут разъехаться с остальными настройками,
@@ -290,7 +290,7 @@ class SettingsViewModel @Inject constructor(
      *
      * Отдельный сеттер, а не `onSetDarkTheme(Boolean)`: «системная» — не третье состояние булева
      * флага, а отдельный выбор, и сводить его к `false` значило бы потерять настройку, которую
-     * пользователь поставил (docs/eink-ux.md §2.1).
+     * пользователь поставил («E-ink UX» §2.1).
      */
     fun onSetThemeMode(mode: ThemeMode) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->

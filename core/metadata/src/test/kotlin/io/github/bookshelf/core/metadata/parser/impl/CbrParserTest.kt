@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * CBR — RAR с `ComicInfo.xml` и страницами-картинками (docs/formats.md §7).
+ * CBR — RAR с `ComicInfo.xml` и страницами-картинками («Форматы» §7).
  *
  * Формат жил заглушкой дольше остальных: разбор RAR требует библиотеки под несвободной
  * UnRar License, поэтому junrar подключается только во flavor `full` (ADR-007), а парсер

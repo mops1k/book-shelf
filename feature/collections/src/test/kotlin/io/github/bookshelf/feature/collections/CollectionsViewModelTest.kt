@@ -180,7 +180,7 @@ class CollectionsViewModelTest {
         viewModel.onDelete(SHELF_ID)
         advanceUntilIdle()
 
-        // Оба текста — ресурсы (docs/tdd.md §5), а техническое сообщение нижнего слоя не показывается (§7):
+        // Оба текста — ресурсы («TDD» §5), а техническое сообщение нижнего слоя не показывается (§7):
         // иначе на английском интерфейсе в баннере была бы русская диагностика провайдера.
         assertThat(viewModel.uiState.value.error).isEqualTo(
             AppText(R.string.collections_error_delete, AppError.PermissionDenied().text()),
@@ -220,7 +220,7 @@ class CollectionsViewModelTest {
         viewModel.onAddPreset("favorites")
         advanceUntilIdle()
 
-        // В базу уходит пустое имя: слова для строки полки собирает экран (docs/tdd.md §8).
+        // В базу уходит пустое имя: слова для строки полки собирает экран («TDD» §8).
         // Раньше здесь лежало «Избранное» — русский текст, который не переводится.
         assertThat(shelves.created.map { (name, _) -> name }).containsExactly("")
         assertThat(shelves.created.single().second).isEqualTo(CollectionType.SMART)

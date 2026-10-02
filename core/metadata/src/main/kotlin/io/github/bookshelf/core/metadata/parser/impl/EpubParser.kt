@@ -25,7 +25,7 @@ import kotlinx.coroutines.ensureActive
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * EPUB 2 / 3 — разбор ZIP-контейнера и OPF без внешней библиотеки (docs/formats.md §4).
+ * EPUB 2 / 3 — разбор ZIP-контейнера и OPF без внешней библиотеки («Форматы» §4).
  *
  * Сначала читается только центральный каталог ZIP и проверяются [ZipLimits]; распакованные записи
  * не открываются, пока безопасность архива не подтверждена. `container.xml` задаёт единственный

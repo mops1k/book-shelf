@@ -38,9 +38,9 @@ const FORBIDDEN_ANYWHERE = [
   },
 ];
 
-/** Правила тестируемости из docs/tdd.md §5: в main-коде этих вызовов быть не должно. */
+/** Правила тестируемости из «TDD» §5: в main-коде этих вызовов быть не должно. */
 const FORBIDDEN_IN_MAIN = [
-  { pattern: /System\.currentTimeMillis\(\)/, hint: 'используйте AppClock (docs/tdd.md §5)' },
+  { pattern: /System\.currentTimeMillis\(\)/, hint: 'используйте AppClock («TDD» §5)' },
   { pattern: /\bDispatchers\.(IO|Default|Main)\b/, hint: 'используйте AppDispatchers / квалификаторы Hilt' },
   { pattern: /\bLog\.[dviwe]\(/, hint: 'используйте AppLogger' },
   { pattern: /Thread\.sleep\(/, hint: 'подменяйте время (AppClock), а не спите' },
@@ -274,7 +274,7 @@ function checkFile(file) {
       }
     }
     if (/(^|[^A-Za-z_])@Ignore\b/.test(line)) {
-      warnings.push(`${rel}:${number}: @Ignore — нужна ссылка на задачу (docs/tdd.md §2)`);
+      warnings.push(`${rel}:${number}: @Ignore — нужна ссылка на задачу («TDD» §2)`);
     }
   });
 
@@ -292,7 +292,7 @@ function checkFile(file) {
       }
     }
   } else if (/Thread\.sleep\(/.test(stripped)) {
-    errors.push(`${rel}: Thread.sleep в тесте — запрещено (docs/tdd.md §2)`);
+    errors.push(`${rel}: Thread.sleep в тесте — запрещено («TDD» §2)`);
   }
 }
 

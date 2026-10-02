@@ -10,7 +10,7 @@ android {
 }
 
 // Схема, DAO и миграции. Модуль не знает ни про парсеры, ни про SAF:
-// связывает их репозиторий в :core:data (docs/architecture.md §2).
+// связывает их репозиторий в :core:data («Архитектура» §2).
 dependencies {
     api(project(":core:common"))
     api(libs.androidx.room.runtime)

@@ -33,9 +33,9 @@ data class BookOptimizationUiState(
     val isStopping: Boolean = false,
     val done: Int = 0,
     val total: Int = 0,
-    /** Итог словами: переводимые части, экран склеивает их через `resolveJoined` (docs/tdd.md §5). */
+    /** Итог словами: переводимые части, экран склеивает их через `resolveJoined` («TDD» §5). */
     val message: List<AppText> = emptyList(),
-    /** Ошибка: текст по типу причины, а не `AppError.message` (docs/tdd.md §7). */
+    /** Ошибка: текст по типу причины, а не `AppError.message` («TDD» §7). */
     val error: AppText? = null,
 )
 

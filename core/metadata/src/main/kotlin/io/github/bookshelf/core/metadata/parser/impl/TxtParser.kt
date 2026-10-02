@@ -14,7 +14,7 @@ import java.nio.charset.Charset
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * TXT — определение кодировки и осторожный поиск заголовка (docs/formats.md §7).
+ * TXT — определение кодировки и осторожный поиск заголовка («Форматы» §7).
  *
  * Читаем только префикс файла: текстовая книга может занимать десятки мегабайт, а держать её
  * целиком на e-ink нельзя. Кодировку определяет готовый [CharsetDetector], а MIME используется

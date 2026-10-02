@@ -4,7 +4,7 @@ import io.github.bookshelf.core.data.model.Book
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Поиск по библиотеке (docs/architecture.md §3.2).
+ * Поиск по библиотеке («Архитектура» §3.2).
  *
  * Использует `books_fts` (`@Fts4`, токенизатор `unicode61 remove_diacritics 2`): корректно ищет по
  * кириллице и снимает диакритику с латиницы. Автодополнение — префиксный запрос (`term*`).

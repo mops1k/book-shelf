@@ -24,7 +24,7 @@ import io.github.bookshelf.feature.settings.ui.category.StorageCategory
 import io.github.bookshelf.feature.settings.R
 
 /**
- * Экран одной категории настроек (docs/eink-ux.md §6.8).
+ * Экран одной категории настроек («E-ink UX» §6.8).
  *
  * Раздел открывается отдельным экраном, а не раскрывается в общем списке: так в каждой категории
  * помещается то, что действительно относится к делу, и не приходится листать чужие настройки.

@@ -3,7 +3,7 @@ package io.github.bookshelf.feature.scan
 import io.github.bookshelf.core.data.model.ScanStatus
 
 /**
- * Чистая арифметика прогресса сканирования (docs/eink-ux.md §6.6).
+ * Чистая арифметика прогресса сканирования («E-ink UX» §6.6).
  *
  * Вынесена из ViewModel и Composable отдельным файлом: именно эти правила решают, что
  * покажет строка «Просканировано 4 300 из 12 000, продолжить», и их проверяет JUnit-тест

@@ -4,7 +4,7 @@ package io.github.bookshelf.core.data.sync
  * Запуск скачивания книги из каталога OPDS.
  *
  * Порт существует, чтобы `:core:data` не зависел от WorkManager: запись в очередь —
- * доменное решение, а способ выполнения — дело платформы (docs/architecture.md §7).
+ * доменное решение, а способ выполнения — дело платформы («Архитектура» §7).
  */
 interface DownloadScheduler {
 

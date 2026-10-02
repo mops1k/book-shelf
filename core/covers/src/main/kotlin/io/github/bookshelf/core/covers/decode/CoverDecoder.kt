@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import io.github.bookshelf.core.common.error.AppResult
 
 /**
- * Декодирование обложек (docs/architecture.md §4.4, §5).
+ * Декодирование обложек («Архитектура» §4.4, §5).
  *
  * Конвейер, который обязана реализовать имплементация:
  * 1. `BitmapFactory.Options.inJustDecodeBounds = true` — узнать размеры, не выделяя память;
@@ -14,7 +14,7 @@ import io.github.bookshelf.core.common.error.AppResult
  * 5. для тайла сетки — уменьшить до [tilePx] из того же bitmap, не перечитывая файл.
  *
  * Инверсия ([decode] с `inverted = true`) выполняется здесь, а не записью второго файла: настройка
- * «Инвертировать обложки» не должна плодить варианты на диске (docs/architecture.md §5).
+ * «Инвертировать обложки» не должна плодить варианты на диске («Архитектура» §5).
  *
  * Кодирование в WebP q[WEBP_QUALITY] — забота вызывающего (парсера/воркера), потому что декодер
  * не знает, будет ли результат сохранён или показан.
@@ -35,10 +35,10 @@ interface CoverDecoder {
     ): AppResult<Bitmap>
 
     companion object {
-        /** Длинная сторона полной обложки (docs/architecture.md §6: «downscale до 600 px»). */
+        /** Длинная сторона полной обложки («Архитектура» §6: «downscale до 600 px»). */
         const val DEFAULT_MAX_SIDE_PX = 600
 
-        /** Длинная сторона тайла сетки (docs/architecture.md §4.4: «тайл 200 px»). */
+        /** Длинная сторона тайла сетки («Архитектура» §4.4: «тайл 200 px»). */
         const val DEFAULT_TILE_PX = 200
 
         /** Качество WebP при сохранении в кэш. */

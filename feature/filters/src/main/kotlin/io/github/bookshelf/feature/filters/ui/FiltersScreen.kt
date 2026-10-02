@@ -34,7 +34,7 @@ import io.github.bookshelf.feature.filters.hasActiveFilters
 import io.github.bookshelf.feature.filters.toSectionsUi
 
 /**
- * Фасетные фильтры (docs/architecture.md §3.5).
+ * Фасетные фильтры («Архитектура» §3.5).
  *
  * Множественный выбор: выбранный чип инвертируется, число рядом показывает, сколько книг
  * останется. Выбор и сброс применяются сразу, на каждый тап: отдельного «черновика» у экрана нет.

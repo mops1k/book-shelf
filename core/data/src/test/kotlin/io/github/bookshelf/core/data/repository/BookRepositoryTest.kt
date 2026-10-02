@@ -53,7 +53,7 @@ import io.github.bookshelf.core.testing.fake.FakeSourceRepository
 import io.github.bookshelf.core.testing.fake.FakeReaderSession
 
 /**
- * Чтение полки и команды над книгами (docs/architecture.md §3.1, §3.5).
+ * Чтение полки и команды над книгами («Архитектура» §3.1, §3.5).
  *
  * Проверяется ровно то, без чего экран полки работать не будет: фильтры должны сочетаться,
  * сортировка — применяться, страница — считаться по тем же фильтрам, а команды — менять состояние

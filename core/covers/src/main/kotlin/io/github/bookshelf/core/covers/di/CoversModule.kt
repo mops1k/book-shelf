@@ -11,7 +11,7 @@ import io.github.bookshelf.core.covers.decode.AndroidCoverDecoder
 import io.github.bookshelf.core.covers.decode.CoverDecoder
 
 /**
- * DI-обвязка кэша обложек (docs/architecture.md §5).
+ * DI-обвязка кэша обложек («Архитектура» §5).
  *
  * Привязки только интерфейс → реализация: конкретные классы (`DiskCoverCache`, `AndroidCoverDecoder`)
  * уже помечены `@Singleton` и имеют `@Inject`-конструкторы.

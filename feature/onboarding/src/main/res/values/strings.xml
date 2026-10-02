@@ -25,7 +25,7 @@
     <string name="onboarding_action_next">Далее</string>
     <string name="onboarding_action_finish">Собрать библиотеку</string>
 
-    <!-- Сообщения онбординга: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <!-- Сообщения онбординга: причина — текст по типу ошибки («TDD» §7). -->
     <string name="onboarding_error_open_picker">Не удалось открыть выбор папки</string>
     <string name="onboarding_error_empty_uri">Выбранная папка не содержит URI</string>
     <string name="onboarding_error_add_source">Не удалось добавить папку: %1$s</string>

@@ -178,7 +178,7 @@ class ShelfRulesViewModel @Inject constructor(
      * Показать ошибку действия: что не получилось (ресурс экрана) и почему (текст по типу [AppError]).
      *
      * Оба текста — ресурсы, поэтому сообщение переводится целиком; готовой строки в состоянии нет
-     * (docs/tdd.md §5), а `AppError.message` человеку не показывается (§7).
+     * («TDD» §5), а `AppError.message` человеку не показывается (§7).
      */
     private fun showError(actionRes: Int, error: AppError) {
         _uiState.update { it.copy(error = AppText(actionRes, error.text())) }

@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel онбординга (docs/eink-ux.md §6.1, Sprint 2).
+ * ViewModel онбординга («E-ink UX» §6.1, Sprint 2).
  *
  * Экран получает URI из системного SAF-пикера, а ViewModel передаёт его в
  * [SourceRepository.addSafSource]. Это важно: persistable-разрешение и первичный скан
@@ -86,7 +86,7 @@ class OnboardingViewModel @Inject constructor(
         }
         // Имя папки — данные: берём то, что дала система, иначе последний сегмент адреса, иначе
         // ПУСТО. Слова («Папка») подставит экран (`settings_sources_default_name`): в базе русского
-        // текста быть не должно, иначе он не переводится (docs/tdd.md §8).
+        // текста быть не должно, иначе он не переводится («TDD» §8).
         val safeName = displayName.trim().ifBlank { safeUri.substringAfterLast('/') }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isBusy = true, error = null)

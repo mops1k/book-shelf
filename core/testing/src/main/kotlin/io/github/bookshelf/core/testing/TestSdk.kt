@@ -8,7 +8,7 @@ package io.github.bookshelf.core.testing
  * без core library desugaring или `java.time` без него же).
  *
  * [TARGET_DEVICE] = API 30: типичная прошивка e-ink устройства с ограничениями SAF,
- * которые проект обязан учитывать (docs/architecture.md §4.1).
+ * которые проект обязан учитывать («Архитектура» §4.1).
  */
 object TestSdk {
     const val MIN = 24

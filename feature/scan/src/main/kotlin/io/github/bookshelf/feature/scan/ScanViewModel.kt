@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel сканирования и отчёта (docs/eink-ux.md §6.6–6.7, Sprint 2).
+ * ViewModel сканирования и отчёта («E-ink UX» §6.6–6.7, Sprint 2).
  *
  * Экран работает с одним выбранным источником: его прогресс подписывается отдельно, а
  * повторный [ScanRepository.startScan] после паузы продолжает сохранённый координатором курсор.

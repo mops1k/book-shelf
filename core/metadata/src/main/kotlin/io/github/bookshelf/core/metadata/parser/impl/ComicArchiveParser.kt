@@ -42,7 +42,7 @@ internal fun interface ComicArchiveEntries {
 private class UnreadableArchiveEntry(message: String) : Exception(message)
 
 /**
- * Общая часть разбора комиксов: CBZ и CBR (docs/formats.md §7).
+ * Общая часть разбора комиксов: CBZ и CBR («Форматы» §7).
  *
  * Читает поля `ComicInfo.xml` схемы Anansi v2.0 (`Series`, `Number`, `Title`, `Volume`, `Summary`,
  * `Writer`, `Publisher`, `Year`, `LanguageISO`, `PageCount`, `Genre`), делает обложкой первую

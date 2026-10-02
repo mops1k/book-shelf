@@ -5,7 +5,7 @@ package io.github.bookshelf.core.metadata.binary
  *
  * ZIP-контейнер в таблице один: EPUB, FB2.ZIP, CBZ, DOCX и ODT различаются по расширению
  * и содержимому архива (`mimetype`, `META-INF/container.xml`, `[Content_Types].xml`,
- * `ComicInfo.xml`), поэтому [ZIP_CONTAINER] уточняется отдельно (docs/formats.md §2).
+ * `ComicInfo.xml`), поэтому [ZIP_CONTAINER] уточняется отдельно («Форматы» §2).
  */
 enum class FormatHint {
     FB2,
@@ -21,7 +21,7 @@ enum class FormatHint {
  * Определение формата по «магии» первых байт.
  *
  * Расширения в пользовательских библиотеках врут постоянно, поэтому сигнатура — самый
- * надёжный признак после расширения (docs/architecture.md §4.4, docs/formats.md §2).
+ * надёжный признак после расширения («Архитектура» §4.4, «Форматы» §2).
  * Для FB2 сигнатура ищется после BOM и XML-пролога: реальные файлы начинаются с
  * `<?xml version="1.0" encoding="utf-8"?><FictionBook …>`.
  */

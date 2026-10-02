@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel поиска по FTS (docs/eink-ux.md §6.5).
+ * ViewModel поиска по FTS («E-ink UX» §6.5).
  *
  * Поиск и подсказки подписываются на потоки репозитория в [viewModelScope]. Введённый запрос
  * отменяет предыдущие подписки, поэтому результаты старого термина не появляются после нового ввода.

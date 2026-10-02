@@ -6,7 +6,7 @@ import io.github.bookshelf.core.data.model.ScanReport
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Сканирование библиотеки (docs/architecture.md §4, ADR-010).
+ * Сканирование библиотеки («Архитектура» §4, ADR-010).
  *
  * Скан **прерываемый и возобновляемый**: курсор обхода хранится в `scan_runs`, работа идёт
  * порциями по времени, а не «пока не закончится». Это требование Android 15, где `dataSync`
@@ -24,7 +24,7 @@ interface ScanRepository {
      */
     suspend fun startScan(sourceId: String, restart: Boolean = false): AppResult<Unit>
 
-    /** Наблюдать прогресс скана; эмитит не чаще раза в секунду (docs/eink-ux.md §5). */
+    /** Наблюдать прогресс скана; эмитит не чаще раза в секунду («E-ink UX» §5). */
     fun observeProgress(sourceId: String): Flow<ScanProgress>
 
     /**

@@ -22,7 +22,7 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    // определение кодировок FB2/TXT; ICU4J сознательно не подключаем (docs/formats.md)
+    // определение кодировок FB2/TXT; ICU4J сознательно не подключаем («Форматы»)
     implementation(libs.juniversalchardet)
     // TODO(Sprint 3): epub4j — только если свой парсер EPUB окажется дороже (ADR-003)
     // implementation(libs.epub4j.core)

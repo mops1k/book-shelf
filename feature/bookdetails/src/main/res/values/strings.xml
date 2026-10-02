@@ -58,7 +58,7 @@
     <string name="edit_write_to_file">Записать правку в файл книги (FB2 и EPUB) — тогда она переживёт перенос</string>
     <string name="book_favorite_remove">Убрать из избранного</string>
 
-    <!-- Ошибки карточки книги и правки: причина — текст по типу ошибки (docs/tdd.md §7). -->
+    <!-- Ошибки карточки книги и правки: причина — текст по типу ошибки («TDD» §7). -->
     <string name="book_error_not_found">Книга не найдена</string>
     <string name="book_error_delete">Не удалось удалить книгу: %1$s</string>
     <string name="book_error_delete_file_access">Файл удалить не удалось: нет доступа к папке. Книга осталась</string>
@@ -69,7 +69,7 @@
     <string name="book_error_action">Не удалось выполнить действие с книгой: %1$s</string>
     <string name="book_error_save_edit">Правку сохранить не удалось: %1$s</string>
 
-    <!-- Итоги правки и оптимизации: числа и единицы — в ресурсах (docs/tdd.md §5). -->
+    <!-- Итоги правки и оптимизации: числа и единицы — в ресурсах («TDD» §5). -->
     <string name="book_edit_nothing_changed">Ничего не изменилось</string>
     <string name="book_edit_saved_to_file">Сохранено и записано в файл книги</string>
     <string name="book_edit_saved_app_only">Сохранено в приложении</string>

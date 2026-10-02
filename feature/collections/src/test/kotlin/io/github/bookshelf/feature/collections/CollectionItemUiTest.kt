@@ -50,7 +50,7 @@ class CollectionItemUiTest {
 
         // Бейдж на обложке показывает «читаю 42%»: дробь читалке не важна, а «42.4%» не влезает.
         assertThat(item.progressPercent).isEqualTo(42)
-        // Слова бейджа выбирает интерфейс, а не слой данных (docs/tdd.md §8).
+        // Слова бейджа выбирает интерфейс, а не слой данных («TDD» §8).
         assertThat(readingStatusBadge(item.readingStatus.name, item.progressPercent))
             .isEqualTo(
                 AppText(io.github.bookshelf.core.designsystem.R.string.status_reading_progress, 42),

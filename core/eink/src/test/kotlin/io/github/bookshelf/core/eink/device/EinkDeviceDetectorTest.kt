@@ -5,7 +5,7 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
 import org.junit.Test
 
 /**
- * Тест таблицы определения вендора (docs/eink-ux.md §8).
+ * Тест таблицы определения вендора («E-ink UX» §8).
  *
  * Проверяются ровно те строки, которые встречаются в `Build.MANUFACTURER`/`Build.BRAND`/`Build.MODEL`
  * реальных устройств, плюс неизвестное устройство и нечувствительность к регистру. Функция чистая,

@@ -69,7 +69,7 @@ class BookParseErrorTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        // Карточка показывает слова по коду причины, а не текст парсера (docs/tdd.md §8).
+        // Карточка показывает слова по коду причины, а не текст парсера («TDD» §8).
         assertThat(viewModel.uiState.value.parseFailure)
             .isEqualTo(
                 AppText(io.github.bookshelf.core.designsystem.R.string.parse_failure_corrupt_file),

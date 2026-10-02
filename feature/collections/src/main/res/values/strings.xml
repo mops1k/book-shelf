@@ -35,7 +35,7 @@
     <string name="collections_card_error_denied">Доступ к папке носителя не выдан</string>
     <string name="collections_card_error_foreign_folder">Выбранная папка не на этом носителе</string>
     <string name="collections_card_error_failed">Не удалось получить доступ к носителю</string>
-    <!-- Сообщения ViewModel: текст рождается вне Composable, поэтому это ресурс (docs/tdd.md §5). -->
+    <!-- Сообщения ViewModel: текст рождается вне Composable, поэтому это ресурс («TDD» §5). -->
     <string name="collections_error_create">Не удалось создать полку: %1$s</string>
     <string name="collections_error_rename">Не удалось переименовать полку: %1$s</string>
     <string name="collections_error_rename_empty">Имя полки не должно быть пустым</string>

@@ -43,7 +43,7 @@ class DebugReaderActivity : Activity() {
          * Дождаться намерения от заглушки.
          *
          * Запуск чужой activity асинхронный: `startActivity` возвращается раньше, чем она создана,
-         * поэтому тест ждёт сигнал, а не «спит» (сон в тестах запрещён, docs/tdd.md §2).
+         * поэтому тест ждёт сигнал, а не «спит» (сон в тестах запрещён, «TDD» §2).
          */
         fun awaitIntent(timeoutMs: Long): Intent? {
             latch.await(timeoutMs, TimeUnit.MILLISECONDS)

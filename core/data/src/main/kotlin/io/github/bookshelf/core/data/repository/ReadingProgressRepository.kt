@@ -5,7 +5,7 @@ import io.github.bookshelf.core.data.model.ReadingProgress
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Прогресс чтения (docs/architecture.md §7, ADR-005).
+ * Прогресс чтения («Архитектура» §7, ADR-005).
  *
  * Прогресс может приходить из API читалки (L2/L3, если он доступен) или ставиться вручную.
  * При отсутствии FBReader/API функция просто не заполняется — это штатное состояние, а не ошибка.

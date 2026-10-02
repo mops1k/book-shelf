@@ -76,7 +76,7 @@ class LibraryGenreBrowseTest {
         assertThat(browse.mode).isEqualTo(BrowseMode.GENRES)
         assertThat(browse.level).isEqualTo(BrowseLevel.Root)
         // В коде лежит код жанра (по нему фильтрует SQL), а подпись выбирает экран: в базе
-        // русского текста нет, иначе он не переводится (docs/tdd.md §8).
+        // русского текста нет, иначе он не переводится («TDD» §8).
         assertThat(browse.categories.map { it.label }).containsExactly("sf_space")
         assertThat(browse.categories.map { it.labelText })
             .containsExactly(AppText(DesignR.string.genre_sf_space))

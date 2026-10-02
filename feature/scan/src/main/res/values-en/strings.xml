@@ -31,7 +31,7 @@
     <string name="scan_caption_seen_total">Seen %1$d of ~%2$d</string>
     <string name="scan_status_detail">%1$s · added %2$d, errors %3$d</string>
 
-    <!-- Scan messages: the cause is the text of the error type (docs/tdd.md §7). -->
+    <!-- Scan messages: the cause is the text of the error type («TDD» §7). -->
     <string name="scan_error_no_source">There is no source to scan</string>
     <string name="scan_error_not_started">Could not scan: the job did not start</string>
     <string name="scan_error_pause">Could not pause the scan: %1$s</string>

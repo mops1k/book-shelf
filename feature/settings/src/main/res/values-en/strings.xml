@@ -215,7 +215,7 @@
     <string name="settings_library_removable_shelf">Show the memory card as a shelf</string>
     <string name="settings_library_removable_shelf_hint">Insert a card or a USB drive with books — a shelf for the medium appears in the collections; remove it — the shelf disappears together with its books. The books are not deleted: bring the medium back and you will see them again</string>
 
-    <!-- FB2 optimization messages: the summary is built from translatable parts (docs/tdd.md §5). -->
+    <!-- FB2 optimization messages: the summary is built from translatable parts («TDD» §5). -->
     <string name="settings_optimization_failed">Could not optimize the books: %1$s</string>
     <string name="settings_optimization_done">Optimization finished</string>
     <string name="settings_optimization_stopped">Optimization stopped: %1$d of %2$d processed</string>
@@ -245,7 +245,7 @@
 
     <!-- Library export: the result and the failure cause are translatable texts. -->
 
-    <!-- Database backups: results and causes are translatable texts (docs/tdd.md §5, §7). -->
+    <!-- Database backups: results and causes are translatable texts («TDD» §5, §7). -->
     <string name="settings_backup_auto_on">Daily backup enabled</string>
     <string name="settings_backup_auto_off">Daily backup disabled</string>
     <string name="settings_backup_created">Copy created: %1$s</string>

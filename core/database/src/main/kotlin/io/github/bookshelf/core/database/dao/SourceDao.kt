@@ -8,7 +8,7 @@ import androidx.room.Update
 import io.github.bookshelf.core.database.entity.SourceEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Источники библиотеки: добавление, включение/выключение, потеря доступа (docs/architecture.md §4.1). */
+/** Источники библиотеки: добавление, включение/выключение, потеря доступа («Архитектура» §4.1). */
 @Dao
 interface SourceDao {
 

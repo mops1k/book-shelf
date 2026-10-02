@@ -7,7 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
  *
  * Отдельный [metadata] нужен из-за политики проекта: парсинг метаданных идёт с ограниченным
  * параллелизмом (2 на e-ink по умолчанию, настраивается), чтобы не выжигать батарею и не
- * конкурировать с UI за CPU. См. `docs/architecture.md` §4.4.
+ * конкурировать с UI за CPU. См. `«Архитектура»` §4.4.
  */
 interface AppDispatchers {
     val io: CoroutineDispatcher

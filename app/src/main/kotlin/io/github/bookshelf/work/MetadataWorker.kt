@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
 
 /**
- * Разбор метаданных и обложек одной книги (docs/architecture.md §4.4).
+ * Разбор метаданных и обложек одной книги («Архитектура» §4.4).
  *
  * Работа вызывается по одной книге, а не пачкой на библиотеку: у каждой книги свой приоритет,
  * и видимая на полке разбирается раньше той, что лежит в конце списка. Так полка наполняется
@@ -47,7 +47,7 @@ import kotlinx.coroutines.ensureActive
  * **Ошибка разбора — это состояние книги, а не падение работы.** Битый файл должен показать
  * метку «не удалось разобрать», а не ронять очередь на всех остальных книгах. Поэтому
  * [ParseResult.Failed] пишется в `parseState = FAILED` и даёт `Result.success()`
- * (docs/architecture.md §1: библиотека не бросает исключения наружу).
+ * («Архитектура» §1: библиотека не бросает исключения наружу).
  */
 @HiltWorker
 class MetadataWorker @AssistedInject constructor(
@@ -72,7 +72,7 @@ class MetadataWorker @AssistedInject constructor(
      *
      * Разбор идёт на `metadata` — пуле с ограниченным параллелизмом (2 потока, `bookshelf-metadata`):
      * без этого разбор занимал пул WorkManager целиком, и на e-ink читалка получала меньше
-     * процессора, чем обещано в docs/architecture.md §4.4.
+     * процессора, чем обещано в «Архитектура» §4.4.
      */
     private val dispatchers: AppDispatchers,
     /** Сессия чтения: разбор — тяжёлая работа и не должен конкурировать с читалкой. */

@@ -6,7 +6,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Кэш обложек в памяти (docs/architecture.md §5).
+ * Кэш обложек в памяти («Архитектура» §5).
  *
  * Что делает: `LruCache<String, Bitmap>` размером `1/8 maxMemory`, но **не более 32 МБ** — на
  * e-ink с 1–2 ГБ RAM и без swap переполнение памяти означает немедленное убийство процесса.
@@ -60,7 +60,7 @@ class MemoryCoverCache @Inject constructor() {
     companion object {
         const val MAX_MEMORY_DIVISOR = 8
 
-        /** Жёсткий потолок кэша: 32 МБ (docs/architecture.md §5). */
+        /** Жёсткий потолок кэша: 32 МБ («Архитектура» §5). */
         const val MAX_CACHE_BYTES = 32L * 1024L * 1024L
 
         private const val BYTES_PER_KB = 1024L

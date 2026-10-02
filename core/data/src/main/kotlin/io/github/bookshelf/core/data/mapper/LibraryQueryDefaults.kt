@@ -23,7 +23,7 @@ data class LibraryQueryDefaults(
 )
 
 /**
- * Настройка «Полка» → [LibraryQueryDefaults] (docs/eink-ux.md §6.2).
+ * Настройка «Полка» → [LibraryQueryDefaults] («E-ink UX» §6.2).
  *
  * Перечисления в настройках и в слое данных разные намеренно: `:core:data` не должен зависеть от
  * того, где лежит настройка, а `:core:datastore` — от модели запроса (об этом же сказано в

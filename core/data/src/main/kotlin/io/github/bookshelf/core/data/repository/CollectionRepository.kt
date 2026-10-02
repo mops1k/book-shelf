@@ -7,7 +7,7 @@ import io.github.bookshelf.core.data.model.CollectionType
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Коллекции: ручные полки и умные подборки (docs/architecture.md §3.3, ADR-008).
+ * Коллекции: ручные полки и умные подборки («Архитектура» §3.3, ADR-008).
  *
  * Умные полки хранят правила JSON-ом в том же формате, что и фильтры, и вычисляются **тем же
  * предикатом**, что и полка, — иначе поведение фильтра и полки разъедется.
@@ -31,6 +31,6 @@ interface CollectionRepository {
 
     suspend fun removeBook(collectionId: String, bookId: String): AppResult<Unit>
 
-    /** Правила умной полки в формате фильтров (docs/architecture.md §3.5). */
+    /** Правила умной полки в формате фильтров («Архитектура» §3.5). */
     suspend fun updateSmartRules(collectionId: String, rulesJson: String): AppResult<Unit>
 }

@@ -34,7 +34,7 @@
     <string name="collections_card_error_denied">Access to the storage folder was not granted</string>
     <string name="collections_card_error_foreign_folder">The chosen folder is not on this storage</string>
     <string name="collections_card_error_failed">Could not get access to the removable storage</string>
-    <!-- ViewModel messages: text is born outside a Composable, so it is a resource (docs/tdd.md §5). -->
+    <!-- ViewModel messages: text is born outside a Composable, so it is a resource («TDD» §5). -->
     <string name="collections_error_create">Could not create the collection: %1$s</string>
     <string name="collections_error_rename">Could not rename the collection: %1$s</string>
     <string name="collections_error_rename_empty">The collection name must not be empty</string>

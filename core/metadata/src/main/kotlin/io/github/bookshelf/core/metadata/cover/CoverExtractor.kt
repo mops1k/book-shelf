@@ -14,7 +14,7 @@ import io.github.bookshelf.core.metadata.parser.BookInput
 interface CoverExtractor {
 
     /**
-     * @param maxSidePx ограничение длинной стороны, по умолчанию 600 px (docs/architecture.md §4.4);
+     * @param maxSidePx ограничение длинной стороны, по умолчанию 600 px («Архитектура» §4.4);
      * @return `null` в успешном результате означает «обложки в файле нет» — это не ошибка.
      */
     suspend fun extract(input: BookInput, maxSidePx: Int = DEFAULT_MAX_SIDE_PX): AppResult<CoverBytes?>

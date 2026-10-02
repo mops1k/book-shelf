@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * DOCX — ZIP с `docProps/core.xml` (docs/formats.md §7).
+ * DOCX — ZIP с `docProps/core.xml` («Форматы» §7).
  *
  * Дефект, ради которого парсер реализован: формат распознавался, но разбора не было — книга
  * получала заголовок из имени файла и пометку «формат не поддерживается», хотя Dublin Core

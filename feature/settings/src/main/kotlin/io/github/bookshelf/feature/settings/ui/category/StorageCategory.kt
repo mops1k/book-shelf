@@ -211,7 +211,7 @@ private fun LazyListScope.fb2OptimizationRows(
                     state.total,
                 )
                 state.error != null -> state.error.resolve()
-                // Итог собран из частей: разделитель между ними — тоже ресурс (docs/tdd.md §5).
+                // Итог собран из частей: разделитель между ними — тоже ресурс («TDD» §5).
                 state.message.isNotEmpty() -> state.message.resolveJoined()
                 else -> stringResource(OPTIMIZATION_HINT_RES)
             },

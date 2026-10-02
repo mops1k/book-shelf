@@ -47,12 +47,12 @@ import io.github.bookshelf.core.database.entity.SourceEntity
 import io.github.bookshelf.core.database.entity.TagEntity
 
 /**
- * База данных приложения: все таблицы, DAO и конвертеры (docs/architecture.md §3).
+ * База данных приложения: все таблицы, DAO и конвертеры («Архитектура» §3).
  *
  * Модуль ничего не знает ни про парсеры, ни про SAF: связывает их репозиторий в `:core:data`.
  *
  * * `exportSchema = true` — JSON-схема версии уезжает в `core/database/schemas`, из неё
- *   `MigrationTestHelper` проверяет миграции в CI (docs/architecture.md §3.4).
+ *   `MigrationTestHelper` проверяет миграции в CI («Архитектура» §3.4).
  * * `version = 1` — стартовая схема; каждое изменение — миграция в `migration/Migrations.kt`
  *   (текущая версия — 7: причины отказов хранятся кодом — `books.parseFailure`,
  *   `opds_downloads.failure` — а тексты остаются диагностикой).

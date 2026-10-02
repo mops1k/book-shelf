@@ -5,7 +5,7 @@ import io.github.bookshelf.core.data.model.Source
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Источники книг: папки SAF и прямые пути (docs/architecture.md §4.1).
+ * Источники книг: папки SAF и прямые пути («Архитектура» §4.1).
  *
  * Добавление источника обязано завершиться взятием persistable-разрешения — иначе после
  * перезапуска папка «потеряется»; `addSafSource` инкапсулирует и добавление, и первичный скан

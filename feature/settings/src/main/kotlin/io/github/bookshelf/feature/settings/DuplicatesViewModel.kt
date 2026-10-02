@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
  * @param broken идентификаторы файлов нулевого размера (их отдельно предлагается удалить).
  * @param isConfirming показывается подтверждение удаления дублей.
  * @param isConfirmingBroken показывается подтверждение удаления битых файлов.
- * @param error ошибка для баннера: текст по типу причины, а не `AppError.message` (docs/tdd.md §7).
+ * @param error ошибка для баннера: текст по типу причины, а не `AppError.message` («TDD» §7).
  */
 data class DuplicatesUiState(
     val isChecking: Boolean = false,

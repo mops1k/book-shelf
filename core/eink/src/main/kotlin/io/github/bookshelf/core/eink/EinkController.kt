@@ -4,7 +4,7 @@ import android.view.View
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 
 /**
- * Единая точка управления экраном электронной бумаги (docs/architecture.md §6).
+ * Единая точка управления экраном электронной бумаги («Архитектура» §6).
  *
  * Контракт намеренно маленький и не зависит от вендорских SDK: всё, что специфично для Onyx
  * или Rockchip, живёт в реализациях и деградирует до [io.github.bookshelf.core.eink.noop.NoopEinkController],
@@ -14,7 +14,7 @@ import io.github.bookshelf.core.eink.vendor.EinkVendor
  * Правила вызова:
  * * [setRefreshMode] и [fullRefresh] вызываются на UI-потоке и получают корневой `View` экрана;
  * * [setGcInterval] задаётся один раз при старте (или при смене настройки) — это «полный GC каждые
- *   N частичных обновлений», главный инструмент против ghosting (docs/eink-ux.md §4);
+ *   N частичных обновлений», главный инструмент против ghosting («E-ink UX» §4);
  * * [setFrontLight] безопасен всегда: при отсутствии подсветки это no-op, а [frontLight] вернёт `null`.
  */
 interface EinkController {
@@ -64,7 +64,7 @@ interface EinkController {
 }
 
 /**
- * Режим обновления экрана (docs/architecture.md §6, docs/eink-ux.md §4).
+ * Режим обновления экрана («Архитектура» §6, «E-ink UX» §4).
  *
  * * [NORMAL] — штатная отрисовка средствами платформы;
  * * [FAST] — быстрый режим для мелких изменений (если [EinkController.supportsFastMode]);

@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * Тест вычисляемых свойств [PageResult] (docs/eink-ux.md §3.3).
+ * Тест вычисляемых свойств [PageResult] («E-ink UX» §3.3).
  *
  * Здесь живёт вся арифметика «Стр. 3/12 · 47 книг», включая граничные случаи: пустой результат,
  * неполная последняя страница и защита от деления на ноль при `limit <= 0`.

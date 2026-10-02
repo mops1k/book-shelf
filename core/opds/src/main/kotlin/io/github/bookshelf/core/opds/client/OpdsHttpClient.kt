@@ -4,7 +4,7 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.opds.auth.OpdsCredentials
 
 /**
- * HTTP-клиент OPDS — единственное место приложения с доступом в сеть (docs/opds.md §4.1).
+ * HTTP-клиент OPDS — единственное место приложения с доступом в сеть («OPDS» §4.1).
  *
  * Требования к реализации:
  * * OkHttp + отдельный дисковый `Cache`; conditional GET по `ETag`/`Last-Modified`;

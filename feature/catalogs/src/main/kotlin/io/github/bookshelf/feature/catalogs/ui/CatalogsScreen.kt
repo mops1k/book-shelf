@@ -69,7 +69,7 @@ import io.github.bookshelf.feature.catalogs.AddCatalogFormUi
 private const val PERCENT_MAX = 100f
 
 /**
- * OPDS: каталоги, добавление, браузер фида и загрузки (docs/opds.md §3).
+ * OPDS: каталоги, добавление, браузер фида и загрузки («OPDS» §3).
  *
  * Скелет этапа каркаса: переключение экранов, форма и поисковая строка работают без сети,
  * сами запросы появятся в Sprint 8. Каждый режим — отдельный `EinkScaffold`, поэтому
@@ -292,7 +292,7 @@ private fun ColumnScope.CatalogsListContent(
     }
 }
 
-/** Форма ручного добавления каталога (docs/opds.md §3.1). */
+/** Форма ручного добавления каталога («OPDS» §3.1). */
 @Composable
 private fun AddCatalogScreen(
     state: CatalogsUiState,
@@ -432,7 +432,7 @@ private fun feedStatusLabel(loaded: Int, hasNext: Boolean, isNavigation: Boolean
  * Строка индикации загрузки: подпись, что именно грузится.
  *
  * Без полосы прогресса: у запроса фида нет измеримого прогресса, а полоса «на глаз» или на нуле
- * врала бы о состоянии. На e-ink статичная подпись честнее и не мигает (docs/eink-ux.md §5).
+ * врала бы о состоянии. На e-ink статичная подпись честнее и не мигает («E-ink UX» §5).
  */
 @Composable
 internal fun LoadingRow(label: String) {

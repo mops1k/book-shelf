@@ -44,7 +44,7 @@ import io.github.bookshelf.feature.scan.R
 import io.github.bookshelf.feature.scan.ScanProgressUi
 
 /**
- * Сканирование: прогресс, отчёт и дубликаты (docs/eink-ux.md §6.6–6.7).
+ * Сканирование: прогресс, отчёт и дубликаты («E-ink UX» §6.6–6.7).
  *
  * Прогресс обновляется не чаще раза в секунду — частые перерисоновки на e-ink вредны.
  * Отмена мягкая: уже найденное сохраняется, продолжение возможно с сохранённого курсора.
@@ -279,7 +279,7 @@ private fun ProblemFileRow(
     file: ProblemFileUi,
     onClick: () -> Unit,
 ) {
-    // Причина из базы показывается как есть; если её не записали — переводимый текст (docs/tdd.md §5).
+    // Причина из базы показывается как есть; если её не записали — переводимый текст («TDD» §5).
     EinkListRow(
         title = file.fileName,
         subtitle = file.parseFailure?.resolve() ?: stringResource(R.string.scan_reason_missing),

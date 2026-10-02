@@ -9,7 +9,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
 /**
- * Архив превысил лимиты распаковки: разбирать дальше нельзя (защита от «бомбы», docs/formats.md §9).
+ * Архив превысил лимиты распаковки: разбирать дальше нельзя (защита от «бомбы», «Форматы» §9).
  *
  * Отдельный тип, а не общее исключение: парсеры отличают превышение лимита от «файл битый» и
  * отдают разные `ParseFailureKind` (`ARCHIVE_LIMIT` против `CORRUPT_FILE`).
@@ -26,7 +26,7 @@ internal class ZipLimitExceeded(message: String) : Exception(message)
 internal class NotZipArchive : Exception("не похоже на ZIP-архив")
 
 /**
- * Потоковый обход ZIP-архивов книги: CBZ, DOCX, ODT (docs/formats.md §7).
+ * Потоковый обход ZIP-архивов книги: CBZ, DOCX, ODT («Форматы» §7).
  *
  * Архив читается потоком и по имени записи. Временная копия не нужна, весь архив в память не
  * поднимается: страницы комиксов и картинки DOCX бывают по несколько мегабайт, а метаданные

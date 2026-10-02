@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
  *
  * Приложение листает библиотеку **страницами**, а не скроллом: на e-ink каждый кадр скролла —
  * это мерцание и «призраки». Отсюда требование к запросам: страница запрашивается у БД
- * через `LIMIT/OFFSET`, а не «вся библиотека в память» (docs/architecture.md §3, §4).
+ * через `LIMIT/OFFSET`, а не «вся библиотека в память» («Архитектура» §3, §4).
  */
 @Stable
 class EinkPagerState internal constructor(

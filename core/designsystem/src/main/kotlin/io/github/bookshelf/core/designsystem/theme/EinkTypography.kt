@@ -18,7 +18,7 @@ private const val SCALE_FACTOR_115 = 1.15f
 private const val SCALE_FACTOR_130 = 1.30f
 private const val SCALE_FACTOR_150 = 1.50f
 
-/** Пользовательский масштаб шрифта из настроек (docs/eink-ux.md §2.2). */
+/** Пользовательский масштаб шрифта из настроек («E-ink UX» §2.2). */
 enum class FontScale(val factor: Float) {
     S100(1.0f),
     S115(SCALE_FACTOR_115),

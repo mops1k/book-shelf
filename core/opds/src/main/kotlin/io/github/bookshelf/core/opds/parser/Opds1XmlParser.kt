@@ -17,7 +17,7 @@ import javax.inject.Singleton
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * Парсер OPDS 1.2 (Atom XML) (docs/opds.md §4.1).
+ * Парсер OPDS 1.2 (Atom XML) («OPDS» §4.1).
  *
  * Разбор потоковый, через `XmlPullParser`, и опирается на особенности `KXmlParser`, каждая из
  * которых стоила реального падения:

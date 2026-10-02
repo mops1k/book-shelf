@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * Привязки слоя хранения и сканирования (docs/architecture.md §4).
+ * Привязки слоя хранения и сканирования («Архитектура» §4).
  *
  * Здесь живут реализации, которым нужен Android: `ContentResolver` и `WorkManager`. В
  * `:core:storage` и `:core:data` их нет намеренно — эти модули обязаны тестироваться без
@@ -158,7 +158,7 @@ object StorageModule {
      *
      * Снимок намеренно «живой»: опенер один на процесс, а его API синхронный (без suspend),
      * поэтому значение обновляется подпиской, а читается прямо в момент копирования — смена
-     * настройки применяется без перезапуска (docs/roadmap.md, DoD Sprint 5).
+     * настройки применяется без перезапуска («План работ», DoD Sprint 5).
      */
     @Provides
     @Singleton

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * Прогресс чтения.
  *
  * Заполняется только если читалка отдаёт позицию (AIDL FBReader) либо пользователь отметил
- * вручную; отсутствие прогресса — нормальное состояние (docs/reader-integration.md).
+ * вручную; отсутствие прогресса — нормальное состояние («Читалки»).
  */
 @Dao
 interface ReadingProgressDao {

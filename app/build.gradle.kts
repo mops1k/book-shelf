@@ -36,7 +36,7 @@ dependencies {
 
     // Инструментальные тесты: провайдер SAF, FileProvider, запуск приложения и пробуждение
     // чужих activity обычными юнит-тестами не проверить — нужен живой Android и настоящие
-    // системные службы (docs/tdd.md §4). Раннер задан в convention-плагине
+    // системные службы («TDD» §4). Раннер задан в convention-плагине
     // (`androidx.test.runner.AndroidJUnitRunner`).
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

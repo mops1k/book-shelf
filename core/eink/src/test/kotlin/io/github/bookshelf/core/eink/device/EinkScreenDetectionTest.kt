@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * Определение типа экрана (docs/eink-ux.md §8).
+ * Определение типа экрана («E-ink UX» §8).
  *
  * Проверяются наборы признаков, снятые с живых устройств, а не придуманные: Bigme B6 Color
  * (`ro.build.ProductCode=COLOR`, имя «B6 Color», `Build.MANUFACTURER=Bigme`) и обычный телефон.

@@ -158,7 +158,7 @@ class SettingsSettersTest {
 
         val diagnostics = viewModel.uiState.value.diagnostics
         assertThat(diagnostics.vendorLabel).isEqualTo("Bigme")
-        // Слова выбирает экран приложения: ядро отдаёт только вид (docs/tdd.md §5).
+        // Слова выбирает экран приложения: ядро отдаёт только вид («TDD» §5).
         assertThat(diagnostics.screenLabel)
             .isEqualTo(AppText(R.string.settings_screen_eink_color))
         assertThat(diagnostics.hasVendorCommands).isFalse()

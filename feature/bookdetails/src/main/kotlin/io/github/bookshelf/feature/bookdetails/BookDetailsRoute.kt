@@ -8,7 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import io.github.bookshelf.feature.bookdetails.ui.BookDetailsScreen
 
-/** Маршрут карточки книги: `bookdetails/{bookId}` (docs/eink-ux.md §6.4). */
+/** Маршрут карточки книги: `bookdetails/{bookId}` («E-ink UX» §6.4). */
 object BookDetailsRoute {
     /** Имя аргумента маршрута — оно же ключ в `SavedStateHandle`. */
     const val ARG_BOOK_ID: String = "bookId"

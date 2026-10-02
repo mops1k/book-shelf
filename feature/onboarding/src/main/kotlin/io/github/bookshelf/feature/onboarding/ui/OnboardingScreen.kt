@@ -38,7 +38,7 @@ import io.github.bookshelf.feature.onboarding.ReaderListItem
 import io.github.bookshelf.feature.onboarding.SourceListItem
 
 /**
- * Онбординг первого запуска: три шага в одном экране (docs/eink-ux.md §6.1).
+ * Онбординг первого запуска: три шага в одном экране («E-ink UX» §6.1).
  *
  * Экран — заглушка этапа каркаса: он показывает структуру шагов, объяснение ограничений SAF
  * и обработку аппаратных кнопок, но не ходит ни в SAF, ни в репозитории (Sprint 2).
@@ -124,7 +124,7 @@ private fun WelcomeStep() {
 
 /**
  * Шаг 2: выбор папок. Текст обязан объяснять ограничение Android 11+ — иначе пользователь
- * выбирает корень хранилища и остаётся без книг (docs/eink-ux.md §6.1).
+ * выбирает корень хранилища и остаётся без книг («E-ink UX» §6.1).
  */
 @Composable
 private fun SourcesStep(

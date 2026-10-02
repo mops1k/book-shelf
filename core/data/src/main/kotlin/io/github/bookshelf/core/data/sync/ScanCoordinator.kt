@@ -3,7 +3,7 @@ package io.github.bookshelf.core.data.sync
 import io.github.bookshelf.core.common.error.AppResult
 
 /**
- * Координатор сканирования: запуск, возобновление и отмена (docs/architecture.md §4.5, ADR-010).
+ * Координатор сканирования: запуск, возобновление и отмена («Архитектура» §4.5, ADR-010).
  *
  * Скан обязан быть **прерываемым и возобновляемым**:
  * * курсор обхода (последний обработанный `documentId`/путь) сохраняется в `scan_runs`;

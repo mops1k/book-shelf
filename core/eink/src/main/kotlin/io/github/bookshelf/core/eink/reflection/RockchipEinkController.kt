@@ -7,7 +7,7 @@ import io.github.bookshelf.core.eink.device.EinkDeviceInfo
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 
 /**
- * Коды waveform для Rockchip-контроллеров (docs/eink-ux.md §8.2).
+ * Коды waveform для Rockchip-контроллеров («E-ink UX» §8.2).
  *
  * Совпадают с константами, которые использует KOReader в `org.koreader.launcher.device.epd`.
  * Передаются в скрытые методы `View` (см. [RockchipEinkController]).
@@ -23,7 +23,7 @@ object RockchipWaveform {
 }
 
 /**
- * Контроллер для Rockchip-клонов: Meebook / Boyue / Likebook (docs/eink-ux.md §8.2, ADR-009).
+ * Контроллер для Rockchip-клонов: Meebook / Boyue / Likebook («E-ink UX» §8.2, ADR-009).
  *
  * Публичного SDK у этих устройств нет. Проверенный путь — тот же, что у KOReader
  * (`android-luajit-launcher`, пакет `org.koreader.launcher.device.epd`): рефлексия по **скрытым

@@ -12,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Ставка сканирования в очередь WorkManager (docs/architecture.md §4.5, ADR-010).
+ * Ставка сканирования в очередь WorkManager («Архитектура» §4.5, ADR-010).
  *
  * Работа **уникальна на источник** с политикой `KEEP`, и это не оптимизация:
  *

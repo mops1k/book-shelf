@@ -124,7 +124,7 @@ class BookMetadataEditViewModelTest {
         advanceUntilIdle()
 
         // Экран говорит и факт, и причину: причина — текст по типу ошибки, а не строка слоя данных
-        // (docs/tdd.md §7), поэтому английский интерфейс не покажет русский отказ провайдера.
+        // («TDD» §7), поэтому английский интерфейс не покажет русский отказ провайдера.
         assertThat(viewModel.uiState.value.message).isEqualTo(
             AppText(
                 R.string.book_edit_saved_file_failed_reason,

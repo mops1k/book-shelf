@@ -6,7 +6,7 @@ import androidx.room.Upsert
 import io.github.bookshelf.core.database.entity.OpdsDownloadEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Загрузки OPDS (docs/opds.md §DownloadWorker). */
+/** Загрузки OPDS («OPDS» §DownloadWorker). */
 @Dao
 interface OpdsDownloadDao {
 

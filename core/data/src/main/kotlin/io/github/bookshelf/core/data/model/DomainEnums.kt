@@ -1,7 +1,7 @@
 package io.github.bookshelf.core.data.model
 
 /**
- * Доменные перечисления, не зависящие от `:core:database` (docs/architecture.md §2, §3.1).
+ * Доменные перечисления, не зависящие от `:core:database` («Архитектура» §2, §3.1).
  *
  * В Room те же состояния хранятся entity-перечислениями с `@TypeConverter`. Дублирование
  * осознанное: feature-модули видят только `:core:data`, а публичные API модуля — только
@@ -23,14 +23,14 @@ enum class ReadingStatus {
  * это слова интерфейса, а не данные. Раньше они жили тут (`ReadingStatus.label` и `.badge`),
  * и в английском интерфейсе фасеты фильтров, карточка книги и бейдж обложки оставались русскими.
  * Теперь имя значения (`UNREAD`) — код, а слова выбирает `readingStatusText`/`readingStatusBadge`
- * в `:core:designsystem` (docs/tdd.md §8).
+ * в `:core:designsystem` («TDD» §8).
  */
 
 /**
  * Откуда взяты метаданные книги.
  *
  * [MANUAL] — пользователь отредактировал вручную; такие данные не перезаписываются при
- * пересканировании (docs/architecture.md §3.1).
+ * пересканировании («Архитектура» §3.1).
  */
 enum class MetadataOrigin {
     EMBEDDED,
@@ -43,7 +43,7 @@ enum class MetadataOrigin {
  * Состояние разбора файла.
  *
  * Битый файл никогда не выбрасывает исключение наружу: он остаётся в библиотеке с
- * [FAILED]/[PARTIAL] и заголовком из имени файла (docs/architecture.md §1, §4.4).
+ * [FAILED]/[PARTIAL] и заголовком из имени файла («Архитектура» §1, §4.4).
  */
 enum class ParseState {
     PENDING,

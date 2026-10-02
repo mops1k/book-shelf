@@ -31,7 +31,7 @@ interface EinkDeviceDetector {
 }
 
 /**
- * Чистое определение вендора по строковым признакам (docs/eink-ux.md §8).
+ * Чистое определение вендора по строковым признакам («E-ink UX» §8).
  *
  * Признаки объединяются в одну строку в нижнем регистре и проверяются по таблице; порядок таблицы
  * задаёт приоритет. Значения [systemProperties] (`ro.product.model`, `ro.product.brand`, …) важны
@@ -131,7 +131,7 @@ private val COLOUR_MARKERS: List<String> = listOf("productcode=color", " color",
 private val PAPER_MARKERS: List<String> = listOf("vendor.xrz", "eink", "epd")
 
 /**
- * Таблица «маркер → вендор» (docs/eink-ux.md §8.1–8.3).
+ * Таблица «маркер → вендор» («E-ink UX» §8.1–8.3).
  *
  * Порядок важен: первое совпадение выигрывает. `A2` и `rockchip` здесь сознательно отсутствуют —
  * это не бренд, а чип, и по нему нельзя надёжно выбрать контроллер.

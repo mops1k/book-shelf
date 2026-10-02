@@ -9,7 +9,7 @@ import io.github.bookshelf.core.data.model.SortOrder
 import io.github.bookshelf.core.data.search.ftsQueryOf
 
 /**
- * Сборка SQL для страницы полки (docs/architecture.md §3.5).
+ * Сборка SQL для страницы полки («Архитектура» §3.5).
  *
  * Живёт в `:core:data`, а не в `:core:database`, потому что знает доменные модели — а правило
  * проекта запрещает `:core:data` отдавать наружу DAO и сущности, но не запрещает `:core:database`

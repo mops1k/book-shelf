@@ -23,7 +23,7 @@ internal const val JVM_TARGET = "17"
  * Общая настройка Android-модуля: SDK, Java/Kotlin 17, core library desugaring, тесты, lint.
  *
  * Desugaring включён везде осознанно: `java.time` и часть `java.nio` нужны на API 24,
- * а без него код пришлось бы писать на `Calendar`. См. `docs/architecture.md` §1.
+ * а без него код пришлось бы писать на `Calendar`. См. `«Архитектура»` §1.
  */
 internal fun Project.configureKotlinAndroid(extension: CommonExtension<*, *, *, *, *, *>) {
     extension.apply {
@@ -115,7 +115,7 @@ internal fun Project.configureKotlinJvm() {
 /**
  * Тестовые зависимости, одинаковые для всех модулей.
  *
- * TDD — обязательный процесс проекта (docs/tdd.md), поэтому тестовый стек подключён
+ * TDD — обязательный процесс проекта («TDD»), поэтому тестовый стек подключён
  * везде по умолчанию, а не «когда понадобится».
  */
 internal fun Project.configureUnitTests() {

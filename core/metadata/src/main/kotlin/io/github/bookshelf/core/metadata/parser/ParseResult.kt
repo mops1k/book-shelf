@@ -9,7 +9,7 @@ import io.github.bookshelf.core.metadata.model.CoverBytes
  * Соответствует `parseState` в таблице `books`: [Success] → `OK`, [Partial] → `PARTIAL`,
  * [Failed] → `FAILED`, [Unsupported] → `UNSUPPORTED`. Книга остаётся в библиотеке в любом
  * случае — с заголовком из имени файла, если метаданные извлечь не удалось
- * (docs/architecture.md §1, §4.4).
+ * («Архитектура» §1, §4.4).
  */
 sealed interface ParseResult {
 
@@ -32,7 +32,7 @@ sealed interface ParseResult {
     /**
      * Разбор не удался.
      *
-     * @param reason текст для диагностики (в интерфейс не выводится, docs/tdd.md §7);
+     * @param reason текст для диагностики (в интерфейс не выводится, «TDD» §7);
      * @param kind вид отказа для человека — код, который карточка переводит словами.
      */
     data class Failed(

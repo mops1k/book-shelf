@@ -48,7 +48,7 @@ import io.github.bookshelf.feature.settings.settingsScreen
  * экрана не требует правок этого файла — только новую строку регистрации.
  *
  * Анимации переходов не настраиваются: на e-ink переход — мгновенная смена кадра, а полный
- * перерисон запрашивает `EinkRefreshBridge` (docs/eink-ux.md §4, §5).
+ * перерисон запрашивает `EinkRefreshBridge` («E-ink UX» §4, §5).
  */
 /**
  * Стартовый экран выбирается по наличию источников.
@@ -92,7 +92,7 @@ fun BookShelfNavHost(
             onOpenScan = { navController.navigate(ScanRoute.route) },
             onOpenSettings = { navController.navigate(SettingsRoute.route) },
             // Аппаратный BACK и Page Up на корневом экране: экран перехватывает BACK,
-            // поэтому выход из приложения обрабатывается здесь (docs/eink-ux.md §3.2).
+            // поэтому выход из приложения обрабатывается здесь («E-ink UX» §3.2).
             onExit = onExit,
         )
 
@@ -145,7 +145,7 @@ fun BookShelfNavHost(
 
         filtersScreen(
             onBack = { navController.popBackStack() },
-            // (состояние фильтров — часть навигационного состояния, docs/architecture.md §3.5).
+            // (состояние фильтров — часть навигационного состояния, «Архитектура» §3.5).
             onApply = { navController.popBackStack() },
         )
 

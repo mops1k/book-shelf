@@ -7,7 +7,7 @@ import io.github.bookshelf.core.designsystem.R
  * Слова для отказа загрузки по коду.
  *
  * Рядом с [AppError.text] и [ParseFailure.text]: причина хранится кодом, переводится на экране, а
- * подробности остаются в журнале (docs/tdd.md §7–8).
+ * подробности остаются в журнале («TDD» §7–8).
  */
 fun DownloadFailure.text(): AppText = when (this) {
     DownloadFailure.NO_WRITE_PERMISSION -> AppText(R.string.download_failure_no_write_permission)

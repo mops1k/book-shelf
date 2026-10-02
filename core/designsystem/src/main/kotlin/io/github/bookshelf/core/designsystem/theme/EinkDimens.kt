@@ -6,7 +6,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Размеры интерфейса (docs/eink-ux.md §2.3).
+ * Размеры интерфейса («E-ink UX» §2.3).
  *
  * Значения не «на глаз»: [touchMin] — требование доступности (48 dp), [touchComfort] — размер
  * строки списка, по которой реально попадает палец на устройстве с медленным тачем.

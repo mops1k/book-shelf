@@ -7,7 +7,7 @@ import io.github.bookshelf.core.database.entity.CoverCacheEntryEntity
 
 /**
  * Лёгкая таблица учёта дискового кэша обложек для LRU-очистки
- * (docs/architecture.md §5). Сами файлы лежат в `filesDir/covers`.
+ * («Архитектура» §5). Сами файлы лежат в `filesDir/covers`.
  */
 @Dao
 interface CoverCacheEntryDao {

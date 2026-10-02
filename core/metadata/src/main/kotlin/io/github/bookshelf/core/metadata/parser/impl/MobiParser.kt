@@ -11,7 +11,7 @@ import java.nio.charset.Charset
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * MOBI / AZW3 / PRC — свой низкоуровневый парсер (docs/formats.md §6).
+ * MOBI / AZW3 / PRC — свой низкоуровневый парсер («Форматы» §6).
  *
  * Palm DB → PalmDOC-заголовок → MOBI-заголовок → записи EXTH. Теги: `100` author, `101` publisher,
  * `103` description, `104` ISBN, `105` subject, `106` date, `201` coveroffset, `503` обновлённый
@@ -21,7 +21,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * диапазона) — из файла берутся PDB-заголовок, список записей, запись 0 и запись обложки.
  *
  * DRM метаданным не мешает: шифрование применяется к тексту, а заголовок, EXTH и картинки
- * читаются. Контент не расшифровываем (docs/decisions.md).
+ * читаются. Контент не расшифровываем («ADR»).
  */
 class MobiParser : BookMetadataParser {
 

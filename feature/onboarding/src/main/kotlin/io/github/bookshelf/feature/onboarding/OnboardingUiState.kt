@@ -3,7 +3,7 @@ package io.github.bookshelf.feature.onboarding
 
 import io.github.bookshelf.core.designsystem.text.AppText
 /**
- * Шаги онбординга (docs/eink-ux.md §6.1).
+ * Шаги онбординга («E-ink UX» §6.1).
  *
  * Порядок шагов — часть контракта экрана, поэтому переходы описаны чистыми функциями
  * в [OnboardingSteps.kt]: их проверяет JUnit-тест без Compose, Hilt и устройства.

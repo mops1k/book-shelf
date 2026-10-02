@@ -4,7 +4,7 @@ import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.designsystem.R
 
 /**
- * Текст ошибки для человека: по типу, а не по [AppError.message] (docs/tdd.md §7, решение 01.10.2026).
+ * Текст ошибки для человека: по типу, а не по [AppError.message] («TDD» §7, решение 01.10.2026).
  *
  * Почему так, а не «показать message»:
  * * `message` — диагностика нижнего слоя («Не удалось прочитать /storage/…/книга.fb2»); она рождается

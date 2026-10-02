@@ -39,7 +39,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Каталоги OPDS (docs/opds.md).
+ * Каталоги OPDS («OPDS»).
  *
  * Три решения, которые иначе дали бы тихую поломку:
  *

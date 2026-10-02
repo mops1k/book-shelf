@@ -8,7 +8,7 @@ import java.io.File
  *
  * Часть читалок не принимает `content://` от SAF-провайдера и требует «обычный» URI, которому
  * можно выдать грант; в этом случае книга отдаётся через наш `FileProvider`
- * (docs/architecture.md §7, docs/reader-integration.md).
+ * («Архитектура» §7, «Читалки»).
  *
  * Провайдер объявляется в манифесте `:app` с authority `"$applicationId.fileprovider"`
  * и `file_paths.xml`, покрывающим `cacheDir/export`. Файл, для которого строится URI,

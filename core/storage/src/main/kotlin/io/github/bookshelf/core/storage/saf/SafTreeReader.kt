@@ -21,7 +21,7 @@ import kotlinx.coroutines.ensureActive
  * Обход идёт напрямую через [DocumentsContract.buildChildDocumentsUriUsingTree] и `Cursor`
  * (`ContentResolver.query`), по одному запросу на папку. `DocumentFile` сознательно НЕ
  * используется: его `listFiles()` примерно на порядок (≈10×) медленнее на больших деревьях,
- * а скан 2000 файлов должен укладываться в бюджет (docs/architecture.md §4.2, ADR-003).
+ * а скан 2000 файлов должен укладываться в бюджет («Архитектура» §4.2, ADR-003).
  */
 /**
  * Права, которые приложение сохраняет у выбранной папки: чтение **и запись**.

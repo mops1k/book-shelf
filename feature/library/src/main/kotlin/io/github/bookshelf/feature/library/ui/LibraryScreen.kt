@@ -68,7 +68,7 @@ import io.github.bookshelf.feature.library.shelfEmptyState
 import kotlinx.coroutines.launch
 
 /**
- * Полка — главный экран (docs/eink-ux.md §6.2).
+ * Полка — главный экран («E-ink UX» §6.2).
  *
  * Сетка/список показывают все книги сразу и прокручиваются пальцем; аппаратные клавиши
  * листают по экрану. Нижняя строка показывает число книг и текущую сортировку с группировкой.
@@ -107,7 +107,7 @@ fun LibraryScreen(
         title = stringResource(R.string.library_title),
         modifier = modifier,
         // В шапке — только частые команды. Кнопки в шапке не переносятся на вторую строку:
-        // каждый ряд шапки отнимает у сетки строку книг (docs/eink-ux.md §6.2), остальное — в меню.
+        // каждый ряд шапки отнимает у сетки строку книг («E-ink UX» §6.2), остальное — в меню.
         actions = {
             LibraryHeaderActions(
                 filtersLabel = stringResource(R.string.library_filters, state.activeFilters.activeCount),
@@ -134,7 +134,7 @@ fun LibraryScreen(
             BrowseHeader(browse = state.browse, onBack = viewModel::onBrowseBack)
         }
         // Строка видов видна всегда — она же выход из обзора: без неё в корне «Авторов» не было
-        // бы ни кнопки «Серии», ни способа вернуться к книгам (docs/eink-ux.md §6.2).
+        // бы ни кнопки «Серии», ни способа вернуться к книгам («E-ink UX» §6.2).
         LibraryViewControls(
             state = state,
             sortStep = sortStep,
@@ -658,7 +658,7 @@ private fun LibraryFooter(
             color = colors.foreground,
         )
         // Сортировка переехала в подвал и открывается касанием: в строке видов её место заняли
-        // пять кнопок обзора, а подвал раньше только показывал значение (docs/eink-ux.md §6.2).
+        // пять кнопок обзора, а подвал раньше только показывал значение («E-ink UX» §6.2).
         Text(
             // Внутри одной серии порядок не выбирается: книги идут по выпуску (номер в серии,
             // затем год издания), поэтому подпись «Сортировка: Автор» здесь была бы неправдой.
@@ -739,7 +739,7 @@ private fun LibraryHeaderActions(
     onOpenSearch: () -> Unit,
 ) {
     // Кнопки в шапке не переносятся на вторую строку: каждый ряд шапки отнимает у сетки строку
-    // книг (docs/eink-ux.md §6.2), остальное — в меню.
+    // книг («E-ink UX» §6.2), остальное — в меню.
     EinkButton(text = filtersLabel, onClick = onOpenFilters)
     EinkButton(text = stringResource(R.string.library_search), onClick = onOpenSearch)
 }

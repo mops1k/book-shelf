@@ -98,7 +98,7 @@ object AppModule {
         @DefaultDispatcher dispatcher: CoroutineDispatcher,
     ): CoroutineScope = CoroutineScope(SupervisorJob() + dispatcher)
 
-    /** filesDir/covers — единственный крупный потребитель диска (docs/architecture.md §5). */
+    /** filesDir/covers — единственный крупный потребитель диска («Архитектура» §5). */
     @Provides
     @Singleton
     @CoverCacheDir

@@ -9,14 +9,14 @@ import io.github.bookshelf.core.common.error.DownloadFailure
  * SAF и читалок: feature-модули видят только их.
  */
 
-/** Тип источника книг (docs/architecture.md §3.3). */
+/** Тип источника книг («Архитектура» §3.3). */
 enum class SourceKind { SAF_TREE, DIRECT_PATH, OPDS }
 
 /**
  * Источник книг: выбранная пользователем папка (SAF) или прямой путь в `full`-сборке.
  *
  * @param accessLost persistable-разрешение потеряно (папку переместили/удалили). Книги при этом не
- *   удаляются, а помечаются [Book.isMissing] (docs/architecture.md §4.1, ADR-010).
+ *   удаляются, а помечаются [Book.isMissing] («Архитектура» §4.1, ADR-010).
  */
 data class Source(
     val id: String,
@@ -31,13 +31,13 @@ data class Source(
     val accessLost: Boolean = false,
 )
 
-/** Состояние прогона сканирования (docs/architecture.md §3.3, §4.5). */
+/** Состояние прогона сканирования («Архитектура» §3.3, §4.5). */
 enum class ScanStatus { IDLE, RUNNING, PAUSED, CANCELLED, FINISHED, FAILED }
 
 /**
  * Прогресс сканирования источника.
  *
- * Обновляется не чаще раза в секунду: на e-ink частые перерисовки вредны (docs/eink-ux.md §5).
+ * Обновляется не чаще раза в секунду: на e-ink частые перерисовки вредны («E-ink UX» §5).
  * `currentPath` — курсор обхода; по нему скан возобновляется после `Service.onTimeout` (ADR-010).
  */
 data class ScanProgress(
@@ -54,7 +54,7 @@ data class ScanProgress(
     val finishedAt: Long? = null,
 )
 
-/** Отчёт о завершённом прогоне сканирования (экран «Сканирование и отчёт», docs/eink-ux.md §6.6). */
+/** Отчёт о завершённом прогоне сканирования (экран «Сканирование и отчёт», «E-ink UX» §6.6). */
 data class ScanReport(
     val runId: String,
     val sourceId: String,
@@ -97,7 +97,7 @@ data class MetadataPatch(
 )
 
 /**
- * Ручное переопределение метаданных (docs/architecture.md §3.1, Sprint 7).
+ * Ручное переопределение метаданных («Архитектура» §3.1, Sprint 7).
  *
  * Хранится отдельно от `books`, чтобы пересканирование файла не затирало правки пользователя.
  */
@@ -108,7 +108,7 @@ data class MetadataOverride(
     val updatedAt: Long = 0L,
 )
 
-/** Тип полки: ручная или умная (правила в JSON, docs/architecture.md §3.3). */
+/** Тип полки: ручная или умная (правила в JSON, «Архитектура» §3.3). */
 enum class CollectionType { MANUAL, SMART }
 
 /** Коллекция/полка. Для [CollectionType.SMART] правила лежат в [rulesJson]. */
@@ -130,7 +130,7 @@ data class Collection(
     val previewCovers: List<String> = emptyList(),
 )
 
-/** Каталог OPDS (docs/architecture.md §3.3, ADR-006). Пароль здесь не хранится — только алиас. */
+/** Каталог OPDS («Архитектура» §3.3, ADR-006). Пароль здесь не хранится — только алиас. */
 data class OpdsCatalog(
     val id: String,
     val title: String,
@@ -219,7 +219,7 @@ data class OpdsEntry(
 /** Состояние загрузки из OPDS. `.part` + атомарное переименование — деталь реализации воркера. */
 enum class DownloadState { QUEUED, RUNNING, PAUSED, DONE, FAILED, CANCELLED }
 
-/** Загрузка из OPDS (docs/opds.md). */
+/** Загрузка из OPDS («OPDS»). */
 data class OpdsDownload(
     val id: String,
     val catalogId: String,
@@ -244,7 +244,7 @@ data class OpdsDownload(
 /** Источник прогресса чтения: API читалки или ручная отметка. */
 enum class ProgressSource { READER_API, MANUAL }
 
-/** Прогресс чтения книги (docs/architecture.md §3.3). */
+/** Прогресс чтения книги («Архитектура» §3.3). */
 data class ReadingProgress(
     val bookId: String,
     val percent: Float,

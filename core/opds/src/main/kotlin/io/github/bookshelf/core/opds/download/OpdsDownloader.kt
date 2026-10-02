@@ -14,7 +14,7 @@ import okhttp3.ResponseBody
 /**
  * Загрузка книг из OPDS в папку библиотеки.
  *
- * Требования к реализации (docs/opds.md §4.2, §6):
+ * Требования к реализации («OPDS» §4.2, §6):
  * * запись идёт потоково в **`.part`-файл**, затем выполняется **атомарное переименование** —
  *   оборванная загрузка не оставляет мусора, а `.part` удаляется;
  * * докачка по `Range`, если сервер её поддерживает; повтор с backoff при сетевых сбоях;
@@ -37,7 +37,7 @@ interface OpdsDownloader {
 }
 
 /**
- * Задача на скачивание (соответствует строке `opds_downloads`, docs/opds.md §2).
+ * Задача на скачивание (соответствует строке `opds_downloads`, «OPDS» §2).
  *
  * @param catalogId каталог-источник.
  * @param entryId `atom:id`/`dc:identifier` записи; null, если каталог его не дал.
@@ -84,7 +84,7 @@ data class DownloadProgress(
     val state: DownloadState,
 )
 
-/** Состояния загрузки — значения колонки `opds_downloads.state` (docs/opds.md §2). */
+/** Состояния загрузки — значения колонки `opds_downloads.state` («OPDS» §2). */
 enum class DownloadState {
     /** В очереди. */
     QUEUED,

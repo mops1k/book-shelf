@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Декодер обложек на `BitmapFactory` (docs/architecture.md §5).
+ * Декодер обложек на `BitmapFactory` («Архитектура» §5).
  *
  * Декодирование обложки — самое дорогое место прокрутки полки, поэтому конвейер трёхступенчатый:
  *

@@ -5,7 +5,7 @@ package io.github.bookshelf.core.storage.saf
  *
  * [treeUri] — это `content://`-URI дерева SAF (`ACTION_OPEN_DOCUMENT_TREE`), а не путь файловой
  * системы: начиная с Android 11 выбрать корень накопителя, корень SD-карты или `Download`
- * через SAF нельзя (docs/architecture.md §4.1).
+ * через SAF нельзя («Архитектура» §4.1).
  *
  * @param id стабильный идентификатор источника (UUID), не зависит от пути и переживает перенос папки;
  * @param treeUri URI дерева, сохранённый в таблице `sources`;
@@ -23,7 +23,7 @@ data class SourceRef(
     val excludeGlobs: List<String> = emptyList(),
 )
 
-/** Тип источника — дискриминатор `kind` в таблице `sources` (docs/architecture.md §3.3). */
+/** Тип источника — дискриминатор `kind` в таблице `sources` («Архитектура» §3.3). */
 enum class SourceKind {
 
     /** Дерево SAF: доступ через `DocumentsContract`, работает во всех flavor'ах. */
@@ -39,7 +39,7 @@ enum class SourceKind {
 /**
  * Состояние persistable-разрешения на источник.
  *
- * Разрешение теряется, если папка или документ перемещены либо удалены (docs/architecture.md §4.1).
+ * Разрешение теряется, если папка или документ перемещены либо удалены («Архитектура» §4.1).
  * Скан в этом случае не падает: UI показывает «Папка недоступна — выбрать заново»,
  * а книги помечаются `isMissing` до повторного подключения источника.
  */
