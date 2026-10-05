@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.common.testing.FakeAppClock
+import io.github.bookshelf.core.common.testing.RecordingAppLogger
 import io.github.bookshelf.core.data.repository.ReaderRepository
 import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.database.entity.BookEntity
@@ -60,6 +61,7 @@ class ReaderLaunchInChosenReaderTest {
             formatDefaultDao = database.formatDefaultDao(),
             session = NoSession,
             clock = FakeAppClock(),
+            addressChooser = LaunchAddressChooser(RecordingAppLogger()),
         )
         runTest { database.bookDao().upsertAll(listOf(book())) }
     }

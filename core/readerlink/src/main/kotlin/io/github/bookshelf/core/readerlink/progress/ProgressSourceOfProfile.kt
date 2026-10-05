@@ -13,9 +13,14 @@ import io.github.bookshelf.core.readerlink.profile.FbReaderPreset
  *
  * `null` означает «у нас нет источника для этой читалки»: тогда во время чтения не спрашивают
  * никого. Опросить «всех остальных» нельзя — это ровно та нагрузка, от которой отказались.
+ *
+ * Профиль узнаётся и по preset-id (`fbreader`), и по имени пакета (`com.fbreader`): найденным
+ * читалкам профиль сохраняется с `id`, равным имени пакета (так в базе устройства: `com.fbreader`,
+ * `org.koreader.launcher`), и отображение по одному preset-id молча не срабатывало (дефект найден
+ * на устройстве 05.10.2026).
  */
 fun progressSourceOf(readerProfileId: String): ProgressSourceId? = when (readerProfileId) {
-    FbReaderPreset.ID -> ProgressSourceId.FBREADER_AIDL
-    KoReaderPreset.ID -> ProgressSourceId.KOREADER_SIDECAR
+    FbReaderPreset.ID, FbReaderPreset.PACKAGE_NAME -> ProgressSourceId.FBREADER_AIDL
+    KoReaderPreset.ID, KoReaderPreset.PACKAGE_NAME -> ProgressSourceId.KOREADER_SIDECAR
     else -> null
 }

@@ -28,6 +28,22 @@ class ProgressSourceOfProfileTest {
     }
 
     @Test
+    fun `the fbReader profile is recognised by package name too`() {
+        // ДЕФЕКТ (найден на устройстве 05.10.2026): найденным читалкам профиль сохраняется с id =
+        // имя пакета (`com.fbreader`), а не с preset-id (`fbreader`). Отображение по одному
+        // preset-id не срабатывало, и правило «во время чтения спрашиваем только открытую читалку»
+        // для FBReader не работало вовсе (в базе устройства: `com.fbreader`, `org.coolreader`,
+        // `com.xrz.xreaderV3`).
+        assertThat(progressSourceOf(FbReaderPreset.PACKAGE_NAME)).isEqualTo(ProgressSourceId.FBREADER_AIDL)
+    }
+
+    @Test
+    fun `the koReader profile is recognised by package name too`() {
+        // KOReader ставится как `org.koreader.launcher` (проверено на устройстве 05.10.2026).
+        assertThat(progressSourceOf(KoReaderPreset.PACKAGE_NAME)).isEqualTo(ProgressSourceId.KOREADER_SIDECAR)
+    }
+
+    @Test
     fun `a reader we have no source for maps to nothing`() {
         // Moon+ Reader, ReadEra, eBoox: прогресса у нас для них нет, и «опросить всех» вместо
         // них нельзя — это и есть та нагрузка, от которой отказались.

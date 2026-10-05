@@ -1,18 +1,19 @@
 package io.github.bookshelf.di
 
 import android.content.Context
+import android.net.Uri
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.bookshelf.core.common.di.ApplicationScope
-import androidx.core.content.FileProvider
 import io.github.bookshelf.core.common.app.AppRestarter
 import io.github.bookshelf.core.data.backup.DatabaseBackupSchedule
 import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
 import io.github.bookshelf.core.readerlink.launch.ExportedUriFactory
+import io.github.bookshelf.core.storage.provider.ExportFileProvider
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
 import io.github.bookshelf.core.common.di.CoverCacheDir
 import io.github.bookshelf.core.common.di.OpdsCacheDir
@@ -80,15 +81,19 @@ object AppModule {
     /**
      * Адрес копии книги, видимый другой программе.
      *
-     * Единственное место, где нужен authority `FileProvider`: он объявлен в манифесте приложения
-     * (`${applicationId}.fileprovider`) и открывает только `cacheDir/export`. Собирать адрес в
-     * слое данных нельзя — там нет ни контекста, ни знания про манифест.
+     * Authority собирает `ExportFileProvider` по имени пакета: провайдер объявлен в манифесте
+     * приложения (`${applicationId}.fileprovider`) и открывает только `cacheDir/export`. Собирать
+     * адрес в слое данных нельзя — там нет ни контекста, ни знания про манифест.
      */
     @Provides
     @Singleton
     fun provideExportedUriFactory(@ApplicationContext context: Context): ExportedUriFactory =
         ExportedUriFactory { file ->
-            FileProvider.getUriForFile(context, "${'$'}{context.packageName}.fileprovider", file)
+            // Authority собирает единственное место, которое знает про манифест
+            // (`ExportFileProvider`), — здесь была подстановка, записанная литералом, и адрес
+            // не совпадал с манифестом: `FileProvider` бросал `IllegalArgumentException`, то есть
+            // запасной путь (копия книги для читалки) не работал вовсе (дефект 05.10.2026).
+            Uri.parse(ExportFileProvider.uriFor(context.packageName, file))
         }
 
     @Provides

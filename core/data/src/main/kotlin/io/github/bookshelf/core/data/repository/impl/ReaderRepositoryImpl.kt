@@ -23,6 +23,7 @@ import io.github.bookshelf.core.readerlink.discovery.ReaderRank
 import io.github.bookshelf.core.readerlink.discovery.readerRankOf
 import io.github.bookshelf.core.readerlink.launch.LaunchRequest
 import io.github.bookshelf.core.readerlink.launch.ReaderExport
+import io.github.bookshelf.core.database.entity.BookEntity
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
 import io.github.bookshelf.core.readerlink.mime.MimeTypes
 import io.github.bookshelf.core.readerlink.profile.FbReaderPreset
@@ -57,6 +58,8 @@ class ReaderRepositoryImpl @Inject constructor(
     private val formatDefaultDao: FormatDefaultDao,
     private val session: ReaderSession,
     private val clock: AppClock,
+    /** Каким адресом отдать книгу читалке: путь файла, наша ссылка или копия. */
+    private val addressChooser: LaunchAddressChooser,
 ) : ReaderRepository {
 
     /**
@@ -143,17 +146,20 @@ class ReaderRepositoryImpl @Inject constructor(
             mimeType = MimeTypes.mimeOf(book.extension),
             extension = book.extension,
         )
-        // Читалка, которая не умеет открывать по ссылке, получает копию сразу: пробовать
-        // `content://` и ждать отказа незачем.
-        if (!profile.supportsContentUri) {
-            return launchExportedCopy(book.id, book.documentUri, request)
+        // Адрес выбирается заранее и попытка одна: повторить запуск нельзя — когда читалка уже на
+        // переднем плане, система запрещает старт её activity из фона (BAL_BLOCK, проверено на
+        // устройстве 05.10.2026). ДЕФЕКТ Александра («открываю предыстория книга 1, открывается в
+        // фбридере вселенная неудачников») в том, что FBReader принимает нашу ссылку и книгу по ней
+        // не открывает: ему нужен реальный путь файла.
+        val address = addressChooser.addressFor(profile, book)
+        if (address != null) {
+            val launched = launcher.launch(request.copy(documentUri = address))
+            if (launched.isSuccess) {
+                markOpened(book.id, profile.id)
+                return launched
+            }
         }
-        val direct = launcher.launch(request)
-        // Отказ читалки — не тупик: есть один запасной ход, временная копия файла.
-        if (direct.isSuccess) {
-            markOpened(book.id, profile.id)
-            return direct
-        }
+        // Читалка ссылку не приняла (или адреса для неё нет) — отдаём копию книги.
         return launchExportedCopy(book.id, book.documentUri, request)
     }
 
@@ -282,4 +288,5 @@ private fun ReaderProfileEntity.toSummary(): ReaderProfileSummary = ReaderProfil
     // них у выбранной читалки пропадал список форматов (дефект, найденный на устройстве).
     supportedExtensions = toProfile().supportedExtensions(),
 )
+
 

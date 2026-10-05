@@ -133,9 +133,9 @@ class DefaultReaderLauncher @Inject constructor(
         }
         val attempts = buildList {
             profile.activityName?.let { activityName ->
-                add(viewIntent(request.documentUri, request.mimeType, profile.packageName, activityName))
+                add(viewIntent(request.documentUri, profile.packageName, activityName))
             }
-            add(viewIntent(request.documentUri, request.mimeType, profile.packageName, activityName = null))
+            add(viewIntent(request.documentUri, profile.packageName, activityName = null))
         }
 
         var lastError: Throwable? = null
@@ -146,7 +146,7 @@ class DefaultReaderLauncher @Inject constructor(
                 continue
             }
             try {
-                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                context.startActivity(intent)
                 return@runCatching
             } catch (notFound: ActivityNotFoundException) {
                 lastError = notFound
@@ -173,14 +173,25 @@ class DefaultReaderLauncher @Inject constructor(
 
     /**
      * Один вариант intent на запуск, всегда привязанный к пакету читалки.
+     *
+     * **Адрес без MIME-типа.** Проверено на устройстве (adb, запущенный FBReader Premium 3.8.31,
+     * 06.10.2026): `ACTION_VIEW` + адрес **с типом** книгу не открывает, а **без типа** — открывает.
+     * FBReader объявляет `VIEW` на любой тип, и явный тип ломает его разбор адреса: читалка
+     * запускается и остаётся на прежней книге (дефект Александра: «открываю предыстория книга 1,
+     * открывается в фбридере вселенная неудачников»).
+     *
+     * **`CLEAR_TOP`.** Без него уже открытая книга остаётся на экране: читалка поднимает свою
+     * activity, но новую книгу не показывает. `CLEAR_TOP` заставляет её пересоздать activity с нашим
+     * адресом.
      */
-    private fun viewIntent(
+    internal fun viewIntent(
         documentUri: Uri,
-        mimeType: String,
         packageName: String,
         activityName: String?,
     ): Intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(documentUri, mimeType)
+        setData(documentUri)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         addCategory(Intent.CATEGORY_DEFAULT)
         if (activityName != null) setClassName(packageName, activityName)

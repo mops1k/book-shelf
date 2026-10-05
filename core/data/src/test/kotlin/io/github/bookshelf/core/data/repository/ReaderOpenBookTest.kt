@@ -10,7 +10,9 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.testing.FakeAppClock
+import io.github.bookshelf.core.common.testing.RecordingAppLogger
 import io.github.bookshelf.core.database.model.ReadingStatus
+import io.github.bookshelf.core.data.repository.impl.LaunchAddressChooser
 import io.github.bookshelf.core.data.repository.impl.ReaderRepositoryImpl
 import io.github.bookshelf.core.database.BookshelfDatabase
 import io.github.bookshelf.core.common.reader.ReaderSession
@@ -203,6 +205,7 @@ class ReaderOpenBookTest {
         profileDao = database.readerProfileDao(),
         bookDao = database.bookDao(),
         formatDefaultDao = database.formatDefaultDao(),
+        addressChooser = LaunchAddressChooser(RecordingAppLogger()),
     )
 
     private suspend fun givenBook(status: ReadingStatus = ReadingStatus.UNREAD) {

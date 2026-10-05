@@ -11,4 +11,14 @@ package io.github.bookshelf.core.readerlink.koreader
 object KoReaderPreset {
 
     const val ID: String = "koreader"
+
+    /**
+     * Пакет KOReader.
+     *
+     * Проверено на устройстве 05.10.2026: KOReader ставится как `org.koreader.launcher`. Профиль
+     * найденной читалки сохраняется с `id`, равным имени пакета, поэтому без этой строки KOReader не
+     * опознавался как источник прогресса (и правило «во время чтения спрашиваем только открытую
+     * читалку» для него не работало).
+     */
+    const val PACKAGE_NAME: String = "org.koreader.launcher"
 }
