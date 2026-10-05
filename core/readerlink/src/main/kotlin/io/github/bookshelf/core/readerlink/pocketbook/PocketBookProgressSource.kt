@@ -85,16 +85,23 @@ class PocketBookProgressSource @Inject constructor(
      *
      * Папка из базы плюс имя файла должны сойтись с нашим относительным путём и папкой библиотеки
      * (`readerPathMatches`). По одному имени не угадываем: у двух книг с одинаковым именем процент
-     * попадёт не той, а это хуже, чем не записать ничего.
+     * попадёт не той, а это хуже, чем не записать ничего. Если путь не сошёлся (книгу переложили),
+     * остаётся вторая примета PocketBook — размер файла.
      */
     private fun match(book: ProgressBookRef): Entry? {
         val candidates = entries[book.fileName].orEmpty()
         if (candidates.isEmpty()) return null
-        // Папка и имя файла в базе лежат отдельно, вместе они дают путь, который и сверяем с нашим;
-        // если ни одна запись не подошла, книгу в PocketBook не открывали.
-        return candidates
+        // Папка и имя файла в базе лежат отдельно, вместе они дают путь, который и сверяем с нашим.
+        val byPath = candidates
             .filter { readerPathMatches("${it.folder.orEmpty()}${it.name}", book) }
             .maxByOrNull { it.timeEdt }
+        if (byPath != null) return byPath
+        // Путь не сошёлся — книгу могли переложить внутри библиотеки. У PocketBook есть вторая
+        // примета, которой нет у других читалок: размер файла (`Files.Len`). Берём её, только если
+        // совпал ровно один: два одинаковых размера ничего не доказывают, а чужой процент на полке
+        // хуже отсутствия процента.
+        if (book.sizeBytes <= 0L) return null
+        return candidates.filter { it.sizeBytes == book.sizeBytes }.singleOrNull()
     }
 
     /**
@@ -116,6 +123,7 @@ class PocketBookProgressSource @Inject constructor(
             name = name,
             folder = firstNotNullOfOrNull { it["path"] },
             title = firstNotNullOfOrNull { it["title"] },
+            sizeBytes = firstNotNullOfOrNull { it["len"]?.toLongOrNull() },
             share = share?.toFloatOrNull(),
             position = firstNotNullOfOrNull { row -> row.takeIf { it["tag"] == LAST_POSITION_TAG }?.get("val") },
             timeEdt = mapNotNull { it["time_edt"]?.toLongOrNull() }.maxOrNull() ?: 0L,
@@ -128,6 +136,8 @@ class PocketBookProgressSource @Inject constructor(
         val name: String,
         val folder: String?,
         val title: String?,
+        /** Размер файла из `Files.Len`; `null` — размера в базе нет (старые записи). */
+        val sizeBytes: Long?,
         val share: Float?,
         val position: String?,
         val timeEdt: Long,
@@ -151,7 +161,7 @@ class PocketBookProgressSource @Inject constructor(
 
         const val TAGS_SQL =
             "select t.ItemID as item_id, tn.TagName as tag, t.Val as val, f.Name as name, " +
-                "p.Path as path, b.Title as title, t.TimeEdt as time_edt " +
+                "p.Path as path, b.Title as title, t.TimeEdt as time_edt, f.Len as len " +
                 "from Tags t " +
                 "join TagNames tn on tn.OID = t.TagID " +
                 "left join Files f on f.BookID = t.ItemID " +

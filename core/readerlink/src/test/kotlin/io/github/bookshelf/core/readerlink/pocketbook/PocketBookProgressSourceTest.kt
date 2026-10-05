@@ -145,6 +145,45 @@ class PocketBookProgressSourceTest {
     }
 
     @Test
+    fun `a book moved inside the library is found by its size`() = runBlocking {
+        // Книгу переложили, и путь читалки больше не сходится с нашим. У PocketBook есть вторая
+        // примета — размер файла (`Files.Len`), и он совпадает точно.
+        val source = connected(progressRow(share = "0.3", path = "/sdcard/Другое/", size = BOOK_SIZE))
+
+        assertThat(source.progressFor(ourBook()).getOrNull()?.percent).isWithin(0.001f).of(30f)
+    }
+
+    @Test
+    fun `same-named books are told apart by size`() = runBlocking {
+        // Ни один путь не наш, но размер сошёлся ровно у одной книги — это она.
+        val source = connected(
+            progressRow(share = "0.1", path = "/sdcard/Одно/", size = BOOK_SIZE + 1, itemId = "1"),
+            progressRow(share = "0.2", path = "/sdcard/Другое/", size = BOOK_SIZE, itemId = "2"),
+        )
+
+        assertThat(source.progressFor(ourBook()).getOrNull()?.percent).isWithin(0.001f).of(20f)
+    }
+
+    @Test
+    fun `two candidates of our size are not guessed`() = runBlocking {
+        // Два одинаковых размера ничего не доказывают: писать процент наугад нельзя.
+        val source = connected(
+            progressRow(share = "0.1", path = "/sdcard/Одно/", size = BOOK_SIZE, itemId = "1"),
+            progressRow(share = "0.2", path = "/sdcard/Другое/", size = BOOK_SIZE, itemId = "2"),
+        )
+
+        assertThat(source.progressFor(ourBook()).isFailure).isTrue()
+    }
+
+    @Test
+    fun `a candidate without a size is not taken by size`() = runBlocking {
+        // У старых записей PocketBook размера может не быть — тогда приметы нет, и это «нет данных».
+        val source = connected(progressRow(share = "0.3", path = "/sdcard/Другое/", size = null))
+
+        assertThat(source.progressFor(ourBook()).isFailure).isTrue()
+    }
+
+    @Test
     fun `a root-level book is not confused with a same-named file elsewhere`() = runBlocking {
         // Книга в корне папки библиотеки: нужна не только концовка пути, но и сама папка библиотеки.
         val source = connected(
@@ -169,6 +208,7 @@ class PocketBookProgressSourceTest {
         title: String = BOOK_TITLE,
         timeEdt: String? = "100",
         itemId: String = "6",
+        size: Long? = null,
     ): Map<String, String?> = tagRow(
         tag = READ_PROGRESS_TAG,
         value = share,
@@ -177,6 +217,7 @@ class PocketBookProgressSourceTest {
         title = title,
         timeEdt = timeEdt,
         itemId = itemId,
+        size = size,
     )
 
     private fun positionRow(
@@ -186,6 +227,7 @@ class PocketBookProgressSourceTest {
         title: String = BOOK_TITLE,
         timeEdt: String? = "100",
         itemId: String = "6",
+        size: Long? = null,
     ): Map<String, String?> = tagRow(
         tag = LAST_POSITION_TAG,
         value = position,
@@ -194,6 +236,7 @@ class PocketBookProgressSourceTest {
         title = title,
         timeEdt = timeEdt,
         itemId = itemId,
+        size = size,
     )
 
     private fun tagRow(
@@ -204,6 +247,7 @@ class PocketBookProgressSourceTest {
         title: String,
         timeEdt: String?,
         itemId: String,
+        size: Long? = null,
     ): Map<String, String?> = mapOf(
         "item_id" to itemId,
         "tag" to tag,
@@ -212,6 +256,7 @@ class PocketBookProgressSourceTest {
         "path" to path,
         "title" to title,
         "time_edt" to timeEdt,
+        "len" to size?.toString(),
     )
 
     private fun ourBook() = ProgressBookRef(
@@ -251,6 +296,8 @@ class PocketBookProgressSourceTest {
         const val READ_PROGRESS_TAG = "doc.read_progress"
         const val LAST_POSITION_TAG = "doc.last_read_position"
         const val BOOK_NAME = "Книга.fb2.epub"
+        /** Размер книги из `ourBook()`: с ним сравнивается `Files.Len`. */
+        const val BOOK_SIZE = 1_000L
         const val ROOT_BOOK_NAME = "Книга-в-корне.fb2.epub"
         const val BOOK_TITLE = "Книга"
         const val RELATIVE_PATH = "Лем/Книга.fb2.epub"
