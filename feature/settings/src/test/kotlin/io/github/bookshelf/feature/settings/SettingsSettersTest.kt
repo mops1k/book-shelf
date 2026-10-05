@@ -33,6 +33,8 @@ import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.common.permission.AllFilesAccess
+import io.github.bookshelf.core.data.sync.ProgressSourcesReport
+import io.github.bookshelf.core.data.sync.ProgressSourcesReporter
 import io.github.bookshelf.core.eink.EinkController
 import io.github.bookshelf.core.eink.RefreshMode
 import io.github.bookshelf.core.eink.vendor.EinkVendor
@@ -402,6 +404,28 @@ class SettingsSettersTest {
     private var accessGranted = false
     private val allFilesAccess = AllFilesAccess { accessGranted }
 
+    /** Диагностика источников: фейк порта, а не Room и настоящие читалки (ADR-012). */
+    private var progressSourcesReport: ProgressSourcesReport? = null
+    private val progressSourcesReporter = ProgressSourcesReporter {
+        AppResult.success(progressSourcesReport ?: ProgressSourcesReport(emptyList(), null, null, null))
+    }
+
+    @Test
+    fun `refresh diagnostics also asks about progress sources`() = runTest(dispatcher) {
+        progressSourcesReport = ProgressSourcesReport(
+            sources = emptyList(),
+            lastSourceKey = null,
+            lastBookTitle = null,
+            lastUpdatedAt = null,
+        )
+
+        val viewModel = viewModel()
+        viewModel.onRefreshDiagnostics()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.progressSources).isNotNull()
+    }
+
     @Test
     fun `the progress sub-screen knows whether all files access is granted`() {
         // Без доступа ко всей памяти читалки на общей памяти не читаются, и подэкран обязан
@@ -429,6 +453,7 @@ class SettingsSettersTest {
         fbReaderApi = fbReader,
         featureFlags = FakeFeatureFlags(),
         allFilesAccess = allFilesAccess,
+        progressSourcesReporter = progressSourcesReporter,
     )
 
     /** Репозиторий настроек: хранит снимок, записывает каждый `update` в список. */

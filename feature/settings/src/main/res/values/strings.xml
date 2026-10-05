@@ -106,6 +106,14 @@
     <string name="settings_about_fast_mode_hint">Мгновенная перерисовка без призраков прежнего кадра</string>
     <string name="settings_about_available_short">доступен</string>
     <string name="settings_about_no">нет</string>
+    <string name="settings_about_progress_sources">Источники прогресса чтения</string>
+    <string name="settings_about_progress_source_available">читается</string>
+    <string name="settings_about_progress_source_unavailable">не читается</string>
+    <string name="settings_about_progress_source_unknown">источник незнаком</string>
+    <string name="settings_about_progress_last">Последний прогресс</string>
+    <string name="settings_about_progress_last_value">%1$s, %2$s</string>
+    <string name="settings_about_progress_last_book">книга «%1$s»</string>
+    <string name="settings_about_progress_last_none">записей пока нет</string>
     <string name="settings_about_refresh_diagnostics">Обновить диагностику</string>
     <string name="settings_about_refresh_diagnostics_hint">Перечитать данные вендора: они читаются один раз при запуске</string>
     <string name="settings_about_app_permissions">Разрешения приложения в системе</string>

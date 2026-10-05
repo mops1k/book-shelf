@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.flags.FeatureFlags
+import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.permission.AllFilesAccess
+import io.github.bookshelf.core.data.sync.ProgressSourcesReporter
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
@@ -70,6 +72,8 @@ class SettingsViewModel @Inject constructor(
      * Тем же портом пользуется слой данных, когда решает, заводить ли источник прямым путём.
      */
     private val allFilesAccess: AllFilesAccess,
+    /** Диагностика источников прогресса: какие из включённых читаются и чей прогресс записан. */
+    private val progressSourcesReporter: ProgressSourcesReporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -487,6 +491,13 @@ class SettingsViewModel @Inject constructor(
             isLoading = false,
             error = null,
         )
+        // Диагностика источников прогресса — здесь же: на экране «О приложении» одна кнопка
+        // обновления, и человек ждёт от неё обновления всей диагностики, а не половины.
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingProgressSources = true) }
+            val report = progressSourcesReporter.check().getOrNull()
+            _uiState.update { it.copy(isCheckingProgressSources = false, progressSources = report) }
+        }
     }
 
     /**

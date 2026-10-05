@@ -20,7 +20,9 @@ dependencies {
     // `BookMetadataEditor`, и модули, которые им пользуются, должны его видеть.
     api(project(":core:metadata"))
     implementation(project(":core:covers"))
-    implementation(project(":core:readerlink"))
+    // api, а не implementation: типы источников прогресса (ProgressSourceId, ProgressSourceKeys)
+// нужны экрану настроек, чтобы показать диагностику источников человеческими именами.
+    api(project(":core:readerlink"))
     implementation(project(":core:opds"))
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.okhttp.mockwebserver)

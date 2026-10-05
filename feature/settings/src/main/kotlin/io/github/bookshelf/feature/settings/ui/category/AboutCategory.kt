@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
@@ -16,7 +18,9 @@ import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.EinkDiagnosticsUi
+import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.feature.settings.SettingsUiState
+import io.github.bookshelf.feature.settings.progressSourceNameRes
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
 import io.github.bookshelf.feature.settings.R
@@ -57,6 +61,11 @@ internal fun AboutCategory(
 
         einkCapabilitiesRows(diagnostics = diagnostics)
 
+        item(key = "about-progress-header") {
+            EinkSectionHeader(title = stringResource(R.string.settings_about_progress_sources))
+        }
+        progressSourceRows(state = state)
+
         item(key = "about-refresh") {
             EinkListRow(
                 title = stringResource(R.string.settings_about_refresh_diagnostics),
@@ -75,6 +84,73 @@ internal fun AboutCategory(
         }
     }
 }
+
+/**
+ * Что показала диагностика источников прогресса.
+ *
+ * Отдельным блоком, а не строкой «всё хорошо»: вопрос «почему у книги нет процента» решается только
+ * тем, что видно, какие читалки приложение реально может прочитать (доступ ко всей памяти) и чей
+ * прогресс записан последним. До первой проверки блока нет — пустой список выглядел бы как поломка.
+ */
+private fun LazyListScope.progressSourceRows(state: SettingsUiState) {
+    val report = state.progressSources ?: return
+    items(items = report.sources, key = { status -> "progress-source-" + status.sourceKey }) { status ->
+        EinkListRow(
+            title = progressSourceNameRes(status.sourceKey)?.let { stringResource(it) }
+                ?: stringResource(R.string.settings_about_progress_source_unknown),
+            subtitle = if (status.available) {
+                stringResource(R.string.settings_about_progress_source_available)
+            } else {
+                stringResource(R.string.settings_about_progress_source_unavailable)
+            },
+        )
+    }
+    item(key = "about-progress-last") {
+        EinkListRow(
+            title = stringResource(R.string.settings_about_progress_last),
+            subtitle = lastProgressText(report),
+        )
+    }
+}
+
+/** Подпись последней записи прогресса: источник, время и книга. */
+@Composable
+private fun lastProgressText(report: ProgressSourcesReport): String {
+    val sourceKey = report.lastSourceKey
+    val updatedAt = report.lastUpdatedAt
+    if (sourceKey == null || updatedAt == null) {
+        return stringResource(R.string.settings_about_progress_last_none)
+    }
+    val name = progressSourceNameRes(sourceKey)?.let { stringResource(it) }
+        ?: stringResource(R.string.settings_about_progress_source_unknown)
+    val value = stringResource(
+        R.string.settings_about_progress_last_value,
+        name,
+        remember(updatedAt) { relativeOrAbsoluteTime(updatedAt) },
+    )
+    val title = report.lastBookTitle ?: return value
+    return value + ", " + stringResource(R.string.settings_about_progress_last_book, title)
+}
+
+/**
+ * Время записи словами: свежее — «минуту назад», старое — датой.
+ *
+ * Абсолютная дата для вчерашней записи нужна, а для только что сделанной она бесполезна: человек
+ * смотрит диагностику сразу после чтения и хочет увидеть, что запись появилась.
+ */
+private fun relativeOrAbsoluteTime(updatedAt: Long): String {
+    val minutes = (System.currentTimeMillis() - updatedAt) / MILLIS_PER_MINUTE
+    val format = java.text.SimpleDateFormat("d MMMM, HH:mm", java.util.Locale.getDefault())
+    return when {
+        minutes < MINUTES_JUST_NOW -> "только что"
+        minutes < MINUTES_PER_HOUR -> "$minutes мин назад"
+        else -> format.format(java.util.Date(updatedAt))
+    }
+}
+
+private const val MILLIS_PER_MINUTE = 60_000L
+private const val MINUTES_JUST_NOW = 1L
+private const val MINUTES_PER_HOUR = 60L
 
 /**
  * Версия приложения для строки «Версия».

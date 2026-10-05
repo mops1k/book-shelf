@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.settings
 
 import io.github.bookshelf.core.designsystem.text.AppText
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceKeys
 
 /**
  * Текст для человека в настройках — общий тип приложения.
@@ -52,4 +53,20 @@ internal fun readersFoundText(found: Int): AppText = if (found == 0) {
     AppText(R.string.settings_readers_defaults_none)
 } else {
     AppText(R.string.settings_readers_defaults_found, found)
+}
+
+/**
+ * Человеческое имя источника прогресса по значению колонки `reading_progress.source`.
+ *
+ * `null` — источник незнаком (запись оставила версия приложения, где такого источника ещё не было):
+ * показываем «источник незнаком», а не пустую строку и не падение.
+ */
+internal fun progressSourceNameRes(sourceKey: String): Int? = when (sourceKey) {
+    ProgressSourceKeys.FBREADER_AIDL -> R.string.settings_readers_progress_source_fbreader
+    ProgressSourceKeys.KOREADER_SIDECAR -> R.string.settings_readers_progress_source_koreader
+    ProgressSourceKeys.COOLREADER_DB -> R.string.settings_readers_progress_source_coolreader
+    ProgressSourceKeys.POCKETBOOK_DB -> R.string.settings_readers_progress_source_pocketbook
+    ProgressSourceKeys.LIBRERA_JSON -> R.string.settings_readers_progress_source_librera
+    ProgressSourceKeys.XREADER_CACHE -> R.string.settings_readers_progress_source_xreader
+    else -> null
 }

@@ -34,6 +34,8 @@ import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
 import io.github.bookshelf.core.data.reader.BookSidecarFileReader
+import io.github.bookshelf.core.data.sync.CheckProgressSources
+import io.github.bookshelf.core.data.sync.ProgressSourcesReporter
 import io.github.bookshelf.core.data.reader.ForeignSqliteDatabase
 import io.github.bookshelf.core.data.reader.SharedStorageFiles
 import io.github.bookshelf.core.readerlink.progress.ProgressDatabase
@@ -138,6 +140,12 @@ abstract class DataModule {
      * Тоже знание слоя данных: реальные пути и файловая система — здесь, а адаптеру читалки нужен
      * только порт «прочитать файл» и «посмотреть каталог».
      */
+    /** Диагностика источников прогресса: экрану настроек нужен только порт «опросить». */
+    @Binds
+    abstract fun bindProgressSourcesReporter(
+        impl: CheckProgressSources,
+    ): ProgressSourcesReporter
+
     @Binds
     abstract fun bindProgressStorage(
         impl: SharedStorageFiles,

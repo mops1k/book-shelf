@@ -7,6 +7,7 @@ import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
+import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.SettingsKeys
@@ -327,6 +328,16 @@ data class SettingsUiState(
     val isSourceBusy: Boolean = false,
     /** Диагностика e-ink для раздела «О приложении». */
     val diagnostics: EinkDiagnosticsUi = EinkDiagnosticsUi(),
+    /**
+     * Отчёт диагностики источников прогресса; `null` — ещё не проверяли.
+     *
+     * Нужен, чтобы «включил, а процента нет» объяснялось словами: источник может быть недоступен
+     * (нет доступа ко всей памяти, читалка не установлена), а может быть доступен, просто книгу в
+     * ней ещё не открывали.
+     */
+    val progressSources: ProgressSourcesReport? = null,
+    /** Идёт ли опрос источников прогресса. */
+    val isCheckingProgressSources: Boolean = false,
     /** Идёт загрузка настроек. */
     val isLoading: Boolean = false,
     /** Идёт пересканирование всех папок: база очищена, сканы запущены. */
