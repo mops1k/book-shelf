@@ -82,6 +82,8 @@ class XReaderProgressSource @Inject constructor(
                 percent = percent,
                 pageIndex = state.currentPage,
                 locatorJson = null,
+                // `bookEndTime` — когда книгу закрыли в XReader; по нему и сравниваются источники.
+                updatedAt = state.updatedAt,
             ),
         )
     }

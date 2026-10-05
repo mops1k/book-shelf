@@ -6,6 +6,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.zip.GZIPInputStream
 
 /**
@@ -40,6 +42,17 @@ internal object XReaderJson {
                 null
             } else {
                 (currentPage.toFloat() / totalPage * PERCENT).coerceIn(0f, PERCENT)
+            }
+
+        /**
+         * Когда книгу читали последний раз, в миллисекундах; `null` — времени нет или оно не разобралось.
+         *
+         * XReader пишет **локальное** время без пояса (`2026-10-05 15:56:38`), поэтому разбираем его
+         * в поясе устройства: нам нужно «кто позже», а не абсолютная метка.
+         */
+        val updatedAt: Long?
+            get() = endTime?.let { value ->
+                runCatching { SimpleDateFormat(END_TIME_PATTERN, Locale.US).parse(value)?.time }.getOrNull()
             }
     }
 
@@ -80,6 +93,9 @@ internal object XReaderJson {
             (this[1].toInt() and BYTE_MASK) == GZIP_SECOND
 
     private const val PERCENT = 100f
+
+    /** Формат `bookEndTime` у XReader: локальное время без пояса. */
+    private const val END_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss"
 
     /** Первые два байта gzip: `1f 8b`. */
     private const val GZIP_FIRST = 0x1F

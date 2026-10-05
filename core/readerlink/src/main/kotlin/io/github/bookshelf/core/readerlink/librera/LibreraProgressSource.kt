@@ -88,7 +88,13 @@ class LibreraProgressSource @Inject constructor(
             )
         }
         return AppResult.success(
-            ReadingProgressSnapshot(percent = record.percent, pageIndex = null, locatorJson = null),
+            ReadingProgressSnapshot(
+                percent = record.percent,
+                pageIndex = null,
+                locatorJson = null,
+                // `t` в записи Librera — время последнего чтения; по нему сравниваются источники.
+                updatedAt = record.time.takeIf { it > 0L },
+            ),
         )
     }
 

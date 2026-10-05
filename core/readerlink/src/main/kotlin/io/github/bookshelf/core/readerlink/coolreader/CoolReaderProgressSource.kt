@@ -72,6 +72,9 @@ class CoolReaderProgressSource @Inject constructor(
                 percent = position.percent,
                 pageIndex = null,
                 locatorJson = position.locator,
+                // У CoolReader время записи есть (`bookmark.time_stamp`) — по нему и решается, чья
+                // запись свежее, когда книгу читали ещё и в другой читалке.
+                updatedAt = position.timeStamp.takeIf { it > 0L },
             ),
         )
     }

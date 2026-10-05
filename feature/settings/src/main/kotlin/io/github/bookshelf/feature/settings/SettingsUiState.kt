@@ -263,6 +263,14 @@ data class AppSettingsUi(
     val isLibreraProgressEnabled: Boolean = false,
     /** Прогресс из XReader: его кэш на общей памяти; по умолчанию выключен. */
     val isXReaderProgressEnabled: Boolean = false,
+    /**
+     * Выдан ли приложению доступ ко всей памяти.
+     *
+     * Без него читалки на общей памяти (CoolReader, PocketBook, Librera, XReader) не читаются, и
+     * подэкран прогресса обязан сказать это словами: снаружи это выглядит как «включил, а процента
+     * нет» (проверка на устройстве 05.10.2026).
+     */
+    val isAllFilesAccessGranted: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */

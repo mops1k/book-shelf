@@ -177,6 +177,56 @@ class SyncReadingProgressTest {
     }
 
     @Test
+    fun `the fresher record wins even though its source is asked first`() = runBlocking {
+        settings.fbReaderEnabled = true
+        settings.koReaderEnabled = true
+        givenBook(documentUri = DOCUMENT_URI, status = ReadingStatus.READING)
+        // FBReader спрашивают первым (он знает, что открыто) и его запись свежее: KOReader читал эту
+        // книгу раньше. Раньше побеждал тот, кого спросили позже, и на полке оказывался старый процент
+        // (решение Александра 05.10.2026: побеждает самая свежая запись).
+        fbReader.address = ReaderBookAddress(documentUri = DOCUMENT_URI)
+        fbReader.snapshot = snapshot(percent = 40f, updatedAt = 2_000L)
+        koReader.snapshot = snapshot(percent = 10f, updatedAt = 1_000L)
+
+        sync().syncNow().getOrNull()
+
+        assertThat(savedProgress()?.source).isEqualTo(ReadingProgressOrigins.FBREADER_AIDL)
+        assertThat(savedProgress()?.percent).isWithin(0.001f).of(0.40f)
+    }
+
+    @Test
+    fun `the fresher record wins when its source is asked later`() = runBlocking {
+        settings.fbReaderEnabled = true
+        settings.koReaderEnabled = true
+        givenBook(documentUri = DOCUMENT_URI, status = ReadingStatus.READING)
+        fbReader.address = ReaderBookAddress(documentUri = DOCUMENT_URI)
+        fbReader.snapshot = snapshot(percent = 10f, updatedAt = 1_000L)
+        koReader.snapshot = snapshot(percent = 40f, updatedAt = 2_000L)
+
+        sync().syncNow().getOrNull()
+
+        assertThat(savedProgress()?.source).isEqualTo(ReadingProgressOrigins.KOREADER_SIDECAR)
+        assertThat(savedProgress()?.percent).isWithin(0.001f).of(0.40f)
+    }
+
+    @Test
+    fun `a source without a time keeps deciding by order`() = runBlocking {
+        settings.fbReaderEnabled = true
+        settings.koReaderEnabled = true
+        givenBook(documentUri = DOCUMENT_URI, status = ReadingStatus.READING)
+        // У KOReader времени нет (в sidecar его не пишут), и «неизвестно» не должно проигрывать
+        // «известному»: иначе живая читалка на экране всегда проигрывала бы старой записи.
+        fbReader.address = ReaderBookAddress(documentUri = DOCUMENT_URI)
+        fbReader.snapshot = snapshot(percent = 10f, updatedAt = 2_000L)
+        koReader.snapshot = snapshot(percent = 40f, updatedAt = null)
+
+        sync().syncNow().getOrNull()
+
+        assertThat(savedProgress()?.source).isEqualTo(ReadingProgressOrigins.KOREADER_SIDECAR)
+        assertThat(savedProgress()?.percent).isWithin(0.001f).of(0.40f)
+    }
+
+    @Test
     fun `a file source reads the books selected for reading`() = runBlocking {
         settings.koReaderEnabled = true
         givenBook(documentUri = DOCUMENT_URI, status = ReadingStatus.READING)
@@ -445,10 +495,11 @@ class SyncReadingProgressTest {
 
     private suspend fun savedProgress() = database.readingProgressDao().getByBook(BOOK_ID)
 
-    private fun snapshot(percent: Float) = ReadingProgressSnapshot(
+    private fun snapshot(percent: Float, updatedAt: Long? = null) = ReadingProgressSnapshot(
         percent = percent,
         pageIndex = 4,
         locatorJson = null,
+        updatedAt = updatedAt,
     )
 
     /**

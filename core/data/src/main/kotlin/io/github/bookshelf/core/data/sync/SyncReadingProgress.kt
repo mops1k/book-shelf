@@ -17,6 +17,7 @@ import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.readerlink.progress.ProgressBookRef
 import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
 import io.github.bookshelf.core.readerlink.progress.ReaderBookAddress
+import io.github.bookshelf.core.readerlink.progress.ReadingProgressSnapshot
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSources
 import io.github.bookshelf.core.readerlink.progress.progressSourceOf
@@ -106,8 +107,66 @@ class SyncReadingProgress @Inject constructor(
         // Пустой проход означает «источника для открытой читалки нет»: спрашивать всех остальных
         // в этот момент запрещено — на этом и стоит правило нагрузки.
         if (pass.isEmpty()) return@appRunCatching ProgressSyncOutcome.ReaderUnavailable
-        summarizeSyncOutcomes(pass.map { readFrom(it, reading) })
+        // Записи собираем за весь проход и сохраняем только свежие: одну книгу могли читать в
+        // нескольких читалках, и записывать нужно ту позицию, которая свежее, а не ту, чей источник
+        // спросили позже (решение Александра 05.10.2026).
+        val found = FoundProgress()
+        val outcomes = pass.map { readFrom(it, reading, found) }
+        found.saveAll()
+        summarizeSyncOutcomes(outcomes)
     }
+
+    /**
+     * Что нашли за проход: на книгу — самая свежая запись.
+     *
+     * Сборщик на один проход: состояние между проходами не живёт, иначе прогресс одной синхронизации
+     * мог бы перебить запись следующей.
+     */
+    private inner class FoundProgress {
+
+        private val candidates = mutableMapOf<String, FoundProgressEntry>()
+
+        fun offer(book: Book, source: ReadingProgressSource, snapshot: ReadingProgressSnapshot) {
+            val current = candidates[book.id]
+            if (current == null || isFresher(snapshot, current.snapshot)) {
+                candidates[book.id] = FoundProgressEntry(book, source.id.storageKey, snapshot)
+            }
+        }
+
+        /** Записать победителей: по одной записи на книгу. */
+        suspend fun saveAll() {
+            candidates.values.forEach { entry ->
+                books.saveReadingProgress(
+                    bookId = entry.book.id,
+                    // Читалка говорит процентами, таблица хранит долю.
+                    percent = entry.snapshot.percent / PERCENT,
+                    locatorJson = entry.snapshot.locatorJson,
+                    source = entry.sourceKey,
+                )
+                markAsReadingIfFresh(entry.book)
+            }
+        }
+
+        /**
+         * Свежее ли новая запись.
+         *
+         * Если хотя бы один источник времени не сообщил, решает порядок источников (новая побеждает):
+         * у FBReader времени нет, и «неизвестно» не должно означать «старое». Когда время есть у обоих,
+         * побеждает позднее — ради этого правило и вводилось.
+         */
+        private fun isFresher(candidate: ReadingProgressSnapshot, current: ReadingProgressSnapshot): Boolean {
+            val left = candidate.updatedAt
+            val right = current.updatedAt
+            return left == null || right == null || left > right
+        }
+    }
+
+    /** Кандидат на запись: книга, источник и его снимок. */
+    private data class FoundProgressEntry(
+        val book: Book,
+        val sourceKey: String,
+        val snapshot: ReadingProgressSnapshot,
+    )
 
     /** Кого спрашивать: во время чтения — только открытую читалку, иначе всех включённых. */
     private fun passFor(
@@ -122,33 +181,41 @@ class SyncReadingProgress @Inject constructor(
     private suspend fun readFrom(
         source: ReadingProgressSource,
         reading: ActiveReading?,
+        found: FoundProgress,
     ): ProgressSyncOutcome = when {
         // Читалка сама знает, что открыто, — её и спрашиваем: во время чтения это ещё и
         // единственный корректный способ для копий и архивов.
-        source.knowsOpenBook -> readOpenBook(source)
+        source.knowsOpenBook -> readOpenBook(source, found)
         // Файловый источник: во время чтения книга известна из сессии.
-        reading != null -> readBook(source, reading.bookId)
-        else -> readSelectedBooks(source)
+        reading != null -> readBook(source, reading.bookId, found)
+        else -> readSelectedBooks(source, found)
     }
 
     /** Проход «что открыто»: адрес называет читалка, книгу находим в библиотеке. */
-    private suspend fun readOpenBook(source: ReadingProgressSource): ProgressSyncOutcome {
+    private suspend fun readOpenBook(
+        source: ReadingProgressSource,
+        found: FoundProgress,
+    ): ProgressSyncOutcome {
         if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
         return try {
             val address = source.openedBook() ?: return ProgressSyncOutcome.NoBookOpen
             val book = findBook(address) ?: return unknownBook(source, address)
-            saveFrom(source, book, address.documentUri)
+            readPosition(source, book, address.documentUri, found)
         } finally {
             source.disconnect()
         }
     }
 
     /** Проход по одной книге: её называет сессия чтения (или фоновая работа по выбранным книгам). */
-    private suspend fun readBook(source: ReadingProgressSource, bookId: String): ProgressSyncOutcome {
+    private suspend fun readBook(
+        source: ReadingProgressSource,
+        bookId: String,
+        found: FoundProgress,
+    ): ProgressSyncOutcome {
         if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
         return try {
             val book = books.getById(bookId).getOrNull() ?: return ProgressSyncOutcome.BookUnknown
-            saveFrom(source, book, book.documentUri)
+            readPosition(source, book, book.documentUri, found)
         } finally {
             source.disconnect()
         }
@@ -162,14 +229,17 @@ class SyncReadingProgress @Inject constructor(
      * Ограничение [SELECTED_LIMIT] — на случай, когда «читаю» стоит у половины библиотеки: один
      * проход всё равно не должен превращаться в полный обход.
      */
-    private suspend fun readSelectedBooks(source: ReadingProgressSource): ProgressSyncOutcome {
+    private suspend fun readSelectedBooks(
+        source: ReadingProgressSource,
+        found: FoundProgress,
+    ): ProgressSyncOutcome {
         if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
         return try {
             val selected = selectedBooks()
             var outcome: ProgressSyncOutcome = ProgressSyncOutcome.NoBookOpen
             for ((index, book) in selected.withIndex()) {
                 if (session.isActive()) break
-                val read = saveFrom(source, book, book.documentUri)
+                val read = readPosition(source, book, book.documentUri, found)
                 if (read is ProgressSyncOutcome.Saved && outcome !is ProgressSyncOutcome.Saved) outcome = read
                 if ((index + 1) % BATCH_SIZE == 0 && index + 1 < selected.size) delay(BATCH_PAUSE_MILLIS)
             }
@@ -179,22 +249,21 @@ class SyncReadingProgress @Inject constructor(
         }
     }
 
-    /** Прочитать прогресс книги и записать его; наружу — исход, а не исключение. */
-    private suspend fun saveFrom(
+    /**
+     * Прочитать позицию книги у источника; наружу — исход, а не исключение.
+     *
+     * В базу здесь **не пишем**: запись делает `FoundProgress.saveAll` в конце прохода, когда видно,
+     * чья позиция свежее.
+     */
+    private suspend fun readPosition(
         source: ReadingProgressSource,
         book: Book,
         readerAddress: String,
+        found: FoundProgress,
     ): ProgressSyncOutcome {
         val snapshot = source.progressFor(book.toRef(readerAddress)).getOrNull()
             ?: return ProgressSyncOutcome.NoBookOpen
-        books.saveReadingProgress(
-            bookId = book.id,
-            // Читалка говорит процентами, таблица хранит долю.
-            percent = snapshot.percent / PERCENT,
-            locatorJson = snapshot.locatorJson,
-            source = source.id.storageKey,
-        )
-        markAsReadingIfFresh(book)
+        found.offer(book, source, snapshot)
         return ProgressSyncOutcome.Saved(bookId = book.id, percentPercent = snapshot.percent)
     }
 

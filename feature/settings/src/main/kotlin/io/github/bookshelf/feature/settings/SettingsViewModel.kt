@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.common.flags.FeatureFlags
+import io.github.bookshelf.core.common.permission.AllFilesAccess
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
@@ -64,10 +65,18 @@ class SettingsViewModel @Inject constructor(
     private val fbReaderApi: FbReaderApi,
     /** Флаги сборки: раздел OPDS существует только в сборке с OPDS (ADR-006). */
     private val featureFlags: FeatureFlags,
+    /**
+     * Доступ ко всей памяти: без него читалки на общей памяти недоступны (и в `play` его нет вовсе).
+     * Тем же портом пользуется слой данных, когда решает, заводить ли источник прямым путём.
+     */
+    private val allFilesAccess: AllFilesAccess,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        SettingsUiState(sections = defaultSettingsSections(opdsEnabled = featureFlags.opdsEnabled)),
+        SettingsUiState(
+            sections = defaultSettingsSections(opdsEnabled = featureFlags.opdsEnabled),
+            settings = AppSettingsUi(isAllFilesAccessGranted = allFilesAccess.granted()),
+        ),
     )
 
     /**
@@ -394,8 +403,18 @@ class SettingsViewModel @Inject constructor(
      * Один метод на все переходы вперёд: экран идёт категория → форматы → читалки, и каждый шаг
      * это просто новое состояние уровня. Методов «на каждый шаг» здесь было бы три вместо одного.
      */
+    /**
+     * Перейти на уровень экрана «Читалки».
+     *
+     * Заодно перечитываем доступ ко всей памяти: его выдают в системных настройках, и человек может
+     * вернуться оттуда с уже выданным доступом — подэкран прогресса обязан показать это сразу, а не
+     * после перезапуска приложения.
+     */
     fun onReadersLevel(level: ReadersLevelUi) {
-        _uiState.value = _uiState.value.copy(readersLevel = level)
+        _uiState.value = _uiState.value.copy(
+            readersLevel = level,
+            settings = _uiState.value.settings.copy(isAllFilesAccessGranted = allFilesAccess.granted()),
+        )
     }
 
     fun onAddSource(uri: String, displayName: String) {

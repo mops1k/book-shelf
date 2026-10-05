@@ -74,6 +74,8 @@ class PocketBookProgressSource @Inject constructor(
                 percent = entry.percent,
                 pageIndex = null,
                 locatorJson = entry.position,
+                // `Tags.TimeEdt` — когда запись сделана; этим и сравниваются источники.
+                updatedAt = entry.timeEdt.takeIf { it > 0L },
             ),
         )
     }

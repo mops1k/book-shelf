@@ -33,6 +33,7 @@ import io.github.bookshelf.feature.settings.progressSourcesSummary
 import io.github.bookshelf.feature.settings.readersFoundText
 import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
+import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
 import io.github.bookshelf.feature.settings.R
 
 /**
@@ -284,6 +285,20 @@ private fun LazyListScope.progressLevel(
 ) {
     item(key = "progress-header") {
         EinkSectionHeader(title = stringResource(R.string.settings_readers_progress_header))
+    }
+    // Доступ ко всей памяти: без него половина переключателей ничего не даст, и человек должен
+    // узнать это здесь, а не гадать, почему процента нет.
+    if (!state.settings.isAllFilesAccessGranted) {
+        item(key = "progress-access") {
+            val context = LocalContext.current
+            EinkListRow(
+                title = stringResource(R.string.settings_readers_progress_no_access),
+                subtitle = stringResource(R.string.settings_readers_progress_no_access_hint),
+                trailing = stringResource(R.string.settings_readers_progress_grant),
+                // Ведём в системный экран приложения: только там выдаётся «Доступ ко всем файлам».
+                onClick = { context.openAppInfoSettings() },
+            )
+        }
     }
     readerProgressSwitches(state = state, viewModel = viewModel)
     readerProgressInterval(state = state, viewModel = viewModel)

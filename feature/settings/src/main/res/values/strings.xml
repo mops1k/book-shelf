@@ -66,6 +66,9 @@
     <string name="settings_readers_librera_hint">Librera хранит позицию в своих файлах на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в Librera</string>
     <string name="settings_readers_xreader">Прогресс из XReader</string>
     <string name="settings_readers_xreader_hint">XReader хранит позицию в своём кэше на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в XReader</string>
+    <string name="settings_readers_progress_no_access">Нет доступа ко всей памяти</string>
+    <string name="settings_readers_progress_no_access_hint">Процент из CoolReader, PocketBook, Librera и XReader читаться не будет: их данные лежат вне папки библиотеки. KOReader работает и без этого доступа</string>
+    <string name="settings_readers_progress_grant">разрешить</string>
     <string name="settings_readers_progress_none">Все выключены</string>
     <string name="settings_readers_progress_one">Включено: %1$s</string>
     <string name="settings_readers_progress_many">Включено: %1$s + ещё %2$d</string>
