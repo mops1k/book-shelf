@@ -146,9 +146,10 @@ class SettingsViewModel @Inject constructor(
     private var defaultReaderIds: Set<String> = emptySet()
 
     init {
-        _uiState.value = _uiState.value.copy(
-            isLoading = true,
-            diagnostics = safeDiagnostics(einkController, einkDeviceDetector, _uiState.value.diagnostics),
+        _uiState.value = _uiState.value.copy(isLoading = true).withFreshDiagnostics(
+            controller = einkController,
+            detector = einkDeviceDetector,
+            opdsEnabled = featureFlags.opdsEnabled,
         )
         observeSettings(_uiState, settingsRepository, viewModelScope) { ids -> defaultReaderIds = ids }
         observeReaders(_uiState, readerRepository, viewModelScope) { defaultReaderIds }
@@ -453,10 +454,13 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Перечитать диагностику вендора e-ink. */
+    /** Перечитать диагностику вендора e-ink: вместе с ней пересобирается список разделов. */
     fun onRefreshDiagnostics() {
-        _uiState.value = _uiState.value.copy(
-            diagnostics = safeDiagnostics(einkController, einkDeviceDetector, _uiState.value.diagnostics),
+        _uiState.value = _uiState.value.withFreshDiagnostics(
+            controller = einkController,
+            detector = einkDeviceDetector,
+            opdsEnabled = featureFlags.opdsEnabled,
+        ).copy(
             isLoading = false,
             error = null,
         )
@@ -783,6 +787,29 @@ private fun updateSettings(
 /** Показать баннер ошибки и снять признак загрузки: других способов сообщить о сбое у экрана нет. */
 private fun MutableStateFlow<SettingsUiState>.showError(message: AppText) {
     value = value.copy(isLoading = false, error = message)
+}
+
+/**
+ * Свежая диагностика вместе с согласованным списком разделов.
+ *
+ * Разделы зависят от железа: без вендорских команд раздел «Экран (e-ink)» состоял бы из одних
+ * неработающих переключателей, поэтому его в списке нет (решение Александра, 05.10.2026). Список
+ * пересобирается тем же вызовом, что и диагностика, иначе кнопка «Обновить диагностику» оставила
+ * бы список устаревшим.
+ *
+ * Живёт вне класса по той же причине, что и [safeDiagnostics]: у `SettingsViewModel` порог detekt
+ * `TooManyFunctions` уже под рукой.
+ */
+private fun SettingsUiState.withFreshDiagnostics(
+    controller: EinkController,
+    detector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
+    opdsEnabled: Boolean,
+): SettingsUiState {
+    val fresh = safeDiagnostics(controller, detector, diagnostics)
+    return copy(
+        diagnostics = fresh,
+        sections = defaultSettingsSections(opdsEnabled = opdsEnabled, einkEnabled = fresh.hasVendorCommands),
+    )
 }
 
 /**

@@ -18,11 +18,16 @@ import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.R
 
 /**
- * Категория «Внешний вид»: тема, плотность, масштаб шрифта и инверсия обложек.
+ * Категория «Внешний вид»: тема, плотность, масштаб шрифта, инверсия обложек и клавиши громкости.
  *
  * У всех настроек раздела есть живой потребитель, поэтому переключатели здесь не обманывают:
  * тема, плотность и кегль применяются через `EinkTheme`, инверсию обложек читает `BookCover`
- * из `LocalInvertCovers` — всё без перезапуска приложения («E-ink UX» §2).
+ * из `LocalInvertCovers`, клавиши громкости — `EinkScaffold` из `LocalVolumeKeysAsPageTurn` —
+ * всё без перезапуска приложения («E-ink UX» §2).
+ *
+ * Клавиши громкости стоят здесь, а не в разделе «Экран (e-ink)»: они работают на любом
+ * устройстве, вендорский контроллер им не нужен, а раздел e-ink без вендорских команд скрыт
+ * целиком. Иначе самая нужная на e-ink настройка пропадала бы вместе с ним.
  *
  * `textOnlyMode` намеренно не показывается: потребителя у настройки нет (проверено аудитом),
  * а выключенное поле без действия читается как сломанное.
@@ -81,6 +86,14 @@ internal fun AppearanceCategory(
                 subtitle = stringResource(R.string.settings_appearance_invert_covers_hint),
                 enabled = settings.invertCovers,
                 onToggle = viewModel::onSetInvertCovers,
+            )
+        }
+        item(key = "appearance-volume-keys") {
+            ToggleRow(
+                title = stringResource(R.string.settings_appearance_volume_keys),
+                subtitle = stringResource(R.string.settings_appearance_volume_keys_hint),
+                enabled = settings.volumeKeysAsPageTurn,
+                onToggle = viewModel::onSetVolumeKeysAsPageTurn,
             )
         }
     }

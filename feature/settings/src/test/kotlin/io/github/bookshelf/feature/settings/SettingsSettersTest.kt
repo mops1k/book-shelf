@@ -165,6 +165,43 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `without vendor commands the e-ink section is not shown`() = runTest(dispatcher) {
+        // Ровно случай Bigme B6 Color: контроллер — заглушка, вендорских команд нет. Раздел
+        // «Экран (e-ink)» состоял бы из одних неработающих переключателей, поэтому его нет
+        // в списке, а не «есть, но с надписью о недоступности».
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
+            .doesNotContain(SettingsSectionKind.EINK_SCREEN)
+    }
+
+    @Test
+    fun `vendor commands keep the e-ink section in the list`() = runTest(dispatcher) {
+        val viewModel = viewModel(einkController = FakeEinkController(hasCommands = true))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
+            .contains(SettingsSectionKind.EINK_SCREEN)
+    }
+
+    @Test
+    fun `refreshed diagnostics rebuild the settings sections`() = runTest(dispatcher) {
+        // Диагностика читается заново кнопкой в «О приложении»: если контроллер отозвался
+        // командами, раздел обязан появиться в списке без перезапуска экрана настроек.
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val before = viewModel.uiState.value.sections.map { section -> section.kind }
+        eink.hasCommands = true
+
+        viewModel.onRefreshDiagnostics()
+
+        assertThat(before).doesNotContain(SettingsSectionKind.EINK_SCREEN)
+        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
+            .contains(SettingsSectionKind.EINK_SCREEN)
+    }
+
+    @Test
     fun `e-ink and library switches are written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 
@@ -304,12 +341,12 @@ class SettingsSettersTest {
         assertThat(settings.last()).isEqualTo(before)
     }
 
-    private fun viewModel() = SettingsViewModel(
+    private fun viewModel(einkController: EinkController = eink) = SettingsViewModel(
         settingsRepository = settings,
         readerRepository = readers,
         sourceRepository = sources,
         bookRepository = books,
-        einkController = eink,
+        einkController = einkController,
         einkDeviceDetector = detector,
         coverCache = covers,
         progressSchedule = schedule,
@@ -428,12 +465,13 @@ class SettingsSettersTest {
     }
 
     private class FakeEinkController(
-        private val hasCommands: Boolean = false,
+        /** Изменяемый: тест перечитывает диагностику и ждёт пересборки списка разделов. */
+        var hasCommands: Boolean = false,
     ) : EinkController {
 
         override val isEinkDevice: Boolean = true
 
-        override val hasVendorCommands: Boolean = hasCommands
+        override val hasVendorCommands: Boolean get() = hasCommands
 
         override val vendor: EinkVendor = EinkVendor.UNKNOWN
 

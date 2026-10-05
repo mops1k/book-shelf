@@ -17,7 +17,7 @@ enum class SettingsSectionKind {
     /** Плотность, сетка/список, обложки, сортировка и группировка по умолчанию. */
     APPEARANCE,
 
-    /** Режим обновления экрана, полный refresh, инверсия обложек, тёмная тема, подсветка. */
+    /** Режим обновления экрана, события полного кадра и подсветка: только там, где есть вендорские команды. */
     EINK_SCREEN,
 
     /** Источники, автоскан, исключения, приоритет метаданных. */
@@ -300,8 +300,16 @@ data class SettingsUiState(
  *
  * @param opdsEnabled сборка с OPDS (`ENABLE_OPDS`): без него раздела каталогов нет вовсе —
  *   экранов и переключателей без потребителя в интерфейсе не держим (ADR-006).
+ * @param einkEnabled есть ли у устройства вендорские команды e-ink (`EinkController.
+ *   hasVendorCommands`). Без них раздел «Экран (e-ink)» состоял бы из одних неработающих
+ *   переключателей, и в списке его нет (решение Александра, 05.10.2026). Переключатель «Клавиши
+ *   громкости листают страницы» работает и без вендорского контроллера, поэтому он живёт
+ *   в «Внешнем виде», а не здесь.
  */
-fun defaultSettingsSections(opdsEnabled: Boolean = true): List<SettingsSectionUi> = listOf(
+fun defaultSettingsSections(
+    opdsEnabled: Boolean = true,
+    einkEnabled: Boolean = true,
+): List<SettingsSectionUi> = listOf(
     SettingsSectionUi(
         kind = SettingsSectionKind.APPEARANCE,
         titleRes = R.string.settings_section_appearance,
@@ -311,7 +319,7 @@ fun defaultSettingsSections(opdsEnabled: Boolean = true): List<SettingsSectionUi
         kind = SettingsSectionKind.EINK_SCREEN,
         titleRes = R.string.settings_section_eink,
         summaryRes = R.string.settings_section_eink_summary,
-    ),
+    ).takeIf { einkEnabled },
     SettingsSectionUi(
         kind = SettingsSectionKind.LIBRARY_SCAN,
         titleRes = R.string.settings_section_library,

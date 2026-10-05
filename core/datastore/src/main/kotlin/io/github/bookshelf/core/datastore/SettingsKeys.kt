@@ -94,9 +94,6 @@ object SettingsKeys {
     // --- OPDS ---
     val ENABLE_OPDS: Preferences.Key<Boolean> = booleanPreferencesKey("opds.enable")
     val FEED_CACHE_MAX_AGE_MINUTES: Preferences.Key<Int> = intPreferencesKey("opds.feed_cache_max_age_minutes")
-    val DOWNLOAD_FOLDER_SOURCE_ID: Preferences.Key<String> = stringPreferencesKey("opds.download_folder_source_id")
-    val DOWNLOAD_FOLDER_RELATIVE_PATH: Preferences.Key<String> =
-        stringPreferencesKey("opds.download_folder_relative_path")
     val DOWNLOAD_FILE_NAME_TEMPLATE: Preferences.Key<String> = stringPreferencesKey("opds.download_file_name_template")
     val ALLOW_HTTP: Preferences.Key<Boolean> = booleanPreferencesKey("opds.allow_http")
 

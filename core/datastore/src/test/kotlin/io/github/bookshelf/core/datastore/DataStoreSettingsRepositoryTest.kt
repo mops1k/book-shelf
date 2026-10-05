@@ -108,8 +108,6 @@ class DataStoreSettingsRepositoryTest {
             opds = io.github.bookshelf.core.datastore.model.OpdsSettings(
                 enableOpds = false,
                 feedCacheMaxAgeMinutes = 15,
-                downloadFolderSourceId = "source-1",
-                downloadFolderRelativePath = "Загрузки/Книги",
                 downloadFileNameTemplate = "{title}.{ext}",
                 allowHttp = true,
             ),
@@ -131,7 +129,7 @@ class DataStoreSettingsRepositoryTest {
         repository.update {
             it.copy(
                 library = it.library.copy(gridColumns = 5, viewPreset = ShelfViewPreset.AUTHORS),
-                opds = it.opds.copy(downloadFolderRelativePath = "Загрузки"),
+                opds = it.opds.copy(feedCacheMaxAgeMinutes = 15),
             )
         }
 
@@ -142,7 +140,7 @@ class DataStoreSettingsRepositoryTest {
         assertThat(current.library.gridColumns).isEqualTo(5)
         // Вид полки по умолчанию переживает запись: иначе настройка «сбрасывалась» бы в сетку.
         assertThat(current.library.viewPreset).isEqualTo(ShelfViewPreset.AUTHORS)
-        assertThat(current.opds.downloadFolderRelativePath).isEqualTo("Загрузки")
+        assertThat(current.opds.feedCacheMaxAgeMinutes).isEqualTo(15)
     }
 
     @Test

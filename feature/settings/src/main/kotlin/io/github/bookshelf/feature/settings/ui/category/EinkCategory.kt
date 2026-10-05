@@ -1,6 +1,5 @@
 package io.github.bookshelf.feature.settings.ui.category
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,7 +12,6 @@ import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.feature.settings.AppSettingsUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
-import io.github.bookshelf.feature.settings.ui.CategoryPending
 import io.github.bookshelf.feature.settings.ui.ChoiceOption
 import io.github.bookshelf.feature.settings.ui.ChoiceRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
@@ -21,12 +19,17 @@ import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.R
 
 /**
- * Категория «Экран (e-ink)»: режим обновления, события полного кадра, подсветка и клавиши.
+ * Категория «Экран (e-ink)»: режим обновления, события полного кадра и подсветка.
  *
  * Все настройки раздела подключены к потребителям: режим обновления, интервал GC и подсветку
  * применяет `MainActivity` через `EinkController`, события полного кадра читает
- * `ViewEinkRefreshHost`, клавиши громкости — `EinkScaffold` через `LocalVolumeKeysAsPageTurn`.
- * Ничего не перезапускается: подписка на настройки живёт в `MainViewModel` («E-ink UX» §4).
+ * `ViewEinkRefreshHost`. Ничего не перезапускается: подписка на настройки живёт в `MainViewModel`
+ * («E-ink UX» §4).
+ *
+ * Устройство без вендорских команд (`EinkController.hasVendorCommands` = false) этот экран не
+ * открывает: раздела нет в списке настроек (`defaultSettingsSections(einkEnabled = false)`),
+ * потому что все его переключатели управляли бы заглушкой. Переключатель «Клавиши громкости
+ * листают страницы» работает и без вендорского контроллера, поэтому он живёт в «Внешнем виде».
  *
  * Тап-зоны не показываются: `TapZoneLayout` в проекте нигде не используется, и настройка не на что
  * не влияет, а переключатель без действия — обман.
@@ -38,24 +41,6 @@ internal fun EinkCategory(
 ) {
     val dimens = LocalEinkDimens.current
     val settings = state.settings
-
-    // Настройки показываются только там, где ими есть что менять. На устройстве без вендорского
-    // контроллера (например Bigme: `NoopEinkController`) режим обновления, интервал GC и подсветка
-    // не делают ничего — переключатели без действия мы не показываем (решение Александра,
-    // 28.09.2026). Признак здесь именно про контроллер, а не про тип экрана: бумага без команд —
-    // обычное дело.
-    if (!state.diagnostics.hasVendorCommands) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = dimens.gutter),
-        ) {
-            CategoryPending(
-                stringResource(R.string.settings_eink_unavailable),
-            )
-        }
-        return
-    }
 
     LazyColumn(
         modifier = Modifier
@@ -120,7 +105,7 @@ private val GC_INTERVAL_CHOICES = listOf(5, 10, 20, 50)
 private val FRONT_LIGHT_CHOICES = listOf(0, 25, 50, 75, 100)
 
 
-/** Тумблеры полного обновления и клавиш громкости: вынесены ради предела длины `EinkCategory`. */
+/** Тумблеры полного обновления: вынесены ради предела длины `EinkCategory`. */
 private fun LazyListScope.einkRefreshToggles(
     settings: AppSettingsUi,
     viewModel: SettingsViewModel,
@@ -147,14 +132,6 @@ private fun LazyListScope.einkRefreshToggles(
             subtitle = stringResource(R.string.settings_eink_full_on_page_hint),
             enabled = settings.fullRefreshOnPage,
             onToggle = viewModel::onSetFullRefreshOnPage,
-        )
-    }
-    item(key = "eink-volume-keys") {
-        ToggleRow(
-            title = stringResource(R.string.settings_eink_volume_keys),
-            subtitle = stringResource(R.string.settings_eink_volume_keys_hint),
-            enabled = settings.volumeKeysAsPageTurn,
-            onToggle = viewModel::onSetVolumeKeysAsPageTurn,
         )
     }
 }

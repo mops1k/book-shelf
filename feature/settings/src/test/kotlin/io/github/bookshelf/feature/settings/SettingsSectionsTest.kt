@@ -50,6 +50,17 @@ class SettingsSectionsTest {
     }
 
     @Test
+    fun `without vendor commands the e-ink screen section is not listed`() {
+        // Раздел собран из настроек, которыми управляет вендорский контроллер e-ink. Держать
+        // в списке раздел без единой работающей строки — то же самое, что переключатель без
+        // действия (решение Александра, 05.10.2026).
+        assertThat(defaultSettingsSections(einkEnabled = false).map { section -> section.kind })
+            .doesNotContain(SettingsSectionKind.EINK_SCREEN)
+        assertThat(defaultSettingsSections(einkEnabled = true).map { section -> section.kind })
+            .contains(SettingsSectionKind.EINK_SCREEN)
+    }
+
+    @Test
     fun `titles and summaries are the approved ones`() {
         // Тексты живут в `res/values` (ru) и `values-en`, поэтому тест фиксирует выбранные
         // ресурсы: подмена подписи на чужой ресурс обязана упасть так же, как падала на тексте.

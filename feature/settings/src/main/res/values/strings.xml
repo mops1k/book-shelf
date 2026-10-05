@@ -14,7 +14,6 @@
     <string name="settings_reset_note">Сбрасываются только настройки. Папки, каталоги, книги и загрузки остаются.</string>
     <string name="settings_working">Работаем…</string>
     <string name="settings_in_progress">идёт…</string>
-    <string name="settings_pending_section">Раздел наполняется</string>
     <string name="settings_toggle_on">включено</string>
     <string name="settings_toggle_off">выключено</string>
     <string name="settings_appearance_theme">Тема</string>
@@ -24,13 +23,14 @@
     <string name="settings_appearance_font_scale">Масштаб шрифта</string>
     <string name="settings_appearance_invert_covers">Инвертировать обложки</string>
     <string name="settings_appearance_invert_covers_hint">Для тёмных обложек на e-ink: цвета становятся негативом</string>
+    <string name="settings_appearance_volume_keys">Клавиши громкости листают страницы</string>
+    <string name="settings_appearance_volume_keys_hint">Для устройств без кнопок Page Up/Down: выключено — клавиши снова меняют громкость</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Тёмная</string>
     <string name="settings_theme_system">Системная</string>
     <string name="settings_density_large">Крупный</string>
     <string name="settings_density_normal">Обычный</string>
     <string name="settings_density_compact">Плотный</string>
-    <string name="settings_eink_unavailable">Управление обновлением экрана недоступно: приложение не нашло вендорский контроллер e-ink на этом устройстве. Здесь появятся режим обновления, события полного кадра, интервал полного обновления и подсветка — как только устройство их поддержит.</string>
     <string name="settings_eink_refresh_mode">Режим обновления экрана</string>
     <string name="settings_eink_refresh_mode_hint">«Быстрый» ускоряет перерисовку, но оставляет следы прежнего кадра</string>
     <string name="settings_eink_mode_auto">Авто</string>
@@ -42,8 +42,6 @@
     <string name="settings_eink_full_on_dialog_hint">Диалог ложится поверх списка: без полного кадра его края «грязнятся»</string>
     <string name="settings_eink_full_on_page">Полный кадр при листании</string>
     <string name="settings_eink_full_on_page_hint">Текст без остатков предыдущей страницы, но листание заметно медленнее</string>
-    <string name="settings_eink_volume_keys">Клавиши громкости листают страницы</string>
-    <string name="settings_eink_volume_keys_hint">Для устройств без кнопок Page Up/Down: выключено — клавиши снова меняют громкость</string>
     <string name="settings_eink_gc_interval">Интервал полного обновления</string>
     <string name="settings_eink_gc_interval_hint">Полный кадр каждые N частичных обновлений: реже — меньше мигания, чаще — чище экран</string>
     <string name="settings_eink_backlight">Подсветка</string>
@@ -68,7 +66,6 @@
     <string name="settings_opds_template_hint">Папки задаются через «/»: книги раскладываются по авторам и сериям внутри папки библиотеки</string>
     <string name="settings_opds_cache">Кэш каталогов</string>
     <string name="settings_opds_cache_hint">Как долго открытый каталог берётся из памяти, не обращаясь к сети</string>
-    <string name="settings_opds_download_note">Папка загрузок отдельно не настраивается: книги скачиваются в папку библиотеки, а подпапки задаёт шаблон пути выше.</string>
     <string name="settings_about_version">Версия</string>
     <string name="settings_about_version_hint">Версия приложения, как её видит система</string>
     <string name="settings_about_diagnostics">Диагностика e-ink</string>
@@ -184,9 +181,9 @@
     <string name="settings_opds_template_title_only">Только название</string>
     <string name="settings_opds_template_raw">%1$s</string>
     <string name="settings_section_appearance">Внешний вид</string>
-    <string name="settings_section_appearance_summary">Тема, плотность, масштаб шрифта и инверсия обложек</string>
+    <string name="settings_section_appearance_summary">Тема, плотность, масштаб шрифта, инверсия обложек и клавиши громкости</string>
     <string name="settings_section_eink">Экран (e-ink)</string>
-    <string name="settings_section_eink_summary">Режим обновления, события полного кадра, подсветка и клавиши</string>
+    <string name="settings_section_eink_summary">Режим обновления экрана, события полного кадра и подсветка</string>
     <string name="settings_section_library">Библиотека и сканирование</string>
     <string name="settings_section_library_summary">Вид и порядок полки, лимиты диска, папки-источники и разрешения</string>
     <string name="settings_section_readers">Читалки</string>

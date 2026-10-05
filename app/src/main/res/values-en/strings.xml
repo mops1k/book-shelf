@@ -35,6 +35,4 @@
     <string name="error_file_unreadable">The reader could not open the file</string>
 
     <string name="saf_hint">Pick the books folder itself (for example, Books), not the storage root</string>
-
-    <string name="stub_in_development">Section under development</string>
 </resources>

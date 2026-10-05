@@ -13,7 +13,6 @@
     <string name="settings_reset_note">Only settings are reset. Folders, catalogs, books and downloads stay.</string>
     <string name="settings_working">Working…</string>
     <string name="settings_in_progress">in progress…</string>
-    <string name="settings_pending_section">The section is being filled</string>
     <string name="settings_toggle_on">on</string>
     <string name="settings_toggle_off">off</string>
     <string name="settings_appearance_theme">Theme</string>
@@ -23,13 +22,14 @@
     <string name="settings_appearance_font_scale">Font scale</string>
     <string name="settings_appearance_invert_covers">Invert covers</string>
     <string name="settings_appearance_invert_covers_hint">For dark covers on e-ink: colours become a negative</string>
+    <string name="settings_appearance_volume_keys">Volume keys turn pages</string>
+    <string name="settings_appearance_volume_keys_hint">For devices without Page Up/Down buttons: when off, the keys change the volume again</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_density_large">Large</string>
     <string name="settings_density_normal">Normal</string>
     <string name="settings_density_compact">Compact</string>
-    <string name="settings_eink_unavailable">Screen refresh control is unavailable: the app did not find a vendor e-ink controller on this device. The refresh mode, full-frame events, the full refresh interval and the front light will appear here as soon as the device supports them.</string>
     <string name="settings_eink_refresh_mode">Screen refresh mode</string>
     <string name="settings_eink_refresh_mode_hint">«Fast» speeds up redrawing but leaves traces of the previous frame</string>
     <string name="settings_eink_mode_auto">Auto</string>
@@ -41,8 +41,6 @@
     <string name="settings_eink_full_on_dialog_hint">A dialog lies on top of the list: without a full frame its edges get dirty</string>
     <string name="settings_eink_full_on_page">Full frame on page turn</string>
     <string name="settings_eink_full_on_page_hint">Text without leftovers of the previous page, but paging is noticeably slower</string>
-    <string name="settings_eink_volume_keys">Volume keys turn pages</string>
-    <string name="settings_eink_volume_keys_hint">For devices without Page Up/Down buttons: when off, the keys change the volume again</string>
     <string name="settings_eink_gc_interval">Full refresh interval</string>
     <string name="settings_eink_gc_interval_hint">A full frame every N partial refreshes: less often — less flicker, more often — a cleaner screen</string>
     <string name="settings_eink_backlight">Front light</string>
@@ -67,7 +65,6 @@
     <string name="settings_opds_template_hint">Folders are set with «/»: books are arranged by authors and series inside the library folder</string>
     <string name="settings_opds_cache">Catalog cache</string>
     <string name="settings_opds_cache_hint">How long an opened catalog is taken from memory without going online</string>
-    <string name="settings_opds_download_note">The download folder is not configured separately: books are downloaded into the library folder, and the path template above sets the subfolders.</string>
     <string name="settings_about_version">Version</string>
     <string name="settings_about_version_hint">The app version as the system sees it</string>
     <string name="settings_about_diagnostics">e-ink diagnostics</string>
@@ -183,9 +180,9 @@
     <string name="settings_opds_template_title_only">Title only</string>
     <string name="settings_opds_template_raw">%1$s</string>
     <string name="settings_section_appearance">Appearance</string>
-    <string name="settings_section_appearance_summary">Theme, density, font scale and cover inversion</string>
+    <string name="settings_section_appearance_summary">Theme, density, font scale, cover inversion and volume keys</string>
     <string name="settings_section_eink">Screen (e-ink)</string>
-    <string name="settings_section_eink_summary">Refresh mode, full-frame events, front light and keys</string>
+    <string name="settings_section_eink_summary">Screen refresh mode, full-frame events and front light</string>
     <string name="settings_section_library">Library and scanning</string>
     <string name="settings_section_library_summary">Shelf view and order, disk limits, source folders and permissions</string>
     <string name="settings_section_readers">Readers</string>

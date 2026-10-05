@@ -87,10 +87,6 @@ internal object SettingsCodec {
         with(settings.opds) {
             target[SettingsKeys.ENABLE_OPDS] = enableOpds
             target[SettingsKeys.FEED_CACHE_MAX_AGE_MINUTES] = feedCacheMaxAgeMinutes
-            // null означает «папка не выбрана»: ключ удаляется, чтобы чтение вернуло null,
-            // а не строку, которую пришлось бы потом отличать от отсутствия ключа.
-            target.putOrRemove(SettingsKeys.DOWNLOAD_FOLDER_SOURCE_ID, downloadFolderSourceId)
-            target.putOrRemove(SettingsKeys.DOWNLOAD_FOLDER_RELATIVE_PATH, downloadFolderRelativePath)
             target[SettingsKeys.DOWNLOAD_FILE_NAME_TEMPLATE] = downloadFileNameTemplate
             target[SettingsKeys.ALLOW_HTTP] = allowHttp
         }
@@ -211,8 +207,6 @@ internal object SettingsCodec {
             preferences[SettingsKeys.FEED_CACHE_MAX_AGE_MINUTES],
             SettingsKeys.Defaults.FEED_CACHE_MAX_AGE_MINUTES,
         ),
-        downloadFolderSourceId = preferences[SettingsKeys.DOWNLOAD_FOLDER_SOURCE_ID],
-        downloadFolderRelativePath = preferences[SettingsKeys.DOWNLOAD_FOLDER_RELATIVE_PATH],
         downloadFileNameTemplate = preferences[SettingsKeys.DOWNLOAD_FILE_NAME_TEMPLATE]
             ?: SettingsKeys.Defaults.DOWNLOAD_FILE_NAME_TEMPLATE,
         allowHttp = preferences[SettingsKeys.ALLOW_HTTP] ?: SettingsKeys.Defaults.ALLOW_HTTP,
@@ -226,17 +220,6 @@ internal object SettingsCodec {
         dbBackupEnabled = preferences[SettingsKeys.DB_BACKUP_ENABLED]
             ?: SettingsKeys.Defaults.DB_BACKUP_ENABLED,
     )
-
-    /**
-     * Записать строковое значение или удалить ключ, если значения нет.
-     *
-     * `Preferences.Key<String>` не принимает `null` — «значение отсутствует» в DataStore выражается
-     * удалением ключа. Без этой helper-функции пришлось бы дублировать `if (value == null) remove
-     * else set` по каждому nullable-полю, и легко было бы забыть в одном из них.
-     */
-    private fun MutablePreferences.putOrRemove(key: Preferences.Key<String>, value: String?) {
-        if (value == null) remove(key) else this[key] = value
-    }
 
     /**
      * Имя константы enum'а или [fallback], если имя неизвестно.

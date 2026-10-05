@@ -94,8 +94,14 @@ data class ReaderSettings(
 data class OpdsSettings(
     val enableOpds: Boolean = SettingsKeys.Defaults.ENABLE_OPDS,
     val feedCacheMaxAgeMinutes: Int = SettingsKeys.Defaults.FEED_CACHE_MAX_AGE_MINUTES,
-    val downloadFolderSourceId: String? = null,
-    val downloadFolderRelativePath: String? = null,
+    /**
+     * Шаблон относительного пути скачанного файла.
+     *
+     * Отдельной папки загрузок нет намеренно (решение Александра, 29.09.2026): книги складываются
+     * в папку библиотеки, а папку конкретной книги выбирают на её карточке, когда источников
+     * несколько. Поля `downloadFolderSourceId`/`downloadFolderRelativePath` удалены 05.10.2026:
+     * их не читал ни один потребитель.
+     */
     val downloadFileNameTemplate: String = SettingsKeys.Defaults.DOWNLOAD_FILE_NAME_TEMPLATE,
     val allowHttp: Boolean = SettingsKeys.Defaults.ALLOW_HTTP,
 )

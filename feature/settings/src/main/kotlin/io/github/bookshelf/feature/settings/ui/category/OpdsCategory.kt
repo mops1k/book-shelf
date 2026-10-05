@@ -13,7 +13,6 @@ import io.github.bookshelf.feature.settings.DOWNLOAD_FILE_NAME_TEMPLATE_LABELS
 import io.github.bookshelf.feature.settings.FEED_CACHE_CHOICES_MINUTES
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
-import io.github.bookshelf.feature.settings.ui.CategoryPending
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
 import io.github.bookshelf.feature.settings.R
 
@@ -28,7 +27,8 @@ import io.github.bookshelf.feature.settings.R
  * кэша — `OpdsRepositoryImpl`. «Разрешить HTTP» и «Включить OPDS» на экран не вынесены по решению
  * Александра (29.09.2026): каталог Флибусты работает по `http://`, и запрет сломал бы его, а OPDS
  * всегда должен быть доступен. Отдельной папки загрузок тоже нет: книги складываются в ту же
- * папку, где лежит библиотека, а раскладку по подпапкам задаёт шаблон пути.
+ * папку, где лежит библиотека, а раскладку по подпапкам задаёт шаблон пути — папка выбирается на
+ * карточке книги, когда источников несколько, поэтому пояснять здесь нечего.
  */
 @Composable
 internal fun OpdsCategory(
@@ -73,12 +73,6 @@ internal fun OpdsCategory(
                 labelRes = { R.string.settings_opds_cache_minutes },
                 onPick = viewModel::onSetFeedCacheMaxAgeMinutes,
                 subtitle = stringResource(R.string.settings_opds_cache_hint),
-            )
-        }
-
-        item(key = "opds-note") {
-            CategoryPending(
-                stringResource(R.string.settings_opds_download_note),
             )
         }
     }

@@ -26,7 +26,6 @@ import androidx.core.content.ContextCompat
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkChip
 import io.github.bookshelf.core.designsystem.component.EinkConfirmRow
-import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
@@ -41,8 +40,8 @@ import io.github.bookshelf.feature.settings.R
  * Общие блоки экранов настроек.
  *
  * Экран настроек разделён на категории, и большинство блоков повторяются от категории к категории
- * (строка папки, выбор из чипов, честное «ещё не подключено»). Собраны здесь, чтобы в категориях
- * оставался только их собственный состав.
+ * (строка папки, выбор из чипов). Собраны здесь, чтобы в категориях оставался только их
+ * собственный состав.
  */
 
 /**
@@ -260,24 +259,6 @@ internal fun ToggleRow(
             stringResource(R.string.settings_toggle_off)
         },
         onClick = { onToggle(!enabled) },
-    )
-}
-
-/**
- * Честная заглушка категории, настройки которой ещё не подключены.
- *
- * Показывать вместо неё переключатели нельзя: они бы ничего не делали — а именно этого мы
- * договорились не делать. Здесь прямо сказано, что раздел наполняется.
- */
-@Composable
-internal fun CategoryPending(message: String) {
-    val dimens = LocalEinkDimens.current
-    EinkEmptyState(
-        title = stringResource(R.string.settings_pending_section),
-        message = message,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = dimens.gutter),
     )
 }
 
