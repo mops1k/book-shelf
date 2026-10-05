@@ -239,6 +239,8 @@ data class AppSettingsUi(
     val isKoReaderProgressEnabled: Boolean = false,
     /** Прогресс из CoolReader: его база на общей памяти; по умолчанию выключен. */
     val isCoolReaderProgressEnabled: Boolean = false,
+    /** Прогресс из PocketBook: его база на общей памяти; по умолчанию выключен. */
+    val isPocketBookProgressEnabled: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */
@@ -261,7 +263,10 @@ data class AppSettingsUi(
      * пришлось бы повторять и легко забыть дополнить при появлении следующей читалки.
      */
     val isProgressSyncEnabled: Boolean
-        get() = isFbReaderProgressEnabled || isKoReaderProgressEnabled || isCoolReaderProgressEnabled
+        get() = isFbReaderProgressEnabled ||
+            isKoReaderProgressEnabled ||
+            isCoolReaderProgressEnabled ||
+            isPocketBookProgressEnabled
 }
 
 /**

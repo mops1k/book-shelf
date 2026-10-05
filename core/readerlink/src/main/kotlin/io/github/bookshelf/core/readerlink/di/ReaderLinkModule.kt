@@ -16,6 +16,7 @@ import io.github.bookshelf.core.readerlink.fbreader.FbReaderAdapter
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import io.github.bookshelf.core.readerlink.coolreader.CoolReaderProgressSource
 import io.github.bookshelf.core.readerlink.koreader.KoReaderProgressSource
+import io.github.bookshelf.core.readerlink.pocketbook.PocketBookProgressSource
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import javax.inject.Singleton
 import io.github.bookshelf.core.readerlink.discovery.AndroidReaderDiscovery
@@ -109,4 +110,13 @@ internal abstract class ReaderLinkModule {
     @Binds
     @IntoSet
     abstract fun bindCoolReaderProgressSource(impl: CoolReaderProgressSource): ReadingProgressSource
+
+    /**
+     * PocketBook: прогресс из тегов `doc.read_progress` его базы `/sdcard/.pocketbook/books.db`.
+     *
+     * Как и CoolReader, нужен доступ ко всей памяти: база лежит в скрытой папке вне библиотеки.
+     */
+    @Binds
+    @IntoSet
+    abstract fun bindPocketBookProgressSource(impl: PocketBookProgressSource): ReadingProgressSource
 }

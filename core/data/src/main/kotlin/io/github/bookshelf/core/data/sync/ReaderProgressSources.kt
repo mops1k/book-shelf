@@ -17,6 +17,7 @@ fun ReaderSettings.enabledProgressSources(): Set<ProgressSourceId> = buildSet {
     if (enableFbReaderProgress) add(ProgressSourceId.FBREADER_AIDL)
     if (enableKoReaderProgress) add(ProgressSourceId.KOREADER_SIDECAR)
     if (enableCoolReaderProgress) add(ProgressSourceId.COOLREADER_DB)
+    if (enablePocketBookProgress) add(ProgressSourceId.POCKETBOOK_DB)
 }
 
 /**

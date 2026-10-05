@@ -642,6 +642,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
     isKoReaderProgressEnabled = settings.reader.enableKoReaderProgress,
     isCoolReaderProgressEnabled = settings.reader.enableCoolReaderProgress,
+    isPocketBookProgressEnabled = settings.reader.enablePocketBookProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
@@ -947,6 +948,7 @@ private fun ReaderProgressAction.sourceSwitch(): ((ReaderSettings) -> ReaderSett
     is ReaderProgressAction.SetEnabled -> { reader -> reader.copy(enableFbReaderProgress = enabled) }
     is ReaderProgressAction.SetKoReaderEnabled -> { reader -> reader.copy(enableKoReaderProgress = enabled) }
     is ReaderProgressAction.SetCoolReaderEnabled -> { reader -> reader.copy(enableCoolReaderProgress = enabled) }
+    is ReaderProgressAction.SetPocketBookEnabled -> { reader -> reader.copy(enablePocketBookProgress = enabled) }
     else -> null
 }
 
@@ -978,6 +980,9 @@ sealed interface ReaderProgressAction {
      * вместе с экраном диагностики источников.
      */
     data class SetCoolReaderEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    /** Включить или выключить прогресс из PocketBook (его база `/sdcard/.pocketbook/books.db`). */
+    data class SetPocketBookEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
 

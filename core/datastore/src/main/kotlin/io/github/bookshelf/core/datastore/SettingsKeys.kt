@@ -95,6 +95,9 @@ object SettingsKeys {
      */
     val ENABLE_COOLREADER_PROGRESS: Preferences.Key<Boolean> =
         booleanPreferencesKey("reader.enable_coolreader_progress")
+    /** Прогресс из PocketBook: читается его база `/sdcard/.pocketbook/books.db`. */
+    val ENABLE_POCKETBOOK_PROGRESS: Preferences.Key<Boolean> =
+        booleanPreferencesKey("reader.enable_pocketbook_progress")
     val TEMP_EXPORT_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reader.temp_export_enabled")
 
     /**
@@ -163,6 +166,8 @@ object SettingsKeys {
         const val ENABLE_KOREADER_PROGRESS = false
 
         const val ENABLE_COOLREADER_PROGRESS = false
+
+        const val ENABLE_POCKETBOOK_PROGRESS = false
 
         /** Пять минут: достаточно часто, чтобы прогресс был свежим, и достаточно редко для батареи. */
         const val PROGRESS_SYNC_INTERVAL_MINUTES = 5

@@ -90,6 +90,8 @@ data class ReaderSettings(
     val enableKoReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_KOREADER_PROGRESS,
     /** Прогресс из CoolReader: его база `/sdcard/.cr3/cr3db.sqlite` (нужен доступ ко всей памяти). */
     val enableCoolReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_COOLREADER_PROGRESS,
+    /** Прогресс из PocketBook: его база `/sdcard/.pocketbook/books.db` (нужен доступ ко всей памяти). */
+    val enablePocketBookProgress: Boolean = SettingsKeys.Defaults.ENABLE_POCKETBOOK_PROGRESS,
     val tempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
 )

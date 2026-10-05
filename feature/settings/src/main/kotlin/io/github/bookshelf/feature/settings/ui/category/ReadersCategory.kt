@@ -1,5 +1,6 @@
 package io.github.bookshelf.feature.settings.ui.category
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -224,36 +225,7 @@ private fun LazyListScope.progressItems(
     item(key = "progress-header") {
         EinkSectionHeader(title = stringResource(R.string.settings_readers_progress_header))
     }
-    item(key = "progress-switch") {
-        ToggleRow(
-            title = stringResource(R.string.settings_readers_sync),
-            subtitle = stringResource(R.string.settings_readers_sync_hint),
-            enabled = state.settings.isFbReaderProgressEnabled,
-            onToggle = { enabled ->
-                viewModel.onReaderProgress(ReaderProgressAction.SetEnabled(enabled))
-            },
-        )
-    }
-    item(key = "progress-koreader") {
-        ToggleRow(
-            title = stringResource(R.string.settings_readers_koreader),
-            subtitle = stringResource(R.string.settings_readers_koreader_hint),
-            enabled = state.settings.isKoReaderProgressEnabled,
-            onToggle = { enabled ->
-                viewModel.onReaderProgress(ReaderProgressAction.SetKoReaderEnabled(enabled))
-            },
-        )
-    }
-    item(key = "progress-coolreader") {
-        ToggleRow(
-            title = stringResource(R.string.settings_readers_coolreader),
-            subtitle = stringResource(R.string.settings_readers_coolreader_hint),
-            enabled = state.settings.isCoolReaderProgressEnabled,
-            onToggle = { enabled ->
-                viewModel.onReaderProgress(ReaderProgressAction.SetCoolReaderEnabled(enabled))
-            },
-        )
-    }
+    readerProgressSwitches(state = state, viewModel = viewModel)
     item(key = "progress-temp-export") {
         ToggleRow(
             title = stringResource(R.string.settings_readers_temp_export),
@@ -277,6 +249,69 @@ private fun LazyListScope.progressItems(
     }
     readerProgressInterval(state = state, viewModel = viewModel)
 }
+
+/**
+ * Переключатели источников прогресса — по одному на читалку.
+ *
+ * Списком данных, а не копиями `ToggleRow`: читалок с прогрессом становится больше, и добавление
+ * следующей не должно удлинять функцию списка (у неё порог detekt по длине уже выбран) и не должно
+ * требовать четырёх правок в одном месте.
+ */
+private fun LazyListScope.readerProgressSwitches(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    progressSwitches(state).forEach { switch ->
+        item(key = "progress-${switch.key}") {
+            ToggleRow(
+                title = stringResource(switch.title),
+                subtitle = stringResource(switch.hint),
+                enabled = switch.enabled,
+                onToggle = { enabled -> viewModel.onReaderProgress(switch.action(enabled)) },
+            )
+        }
+    }
+}
+
+/** Что показать в блоке «Прогресс чтения»: ключ строки, тексты, состояние и что записать. */
+private data class ProgressSwitch(
+    val key: String,
+    @StringRes val title: Int,
+    @StringRes val hint: Int,
+    val enabled: Boolean,
+    val action: (Boolean) -> ReaderProgressAction,
+)
+
+private fun progressSwitches(state: SettingsUiState) = listOf(
+    ProgressSwitch(
+        key = "fbreader",
+        title = R.string.settings_readers_sync,
+        hint = R.string.settings_readers_sync_hint,
+        enabled = state.settings.isFbReaderProgressEnabled,
+        action = { ReaderProgressAction.SetEnabled(it) },
+    ),
+    ProgressSwitch(
+        key = "koreader",
+        title = R.string.settings_readers_koreader,
+        hint = R.string.settings_readers_koreader_hint,
+        enabled = state.settings.isKoReaderProgressEnabled,
+        action = { ReaderProgressAction.SetKoReaderEnabled(it) },
+    ),
+    ProgressSwitch(
+        key = "coolreader",
+        title = R.string.settings_readers_coolreader,
+        hint = R.string.settings_readers_coolreader_hint,
+        enabled = state.settings.isCoolReaderProgressEnabled,
+        action = { ReaderProgressAction.SetCoolReaderEnabled(it) },
+    ),
+    ProgressSwitch(
+        key = "pocketbook",
+        title = R.string.settings_readers_pocketbook,
+        hint = R.string.settings_readers_pocketbook_hint,
+        enabled = state.settings.isPocketBookProgressEnabled,
+        action = { ReaderProgressAction.SetPocketBookEnabled(it) },
+    ),
+)
 
 /**
  * Интервал опроса — отдельным блоком.

@@ -46,17 +46,26 @@ class EnabledProgressSourcesTest {
     }
 
     @Test
+    fun `the pocketBook switch enables its database source`() {
+        val settings = ReaderSettings(enablePocketBookProgress = true)
+
+        assertThat(settings.enabledProgressSources()).containsExactly(ProgressSourceId.POCKETBOOK_DB)
+    }
+
+    @Test
     fun `every switched-on reader gives its source in a stable order`() {
         val settings = ReaderSettings(
             enableFbReaderProgress = true,
             enableKoReaderProgress = true,
             enableCoolReaderProgress = true,
+            enablePocketBookProgress = true,
         )
 
         assertThat(settings.enabledProgressSources().toList()).containsExactly(
             ProgressSourceId.FBREADER_AIDL,
             ProgressSourceId.KOREADER_SIDECAR,
             ProgressSourceId.COOLREADER_DB,
+            ProgressSourceId.POCKETBOOK_DB,
         ).inOrder()
     }
 
