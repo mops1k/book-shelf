@@ -44,7 +44,12 @@ class ForeignSqliteDatabase @Inject constructor(
 
     private fun openCopy(databasePath: String): SqliteQuery? {
         val source = File(databasePath)
-        if (!source.isFile) return null
+        if (!source.isFile) {
+            // Причину пишем: «файла нет» и «нет доступа ко всей памяти» снаружи выглядят одинаково —
+            // как «включил, а процента нет», и без этой строки их не различить.
+            logger.debug("база читалки не найдена: $databasePath")
+            return null
+        }
         val workDir = File(cacheDir(), UUID.randomUUID().toString()).apply { mkdirs() }
         return try {
             val copy = copyWithJournals(source, workDir)

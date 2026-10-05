@@ -135,6 +135,28 @@ class CoolReaderProgressSourceTest {
     }
 
     @Test
+    fun `a book recorded twice gives the freshest record`() = runBlocking {
+        // Дефект с устройства (05.10.2026): книгу открыли через наш адрес, и CoolReader завёл её
+        // ВТОРОЙ записью, где путь — не файл, а наш адрес документа
+        // (`/tree/primary:Books/document/primary:Books/Книга.fb2.epub`). Старая запись по реальному
+        // пути осталась, и без второй приметы свежая позиция книги терялась.
+        val source = connected(
+            row(pathname = BOOK_PATH, filename = BOOK_NAME, percent = "1874", timeStamp = "100"),
+            row(
+                pathname = "/tree/primary:Books/document/primary:Books/Лем/$BOOK_NAME",
+                filename = BOOK_NAME,
+                percent = "49",
+                timeStamp = "200",
+            ),
+        )
+
+        val snapshot = source.progressFor(ourBook()).getOrNull()
+
+        assertThat(snapshot?.percent).isWithin(0.001f).of(0.49f)
+        assertThat(snapshot?.updatedAt).isEqualTo(200L)
+    }
+
+    @Test
     fun `a root-level book is not confused with a same-named file elsewhere`() = runBlocking {
         // Книга лежит в корне папки библиотеки: относительный путь — одно имя файла, поэтому одного
         // хвоста мало и нужна ещё папка библиотеки из адреса документа.

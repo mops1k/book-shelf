@@ -111,9 +111,18 @@ class SyncReadingProgress @Inject constructor(
         // нескольких читалках, и записывать нужно ту позицию, которая свежее, а не ту, чей источник
         // спросили позже (решение Александра 05.10.2026).
         val found = FoundProgress()
+        val startedAt = System.currentTimeMillis()
         val outcomes = pass.map { readFrom(it, reading, found) }
         found.saveAll()
-        summarizeSyncOutcomes(outcomes)
+        val outcome = summarizeSyncOutcomes(outcomes)
+        // Стоимость прохода в журнале: на e-ink каждая лишняя секунда фона заметна, а без замера
+        // «почему полка думает долго» не разобрать (задача замера стоимости, план p_66bb815640eb).
+        logger.d(
+            APP_LOG_TAG,
+            "синхронизация прогресса чтения: $outcome, источников ${pass.size}, " +
+                "записей ${found.savedCount}, ${System.currentTimeMillis() - startedAt} мс",
+        )
+        outcome
     }
 
     /**
@@ -133,6 +142,10 @@ class SyncReadingProgress @Inject constructor(
             }
         }
 
+        /** Сколько записей записано за проход (для журнала и замера). */
+        var savedCount: Int = 0
+            private set
+
         /** Записать победителей: по одной записи на книгу. */
         suspend fun saveAll() {
             candidates.values.forEach { entry ->
@@ -144,6 +157,7 @@ class SyncReadingProgress @Inject constructor(
                     source = entry.sourceKey,
                 )
                 markAsReadingIfFresh(entry.book)
+                savedCount++
             }
         }
 

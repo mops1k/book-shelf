@@ -45,6 +45,28 @@ class ReaderPathMatchTest {
     }
 
     @Test
+    fun `a reader path that repeats our document address is ours`() {
+        // Так CoolReader сохранил книгу, открытую по нашему адресу: `/tree/primary:Books/document/
+        // primary:Books/Книга.epub`. Путь не содержит `/Books/` как папку, и без этой приметы
+        // свежая запись книги терялась бы (дефект найден на устройстве 05.10.2026).
+        val book = book(relativePath = "Книга.fb2.epub", documentUri = DOCUMENT_ID_ADDRESS)
+
+        assertThat(readerPathMatches("/tree/primary:Books/document/primary:Books/Книга.fb2.epub", book))
+            .isTrue()
+        // Закодированная форма целиком (`%3A`, `%2F`, кириллица) — тоже наш адрес.
+        assertThat(
+            readerPathMatches(
+                "/tree/primary%3ABooks/document/primary%3ABooks%2F" +
+                    "%D0%9A%D0%BD%D0%B8%D0%B3%D0%B0.fb2.epub",
+                book,
+            ),
+        ).isTrue()
+        // Чужой документ в том же дереве — не наш.
+        assertThat(readerPathMatches("/tree/primary:Books/document/primary:Books/Другая.epub", book))
+            .isFalse()
+    }
+
+    @Test
     fun `without a SAF tree the tail is all we have`() {
         // Адрес не SAF-дерево (например, прямой путь или чужой провайдер): требуем только хвост,
         // иначе книга в корне библиотеки вообще не нашлась бы.
@@ -69,6 +91,13 @@ class ReaderPathMatchTest {
         assertThat(libraryRootFolder("raw:/storage/emulated/0/Books/Книга.epub")).isNull()
     }
 
+    private companion object {
+        /** Адрес документа SAF: то, чем мы открываем книгу, и то, что читалка может записать как путь. */
+        const val DOCUMENT_ID_ADDRESS: String =
+            "content://com.android.externalstorage.documents/tree/primary%3ABooks/document/" +
+                "primary%3ABooks%2F%D0%9A%D0%BD%D0%B8%D0%B3%D0%B0.fb2.epub"
+    }
+
     private fun book(
         relativePath: String,
         documentUri: String =
@@ -77,7 +106,7 @@ class ReaderPathMatchTest {
     ) = ProgressBookRef(
         bookId = "book-1",
         documentUri = documentUri,
-        readerAddress = documentUri,
+        readerAddress = if (documentUri.startsWith("content:")) DOCUMENT_ID_ADDRESS else documentUri,
         fileName = relativePath.substringAfterLast('/'),
         relativePath = relativePath,
         sizeBytes = 1_000L,
