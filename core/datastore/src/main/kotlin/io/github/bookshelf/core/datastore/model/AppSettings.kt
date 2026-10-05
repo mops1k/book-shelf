@@ -94,6 +94,8 @@ data class ReaderSettings(
     val enablePocketBookProgress: Boolean = SettingsKeys.Defaults.ENABLE_POCKETBOOK_PROGRESS,
     /** Прогресс из Librera: её JSON-файлы в `/sdcard/Librera/profile.Librera/` (нужен доступ ко всей памяти). */
     val enableLibreraProgress: Boolean = SettingsKeys.Defaults.ENABLE_LIBRERA_PROGRESS,
+    /** Прогресс из XReader: его кэш `/sdcard/XRZBookCache/V3` (нужен доступ ко всей памяти). */
+    val enableXReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_XREADER_PROGRESS,
     val tempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
 )

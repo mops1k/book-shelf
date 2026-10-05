@@ -35,6 +35,13 @@ class ReadersBackLevelTest {
     }
 
     @Test
+    fun `from the default readers sub-screen the header goes back to the categories`() {
+        // Список читалок переехал на отдельный экран (требование Александра 05.10.2026), и «Назад»
+        // с него возвращает на первый уровень, а не выходит из раздела.
+        assertThat(readersBackLevelOf(ReadersLevelUi.Defaults)).isEqualTo(ReadersLevelUi.Categories)
+    }
+
+    @Test
     fun `from the progress sub-screen the header goes back to the categories`() {
         // Подэкран «Прогресс чтения» открывается с первого уровня и туда же возвращает (требование
         // Александра 05.10.2026: вынести блоки «Прогресс из …» с общего экрана «Читалки»).

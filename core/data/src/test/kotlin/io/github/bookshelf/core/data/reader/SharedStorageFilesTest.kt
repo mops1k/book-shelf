@@ -36,6 +36,15 @@ class SharedStorageFilesTest {
     }
 
     @Test
+    fun `bytes are read as bytes, without decoding`() = runBlocking {
+        // Кэш XReader — gzip: читать его как текст значило бы испортить данные до разбора.
+        val gzip = byteArrayOf(0x1F, 0x8B.toByte(), 0x08, 0x00)
+        val file = folder.newFile("jsec2e9a84641a7782291186e91313969e").apply { writeBytes(gzip) }
+
+        assertThat(files.readBytes(file.absolutePath)).isEqualTo(gzip)
+    }
+
+    @Test
     fun `a missing file reads as nothing`() = runBlocking {
         val path = File(folder.root, "нет-такого.json").absolutePath
 

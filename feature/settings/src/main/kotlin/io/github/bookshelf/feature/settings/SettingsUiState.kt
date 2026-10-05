@@ -78,6 +78,14 @@ sealed interface ReadersLevelUi {
     /** Первый уровень: книги, документы, манги, другое. */
     data object Categories : ReadersLevelUi
 
+    /**
+     * Второй уровень: установленные читалки и отметки «по умолчанию».
+     *
+     * Требование Александра (05.10.2026): «выбор читалок по умолчанию надо тоже сделать отдельным
+     * экраном» — первый уровень стал коротким меню из строк, а список читалок переехал сюда.
+     */
+    data object Defaults : ReadersLevelUi
+
     /** Второй уровень: форматы выбранной категории. */
     data class Formats(val category: ReaderFormatCategory) : ReadersLevelUi
 
@@ -253,6 +261,8 @@ data class AppSettingsUi(
     val isPocketBookProgressEnabled: Boolean = false,
     /** Прогресс из Librera: её JSON на общей памяти; по умолчанию выключен. */
     val isLibreraProgressEnabled: Boolean = false,
+    /** Прогресс из XReader: его кэш на общей памяти; по умолчанию выключен. */
+    val isXReaderProgressEnabled: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */
@@ -279,7 +289,8 @@ data class AppSettingsUi(
             isKoReaderProgressEnabled ||
             isCoolReaderProgressEnabled ||
             isPocketBookProgressEnabled ||
-            isLibreraProgressEnabled
+            isLibreraProgressEnabled ||
+            isXReaderProgressEnabled
 }
 
 /**

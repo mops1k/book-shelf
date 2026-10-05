@@ -29,6 +29,7 @@ internal fun progressSourcesSummary(settings: AppSettingsUi): AppText {
         if (settings.isCoolReaderProgressEnabled) add(R.string.settings_readers_progress_source_coolreader)
         if (settings.isPocketBookProgressEnabled) add(R.string.settings_readers_progress_source_pocketbook)
         if (settings.isLibreraProgressEnabled) add(R.string.settings_readers_progress_source_librera)
+        if (settings.isXReaderProgressEnabled) add(R.string.settings_readers_progress_source_xreader)
     }
     return when (sources.size) {
         0 -> AppText(R.string.settings_readers_progress_none)
@@ -39,4 +40,16 @@ internal fun progressSourcesSummary(settings: AppSettingsUi): AppText {
             sources.size - 1,
         )
     }
+}
+
+/**
+ * Подпись строки «Читалки по умолчанию» на первом уровне: сколько читалок нашлось.
+ *
+ * Строка ведёт на отдельный экран со списком (требование Александра 05.10.2026), поэтому должна
+ * отвечать, есть ли там вообще что-то смотреть: пустой экран человек воспринимает как поломку.
+ */
+internal fun readersFoundText(found: Int): AppText = if (found == 0) {
+    AppText(R.string.settings_readers_defaults_none)
+} else {
+    AppText(R.string.settings_readers_defaults_found, found)
 }

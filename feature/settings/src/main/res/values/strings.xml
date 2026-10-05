@@ -50,6 +50,9 @@
     <string name="settings_readers_missing_message">Установите FBReader — приложение открывает книги в ней. В другую программу книга отправлена не будет.</string>
     <string name="settings_reader_default">по умолчанию</string>
     <string name="settings_reader_choose">выбрать</string>
+    <string name="settings_readers_defaults_header">Читалки по умолчанию</string>
+    <string name="settings_readers_defaults_found">Найдено читалок: %1$d</string>
+    <string name="settings_readers_defaults_none">Читалки не найдены</string>
     <string name="settings_readers_progress_header">Прогресс чтения</string>
     <string name="settings_readers_sync">Синхронизировать прогресс с читалкой</string>
     <string name="settings_readers_sync_hint">Читает позицию из FBReader и показывает процент на полке. Работает, пока читалка открыта или свёрнута, а не выгружена системой</string>
@@ -61,6 +64,8 @@
     <string name="settings_readers_pocketbook_hint">PocketBook хранит позицию в своей базе на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в PocketBook</string>
     <string name="settings_readers_librera">Прогресс из Librera</string>
     <string name="settings_readers_librera_hint">Librera хранит позицию в своих файлах на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в Librera</string>
+    <string name="settings_readers_xreader">Прогресс из XReader</string>
+    <string name="settings_readers_xreader_hint">XReader хранит позицию в своём кэше на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в XReader</string>
     <string name="settings_readers_progress_none">Все выключены</string>
     <string name="settings_readers_progress_one">Включено: %1$s</string>
     <string name="settings_readers_progress_many">Включено: %1$s + ещё %2$d</string>
@@ -69,6 +74,7 @@
     <string name="settings_readers_progress_source_coolreader">CoolReader</string>
     <string name="settings_readers_progress_source_pocketbook">PocketBook</string>
     <string name="settings_readers_progress_source_librera">Librera</string>
+    <string name="settings_readers_progress_source_xreader">XReader</string>
     <string name="settings_readers_temp_export">Временный экспорт книги</string>
     <string name="settings_readers_temp_export_hint">Копия файла для читалки, которая не открывает книгу по ссылке. Копии занимают место и удаляются через сутки</string>
     <string name="settings_readers_check">Проверить связь с читалкой</string>

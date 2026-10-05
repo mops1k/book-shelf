@@ -85,6 +85,7 @@ internal object SettingsCodec {
             target[SettingsKeys.ENABLE_COOLREADER_PROGRESS] = enableCoolReaderProgress
             target[SettingsKeys.ENABLE_POCKETBOOK_PROGRESS] = enablePocketBookProgress
             target[SettingsKeys.ENABLE_LIBRERA_PROGRESS] = enableLibreraProgress
+            target[SettingsKeys.ENABLE_XREADER_PROGRESS] = enableXReaderProgress
             target[SettingsKeys.TEMP_EXPORT_ENABLED] = tempExportEnabled
             target[SettingsKeys.PROGRESS_SYNC_INTERVAL_MINUTES] = progressSyncIntervalMinutes
         }
@@ -205,6 +206,8 @@ internal object SettingsCodec {
             ?: SettingsKeys.Defaults.ENABLE_POCKETBOOK_PROGRESS,
         enableLibreraProgress = preferences[SettingsKeys.ENABLE_LIBRERA_PROGRESS]
             ?: SettingsKeys.Defaults.ENABLE_LIBRERA_PROGRESS,
+        enableXReaderProgress = preferences[SettingsKeys.ENABLE_XREADER_PROGRESS]
+            ?: SettingsKeys.Defaults.ENABLE_XREADER_PROGRESS,
         tempExportEnabled = preferences[SettingsKeys.TEMP_EXPORT_ENABLED]
             ?: SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
         progressSyncIntervalMinutes = positiveIntOrDefault(

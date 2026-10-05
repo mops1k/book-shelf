@@ -217,9 +217,9 @@ class LibreraProgressSourceTest {
         val readPaths = mutableListOf<String>()
         val listedDirectories = mutableListOf<String>()
 
-        override suspend fun read(path: String): String? {
+        override suspend fun readBytes(path: String): ByteArray? {
             readPaths += path
-            return files[path]
+            return files[path]?.toByteArray()
         }
 
         override suspend fun children(directory: String): List<String> {

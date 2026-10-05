@@ -328,6 +328,17 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `xReader progress switch is written and reschedules the chain`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onReaderProgress(ReaderProgressAction.SetXReaderEnabled(true))
+        advanceUntilIdle()
+
+        assertThat(settings.last().reader.enableXReaderProgress).isTrue()
+        assertThat(schedule.reviews).isEqualTo(1)
+    }
+
+    @Test
     fun `temp export switch is written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 

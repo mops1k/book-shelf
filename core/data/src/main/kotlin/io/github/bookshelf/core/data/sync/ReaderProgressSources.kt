@@ -19,6 +19,7 @@ fun ReaderSettings.enabledProgressSources(): Set<ProgressSourceId> = buildSet {
     if (enableCoolReaderProgress) add(ProgressSourceId.COOLREADER_DB)
     if (enablePocketBookProgress) add(ProgressSourceId.POCKETBOOK_DB)
     if (enableLibreraProgress) add(ProgressSourceId.LIBRERA_JSON)
+    if (enableXReaderProgress) add(ProgressSourceId.XREADER_CACHE)
 }
 
 /**

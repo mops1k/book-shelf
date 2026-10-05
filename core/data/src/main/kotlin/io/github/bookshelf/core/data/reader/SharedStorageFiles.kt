@@ -28,7 +28,7 @@ class SharedStorageFiles @Inject constructor(
     private val logger: AppLogger,
 ) : ProgressStorage {
 
-    override suspend fun read(path: String): String? = withContext(dispatchers.io) {
+    override suspend fun readBytes(path: String): ByteArray? = withContext(dispatchers.io) {
         val file = File(path)
         if (!file.isFile) return@withContext null
         try {
@@ -40,7 +40,7 @@ class SharedStorageFiles @Inject constructor(
                     if (read <= 0) break
                     total += read
                 }
-                String(bytes, 0, total, Charsets.UTF_8)
+                bytes.copyOf(total)
             }
         } catch (error: IOException) {
             logger.debug("файл читалки $path не прочитан: ${error.message}", error)

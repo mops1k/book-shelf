@@ -644,6 +644,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     isCoolReaderProgressEnabled = settings.reader.enableCoolReaderProgress,
     isPocketBookProgressEnabled = settings.reader.enablePocketBookProgress,
     isLibreraProgressEnabled = settings.reader.enableLibreraProgress,
+    isXReaderProgressEnabled = settings.reader.enableXReaderProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
@@ -889,6 +890,7 @@ private fun toReaderItem(reader: ReaderProfileSummary, defaultReaderIds: Set<Str
  */
 internal fun readersBackLevelOf(level: ReadersLevelUi): ReadersLevelUi? = when (level) {
     ReadersLevelUi.Categories -> null
+    ReadersLevelUi.Defaults -> ReadersLevelUi.Categories
     is ReadersLevelUi.Formats -> ReadersLevelUi.Categories
     is ReadersLevelUi.ReadersOfFormat -> ReadersLevelUi.Formats(formatCategoryOf(level.extension))
     ReadersLevelUi.Progress -> ReadersLevelUi.Categories
@@ -952,6 +954,7 @@ private fun ReaderProgressAction.sourceSwitch(): ((ReaderSettings) -> ReaderSett
     is ReaderProgressAction.SetCoolReaderEnabled -> { reader -> reader.copy(enableCoolReaderProgress = enabled) }
     is ReaderProgressAction.SetPocketBookEnabled -> { reader -> reader.copy(enablePocketBookProgress = enabled) }
     is ReaderProgressAction.SetLibreraEnabled -> { reader -> reader.copy(enableLibreraProgress = enabled) }
+    is ReaderProgressAction.SetXReaderEnabled -> { reader -> reader.copy(enableXReaderProgress = enabled) }
     else -> null
 }
 
@@ -989,6 +992,9 @@ sealed interface ReaderProgressAction {
 
     /** Включить или выключить прогресс из Librera (её JSON в `/sdcard/Librera/profile.Librera/`). */
     data class SetLibreraEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    /** Включить или выключить прогресс из XReader (его кэш `/sdcard/XRZBookCache/V3`). */
+    data class SetXReaderEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
 

@@ -30,6 +30,7 @@ import io.github.bookshelf.feature.settings.ReadersLevelUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.progressSourcesSummary
+import io.github.bookshelf.feature.settings.readersFoundText
 import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
 import io.github.bookshelf.feature.settings.R
@@ -65,30 +66,63 @@ internal fun ReadersCategory(
                 viewModel = viewModel,
                 extension = level.extension,
             )
+            ReadersLevelUi.Defaults -> defaultsLevel(state = state)
             ReadersLevelUi.Progress -> progressLevel(state = state, viewModel = viewModel)
         }
     }
 }
 
-/** Первый уровень: список читалок и категории форматов. */
+/**
+ * Первый уровень: короткое меню раздела.
+ *
+ * Требования Александра (05.10.2026): список читалок — своим экраном («выбор читалок по умолчанию
+ * надо тоже сделать отдельным экраном»), прогресс чтения — своим, «временный экспорт и проверка связи
+ * между прогрессом и форматами», а форматы остались разделом внизу. До этого первый уровень
+ * показывал все читалки, категории форматов и весь блок прогресса сразу.
+ */
 private fun LazyListScope.categoriesLevel(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    if (state.installedReaders.isEmpty()) {
-        item(key = "readers-empty") {
-            EinkEmptyState(
-                title = stringResource(R.string.settings_readers_missing_title),
-                message = stringResource(R.string.settings_readers_missing_message),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    } else {
-        // Показываем только читалки: браузеры, «Фото», словари, редакторы и синтезаторы речи
-        // отсеиваются в discovery (чёрный список не-читалок + проверка объявленных типов).
-        items(items = state.installedReaders, key = { reader -> reader.id }) { reader ->
-            readerRow(reader = reader)
-        }
+    item(key = "readers-defaults-entry") {
+        EinkListRow(
+            title = stringResource(R.string.settings_readers_defaults_header),
+            subtitle = readersFoundText(state.installedReaders.size).resolve(),
+            trailing = stringResource(R.string.settings_reader_category_open),
+            onClick = { viewModel.onReadersLevel(ReadersLevelUi.Defaults) },
+        )
+    }
+    // Прогресс чтения — отдельным подэкраном: переключателей стало шесть (FBReader, KOReader,
+    // CoolReader, PocketBook, Librera, XReader), и на первом уровне от блока остаётся строка со
+    // сводкой. Текст сводки лежит рядом с настройками, а не здесь.
+    item(key = "readers-progress-entry") {
+        EinkListRow(
+            title = stringResource(R.string.settings_readers_progress_header),
+            subtitle = progressSourcesSummary(state.settings).resolve(),
+            trailing = stringResource(R.string.settings_reader_category_open),
+            onClick = { viewModel.onReadersLevel(ReadersLevelUi.Progress) },
+        )
+    }
+    item(key = "readers-temp-export") {
+        ToggleRow(
+            title = stringResource(R.string.settings_readers_temp_export),
+            subtitle = stringResource(R.string.settings_readers_temp_export_hint),
+            enabled = state.settings.isTempExportEnabled,
+            onToggle = { enabled ->
+                viewModel.onReaderProgress(ReaderProgressAction.SetTempExport(enabled))
+            },
+        )
+    }
+    item(key = "readers-check-api") {
+        EinkListRow(
+            title = stringResource(R.string.settings_readers_check),
+            subtitle = when {
+                state.isCheckingReaderApi -> stringResource(R.string.settings_readers_checking)
+                else -> state.readerApiStatus?.resolve()
+                    ?: stringResource(R.string.settings_readers_check_hint)
+            },
+            onClick = { viewModel.onReaderProgress(ReaderProgressAction.CheckApi) },
+        )
     }
 
     if (state.readerCategories.isNotEmpty()) {
@@ -111,17 +145,29 @@ private fun LazyListScope.categoriesLevel(
             )
         }
     }
+}
 
-    // Прогресс чтения — отдельным подэкраном: переключателей стало пять (FBReader, KOReader,
-    // CoolReader, PocketBook, Librera), и на первом уровне от блока остаётся одна строка со сводкой
-    // (требование Александра 05.10.2026). Текст сводки лежит рядом с настройками, а не здесь.
-    item(key = "readers-progress-entry") {
-        EinkListRow(
-            title = stringResource(R.string.settings_readers_progress_header),
-            subtitle = progressSourcesSummary(state.settings).resolve(),
-            trailing = stringResource(R.string.settings_reader_category_open),
-            onClick = { viewModel.onReadersLevel(ReadersLevelUi.Progress) },
-        )
+/**
+ * Экран «Читалки по умолчанию»: установленные читалки и отметка, за кем закреплён формат.
+ *
+ * Отдельным экраном, а не списком на первом уровне: читалок на устройстве бывает больше десятка, и
+ * они выдавливали с экрана всё остальное (замечание Александра 05.10.2026).
+ */
+private fun LazyListScope.defaultsLevel(state: SettingsUiState) {
+    if (state.installedReaders.isEmpty()) {
+        item(key = "readers-empty") {
+            EinkEmptyState(
+                title = stringResource(R.string.settings_readers_missing_title),
+                message = stringResource(R.string.settings_readers_missing_message),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        return
+    }
+    // Показываем только читалки: браузеры, «Фото», словари, редакторы и синтезаторы речи
+    // отсеиваются в discovery (чёрный список не-читалок + проверка объявленных типов).
+    items(items = state.installedReaders, key = { reader -> reader.id }) { reader ->
+        readerRow(reader = reader)
     }
 }
 
@@ -225,7 +271,9 @@ private fun ReaderIcon(packageName: String) {
  *
  * Каждая интеграция включается отдельно, потому что условия у них разные: FBReader отдаёт позицию
  * через свой сервис, пока читалка жива, KOReader — файлом рядом с книгой (доступ ко всей памяти не
- * нужен), а читалкам на общей памяти (CoolReader, PocketBook, Librera) он понадобится.
+ * нужен), а читалкам на общей памяти (CoolReader, PocketBook, Librera, XReader) он понадобится.
+ * Временный экспорт книги и проверка связи с читалкой живут на первом уровне, между этой строкой и
+ * форматами (требование Александра 05.10.2026).
  * Расписание одно на всех: цепочку фоновых работ ставит `ReadingProgressSyncWorker`, и варианты
  * интервала берутся из `ProgressSyncInterval` — ровно те, что допускает планировщик. Интервал
  * показывается, когда включён хотя бы один источник: иначе он ни на что не влияет.
@@ -238,27 +286,6 @@ private fun LazyListScope.progressLevel(
         EinkSectionHeader(title = stringResource(R.string.settings_readers_progress_header))
     }
     readerProgressSwitches(state = state, viewModel = viewModel)
-    item(key = "progress-temp-export") {
-        ToggleRow(
-            title = stringResource(R.string.settings_readers_temp_export),
-            subtitle = stringResource(R.string.settings_readers_temp_export_hint),
-            enabled = state.settings.isTempExportEnabled,
-            onToggle = { enabled ->
-                viewModel.onReaderProgress(ReaderProgressAction.SetTempExport(enabled))
-            },
-        )
-    }
-    item(key = "progress-check") {
-        EinkListRow(
-            title = stringResource(R.string.settings_readers_check),
-            subtitle = when {
-                state.isCheckingReaderApi -> stringResource(R.string.settings_readers_checking)
-                else -> state.readerApiStatus?.resolve()
-                    ?: stringResource(R.string.settings_readers_check_hint)
-            },
-            onClick = { viewModel.onReaderProgress(ReaderProgressAction.CheckApi) },
-        )
-    }
     readerProgressInterval(state = state, viewModel = viewModel)
 }
 
@@ -329,6 +356,13 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
         hint = R.string.settings_readers_librera_hint,
         enabled = state.settings.isLibreraProgressEnabled,
         action = { ReaderProgressAction.SetLibreraEnabled(it) },
+    ),
+    ProgressSwitch(
+        key = "xreader",
+        title = R.string.settings_readers_xreader,
+        hint = R.string.settings_readers_xreader_hint,
+        enabled = state.settings.isXReaderProgressEnabled,
+        action = { ReaderProgressAction.SetXReaderEnabled(it) },
     ),
 )
 

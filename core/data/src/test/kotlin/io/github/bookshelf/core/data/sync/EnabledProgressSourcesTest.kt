@@ -60,6 +60,13 @@ class EnabledProgressSourcesTest {
     }
 
     @Test
+    fun `the xReader switch enables its cache source`() {
+        val settings = ReaderSettings(enableXReaderProgress = true)
+
+        assertThat(settings.enabledProgressSources()).containsExactly(ProgressSourceId.XREADER_CACHE)
+    }
+
+    @Test
     fun `every switched-on reader gives its source in a stable order`() {
         val settings = ReaderSettings(
             enableFbReaderProgress = true,
@@ -67,6 +74,7 @@ class EnabledProgressSourcesTest {
             enableCoolReaderProgress = true,
             enablePocketBookProgress = true,
             enableLibreraProgress = true,
+            enableXReaderProgress = true,
         )
 
         assertThat(settings.enabledProgressSources().toList()).containsExactly(
@@ -75,6 +83,7 @@ class EnabledProgressSourcesTest {
             ProgressSourceId.COOLREADER_DB,
             ProgressSourceId.POCKETBOOK_DB,
             ProgressSourceId.LIBRERA_JSON,
+            ProgressSourceId.XREADER_CACHE,
         ).inOrder()
     }
 

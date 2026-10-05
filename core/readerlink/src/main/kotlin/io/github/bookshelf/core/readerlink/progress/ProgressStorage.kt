@@ -15,12 +15,23 @@ package io.github.bookshelf.core.readerlink.progress
 interface ProgressStorage {
 
     /**
+     * Прочитать файл читалки как байты.
+     *
+     * Нужно там, где файл **не текст**: кэш XReader (`/sdcard/XRZBookCache/V3/js…`) — это gzip.
+     * Читать такой файл как текст значило бы испортить данные ещё до разбора.
+     *
+     * @param path реальный путь (не SAF-адрес).
+     * @return содержимое файла; `null` — файла нет, это не файл или он не читается.
+     */
+    suspend fun readBytes(path: String): ByteArray?
+
+    /**
      * Прочитать текстовый файл.
      *
      * @param path реальный путь (не SAF-адрес).
      * @return текст файла; `null` — файла нет, это не файл или он не читается.
      */
-    suspend fun read(path: String): String?
+    suspend fun read(path: String): String? = readBytes(path)?.toString(Charsets.UTF_8)
 
     /**
      * Перечислить содержимое каталога.

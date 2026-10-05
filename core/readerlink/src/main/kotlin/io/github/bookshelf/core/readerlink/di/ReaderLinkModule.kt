@@ -18,6 +18,7 @@ import io.github.bookshelf.core.readerlink.coolreader.CoolReaderProgressSource
 import io.github.bookshelf.core.readerlink.koreader.KoReaderProgressSource
 import io.github.bookshelf.core.readerlink.librera.LibreraProgressSource
 import io.github.bookshelf.core.readerlink.pocketbook.PocketBookProgressSource
+import io.github.bookshelf.core.readerlink.xreader.XReaderProgressSource
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import javax.inject.Singleton
 import io.github.bookshelf.core.readerlink.discovery.AndroidReaderDiscovery
@@ -130,4 +131,14 @@ internal abstract class ReaderLinkModule {
     @Binds
     @IntoSet
     abstract fun bindLibreraProgressSource(impl: LibreraProgressSource): ReadingProgressSource
+
+    /**
+     * XReader: прогресс из его gzip-кэша `/sdcard/XRZBookCache/V3/js…`.
+     *
+     * Нужен доступ ко всей памяти: кэш лежит в скрытой папке вне библиотеки, а состояние книги
+     * находится перебором каталога — имя файла кэша не связано с именем книги.
+     */
+    @Binds
+    @IntoSet
+    abstract fun bindXReaderProgressSource(impl: XReaderProgressSource): ReadingProgressSource
 }
