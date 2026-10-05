@@ -23,6 +23,7 @@ import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.RefreshModeLike
+import io.github.bookshelf.core.datastore.model.ReaderSettings
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
@@ -195,32 +196,21 @@ class SettingsViewModel @Inject constructor(
      * читается не хуже двух отдельных функций.
      */
     fun onReaderProgress(action: ReaderProgressAction) {
+        // Переключатели источников обрабатываются одинаково: запись флага + пересмотр расписания
+        // (без пересмотра новая настройка не изменила бы поведение до перезапуска приложения).
+        val switch = action.sourceSwitch()
+        if (switch != null) {
+            updateSettings(
+                settingsRepository,
+                _uiState,
+                viewModelScope,
+                afterWrite = { progressSchedule.review() },
+            ) { settings -> settings.copy(reader = switch(settings.reader)) }
+        }
         when (action) {
-            is ReaderProgressAction.SetEnabled -> {
-                updateSettings(
-                    settingsRepository,
-                    _uiState,
-                    viewModelScope,
-                    afterWrite = { progressSchedule.review() },
-                ) { settings ->
-                    settings.copy(reader = settings.reader.copy(enableFbReaderProgress = action.enabled))
-                }
-            }
-
             is ReaderProgressAction.SetTempExport -> {
                 updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
                     settings.copy(reader = settings.reader.copy(tempExportEnabled = action.enabled))
-                }
-            }
-
-            is ReaderProgressAction.SetKoReaderEnabled -> {
-                updateSettings(
-                    settingsRepository,
-                    _uiState,
-                    viewModelScope,
-                    afterWrite = { progressSchedule.review() },
-                ) { settings ->
-                    settings.copy(reader = settings.reader.copy(enableKoReaderProgress = action.enabled))
                 }
             }
 
@@ -255,6 +245,9 @@ class SettingsViewModel @Inject constructor(
                     settings.copy(reader = settings.reader.copy(progressSyncIntervalMinutes = minutes))
                 }
             }
+
+            // Переключатели источников прогресса обработаны выше, до этого `when`.
+            else -> Unit
         }
     }
 
@@ -648,6 +641,7 @@ private inline fun <reified T : Enum<T>> parseEnum(
 private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = copy(
     isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
     isKoReaderProgressEnabled = settings.reader.enableKoReaderProgress,
+    isCoolReaderProgressEnabled = settings.reader.enableCoolReaderProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
@@ -944,6 +938,19 @@ private fun ReaderItemUi.withDefaultFlag(defaultReaderIds: Set<String>): ReaderI
     copy(isDefault = id in defaultReaderIds)
 
 /**
+ * Как действие-переключатель меняет настройки читалки; `null` — действие не про источник прогресса.
+ *
+ * Функция вне класса не ради стиля: у `SettingsViewModel` порог detekt по числу методов уже выбран,
+ * а «какой флаг включается» — знание о настройках, а не о состоянии экрана.
+ */
+private fun ReaderProgressAction.sourceSwitch(): ((ReaderSettings) -> ReaderSettings)? = when (this) {
+    is ReaderProgressAction.SetEnabled -> { reader -> reader.copy(enableFbReaderProgress = enabled) }
+    is ReaderProgressAction.SetKoReaderEnabled -> { reader -> reader.copy(enableKoReaderProgress = enabled) }
+    is ReaderProgressAction.SetCoolReaderEnabled -> { reader -> reader.copy(enableCoolReaderProgress = enabled) }
+    else -> null
+}
+
+/**
  * Что меняет пользователь в блоке «Прогресс чтения».
  *
  * @param SetEnabled включение синхронизации с читалкой.
@@ -961,6 +968,16 @@ sealed interface ReaderProgressAction {
      * XReader) нужен доступ ко всей памяти. Человек должен решать по каждой читалке.
      */
     data class SetKoReaderEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    /**
+     * Включить или выключить прогресс из CoolReader (его база `/sdcard/.cr3/cr3db.sqlite`).
+     *
+     * Условие доступа другое, чем у KOReader: база лежит вне папки библиотеки, поэтому нужен доступ
+     * ко всей памяти. В flavor `play` переключатель включается, но источника там нет — это видно по
+     * тому, что процент не появляется; честная пометка «нужен доступ ко всей памяти» появится
+     * вместе с экраном диагностики источников.
+     */
+    data class SetCoolReaderEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
 

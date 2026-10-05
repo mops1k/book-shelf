@@ -244,6 +244,16 @@ private fun LazyListScope.progressItems(
             },
         )
     }
+    item(key = "progress-coolreader") {
+        ToggleRow(
+            title = stringResource(R.string.settings_readers_coolreader),
+            subtitle = stringResource(R.string.settings_readers_coolreader_hint),
+            enabled = state.settings.isCoolReaderProgressEnabled,
+            onToggle = { enabled ->
+                viewModel.onReaderProgress(ReaderProgressAction.SetCoolReaderEnabled(enabled))
+            },
+        )
+    }
     item(key = "progress-temp-export") {
         ToggleRow(
             title = stringResource(R.string.settings_readers_temp_export),
@@ -279,8 +289,8 @@ private fun LazyListScope.readerProgressInterval(
     viewModel: SettingsViewModel,
 ) {
     // Интервал один на все читалки: цепочка фоновых работ общая, поэтому показываем её, когда
-    // включён хотя бы один источник — иначе при включённом KOReader настройка была бы спрятана.
-    if (!state.settings.isFbReaderProgressEnabled && !state.settings.isKoReaderProgressEnabled) return
+    // включён хотя бы один источник.
+    if (!state.settings.isProgressSyncEnabled) return
     item(key = "progress-interval") {
         ValueChoiceRow(
             title = stringResource(R.string.settings_readers_interval),

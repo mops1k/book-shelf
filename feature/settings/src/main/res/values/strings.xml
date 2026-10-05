@@ -55,6 +55,8 @@
     <string name="settings_readers_sync_hint">Читает позицию из FBReader и показывает процент на полке. Работает, пока читалка открыта или свёрнута, а не выгружена системой</string>
     <string name="settings_readers_koreader">Прогресс из KOReader</string>
     <string name="settings_readers_koreader_hint">KOReader хранит позицию в файле рядом с книгой, поэтому доступ ко всей памяти не нужен. Процент появится после того, как книгу откроют в KOReader</string>
+    <string name="settings_readers_coolreader">Прогресс из CoolReader</string>
+    <string name="settings_readers_coolreader_hint">CoolReader хранит позицию в своей базе на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в CoolReader</string>
     <string name="settings_readers_temp_export">Временный экспорт книги</string>
     <string name="settings_readers_temp_export_hint">Копия файла для читалки, которая не открывает книгу по ссылке. Копии занимают место и удаляются через сутки</string>
     <string name="settings_readers_check">Проверить связь с читалкой</string>

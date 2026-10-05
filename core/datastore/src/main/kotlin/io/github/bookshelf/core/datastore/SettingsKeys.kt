@@ -87,6 +87,14 @@ object SettingsKeys {
      * по отдельности.
      */
     val ENABLE_KOREADER_PROGRESS: Preferences.Key<Boolean> = booleanPreferencesKey("reader.enable_koreader_progress")
+    /**
+     * Прогресс из CoolReader: читается его база `/sdcard/.cr3/cr3db.sqlite`.
+     *
+     * Отдельный ключ: этому источнику нужен доступ ко всей памяти, а KOReader обходится папкой
+     * библиотеки — условия разные, и включать их одной кнопкой нельзя.
+     */
+    val ENABLE_COOLREADER_PROGRESS: Preferences.Key<Boolean> =
+        booleanPreferencesKey("reader.enable_coolreader_progress")
     val TEMP_EXPORT_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reader.temp_export_enabled")
 
     /**
@@ -153,6 +161,8 @@ object SettingsKeys {
 
         /** Новые интеграции выключены: чтение чужих данных включается только осознанно. */
         const val ENABLE_KOREADER_PROGRESS = false
+
+        const val ENABLE_COOLREADER_PROGRESS = false
 
         /** Пять минут: достаточно часто, чтобы прогресс был свежим, и достаточно редко для батареи. */
         const val PROGRESS_SYNC_INTERVAL_MINUTES = 5

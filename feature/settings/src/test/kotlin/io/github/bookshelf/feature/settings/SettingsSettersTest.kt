@@ -295,6 +295,17 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `coolReader progress switch is written and reschedules the chain`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onReaderProgress(ReaderProgressAction.SetCoolReaderEnabled(true))
+        advanceUntilIdle()
+
+        assertThat(settings.last().reader.enableCoolReaderProgress).isTrue()
+        assertThat(schedule.reviews).isEqualTo(1)
+    }
+
+    @Test
     fun `temp export switch is written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 

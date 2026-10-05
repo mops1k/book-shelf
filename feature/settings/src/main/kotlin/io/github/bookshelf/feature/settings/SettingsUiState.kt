@@ -237,6 +237,8 @@ data class AppSettingsUi(
     val isFbReaderProgressEnabled: Boolean = false,
     /** Прогресс из KOReader: sidecar-файл рядом с книгой; по умолчанию выключен. */
     val isKoReaderProgressEnabled: Boolean = false,
+    /** Прогресс из CoolReader: его база на общей памяти; по умолчанию выключен. */
+    val isCoolReaderProgressEnabled: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */
@@ -249,7 +251,18 @@ data class AppSettingsUi(
     val downloadFileNameTemplate: String = SettingsKeys.Defaults.DOWNLOAD_FILE_NAME_TEMPLATE,
     /** Возраст кэша фидов в минутах (`opds.feedCacheMaxAgeMinutes`). */
     val feedCacheMaxAgeMinutes: Int = SettingsKeys.Defaults.FEED_CACHE_MAX_AGE_MINUTES,
-)
+) {
+
+    /**
+     * Идёт ли синхронизация прогресса хотя бы с одной читалкой.
+     *
+     * Интервал опроса общий для всех источников (цепочка фоновых работ одна), поэтому показывать его
+     * надо, когда включён любой из них. Держим признак здесь, а не в UI: там условие из трёх флагов
+     * пришлось бы повторять и легко забыть дополнить при появлении следующей читалки.
+     */
+    val isProgressSyncEnabled: Boolean
+        get() = isFbReaderProgressEnabled || isKoReaderProgressEnabled || isCoolReaderProgressEnabled
+}
 
 /**
  * Состояние экрана настроек.

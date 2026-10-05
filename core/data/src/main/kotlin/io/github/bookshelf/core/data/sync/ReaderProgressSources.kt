@@ -16,6 +16,7 @@ import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
 fun ReaderSettings.enabledProgressSources(): Set<ProgressSourceId> = buildSet {
     if (enableFbReaderProgress) add(ProgressSourceId.FBREADER_AIDL)
     if (enableKoReaderProgress) add(ProgressSourceId.KOREADER_SIDECAR)
+    if (enableCoolReaderProgress) add(ProgressSourceId.COOLREADER_DB)
 }
 
 /**

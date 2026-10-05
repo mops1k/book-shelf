@@ -34,6 +34,8 @@ import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
 import io.github.bookshelf.core.data.reader.BookSidecarFileReader
+import io.github.bookshelf.core.data.reader.ForeignSqliteDatabase
+import io.github.bookshelf.core.readerlink.progress.ProgressDatabase
 import io.github.bookshelf.core.readerlink.progress.ProgressFileReader
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
 import io.github.bookshelf.core.fb2opt.Fb2Optimizer
@@ -116,6 +118,17 @@ abstract class DataModule {
     abstract fun bindProgressFileReader(
         impl: BookSidecarFileReader,
     ): ProgressFileReader
+
+    /**
+     * Чтение чужой базы читалки (CoolReader, PocketBook).
+     *
+     * Здесь же, по той же причине: SQLite и кэш — знание слоя данных, а адаптерам читалок нужен
+     * только порт с запросом по схеме.
+     */
+    @Binds
+    abstract fun bindProgressDatabase(
+        impl: ForeignSqliteDatabase,
+    ): ProgressDatabase
 
     /**
      * Сессия чтения: пока читалка открыта, тяжёлые работы уступают (иначе её главный поток встаёт

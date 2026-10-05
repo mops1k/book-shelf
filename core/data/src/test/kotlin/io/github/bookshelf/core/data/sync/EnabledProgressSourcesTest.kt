@@ -37,6 +37,30 @@ class EnabledProgressSourcesTest {
     }
 
     @Test
+    fun `the coolReader switch enables its database source`() {
+        val settings = ReaderSettings(enableCoolReaderProgress = true)
+
+        // CoolReader живёт в своей базе на общей памяти: отдельный флаг, потому что и условия
+        // доступа у него другие (нужен доступ ко всей памяти).
+        assertThat(settings.enabledProgressSources()).containsExactly(ProgressSourceId.COOLREADER_DB)
+    }
+
+    @Test
+    fun `every switched-on reader gives its source in a stable order`() {
+        val settings = ReaderSettings(
+            enableFbReaderProgress = true,
+            enableKoReaderProgress = true,
+            enableCoolReaderProgress = true,
+        )
+
+        assertThat(settings.enabledProgressSources().toList()).containsExactly(
+            ProgressSourceId.FBREADER_AIDL,
+            ProgressSourceId.KOREADER_SIDECAR,
+            ProgressSourceId.COOLREADER_DB,
+        ).inOrder()
+    }
+
+    @Test
     fun `both switches give both sources in a stable order`() {
         val settings = ReaderSettings(enableFbReaderProgress = true, enableKoReaderProgress = true)
 

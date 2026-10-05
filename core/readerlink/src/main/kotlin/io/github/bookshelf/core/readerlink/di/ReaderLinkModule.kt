@@ -14,6 +14,7 @@ import io.github.bookshelf.core.readerlink.fbreader.BinderFbReaderTransport
 import io.github.bookshelf.core.readerlink.fbreader.DefaultFbReaderApi
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderAdapter
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
+import io.github.bookshelf.core.readerlink.coolreader.CoolReaderProgressSource
 import io.github.bookshelf.core.readerlink.koreader.KoReaderProgressSource
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import javax.inject.Singleton
@@ -98,4 +99,14 @@ internal abstract class ReaderLinkModule {
     @Binds
     @IntoSet
     abstract fun bindKoReaderProgressSource(impl: KoReaderProgressSource): ReadingProgressSource
+
+    /**
+     * CoolReader: прогресс из его базы `/sdcard/.cr3/cr3db.sqlite`.
+     *
+     * Нужен доступ ко всей памяти (flavor `full`/`fdroid`): база лежит вне папки библиотеки. Порт
+     * чтения базы (`ProgressDatabase`) привязан в `:core:data` — там SQLite и кэш.
+     */
+    @Binds
+    @IntoSet
+    abstract fun bindCoolReaderProgressSource(impl: CoolReaderProgressSource): ReadingProgressSource
 }
