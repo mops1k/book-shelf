@@ -1,5 +1,6 @@
 package io.github.bookshelf.feature.settings
 
+import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.readerlink.progress.ProgressSourceKeys
 
@@ -70,3 +71,20 @@ internal fun progressSourceNameRes(sourceKey: String): Int? = when (sourceKey) {
     ProgressSourceKeys.XREADER_CACHE -> R.string.settings_readers_progress_source_xreader
     else -> null
 }
+
+/**
+ * Имена всех источников прогресса для строки диагностики: ресурс имени и читается ли источник.
+ *
+ * Именно **все**, а не только проблемные (просьба Александра 05.10.2026): строка отвечает на вопрос
+ * «с кем приложение может работать», и без списка читаемых непонятно, есть ли они вообще. Порядок —
+ * порядок опроса источников, он же порядок переключателей на подэкране прогресса.
+ *
+ * Незнакомый ключ (запись оставила версия приложения с другим набором источников) не выпадает из
+ * списка: он показывается как «источник незнаком», иначе строка обещала бы больше, чем есть.
+ */
+internal fun progressSourcesNames(report: ProgressSourcesReport): List<Pair<Int, Boolean>> =
+    report.sources.map { status ->
+        val nameRes = progressSourceNameRes(status.sourceKey)
+            ?: R.string.settings_about_progress_source_unknown
+        nameRes to status.available
+    }

@@ -21,6 +21,7 @@ import io.github.bookshelf.feature.settings.EinkDiagnosticsUi
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.progressSourceNameRes
+import io.github.bookshelf.feature.settings.progressSourcesNames
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
 import io.github.bookshelf.feature.settings.R
@@ -61,9 +62,6 @@ internal fun AboutCategory(
 
         einkCapabilitiesRows(diagnostics = diagnostics)
 
-        item(key = "about-progress-header") {
-            EinkSectionHeader(title = stringResource(R.string.settings_about_progress_sources))
-        }
         progressSourceRows(state = state)
 
         item(key = "about-refresh") {
@@ -94,15 +92,12 @@ internal fun AboutCategory(
  */
 private fun LazyListScope.progressSourceRows(state: SettingsUiState) {
     val report = state.progressSources ?: return
-    items(items = report.sources, key = { status -> "progress-source-" + status.sourceKey }) { status ->
+    // Одной строкой, а не по строке на источник: источников шесть, и однотипный список растягивал
+    // экран (замечание Александра 05.10.2026). Называются все: читаемые и нечитаемые.
+    item(key = "about-progress-sources") {
         EinkListRow(
-            title = progressSourceNameRes(status.sourceKey)?.let { stringResource(it) }
-                ?: stringResource(R.string.settings_about_progress_source_unknown),
-            subtitle = if (status.available) {
-                stringResource(R.string.settings_about_progress_source_available)
-            } else {
-                stringResource(R.string.settings_about_progress_source_unavailable)
-            },
+            title = stringResource(R.string.settings_about_progress_sources),
+            subtitle = progressSourcesStatusText(report),
         )
     }
     item(key = "about-progress-last") {
@@ -111,6 +106,33 @@ private fun LazyListScope.progressSourceRows(state: SettingsUiState) {
             subtitle = lastProgressText(report),
         )
     }
+}
+
+/**
+ * Подпись строки диагностики источников: «читаются: A, B; не читается: C».
+ *
+ * Имена собираются здесь, а не в чистой функции: ресурс переводится только в Composable, а склейка
+ * списка — уже показ. Что именно назвать и в каком порядке, решает `progressSourcesNames` (её тест).
+ */
+@Composable
+private fun progressSourcesStatusText(report: ProgressSourcesReport): String {
+    val names = progressSourcesNames(report)
+    val read = names.filter { (_, available) -> available }.map { (res, _) -> stringResource(res) }
+    val failed = names.filter { (_, available) -> !available }.map { (res, _) -> stringResource(res) }
+    val parts = buildList {
+        if (read.isNotEmpty()) {
+            add(stringResource(R.string.settings_about_progress_sources_read, read.joinToString(", ")))
+        }
+        if (failed.isNotEmpty()) {
+            add(
+                stringResource(
+                    R.string.settings_about_progress_sources_failed,
+                    failed.joinToString(", "),
+                ),
+            )
+        }
+    }
+    return parts.joinToString("; ")
 }
 
 /** Подпись последней записи прогресса: источник, время и книга. */

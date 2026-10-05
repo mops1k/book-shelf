@@ -67,7 +67,7 @@
     <string name="settings_readers_xreader">Прогресс из XReader</string>
     <string name="settings_readers_xreader_hint">XReader хранит позицию в своём кэше на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в XReader</string>
     <string name="settings_readers_progress_no_access">Нет доступа ко всей памяти</string>
-    <string name="settings_readers_progress_no_access_hint">Процент из CoolReader, PocketBook, Librera и XReader читаться не будет: их данные лежат вне папки библиотеки. KOReader работает и без этого доступа</string>
+    <string name="settings_readers_progress_no_access_hint">Часть читалок хранит данные в скрытых папках, и без доступа их прогресс читаться не будет (на проверке так вели себя CoolReader и PocketBook). Список источников видно в диагностике. KOReader работает и без этого доступа</string>
     <string name="settings_readers_progress_grant">разрешить</string>
     <string name="settings_readers_progress_none">Все выключены</string>
     <string name="settings_readers_progress_one">Включено: %1$s</string>
@@ -107,8 +107,8 @@
     <string name="settings_about_available_short">доступен</string>
     <string name="settings_about_no">нет</string>
     <string name="settings_about_progress_sources">Источники прогресса чтения</string>
-    <string name="settings_about_progress_source_available">читается</string>
-    <string name="settings_about_progress_source_unavailable">не читается</string>
+    <string name="settings_about_progress_sources_read">читаются: %1$s</string>
+    <string name="settings_about_progress_sources_failed">не читается: %1$s</string>
     <string name="settings_about_progress_source_unknown">источник незнаком</string>
     <string name="settings_about_progress_last">Последний прогресс</string>
     <string name="settings_about_progress_last_value">%1$s, %2$s</string>
