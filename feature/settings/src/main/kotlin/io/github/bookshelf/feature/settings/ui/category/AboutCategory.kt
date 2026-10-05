@@ -21,7 +21,7 @@ import io.github.bookshelf.feature.settings.EinkDiagnosticsUi
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.progressSourceNameRes
-import io.github.bookshelf.feature.settings.progressSourcesNames
+import io.github.bookshelf.feature.settings.progressSourcesLines
 import io.github.bookshelf.feature.settings.SettingsViewModel
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
 import io.github.bookshelf.feature.settings.R
@@ -92,12 +92,20 @@ internal fun AboutCategory(
  */
 private fun LazyListScope.progressSourceRows(state: SettingsUiState) {
     val report = state.progressSources ?: return
-    // Одной строкой, а не по строке на источник: источников шесть, и однотипный список растягивал
-    // экран (замечание Александра 05.10.2026). Называются все: читаемые и нечитаемые.
-    item(key = "about-progress-sources") {
+    // Заголовок и две строки списка вместо строки на источник: источников шесть, и однотипный список
+    // растягивал экран (замечание Александра 05.10.2026). Читаемые и нечитаемые — разными строками,
+    // и подпись переносится по ширине экрана, иначе список не увидеть целиком.
+    item(key = "about-progress-sources-header") {
+        EinkSectionHeader(title = stringResource(R.string.settings_about_progress_sources))
+    }
+    items(
+        items = progressSourcesLines(report),
+        key = { line -> "about-progress-line-" + line.titleRes },
+    ) { line ->
         EinkListRow(
-            title = stringResource(R.string.settings_about_progress_sources),
-            subtitle = progressSourcesStatusText(report),
+            title = stringResource(line.titleRes),
+            subtitle = progressSourceNamesLine(line.names),
+            subtitleMaxLines = SUBTITLE_UNLIMITED_LINES,
         )
     }
     item(key = "about-progress-last") {
@@ -109,31 +117,21 @@ private fun LazyListScope.progressSourceRows(state: SettingsUiState) {
 }
 
 /**
- * Подпись строки диагностики источников: «читаются: A, B; не читается: C».
+ * Имена источников одной строкой, через запятую.
  *
- * Имена собираются здесь, а не в чистой функции: ресурс переводится только в Composable, а склейка
- * списка — уже показ. Что именно назвать и в каком порядке, решает `progressSourcesNames` (её тест).
+ * Отдельной функцией, а не `joinToString { stringResource(it) }`: ресурс переводится только в
+ * Composable, и в лямбде `joinToString` этого сделать нельзя — компилятор не считает её местом
+ * вызова. `forEach` — inline без nullable-лямбды, поэтому внутри него перевод допустим.
  */
 @Composable
-private fun progressSourcesStatusText(report: ProgressSourcesReport): String {
-    val names = progressSourcesNames(report)
-    val read = names.filter { (_, available) -> available }.map { (res, _) -> stringResource(res) }
-    val failed = names.filter { (_, available) -> !available }.map { (res, _) -> stringResource(res) }
-    val parts = buildList {
-        if (read.isNotEmpty()) {
-            add(stringResource(R.string.settings_about_progress_sources_read, read.joinToString(", ")))
-        }
-        if (failed.isNotEmpty()) {
-            add(
-                stringResource(
-                    R.string.settings_about_progress_sources_failed,
-                    failed.joinToString(", "),
-                ),
-            )
-        }
-    }
-    return parts.joinToString("; ")
+private fun progressSourceNamesLine(names: List<Int>): String {
+    val resolved = mutableListOf<String>()
+    names.forEach { nameRes -> resolved += stringResource(nameRes) }
+    return resolved.joinToString(", ")
 }
+
+/** Предел строк подписи: список источников должен быть виден целиком, а не обрезан. */
+private const val SUBTITLE_UNLIMITED_LINES = 10
 
 /** Подпись последней записи прогресса: источник, время и книга. */
 @Composable

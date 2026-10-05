@@ -107,8 +107,8 @@
     <string name="settings_about_available_short">доступен</string>
     <string name="settings_about_no">нет</string>
     <string name="settings_about_progress_sources">Источники прогресса чтения</string>
-    <string name="settings_about_progress_sources_read">читаются: %1$s</string>
-    <string name="settings_about_progress_sources_failed">не читается: %1$s</string>
+    <string name="settings_about_progress_sources_read">Читаются</string>
+    <string name="settings_about_progress_sources_failed">Не читается</string>
     <string name="settings_about_progress_source_unknown">источник незнаком</string>
     <string name="settings_about_progress_last">Последний прогресс</string>
     <string name="settings_about_progress_last_value">%1$s, %2$s</string>

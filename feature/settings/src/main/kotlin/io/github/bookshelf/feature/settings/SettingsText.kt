@@ -73,18 +73,36 @@ internal fun progressSourceNameRes(sourceKey: String): Int? = when (sourceKey) {
 }
 
 /**
- * Имена всех источников прогресса для строки диагностики: ресурс имени и читается ли источник.
+ * Строка диагностики источников: заголовок и имена источников в ней.
  *
- * Именно **все**, а не только проблемные (просьба Александра 05.10.2026): строка отвечает на вопрос
- * «с кем приложение может работать», и без списка читаемых непонятно, есть ли они вообще. Порядок —
- * порядок опроса источников, он же порядок переключателей на подэкране прогресса.
+ * @param titleRes «Читаются» или «Не читается».
+ * @param names ресурсы имён в порядке опроса источников.
+ */
+internal data class ProgressSourcesLine(val titleRes: Int, val names: List<Int>)
+
+/**
+ * Разложить источники по строкам диагностики.
+ *
+ * Читаемые и нечитаемые — **разными строками** (просьба Александра 05.10.2026): в одну строку список
+ * из шести имён не помещался, и его приходилось обрезать. Строка «Не читается» появляется, только
+ * когда есть проблемные; порядок имён — порядок опроса источников, тот же, что у переключателей на
+ * подэкране прогресса.
  *
  * Незнакомый ключ (запись оставила версия приложения с другим набором источников) не выпадает из
- * списка: он показывается как «источник незнаком», иначе строка обещала бы больше, чем есть.
+ * списка: он показывается как «источник незнаком», иначе диагностика обещала бы больше, чем есть.
  */
-internal fun progressSourcesNames(report: ProgressSourcesReport): List<Pair<Int, Boolean>> =
-    report.sources.map { status ->
+internal fun progressSourcesLines(report: ProgressSourcesReport): List<ProgressSourcesLine> {
+    val named = report.sources.map { status ->
         val nameRes = progressSourceNameRes(status.sourceKey)
             ?: R.string.settings_about_progress_source_unknown
         nameRes to status.available
     }
+    return buildList {
+        val read = named.filter { (_, available) -> available }.map { (nameRes, _) -> nameRes }
+        if (read.isNotEmpty()) add(ProgressSourcesLine(R.string.settings_about_progress_sources_read, read))
+        val failed = named.filter { (_, available) -> !available }.map { (nameRes, _) -> nameRes }
+        if (failed.isNotEmpty()) {
+            add(ProgressSourcesLine(R.string.settings_about_progress_sources_failed, failed))
+        }
+    }
+}
