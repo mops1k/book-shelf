@@ -86,6 +86,8 @@ data class ReaderSettings(
     /** Формат → id профиля, которым открывали последний раз (для «спросить, если сменился»). */
     val lastUsedReaderByFormat: Map<String, String> = emptyMap(),
     val enableFbReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_FBREADER_PROGRESS,
+    /** Прогресс из KOReader: sidecar-файл `<книга>.sdr/metadata.<расширение>.lua` рядом с книгой. */
+    val enableKoReaderProgress: Boolean = SettingsKeys.Defaults.ENABLE_KOREADER_PROGRESS,
     val tempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
 )

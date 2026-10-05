@@ -1,5 +1,7 @@
 package io.github.bookshelf.core.readerlink.profile
 
+import io.github.bookshelf.core.readerlink.koreader.KoReaderPreset
+
 /**
  * Встроенные presets читалок.
  *
@@ -177,7 +179,7 @@ object ReaderProfilePresets {
 
     /** Заготовка KOReader: пакет и MIME пусты до проверки в Sprint 0. */
     private val koReader: ReaderProfile = ReaderProfile(
-        id = "koreader",
+        id = KoReaderPreset.ID,
         name = "KOReader",
         packageName = "",
         activityName = null,

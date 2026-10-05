@@ -192,7 +192,7 @@ class ReaderLaunchInChosenReaderTest {
     }
 
     private object NoSession : ReaderSession {
-        override fun markOpened(bookId: String) = Unit
+        override fun markOpened(bookId: String, readerProfileId: String?) = Unit
 
         override fun isActive(): Boolean = false
 

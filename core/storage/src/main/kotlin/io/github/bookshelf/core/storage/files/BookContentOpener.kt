@@ -341,8 +341,12 @@ class DefaultBookContentOpener(
  * Источники съёмного носителя на прошивках без публичной точки `/storage/<uuid>` читаются по
  * обычному пути (`/mnt/media_rw/<uuid>/…`, проверено на Bigme B6 Color 02.10.2026), и opener обязан
  * понимать и такие адреса, и `file://`. Схема `content://` остаётся за `ContentResolver`.
+ *
+ * Функция открыта наружу, потому что это правило нужно всем, кто работает с адресом книги не через
+ * поток содержимого (например, чтение sidecar-файла рядом с книгой): второй копии этой проверки в
+ * проекте быть не должно.
  */
-internal fun filePathOf(documentUri: String): String? {
+fun filePathOf(documentUri: String): String? {
     val trimmed = documentUri.trim()
     return when {
         trimmed.isEmpty() -> null

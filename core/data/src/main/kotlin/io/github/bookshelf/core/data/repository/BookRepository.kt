@@ -8,6 +8,7 @@ import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.MetadataPatch
 import io.github.bookshelf.core.data.model.ReadingStatus
 import io.github.bookshelf.core.data.paging.PageResult
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceKeys
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -171,8 +172,16 @@ object ReadingProgressOrigins {
     /** Отметка вручную или правка на экране. */
     const val MANUAL = "MANUAL"
 
-    /** Прочитано из API-сервиса FBReader. */
-    const val FBREADER_AIDL = "FBREADER_AIDL"
+    /**
+     * Каналы читалок.
+     *
+     * Значения берутся из [ProgressSourceKeys], а не пишутся здесь заново: их источник — читалка,
+     * которая прогресс отдала, и разойтись эти строки не должны ни при каких правках.
+     */
+    const val FBREADER_AIDL: String = ProgressSourceKeys.FBREADER_AIDL
+
+    /** Прогресс из sidecar-файла KOReader. */
+    const val KOREADER_SIDECAR: String = ProgressSourceKeys.KOREADER_SIDECAR
 }
 
 /**

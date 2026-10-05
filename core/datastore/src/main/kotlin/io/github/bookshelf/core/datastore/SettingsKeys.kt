@@ -79,6 +79,14 @@ object SettingsKeys {
     /** JSON-объект `format -> profileId`. */
     val LAST_USED_READER_BY_FORMAT: Preferences.Key<String> = stringPreferencesKey("reader.last_used_by_format")
     val ENABLE_FBREADER_PROGRESS: Preferences.Key<Boolean> = booleanPreferencesKey("reader.enable_fbreader_progress")
+    /**
+     * Прогресс из KOReader: читается sidecar-файл рядом с книгой.
+     *
+     * Отдельный ключ, а не общий «включить прогресс»: у каждой читалки свои условия доступа (KOReader
+     * доступен по SAF всегда, остальным нужен доступ ко всей памяти), и человек должен включать их
+     * по отдельности.
+     */
+    val ENABLE_KOREADER_PROGRESS: Preferences.Key<Boolean> = booleanPreferencesKey("reader.enable_koreader_progress")
     val TEMP_EXPORT_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reader.temp_export_enabled")
 
     /**
@@ -142,6 +150,9 @@ object SettingsKeys {
         const val SHOW_REMOVABLE_SHELF = true
 
         const val ENABLE_FBREADER_PROGRESS = false
+
+        /** Новые интеграции выключены: чтение чужих данных включается только осознанно. */
+        const val ENABLE_KOREADER_PROGRESS = false
 
         /** Пять минут: достаточно часто, чтобы прогресс был свежим, и достаточно редко для батареи. */
         const val PROGRESS_SYNC_INTERVAL_MINUTES = 5

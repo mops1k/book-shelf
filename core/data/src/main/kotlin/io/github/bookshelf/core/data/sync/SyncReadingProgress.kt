@@ -5,14 +5,23 @@ import io.github.bookshelf.core.common.error.appRunCatching
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.log.APP_LOG_TAG
 import io.github.bookshelf.core.common.log.AppLogger
+import io.github.bookshelf.core.common.reader.ActiveReading
+import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.data.model.Book
+import io.github.bookshelf.core.data.model.BookQuery
+import io.github.bookshelf.core.data.model.LibraryQuery
 import io.github.bookshelf.core.data.model.ReadingStatus
-import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.data.repository.BookRepository
-import io.github.bookshelf.core.data.repository.ReadingProgressOrigins
+import io.github.bookshelf.core.database.dao.BookCopyDao
 import io.github.bookshelf.core.datastore.SettingsRepository
-import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
-import io.github.bookshelf.core.readerlink.fbreader.ReadingProgressSource
+import io.github.bookshelf.core.readerlink.progress.ProgressBookRef
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
+import io.github.bookshelf.core.readerlink.progress.ReaderBookAddress
+import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
+import io.github.bookshelf.core.readerlink.progress.ReadingProgressSources
+import io.github.bookshelf.core.readerlink.progress.progressSourceOf
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -23,10 +32,13 @@ import javax.inject.Inject
  */
 sealed interface ProgressSyncOutcome {
 
-    /** Синхронизация выключена в настройках: читалку не спрашивали вовсе. */
+    /** Синхронизация выключена в настройках: читалки не спрашивали вовсе. */
     data object Disabled : ProgressSyncOutcome
 
-    /** Читалки нет, её API недоступен или сервис не ответил. */
+    /**
+     * Спросить было некого: источника для открытой читалки нет, либо читалка недоступна
+     * (API не отвечает, источник не открылся).
+     */
     data object ReaderUnavailable : ProgressSyncOutcome
 
     /** В читалке ничего не открыто либо она не отдала позицию. */
@@ -45,26 +57,36 @@ sealed interface ProgressSyncOutcome {
 }
 
 /**
- * Синхронизация прогресса чтения из читалки.
+ * Синхронизация прогресса чтения из читалок.
  *
- * Читалка отдаёт данные **текущей открытой** книги, а не «прогресс по книге» (спайк 29.09.2026),
- * поэтому сценарий работает так: спросить, что открыто → посчитать процент → найти эту книгу в
- * библиотеке по адресу документа → записать прогресс.
+ * Работает поверх реестра источников (`ReadingProgressSources`): у каждой читалки свой способ хранить
+ * прогресс, но для сценария она — источник с одинаковым контрактом. Объём работы ограничен явно
+ * (требование Александра, 05.10.2026): разбирать состояние всех читалок по всей библиотеке нельзя —
+ * слабое e-ink-устройство от этого подвешивается.
  *
- * Порядок важен и проверяется тестами:
- * 1. выключенную настройку проверяем ДО обращения к читалке — иначе мы будили бы чужой сервис без
- *    надобности (и это было бы видно пользователю как «кто-то дёргает читалку»);
- * 2. сессию связи закрываем всегда — даже если чтение упало;
- * 3. чужая книга и книга не из библиотеки не трогают прогресс: записать чужой процент хуже, чем не
- *    записать ничего.
+ * Два режима, и они не смешиваются:
+ * 1. **Идёт чтение** (`ReaderSession.active()`): спрашиваем **только ту читалку**, которой открыта
+ *    книга. Книга тоже известна — она записана в сессии. Остальные хранилища в это время не
+ *    читаются вовсе.
+ * 2. **Чтения нет**: у читалок с API спрашиваем «что открыто» (FBReader сам это знает), а файловые
+ *    источники читаются **по книгам, выбранным для чтения** — порциями и с уступкой сессии, если
+ *    человек вернулся к чтению посреди прохода.
+ *
+ * Почему порядок действий именно такой и почему это проверяется тестами:
+ * * выключенный источник не трогаем вовсе — иначе мы читали бы чужие файлы и будили чужой сервис
+ *   без разрешения;
+ * * привязку к сервису закрывает сам источник, и закрывает её **всегда** — даже если чтение упало;
+ * * чужая книга и книга не из библиотеки не трогают прогресс: записать чужой процент хуже, чем не
+ *   записать ничего.
  */
 class SyncReadingProgress @Inject constructor(
     /** Журнал: причина «книга не найдена по адресу читалки» нужна для разбора на устройстве. */
     private val logger: AppLogger,
-    private val api: FbReaderApi,
-    private val progressSource: ReadingProgressSource,
+    private val sources: ReadingProgressSources,
     private val books: BookRepository,
     private val settings: SettingsRepository,
+    /** Что читается сейчас: во время чтения спрашиваем только открытую читалку. */
+    private val session: ReaderSession,
     /**
      * Связи «файл-копия → книга».
      *
@@ -75,60 +97,143 @@ class SyncReadingProgress @Inject constructor(
     private val copies: BookCopyDao,
 ) {
 
-    /** Прочитать прогресс открытой книги и сохранить его. Исключений наружу не выходит. */
+    /** Прочитать прогресс и сохранить его. Исключений наружу не выходит. */
     suspend fun syncNow(): AppResult<ProgressSyncOutcome> = appRunCatching {
-        if (!settings.current().reader.enableFbReaderProgress) {
-            return@appRunCatching ProgressSyncOutcome.Disabled
-        }
-        if (!api.connect()) {
-            return@appRunCatching ProgressSyncOutcome.ReaderUnavailable
-        }
-        try {
-            val open = api.currentBook() ?: return@appRunCatching ProgressSyncOutcome.NoBookOpen
-            val snapshot = progressSource.progressFor(open.path).getOrNull()
-                ?: return@appRunCatching ProgressSyncOutcome.NoBookOpen
-            // Сначала как есть: для книги без архива читалка отдаёт ровно наш адрес. Затем —
-            // приведённый вид: книгу в архиве она называет адресом внутри архива (`zip-entry://`),
-            // и по такому адресу книга раньше не находилась вовсе (`BookUnknown`).
-            val book = books.findByDocumentUri(open.path).getOrNull()
-                ?: books.findByDocumentUri(ReaderBookPath.toDocumentUri(open.path)).getOrNull()
-                ?: originalOfCopy(open.path)
-                ?: run {
-                    // Адрес читалки в журнале обязателен: без него непонятно, почему книга не нашлась
-                    // (адрес копии, другое кодирование), и это не отлаживается снаружи.
-                    logger.w(APP_LOG_TAG, "прогресс: книга не найдена по адресу читалки: ${open.path}")
-                    return@appRunCatching ProgressSyncOutcome.BookUnknown
-                }
-            books.saveReadingProgress(
-                bookId = book.id,
-                // Читалка говорит процентами, таблица хранит долю.
-                percent = snapshot.percent / PERCENT,
-                locatorJson = snapshot.locatorJson,
-                source = ReadingProgressOrigins.FBREADER_AIDL,
-            )
-            markAsReadingIfFresh(book)
-            ProgressSyncOutcome.Saved(bookId = book.id, percentPercent = snapshot.percent)
+        val enabled = settings.current().reader.enabledProgressSources()
+        if (enabled.isEmpty()) return@appRunCatching ProgressSyncOutcome.Disabled
+        val reading = session.active()
+        val pass = passFor(reading, enabled)
+        // Пустой проход означает «источника для открытой читалки нет»: спрашивать всех остальных
+        // в этот момент запрещено — на этом и стоит правило нагрузки.
+        if (pass.isEmpty()) return@appRunCatching ProgressSyncOutcome.ReaderUnavailable
+        summarizeSyncOutcomes(pass.map { readFrom(it, reading) })
+    }
+
+    /** Кого спрашивать: во время чтения — только открытую читалку, иначе всех включённых. */
+    private fun passFor(
+        reading: ActiveReading?,
+        enabled: Set<ProgressSourceId>,
+    ): List<ReadingProgressSource> {
+        if (reading == null) return sources.forPass(activeSourceId = null).filter { it.id in enabled }
+        val active = reading.readerProfileId?.let { progressSourceOf(it) } ?: return emptyList()
+        return sources.forPass(activeSourceId = active).filter { it.id in enabled }
+    }
+
+    private suspend fun readFrom(
+        source: ReadingProgressSource,
+        reading: ActiveReading?,
+    ): ProgressSyncOutcome = when {
+        // Читалка сама знает, что открыто, — её и спрашиваем: во время чтения это ещё и
+        // единственный корректный способ для копий и архивов.
+        source.knowsOpenBook -> readOpenBook(source)
+        // Файловый источник: во время чтения книга известна из сессии.
+        reading != null -> readBook(source, reading.bookId)
+        else -> readSelectedBooks(source)
+    }
+
+    /** Проход «что открыто»: адрес называет читалка, книгу находим в библиотеке. */
+    private suspend fun readOpenBook(source: ReadingProgressSource): ProgressSyncOutcome {
+        if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
+        return try {
+            val address = source.openedBook() ?: return ProgressSyncOutcome.NoBookOpen
+            val book = findBook(address) ?: return unknownBook(source, address)
+            saveFrom(source, book, address.documentUri)
         } finally {
-            api.disconnect()
+            source.disconnect()
+        }
+    }
+
+    /** Проход по одной книге: её называет сессия чтения (или фоновая работа по выбранным книгам). */
+    private suspend fun readBook(source: ReadingProgressSource, bookId: String): ProgressSyncOutcome {
+        if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
+        return try {
+            val book = books.getById(bookId).getOrNull() ?: return ProgressSyncOutcome.BookUnknown
+            saveFrom(source, book, book.documentUri)
+        } finally {
+            source.disconnect()
         }
     }
 
     /**
-     * Отметить книгу как читаемую, если статус ещё не выставлен.
+     * Проход по книгам, выбранным для чтения.
      *
-     * Полка показывает процент только у книги со статусом «читаю» (`ReadingStatus.badge`), поэтому
-     * без этой отметки синхронизация была бы невидимой: данные записаны, а на экране ничего.
-     *
-     * Уже выставленный статус не трогаем: «прочитано» синхронизация сбрасывать не должна — человек
-     * мог открыть законченную книгу, чтобы перечитать главу.
+     * Порциями ([BATCH_SIZE]) с паузой между ними и с проверкой сессии перед каждой книгой: если
+     * человек вернулся к чтению, проход останавливается на месте, а не догоняет его нагрузкой.
+     * Ограничение [SELECTED_LIMIT] — на случай, когда «читаю» стоит у половины библиотеки: один
+     * проход всё равно не должен превращаться в полный обход.
      */
+    private suspend fun readSelectedBooks(source: ReadingProgressSource): ProgressSyncOutcome {
+        if (!source.connect()) return ProgressSyncOutcome.ReaderUnavailable
+        return try {
+            val selected = selectedBooks()
+            var outcome: ProgressSyncOutcome = ProgressSyncOutcome.NoBookOpen
+            for ((index, book) in selected.withIndex()) {
+                if (session.isActive()) break
+                val read = saveFrom(source, book, book.documentUri)
+                if (read is ProgressSyncOutcome.Saved && outcome !is ProgressSyncOutcome.Saved) outcome = read
+                if ((index + 1) % BATCH_SIZE == 0 && index + 1 < selected.size) delay(BATCH_PAUSE_MILLIS)
+            }
+            outcome
+        } finally {
+            source.disconnect()
+        }
+    }
+
+    /** Прочитать прогресс книги и записать его; наружу — исход, а не исключение. */
+    private suspend fun saveFrom(
+        source: ReadingProgressSource,
+        book: Book,
+        readerAddress: String,
+    ): ProgressSyncOutcome {
+        val snapshot = source.progressFor(book.toRef(readerAddress)).getOrNull()
+            ?: return ProgressSyncOutcome.NoBookOpen
+        books.saveReadingProgress(
+            bookId = book.id,
+            // Читалка говорит процентами, таблица хранит долю.
+            percent = snapshot.percent / PERCENT,
+            locatorJson = snapshot.locatorJson,
+            source = source.id.storageKey,
+        )
+        markAsReadingIfFresh(book)
+        return ProgressSyncOutcome.Saved(bookId = book.id, percentPercent = snapshot.percent)
+    }
+
+    /** Книги, выбранные для чтения: по ним работает файловый источник вне сессии. */
+    private suspend fun selectedBooks(): List<Book> = books.observePage(
+        LibraryQuery(
+            bookQuery = BookQuery(statuses = setOf(ReadingStatus.READING)),
+            pageSize = SELECTED_LIMIT,
+        ),
+    ).first().items
+
+    private fun unknownBook(source: ReadingProgressSource, address: ReaderBookAddress): ProgressSyncOutcome {
+        // Адрес читалки в журнале обязателен: без него непонятно, почему книга не нашлась
+        // (адрес копии, другое кодирование), и это не отлаживается снаружи.
+        logger.w(
+            APP_LOG_TAG,
+            "прогресс ${source.id.storageKey}: книга не найдена по адресу ${address.documentUri}",
+        )
+        return ProgressSyncOutcome.BookUnknown
+    }
+
+    /**
+     * Найти нашу книгу по тому, как её назвала читалка.
+     *
+     * Порядок попыток: адрес как есть (обычный случай — читалка отдаёт ровно наш `content://`), затем
+     * приведённый вид (книга в архиве: читалка называет адрес внутри `zip-entry://`), затем связь
+     * копии (читалка читает свою копию внутри библиотеки).
+     */
+    private suspend fun findBook(address: ReaderBookAddress): Book? =
+        books.findByDocumentUri(address.documentUri).getOrNull()
+            ?: books.findByDocumentUri(ReaderBookPath.toDocumentUri(address.documentUri)).getOrNull()
+            ?: originalOfCopy(address.documentUri)
+
     /**
      * Книга, копией которой является адрес читалки.
      *
      * Читалка читает свою копию и называет книгу её адресом: у копии строки в `books` нет — она
      * живёт связью в `book_copies`, — поэтому по адресу копии находится оригинал, и прогресс
-     * записывается ему. Адрес проверяется в том же порядке, что и для книг: как есть, затем в
-     * приведённом виде (читалка может назвать файл внутри архива).
+     * записывается ему.
      */
     private suspend fun originalOfCopy(path: String): Book? {
         val copy = copies.findByUri(path)
@@ -142,7 +247,31 @@ class SyncReadingProgress @Inject constructor(
         books.markRead(book.id, ReadingStatus.READING)
     }
 
+    /**
+     * Книга для источника: наши поля плюс адрес, которым её назвала читалка.
+     *
+     * Имя файла берём из относительного пути, а если его нет — из названия книги: у читалок, которые
+     * знают только имя файла, другого ключа не будет.
+     */
+    private fun Book.toRef(readerAddress: String) = ProgressBookRef(
+        bookId = id,
+        documentUri = documentUri,
+        readerAddress = readerAddress,
+        fileName = relativePath.substringAfterLast('/').ifEmpty { title },
+        relativePath = relativePath,
+        sizeBytes = sizeBytes,
+        librarySourceId = sourceId,
+    )
+
     private companion object {
         const val PERCENT = 100f
+
+        /** Сколько книг, выбранных для чтения, разбирает один проход. */
+        const val SELECTED_LIMIT = 50
+
+        /** Размер порции: между порциями делаем паузу, чтобы не грузить устройство подряд. */
+        const val BATCH_SIZE = 10
+
+        const val BATCH_PAUSE_MILLIS = 100L
     }
 }

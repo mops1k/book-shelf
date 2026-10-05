@@ -81,6 +81,7 @@ internal object SettingsCodec {
             target[SettingsKeys.DEFAULT_READER_BY_FORMAT] = json.encodeToString(defaultReaderByFormat)
             target[SettingsKeys.LAST_USED_READER_BY_FORMAT] = json.encodeToString(lastUsedReaderByFormat)
             target[SettingsKeys.ENABLE_FBREADER_PROGRESS] = enableFbReaderProgress
+            target[SettingsKeys.ENABLE_KOREADER_PROGRESS] = enableKoReaderProgress
             target[SettingsKeys.TEMP_EXPORT_ENABLED] = tempExportEnabled
             target[SettingsKeys.PROGRESS_SYNC_INTERVAL_MINUTES] = progressSyncIntervalMinutes
         }
@@ -193,6 +194,8 @@ internal object SettingsCodec {
         lastUsedReaderByFormat = decodeFormatMap(preferences[SettingsKeys.LAST_USED_READER_BY_FORMAT]),
         enableFbReaderProgress = preferences[SettingsKeys.ENABLE_FBREADER_PROGRESS]
             ?: SettingsKeys.Defaults.ENABLE_FBREADER_PROGRESS,
+        enableKoReaderProgress = preferences[SettingsKeys.ENABLE_KOREADER_PROGRESS]
+            ?: SettingsKeys.Defaults.ENABLE_KOREADER_PROGRESS,
         tempExportEnabled = preferences[SettingsKeys.TEMP_EXPORT_ENABLED]
             ?: SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
         progressSyncIntervalMinutes = positiveIntOrDefault(

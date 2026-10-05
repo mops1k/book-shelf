@@ -151,7 +151,7 @@ class ReaderRepositoryImpl @Inject constructor(
         val direct = launcher.launch(request)
         // Отказ читалки — не тупик: есть один запасной ход, временная копия файла.
         if (direct.isSuccess) {
-            markOpened(book.id)
+            markOpened(book.id, profile.id)
             return direct
         }
         return launchExportedCopy(book.id, book.documentUri, request)
@@ -182,7 +182,7 @@ class ReaderRepositoryImpl @Inject constructor(
         val launched = launcher.launch(request.copy(documentUri = exportedUri))
         // Отмечаем только по факту запуска: читалка, которая не открылась, чтением не стала,
         // и запрещать фоновую работу после отказа было бы вредно.
-        if (launched.isSuccess) markOpened(bookId)
+        if (launched.isSuccess) markOpened(bookId, request.profile.id)
         return launched
     }
 
@@ -202,7 +202,7 @@ class ReaderRepositoryImpl @Inject constructor(
      * существующим `update`, а не заводим третий метод на два поля (порог detekt по числу функций
      * в `BookDao` уже на пределе).
      */
-    private suspend fun markOpened(bookId: String) {
+    private suspend fun markOpened(bookId: String, readerProfileId: String) {
         val current = bookDao.getById(bookId) ?: return
         bookDao.update(
             current.copy(
@@ -215,7 +215,8 @@ class ReaderRepositoryImpl @Inject constructor(
             ),
         )
         // Сессия чтения — та же причина: пока читалка открыта, тяжёлые работы уступают ей дорогу.
-        session.markOpened(bookId)
+        // Профиль читалки нужен синхронизации прогресса: во время чтения спрашивают только её.
+        session.markOpened(bookId, readerProfileId)
     }
 
     /**

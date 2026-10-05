@@ -1,5 +1,6 @@
 package io.github.bookshelf.core.testing.fake
 
+import io.github.bookshelf.core.common.reader.ActiveReading
 import io.github.bookshelf.core.common.reader.ReaderSession
 
 /**
@@ -25,9 +26,19 @@ class FakeReaderSession : ReaderSession {
     var appForeground: Boolean = false
         private set
 
-    override fun markOpened(bookId: String) {
+    override fun markOpened(bookId: String, readerProfileId: String?) {
         opened += bookId
+        openedProfileId = readerProfileId
         active = true
+    }
+
+    /** Профиль читалки последней отметки: по нему синхронизация выбирает источник прогресса. */
+    var openedProfileId: String? = null
+
+    override fun active(): ActiveReading? = if (isActive()) {
+        ActiveReading(bookId = opened.lastOrNull().orEmpty(), readerProfileId = openedProfileId)
+    } else {
+        null
     }
 
     override fun isActive(): Boolean = active && !appForeground

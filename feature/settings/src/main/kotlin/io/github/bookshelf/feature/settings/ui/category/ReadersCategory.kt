@@ -208,13 +208,14 @@ private fun ReaderIcon(packageName: String) {
 }
 
 /**
- * Блок «Прогресс чтения»: синхронизация с читалкой и её интервал.
+ * Блок «Прогресс чтения»: по переключателю на читалку и общий интервал.
  *
- * Переключатель показывается только вместе с механизмом, который за ним стоит: прогресс читается из
- * API-сервиса FBReader, а расписание ставит цепочка фоновых работ (`ReadingProgressSyncWorker`).
- * Варианты интервала берутся из `ProgressSyncInterval` — то есть ровно те, что допускает
- * планировщик; интервал показывается только при включённой синхронизации, иначе он ни на что не
- * влияет.
+ * Каждая интеграция включается отдельно, потому что условия у них разные: FBReader отдаёт позицию
+ * через свой сервис, пока читалка жива, KOReader — файлом рядом с книгой (доступ ко всей памяти не
+ * нужен), а читалкам на общей памяти (CoolReader, PocketBook, Librera, XReader) он понадобится.
+ * Расписание одно на всех: цепочку фоновых работ ставит `ReadingProgressSyncWorker`, и варианты
+ * интервала берутся из `ProgressSyncInterval` — ровно те, что допускает планировщик. Интервал
+ * показывается, когда включён хотя бы один источник: иначе он ни на что не влияет.
  */
 private fun LazyListScope.progressItems(
     state: SettingsUiState,
@@ -230,6 +231,16 @@ private fun LazyListScope.progressItems(
             enabled = state.settings.isFbReaderProgressEnabled,
             onToggle = { enabled ->
                 viewModel.onReaderProgress(ReaderProgressAction.SetEnabled(enabled))
+            },
+        )
+    }
+    item(key = "progress-koreader") {
+        ToggleRow(
+            title = stringResource(R.string.settings_readers_koreader),
+            subtitle = stringResource(R.string.settings_readers_koreader_hint),
+            enabled = state.settings.isKoReaderProgressEnabled,
+            onToggle = { enabled ->
+                viewModel.onReaderProgress(ReaderProgressAction.SetKoReaderEnabled(enabled))
             },
         )
     }
@@ -254,18 +265,32 @@ private fun LazyListScope.progressItems(
             onClick = { viewModel.onReaderProgress(ReaderProgressAction.CheckApi) },
         )
     }
-    if (state.settings.isFbReaderProgressEnabled) {
-        item(key = "progress-interval") {
-            ValueChoiceRow(
-                title = stringResource(R.string.settings_readers_interval),
-                options = ProgressSyncInterval.CHOICES_MINUTES,
-                selected = state.settings.progressSyncIntervalMinutes,
-                labelRes = { R.string.settings_reader_interval_minutes },
-                onPick = { minutes ->
-                    viewModel.onReaderProgress(ReaderProgressAction.SetInterval(minutes))
-                },
-                subtitle = stringResource(R.string.settings_readers_interval_hint),
-            )
-        }
+    readerProgressInterval(state = state, viewModel = viewModel)
+}
+
+/**
+ * Интервал опроса — отдельным блоком.
+ *
+ * Вынесено из [progressItems] не ради красоты: функция списка уже на пределе длины, а интервал —
+ * самостоятельная часть (он показывается только при включённом источнике и меняет расписание).
+ */
+private fun LazyListScope.readerProgressInterval(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    // Интервал один на все читалки: цепочка фоновых работ общая, поэтому показываем её, когда
+    // включён хотя бы один источник — иначе при включённом KOReader настройка была бы спрятана.
+    if (!state.settings.isFbReaderProgressEnabled && !state.settings.isKoReaderProgressEnabled) return
+    item(key = "progress-interval") {
+        ValueChoiceRow(
+            title = stringResource(R.string.settings_readers_interval),
+            options = ProgressSyncInterval.CHOICES_MINUTES,
+            selected = state.settings.progressSyncIntervalMinutes,
+            labelRes = { R.string.settings_reader_interval_minutes },
+            onPick = { minutes ->
+                viewModel.onReaderProgress(ReaderProgressAction.SetInterval(minutes))
+            },
+            subtitle = stringResource(R.string.settings_readers_interval_hint),
+        )
     }
 }

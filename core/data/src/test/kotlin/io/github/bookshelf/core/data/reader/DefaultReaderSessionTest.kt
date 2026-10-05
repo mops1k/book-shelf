@@ -3,6 +3,7 @@ package io.github.bookshelf.core.data.reader
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.github.bookshelf.core.common.reader.ActiveReading
 import io.github.bookshelf.core.common.testing.FakeAppClock
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -102,7 +103,32 @@ class DefaultReaderSessionTest {
         assertThat(session.isActive()).isFalse()
     }
 
+    @Test
+    fun `the reader that opened the book is remembered`() = runTest {
+        session.onAppBackground()
+
+        session.markOpened(BOOK_ID, readerProfileId = PROFILE_ID)
+
+        // Пока идёт чтение, спрашивать разрешено только эту читалку (требование Александра,
+        // 05.10.2026), поэтому её профиль обязан переживать и перезапуск приложения.
+        assertThat(session.active())
+            .isEqualTo(ActiveReading(bookId = BOOK_ID, readerProfileId = PROFILE_ID))
+    }
+
+    @Test
+    fun `a book opened without a profile still makes the session active`() = runTest {
+        session.onAppBackground()
+
+        // Старый путь открытия (без профиля) не должен ломать сессию: профиль — уточнение, а не
+        // условие.
+        session.markOpened(BOOK_ID)
+
+        assertThat(session.active()?.bookId).isEqualTo(BOOK_ID)
+        assertThat(session.active()?.readerProfileId).isNull()
+    }
+
     private companion object {
         const val BOOK_ID = "doc:0123456789abcdef"
+        const val PROFILE_ID = "koreader"
     }
 }

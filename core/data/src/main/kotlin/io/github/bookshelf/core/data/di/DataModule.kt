@@ -33,6 +33,8 @@ import io.github.bookshelf.core.data.metadata.DefaultBookMetadataEditor
 import io.github.bookshelf.core.data.export.DefaultReaderExport
 import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
+import io.github.bookshelf.core.data.reader.BookSidecarFileReader
+import io.github.bookshelf.core.readerlink.progress.ProgressFileReader
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
 import io.github.bookshelf.core.fb2opt.Fb2Optimizer
 import io.github.bookshelf.core.data.repository.impl.ReaderProfileRepositoryImpl
@@ -102,6 +104,18 @@ abstract class DataModule {
     abstract fun bindReaderExport(
         impl: DefaultReaderExport,
     ): ReaderExport
+
+    /**
+     * Чтение файла рядом с книгой (sidecar читалок).
+     *
+     * Привязка здесь, а не в `:core:readerlink`: реализация работает с SAF и файловой системой, о
+     * которых модуль читалок не знает, а сам порт читалкам нужен. Так знание о хранилище остаётся
+     * в слое данных, а адаптеры читалок — в модуле читалок.
+     */
+    @Binds
+    abstract fun bindProgressFileReader(
+        impl: BookSidecarFileReader,
+    ): ProgressFileReader
 
     /**
      * Сессия чтения: пока читалка открыта, тяжёлые работы уступают (иначе её главный поток встаёт

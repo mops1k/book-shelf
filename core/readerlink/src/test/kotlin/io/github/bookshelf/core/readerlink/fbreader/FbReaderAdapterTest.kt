@@ -6,6 +6,9 @@ import io.github.bookshelf.core.common.error.AppResult
 import io.github.bookshelf.core.common.error.errorOrNull
 import io.github.bookshelf.core.common.error.getOrNull
 import io.github.bookshelf.core.common.error.isFailure
+import io.github.bookshelf.core.readerlink.progress.ProgressBookRef
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
+import io.github.bookshelf.core.readerlink.progress.ReaderBookAddress
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
@@ -20,6 +23,10 @@ import org.junit.Test
  * как «книга прочитана на 0 %», хотя человек читает её неделю, либо как «прочитано 100 %» после
  * первой страницы. Поэтому отдельно проверяются границы (0 %, больше 100 %), отсутствие книги и
  * неизвестное число абзацев — последнее нельзя показывать как 0 %.
+ *
+ * Отдельно проверяется, что источник ведёт себя как источник: он представляется своим каналом
+ * (`ProgressSourceId.FBREADER_AIDL`), сам открывает и закрывает привязку к сервису и умеет назвать
+ * книгу, открытую в читалке прямо сейчас, — на этом держится единый сценарий синхронизации.
  */
 class FbReaderAdapterTest {
 
@@ -30,7 +37,7 @@ class FbReaderAdapterTest {
             position = position(paragraph = 503, paragraphs = 2012),
         )
 
-        val snapshot = source.progressFor(BOOK_PATH).getOrNull()
+        val snapshot = source.progressFor(ourBook()).getOrNull()
 
         // 503 из 2012 — ровно четверть книги.
         assertThat(snapshot?.percent).isWithin(0.01f).of(25f)
@@ -44,7 +51,7 @@ class FbReaderAdapterTest {
             position = position(paragraph = 0, paragraphs = 2012),
         )
 
-        assertThat(source.progressFor(BOOK_PATH).getOrNull()?.percent).isWithin(0.01f).of(0f)
+        assertThat(source.progressFor(ourBook()).getOrNull()?.percent).isWithin(0.01f).of(0f)
     }
 
     @Test
@@ -56,7 +63,7 @@ class FbReaderAdapterTest {
             position = position(paragraph = 2100, paragraphs = 2012),
         )
 
-        assertThat(source.progressFor(BOOK_PATH).getOrNull()?.percent).isWithin(0.01f).of(100f)
+        assertThat(source.progressFor(ourBook()).getOrNull()?.percent).isWithin(0.01f).of(100f)
     }
 
     @Test
@@ -66,7 +73,7 @@ class FbReaderAdapterTest {
             position = position(paragraph = 100, paragraphs = 200),
         )
 
-        val result = source.progressFor(BOOK_PATH)
+        val result = source.progressFor(ourBook())
 
         // Открыта чужая книга — это не прогресс нашей: запись не должна получить чужой процент.
         assertThat(result.isFailure).isTrue()
@@ -77,7 +84,7 @@ class FbReaderAdapterTest {
     fun `no book open is not our progress`() = runBlocking {
         val source = adapter(book = null, position = position(paragraph = 10, paragraphs = 100))
 
-        assertThat(source.progressFor(BOOK_PATH).isFailure).isTrue()
+        assertThat(source.progressFor(ourBook()).isFailure).isTrue()
     }
 
     @Test
@@ -89,14 +96,47 @@ class FbReaderAdapterTest {
             position = position(paragraph = 5, paragraphs = 0),
         )
 
-        assertThat(source.progressFor(BOOK_PATH).isFailure).isTrue()
+        assertThat(source.progressFor(ourBook()).isFailure).isTrue()
     }
 
     @Test
     fun `missing position gives no progress`() = runBlocking {
         val source = adapter(book = openBook(path = BOOK_PATH), position = null)
 
-        assertThat(source.progressFor(BOOK_PATH).isFailure).isTrue()
+        assertThat(source.progressFor(ourBook()).isFailure).isTrue()
+    }
+
+    @Test
+    fun `the source names itself as the fbReader channel`() {
+        // По этому ключу прогресс попадает в базу (`reading_progress.source`) и в диагностику.
+        assertThat(adapter(book = null, position = null).id)
+            .isEqualTo(ProgressSourceId.FBREADER_AIDL)
+    }
+
+    @Test
+    fun `the source says which book the reader has open`() = runBlocking {
+        val source = adapter(book = openBook(path = BOOK_PATH), position = null)
+
+        // Именно так единый сценарий узнаёт, о какой книге спрашивать читалку: адрес тот же,
+        // которым мы её отдали.
+        assertThat(source.openedBook()).isEqualTo(ReaderBookAddress(documentUri = BOOK_PATH))
+    }
+
+    @Test
+    fun `nothing open means no address`() = runBlocking {
+        assertThat(adapter(book = null, position = null).openedBook()).isNull()
+    }
+
+    @Test
+    fun `connection is delegated to the reader`() = runBlocking {
+        val api = FakeFbReaderApi(book = null, position = null)
+        val source = FbReaderAdapter(api)
+
+        assertThat(source.connect()).isTrue()
+        source.disconnect()
+
+        // Привязку к чужому сервису держит источник, а не сценарий: иначе её легко забыть закрыть.
+        assertThat(api.isAvailable()).isFalse()
     }
 
     private fun adapter(book: FbReaderOpenBook?, position: FbReaderReadingPosition?) =
@@ -108,6 +148,17 @@ class FbReaderAdapterTest {
         paragraphIndex = paragraph,
         elementIndex = 0,
         paragraphsNumber = paragraphs,
+    )
+
+    /** Наша книга так, как её видит источник: адрес документа и подсказки для опознания. */
+    private fun ourBook() = ProgressBookRef(
+        bookId = "book-1",
+        documentUri = BOOK_PATH,
+        readerAddress = BOOK_PATH,
+        fileName = "book.fb2",
+        relativePath = "Автор/book.fb2",
+        sizeBytes = 1_000L,
+        librarySourceId = "source-1",
     )
 
     /** Свой фейк: `FbReaderApi` — интерфейс проекта, `mockk` по своим типам запрещён (ADR-012). */

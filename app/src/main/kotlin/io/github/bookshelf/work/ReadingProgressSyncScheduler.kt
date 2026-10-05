@@ -6,6 +6,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.bookshelf.core.data.sync.ProgressSyncSchedule
+import io.github.bookshelf.core.data.sync.isProgressSyncEnabled
 import io.github.bookshelf.core.datastore.ProgressSyncInterval
 import io.github.bookshelf.core.datastore.SettingsRepository
 import java.util.concurrent.TimeUnit
@@ -38,14 +39,10 @@ class ReadingProgressSyncScheduler @Inject constructor(
      * срабатывание продолжит себя обычным путём.
      */
     override suspend fun review() {
-        val readerSettings = settings.current().reader
-        if (!readerSettings.enableFbReaderProgress) {
+        val minutes = minutesOrNull() ?: run {
             cancel()
             return
         }
-        val minutes = ProgressSyncInterval
-            .minutesOrDefault(readerSettings.progressSyncIntervalMinutes)
-            .toLong()
         val request = OneTimeWorkRequestBuilder<ReadingProgressSyncWorker>()
             .setInitialDelay(minutes, TimeUnit.MINUTES)
             .addTag(ReadingProgressSyncWorker.WORK_TAG)
@@ -64,14 +61,10 @@ class ReadingProgressSyncScheduler @Inject constructor(
      * запланированное срабатывание разбудило бы читалку после того, как человек это запретил.
      */
     suspend fun scheduleNext() {
-        val readerSettings = settings.current().reader
-        if (!readerSettings.enableFbReaderProgress) {
+        val minutes = minutesOrNull() ?: run {
             cancel()
             return
         }
-        val minutes = ProgressSyncInterval
-            .minutesOrDefault(readerSettings.progressSyncIntervalMinutes)
-            .toLong()
         val request = OneTimeWorkRequestBuilder<ReadingProgressSyncWorker>()
             .setInitialDelay(minutes, TimeUnit.MINUTES)
             .addTag(ReadingProgressSyncWorker.WORK_TAG)
@@ -90,14 +83,10 @@ class ReadingProgressSyncScheduler @Inject constructor(
      * работа не сбивается с ритма.
      */
     suspend fun startIfEnabled() {
-        val readerSettings = settings.current().reader
-        if (!readerSettings.enableFbReaderProgress) {
+        val minutes = minutesOrNull() ?: run {
             cancel()
             return
         }
-        val minutes = ProgressSyncInterval
-            .minutesOrDefault(readerSettings.progressSyncIntervalMinutes)
-            .toLong()
         val request = OneTimeWorkRequestBuilder<ReadingProgressSyncWorker>()
             .setInitialDelay(minutes, TimeUnit.MINUTES)
             .addTag(ReadingProgressSyncWorker.WORK_TAG)
@@ -107,6 +96,21 @@ class ReadingProgressSyncScheduler @Inject constructor(
             ExistingWorkPolicy.KEEP,
             request,
         )
+    }
+
+    /**
+     * Интервал опроса или `null`, если синхронизировать не с чем.
+     *
+     * Проверка одна на все три входа (пересмотр, продолжение цепочки, первый запуск): раньше она
+     * была скопирована трижды и смотрела только на флаг FBReader — с появлением второго источника
+     * копию пришлось бы править в трёх местах, а забытая копия молча выключила бы синхронизацию.
+     */
+    private suspend fun minutesOrNull(): Long? {
+        val readerSettings = settings.current().reader
+        if (!readerSettings.isProgressSyncEnabled()) return null
+        return ProgressSyncInterval
+            .minutesOrDefault(readerSettings.progressSyncIntervalMinutes)
+            .toLong()
     }
 
     /** Забыть цепочку: вызывается при выключении синхронизации. */

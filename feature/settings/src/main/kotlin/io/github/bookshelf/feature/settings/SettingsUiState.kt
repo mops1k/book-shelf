@@ -235,6 +235,8 @@ data class AppSettingsUi(
     val coverCacheLimitMb: Int = 200,
     /** Синхронизация прогресса чтения с читалкой (FBReader): по умолчанию выключена. */
     val isFbReaderProgressEnabled: Boolean = false,
+    /** Прогресс из KOReader: sidecar-файл рядом с книгой; по умолчанию выключен. */
+    val isKoReaderProgressEnabled: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */

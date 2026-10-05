@@ -1,33 +1,5 @@
 package io.github.bookshelf.core.readerlink.fbreader
 
-import io.github.bookshelf.core.common.error.AppResult
-
-/**
- * Доменный источник прогресса чтения по адресу книги.
- *
- * Живёт в модуле читалок, потому что других источников прогресса в v1.0 нет; при появлении
- * встроенной читалки (Phase 4) интерфейс станет общей точкой для нескольких реализаций.
- */
-interface ReadingProgressSource {
-
-    /** Прогресс книги по её реальному пути; `AppResult.Failure`, если книга не найдена. */
-    suspend fun progressFor(filePath: String): AppResult<ReadingProgressSnapshot>
-}
-
-/**
- * Снимок прогресса чтения.
- *
- * @param percent прогресс в процентах, 0f..100f.
- * @param pageIndex номер абзаца, если источник его отдаёт.
- * @param locatorJson точная позиция строкой, если источник её отдаёт; формат определяет адаптер,
- *   доменный слой её не разбирает.
- */
-data class ReadingProgressSnapshot(
-    val percent: Float,
-    val pageIndex: Int?,
-    val locatorJson: String?,
-)
-
 /**
  * Связь с API-сервисом FBReader (уровень L2) — «что открыто в читалке прямо сейчас».
  *

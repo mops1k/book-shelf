@@ -213,6 +213,17 @@ class SettingsViewModel @Inject constructor(
                 }
             }
 
+            is ReaderProgressAction.SetKoReaderEnabled -> {
+                updateSettings(
+                    settingsRepository,
+                    _uiState,
+                    viewModelScope,
+                    afterWrite = { progressSchedule.review() },
+                ) { settings ->
+                    settings.copy(reader = settings.reader.copy(enableKoReaderProgress = action.enabled))
+                }
+            }
+
             ReaderProgressAction.CheckApi -> viewModelScope.launch {
                 _uiState.update { it.copy(isCheckingReaderApi = true) }
                 val available = fbReaderApi.connect()
@@ -636,6 +647,7 @@ private inline fun <reified T : Enum<T>> parseEnum(
 
 private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = copy(
     isFbReaderProgressEnabled = settings.reader.enableFbReaderProgress,
+    isKoReaderProgressEnabled = settings.reader.enableKoReaderProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
@@ -940,6 +952,15 @@ private fun ReaderItemUi.withDefaultFlag(defaultReaderIds: Set<String>): ReaderI
 sealed interface ReaderProgressAction {
 
     data class SetEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    /**
+     * Включить или выключить прогресс из KOReader (sidecar-файл рядом с книгой).
+     *
+     * Отдельное действие, а не общий «включить прогресс»: у читалок разные условия — KOReader читает
+     * файл внутри папки библиотеки, а источникам на общей памяти (CoolReader, PocketBook, Librera,
+     * XReader) нужен доступ ко всей памяти. Человек должен решать по каждой читалке.
+     */
+    data class SetKoReaderEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
 

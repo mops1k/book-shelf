@@ -282,6 +282,19 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `koReader progress switch is written and reschedules the chain`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onReaderProgress(ReaderProgressAction.SetKoReaderEnabled(true))
+        advanceUntilIdle()
+
+        assertThat(settings.last().reader.enableKoReaderProgress).isTrue()
+        // Расписание одно на все читалки: включение второй интеграции пересматривает ту же цепочку,
+        // иначе прогресс из KOReader читался бы только после перезапуска приложения.
+        assertThat(schedule.reviews).isEqualTo(1)
+    }
+
+    @Test
     fun `temp export switch is written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 

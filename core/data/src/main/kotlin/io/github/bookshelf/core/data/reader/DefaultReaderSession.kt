@@ -3,6 +3,7 @@ package io.github.bookshelf.core.data.reader
 import android.content.Context
 import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.bookshelf.core.common.reader.ActiveReading
 import io.github.bookshelf.core.common.reader.ReaderSession
 import io.github.bookshelf.core.common.time.AppClock
 import java.util.concurrent.atomic.AtomicBoolean
@@ -40,27 +41,42 @@ class DefaultReaderSession @Inject constructor(
      */
     private val appInForeground = AtomicBoolean(false)
 
-    override fun markOpened(bookId: String) {
+    override fun markOpened(bookId: String, readerProfileId: String?) {
         prefs.edit()
             .putString(KEY_BOOK_ID, bookId)
+            .putString(KEY_READER_PROFILE_ID, readerProfileId)
             .putLong(KEY_OPENED_AT, clock.nowMillis())
             .commit()
     }
 
-    override fun isActive(): Boolean {
+    /**
+     * Что читается сейчас.
+     *
+     * Логика та же, что была у `isActive`, плюс книга и профиль читалки: спрашивать во время чтения
+     * разрешено только ту читалку, которая открыта, — без профиля выбрать её невозможно.
+     */
+    override fun active(): ActiveReading? {
         // Пока наше приложение на экране, чтения «поверх нас» нет: работа никому не мешает.
-        if (appInForeground.get()) return false
+        if (appInForeground.get()) return null
         val openedAt = prefs.getLong(KEY_OPENED_AT, 0L)
-        if (openedAt == 0L) return false
+        if (openedAt == 0L) return null
         if (clock.nowMillis() - openedAt > SESSION_TTL_MILLIS) {
             clear()
-            return false
+            return null
         }
-        return true
+        val bookId = prefs.getString(KEY_BOOK_ID, null) ?: return null
+        return ActiveReading(
+            bookId = bookId,
+            readerProfileId = prefs.getString(KEY_READER_PROFILE_ID, null),
+        )
     }
 
     override fun clear() {
-        prefs.edit().remove(KEY_BOOK_ID).remove(KEY_OPENED_AT).commit()
+        prefs.edit()
+            .remove(KEY_BOOK_ID)
+            .remove(KEY_READER_PROFILE_ID)
+            .remove(KEY_OPENED_AT)
+            .commit()
     }
 
     /**
@@ -87,6 +103,9 @@ class DefaultReaderSession @Inject constructor(
         const val PREFS_NAME = "bookshelf_reader_session"
         const val KEY_BOOK_ID = "reader_session_book_id"
         const val KEY_OPENED_AT = "reader_session_opened_at"
+
+        /** Профиль читалки, которой открыли книгу: по нему выбирается источник прогресса. */
+        const val KEY_READER_PROFILE_ID = "reader_session_reader_profile_id"
 
         /** Двенадцать часов: дольше одной сессии чтения не бывает, а зависшая отметка вредна. */
         const val SESSION_TTL_MILLIS = 12L * 60L * 60L * 1000L
