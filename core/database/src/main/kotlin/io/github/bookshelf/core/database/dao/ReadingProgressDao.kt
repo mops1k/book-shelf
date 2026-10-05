@@ -28,6 +28,16 @@ interface ReadingProgressDao {
     suspend fun getByBook(bookId: String): ReadingProgressEntity?
 
     /**
+     * Прогресс сразу по списку книг — одна выдача полки.
+     *
+     * Полка показывает окно книг, и запрос на каждую книгу превращался в сотни обращений к базе
+     * на одно открытие экрана (найдено 05.10.2026: 1001 запрос на выдачу в 500 книг). Пустой
+     * список вызывающий не передаёт: `IN ()` — синтаксическая ошибка SQLite.
+     */
+    @Query("SELECT * FROM reading_progress WHERE bookId IN (:bookIds)")
+    suspend fun getProgressForBooks(bookIds: List<String>): List<ReadingProgressEntity>
+
+    /**
      * Прогресс всей библиотеки одним запросом — выгрузка библиотеки в файл.
      *
      * Книг с прогрессом обычно меньше, чем книг вообще, поэтому строк в ответе может быть мало;

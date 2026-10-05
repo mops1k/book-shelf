@@ -49,6 +49,14 @@ class FakeBookRepository(
     /** Запросы, с которыми просили страницу книг: по ним видно, что фильтр дошёл до данных. */
     val pageQueries: MutableList<LibraryQuery> = mutableListOf()
 
+    /**
+     * Библиотека для проверки оконной загрузки: `observePage` отдаёт её начало по размеру запроса.
+     *
+     * `null` — обычный режим [pageFlow] (экран получает один и тот же снимок). Список нужен там,
+     * где проверяется именно окно: сколько книг просили и сколько пришло после догрузки.
+     */
+    var windowedLibrary: List<Book>? = null
+
     /** Сколько раз просили «пересканировать всё». */
     var rescanCalls: Int = 0
         private set
@@ -63,7 +71,16 @@ class FakeBookRepository(
 
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> {
         pageQueries += query
-        return pageFlow
+        val library = windowedLibrary ?: return pageFlow
+        val offset = query.page * query.pageSize
+        return flowOf(
+            PageResult(
+                items = library.drop(offset).take(query.pageSize),
+                totalCount = library.size,
+                offset = offset,
+                limit = query.pageSize,
+            ),
+        )
     }
 
     override fun observeById(id: String): Flow<Book?> = byIdFlow

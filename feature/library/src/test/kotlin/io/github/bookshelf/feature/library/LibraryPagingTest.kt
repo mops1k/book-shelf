@@ -45,4 +45,24 @@ class LibraryPagingTest {
         assertThat(hasNextPage(page = 6, total = 143, pageSize = 20)).isTrue()
         assertThat(hasNextPage(page = 7, total = 143, pageSize = 20)).isFalse()
     }
+
+    @Test
+    fun `loading starts when the visible end approaches the loaded window`() {
+        // Тридцатая книга на экране, а загружено пятьдесят: догружать рано, палец ещё листает.
+        assertThat(shouldLoadMore(lastVisibleIndex = 30, loaded = 50, total = 120)).isFalse()
+        // Сорок пятая — у самого конца окна: догружаем, пока человек не упёрся в пустое место.
+        assertThat(shouldLoadMore(lastVisibleIndex = 45, loaded = 50, total = 120)).isTrue()
+    }
+
+    @Test
+    fun `nothing is loaded when the whole library is already in the window`() {
+        assertThat(shouldLoadMore(lastVisibleIndex = 49, loaded = 50, total = 50)).isFalse()
+        assertThat(shouldLoadMore(lastVisibleIndex = 120, loaded = 120, total = 120)).isFalse()
+    }
+
+    @Test
+    fun `an empty shelf does not ask for more`() {
+        assertThat(shouldLoadMore(lastVisibleIndex = -1, loaded = 0, total = 0)).isFalse()
+        assertThat(shouldLoadMore(lastVisibleIndex = -1, loaded = 50, total = 120)).isFalse()
+    }
 }

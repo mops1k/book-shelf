@@ -50,7 +50,10 @@ import kotlinx.coroutines.launch
  *
  * Полка листается обычной прокруткой, а не постраничными «зонами касания»: разбивка на страницы
  * при выключенном скролле выглядела экономной, но палец по книгам не вёл, а неочевидные зоны
- * листания найти было нельзя. Поэтому запрос всегда один, на [SINGLE_PAGE_SIZE] книг.
+ * листания найти было нельзя. Книги приходят окнами по [SHELF_WINDOW_SIZE]: первое окно — это
+ * стоимость открытия экрана, следующее запрашивается, только когда человек долистал до конца
+ * загруженного ([shouldLoadMore]). Раньше запрос был один на 500 книг, и всё, что дальше
+ * пятисотой, на полку не попадало вовсе.
  */
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
@@ -72,7 +75,7 @@ class LibraryViewModel @Inject constructor(
         sort = _uiState.value.sort,
         grouping = _uiState.value.grouping,
         page = 0,
-        pageSize = SINGLE_PAGE_SIZE,
+        pageSize = SHELF_WINDOW_SIZE,
     )
 
     /**
@@ -145,7 +148,7 @@ class LibraryViewModel @Inject constructor(
                     // уровень обзора сбрасывается, дальше пользователь снова выбирает автора.
                     categoryJob?.cancel()
                     browseGenreCode = null
-                    query = query.copy(bookQuery = shared, page = 0)
+                    query = query.withFreshWindow { it.copy(bookQuery = shared) }
                     _uiState.update {
                         it.copy(
                             page = 0,
@@ -163,7 +166,7 @@ class LibraryViewModel @Inject constructor(
 
     /** Смена сортировки: запрос к БД начинается с первой страницы. */
     fun onSetSort(sort: SortOrder) {
-        query = query.copy(sort = sort, page = 0)
+        query = query.withFreshWindow { it.copy(sort = sort) }
         _uiState.update { it.copy(sort = sort, page = 0) }
         observePage(query)
     }
@@ -176,14 +179,14 @@ class LibraryViewModel @Inject constructor(
      * молча менял бы настройку, а «Обратный порядок» в настройках терял бы смысл.
      */
     fun onSetSortDirection(descending: Boolean) {
-        query = query.copy(descending = descending, page = 0)
+        query = query.withFreshWindow { it.copy(descending = descending) }
         _uiState.update { it.copy(descending = descending, page = 0) }
         observePage(query)
     }
 
     /** Смена группировки: запрос к БД начинается с первой страницы. */
     fun onSetGrouping(grouping: Grouping) {
-        query = query.copy(grouping = grouping, page = 0)
+        query = query.withFreshWindow { it.copy(grouping = grouping) }
         _uiState.update { it.copy(grouping = grouping, page = 0) }
         observePage(query)
     }
@@ -203,12 +206,13 @@ class LibraryViewModel @Inject constructor(
         ) {
             return
         }
-        query = query.copy(
-            sort = defaults.sort,
-            descending = defaults.descending,
-            grouping = defaults.grouping,
-            page = 0,
-        )
+        query = query.withFreshWindow {
+            it.copy(
+                sort = defaults.sort,
+                descending = defaults.descending,
+                grouping = defaults.grouping,
+            )
+        }
         _uiState.update {
             it.copy(
                 sort = defaults.sort,
@@ -533,20 +537,21 @@ class LibraryViewModel @Inject constructor(
         withoutSeries: Boolean = false,
         genreTags: Set<String> = browseTags(),
     ) {
-        query = query.copy(
-            bookQuery = query.bookQuery.copy(
-                authorNames = authorName?.let { setOf(it) } ?: emptySet(),
-                // Набор ходит по UI ключом, а фильтру нужны имена: запрос сравнивает состав
-                // авторов, поэтому порядок имён в ключе на результат не влияет.
-                authorSets = authorSetKey?.let { key -> setOf(authorSetNames(key)) } ?: emptySet(),
-                series = seriesName?.let { setOf(it) } ?: emptySet(),
-                onlyWithoutSeries = withoutSeries,
-                // Жанры по умолчанию остаются как были: и выбранный в обзоре жанр, и фильтр с
-                // экрана фильтров. Сбрасывать их на каждом шаге вложенности было бы потерей выбора.
-                tags = genreTags,
-            ),
-            page = 0,
-        )
+        query = query.withFreshWindow {
+            it.copy(
+                bookQuery = it.bookQuery.copy(
+                    authorNames = authorName?.let { name -> setOf(name) } ?: emptySet(),
+                    // Набор ходит по UI ключом, а фильтру нужны имена: запрос сравнивает состав
+                    // авторов, поэтому порядок имён в ключе на результат не влияет.
+                    authorSets = authorSetKey?.let { key -> setOf(authorSetNames(key)) } ?: emptySet(),
+                    series = seriesName?.let { name -> setOf(name) } ?: emptySet(),
+                    onlyWithoutSeries = withoutSeries,
+                    // Жанры по умолчанию остаются как были: и выбранный в обзоре жанр, и фильтр с
+                    // экрана фильтров. Сбрасывать их на каждом шаге вложенности было бы потерей выбора.
+                    tags = genreTags,
+                ),
+            )
+        }
         observePage(query)
     }
 
@@ -620,7 +625,7 @@ class LibraryViewModel @Inject constructor(
      */
     fun onClearFilters() {
         filterSelection.clear()
-        query = query.copy(bookQuery = BookQuery(), page = 0)
+        query = query.withFreshWindow { it.copy(bookQuery = BookQuery()) }
         _uiState.update { it.copy(activeFilters = FilterChipsUi(), page = 0) }
         observePage(query)
     }
@@ -629,6 +634,24 @@ class LibraryViewModel @Inject constructor(
     fun onRefresh() {
         observePage(query)
     }
+
+    /**
+     * Догрузить следующее окно книг.
+     *
+     * Экран зовёт это, когда видимый конец подошёл к концу загруженного ([shouldLoadMore]). Когда
+     * на полке уже вся библиотека, запроса не будет: окно шире библиотеки ничего не добавит, а
+     * стоило бы полной выдачи.
+     */
+    fun onLoadMore() {
+        val state = _uiState.value
+        if (state.books.size >= state.total) return
+        // Окно уже шире того, что лежит на полке: предыдущая порция ещё не пришла, и второй запрос
+        // был бы той же работой ещё раз — только шире (экран зовёт догрузку на каждом сдвиге).
+        if (query.pageSize > state.books.size) return
+        query = query.copy(page = 0, pageSize = query.pageSize + SHELF_WINDOW_SIZE)
+        observePage(query)
+    }
+
 
     private fun observePage(currentQuery: LibraryQuery) {
         pageJob?.cancel()
@@ -679,17 +702,19 @@ class LibraryViewModel @Inject constructor(
     private companion object {
         const val MIN_PROGRESS_PERCENT = 0
         const val MAX_PROGRESS_PERCENT = 100
-
-        /**
-         * Сколько книг полка запрашивает за раз.
-         *
-         * Страницы как единица листания больше нет, а ограничивать 50 книгами (значение по
-         * умолчанию) означало бы тихо обрезать полку: при 200 книгах половина просто не
-         * появлялась бы. 500 — с запасом для домашней библиотеки и с честным пределом запроса.
-         */
-        const val SINGLE_PAGE_SIZE = 500
     }
 }
+
+/**
+ * Запрос нового отбора — всегда с первого окна.
+ *
+ * Окно в 150 книг имеет смысл только внутри того отбора, в котором человек до него доскроллил:
+ * после смены фильтра, сортировки или вида оно открыло бы чужой кусок библиотеки и стоило бы
+ * лишних запросов. Свободная функция, а не метод `LibraryViewModel`: у класса порог detekt
+ * `TooManyFunctions` 30, и каждый помощник в нём приближает нарушение.
+ */
+private fun LibraryQuery.withFreshWindow(update: (LibraryQuery) -> LibraryQuery): LibraryQuery =
+    update(this).copy(page = 0, pageSize = SHELF_WINDOW_SIZE)
 
 /** Фасет → строка категории: подпись и число книг приходят из БД. */
 private fun FacetItem.toCategoryUi(): CategoryItemUi = CategoryItemUi(id = id, label = labelCode, count = count)

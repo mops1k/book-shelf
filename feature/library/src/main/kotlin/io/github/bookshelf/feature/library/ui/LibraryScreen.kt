@@ -99,6 +99,12 @@ fun LibraryScreen(
     val rootCategories = state.browse.showsCategories &&
         (state.browse.level == BrowseLevel.Root || state.browse.level is BrowseLevel.Genre)
     val scrollByPage = rememberPageScroller(gridState, listState) { rootCategories }
+    LoadMoreOnScroll(
+        gridState = gridState,
+        loaded = state.books.size,
+        total = state.total,
+        onLoadMore = viewModel::onLoadMore,
+    )
     // Шаг выбора живёт только на время экрана: сам порядок хранит ViewModel, а «на каком мы шаге»
     // — состояние экрана, и хранить его в ViewModel незачем.
     var sortStep by remember { mutableStateOf(SortStep.Hidden) }

@@ -48,6 +48,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -113,18 +114,25 @@ class BookRepositoryImpl @Inject constructor(
     private val dispatchers: AppDispatchers,
 ) : BookRepository {
 
+    /**
+     * Страница полки.
+     *
+     * `flowOn(dispatchers.io)` обязателен: подписка живёт в `viewModelScope`, то есть на главном
+     * потоке, и сопоставление строк в домен шло бы прямо на нём. На окне в 500 книг это заметное
+     * замирание интерфейса (тот же класс дефекта, что ANR карточки 30.09.2026).
+     */
     override fun observePage(query: LibraryQuery): Flow<PageResult<Book>> =
         combine(
             bookDao.observePage(BookPageSql.select(query)),
             bookDao.observeCount(BookPageSql.count(query)),
         ) { entities, total ->
             PageResult(
-                items = entities.map { it.toShelfBook() },
+                items = shelfBooks(entities),
                 totalCount = total,
                 offset = query.page * query.pageSize,
                 limit = query.pageSize,
             )
-        }
+        }.flowOn(dispatchers.io)
 
     override fun observeById(id: String): Flow<Book?> =
         bookDao.observeWithRelations(id).map { relations -> relations?.let { bookOf(it) } }
@@ -542,11 +550,26 @@ private fun alreadyOptimizedResult(entity: BookEntity): BookOptimizationResult =
             .forEach { source -> scanRepository.startScan(source.id, restart = true) }
     }
 
-    /** Книга для строки полки: авторы берутся из денормализованного `authorsText`. */
-    private suspend fun BookEntity.toShelfBook(): Book =
-        toDomain(authors = parseAuthors(authorsText))
-            .withProgress(readingProgressDao.getByBook(bookId = id)?.percent)
-            .withOverride(overrideDao.getByBookId(id))
+    /**
+     * Книги для строк полки.
+     *
+     * Прогресс и ручные правки читаются **пачкой** на всю выдачу: запрос на книгу давал 2×N
+     * обращений к базе на одно открытие полки (на окне в 500 книг — тысяча запросов). Авторы
+     * берутся из денормализованного `authorsText`, поэтому связей здесь не читаем.
+     *
+     * Пустой список книг — не повод ходить в базу: `IN ()` в SQLite синтаксически недопустим.
+     */
+    private suspend fun shelfBooks(entities: List<BookEntity>): List<Book> {
+        if (entities.isEmpty()) return emptyList()
+        val ids = entities.map { entity -> entity.id }
+        val progress = readingProgressDao.getProgressForBooks(ids).associateBy { row -> row.bookId }
+        val overrides = overrideDao.getOverridesForBooks(ids).associateBy { row -> row.bookId }
+        return entities.map { entity ->
+            entity.toDomain(authors = parseAuthors(entity.authorsText))
+                .withProgress(progress[entity.id]?.percent)
+                .withOverride(overrides[entity.id])
+        }
+    }
 
     /**
      * Книга со связями — для карточки.
