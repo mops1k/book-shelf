@@ -33,4 +33,11 @@ class ReadersBackLevelTest {
         assertThat(readersBackLevelOf(ReadersLevelUi.ReadersOfFormat("epub")))
             .isEqualTo(ReadersLevelUi.Formats(ReaderFormatCategory.BOOKS))
     }
+
+    @Test
+    fun `from the progress sub-screen the header goes back to the categories`() {
+        // Подэкран «Прогресс чтения» открывается с первого уровня и туда же возвращает (требование
+        // Александра 05.10.2026: вынести блоки «Прогресс из …» с общего экрана «Читалки»).
+        assertThat(readersBackLevelOf(ReadersLevelUi.Progress)).isEqualTo(ReadersLevelUi.Categories)
+    }
 }

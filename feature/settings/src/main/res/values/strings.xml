@@ -59,6 +59,16 @@
     <string name="settings_readers_coolreader_hint">CoolReader хранит позицию в своей базе на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в CoolReader</string>
     <string name="settings_readers_pocketbook">Прогресс из PocketBook</string>
     <string name="settings_readers_pocketbook_hint">PocketBook хранит позицию в своей базе на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в PocketBook</string>
+    <string name="settings_readers_librera">Прогресс из Librera</string>
+    <string name="settings_readers_librera_hint">Librera хранит позицию в своих файлах на карте памяти — нужен доступ ко всей памяти. Процент появится после того, как книгу откроют в Librera</string>
+    <string name="settings_readers_progress_none">Все выключены</string>
+    <string name="settings_readers_progress_one">Включено: %1$s</string>
+    <string name="settings_readers_progress_many">Включено: %1$s + ещё %2$d</string>
+    <string name="settings_readers_progress_source_fbreader">FBReader</string>
+    <string name="settings_readers_progress_source_koreader">KOReader</string>
+    <string name="settings_readers_progress_source_coolreader">CoolReader</string>
+    <string name="settings_readers_progress_source_pocketbook">PocketBook</string>
+    <string name="settings_readers_progress_source_librera">Librera</string>
     <string name="settings_readers_temp_export">Временный экспорт книги</string>
     <string name="settings_readers_temp_export_hint">Копия файла для читалки, которая не открывает книгу по ссылке. Копии занимают место и удаляются через сутки</string>
     <string name="settings_readers_check">Проверить связь с читалкой</string>

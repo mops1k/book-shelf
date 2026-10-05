@@ -35,8 +35,10 @@ import io.github.bookshelf.core.data.export.LibraryExportRepository
 import io.github.bookshelf.core.data.reader.DefaultReaderSession
 import io.github.bookshelf.core.data.reader.BookSidecarFileReader
 import io.github.bookshelf.core.data.reader.ForeignSqliteDatabase
+import io.github.bookshelf.core.data.reader.SharedStorageFiles
 import io.github.bookshelf.core.readerlink.progress.ProgressDatabase
 import io.github.bookshelf.core.readerlink.progress.ProgressFileReader
+import io.github.bookshelf.core.readerlink.progress.ProgressStorage
 import io.github.bookshelf.core.fb2opt.DefaultFb2Optimizer
 import io.github.bookshelf.core.fb2opt.Fb2Optimizer
 import io.github.bookshelf.core.data.repository.impl.ReaderProfileRepositoryImpl
@@ -129,6 +131,17 @@ abstract class DataModule {
     abstract fun bindProgressDatabase(
         impl: ForeignSqliteDatabase,
     ): ProgressDatabase
+
+    /**
+     * Чтение файлов читалки на общей памяти по реальному пути (Librera).
+     *
+     * Тоже знание слоя данных: реальные пути и файловая система — здесь, а адаптеру читалки нужен
+     * только порт «прочитать файл» и «посмотреть каталог».
+     */
+    @Binds
+    abstract fun bindProgressStorage(
+        impl: SharedStorageFiles,
+    ): ProgressStorage
 
     /**
      * Сессия чтения: пока читалка открыта, тяжёлые работы уступают (иначе её главный поток встаёт

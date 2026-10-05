@@ -8,6 +8,7 @@ import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
 import io.github.bookshelf.core.readerlink.progress.ReaderBookAddress
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSnapshot
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
+import io.github.bookshelf.core.readerlink.progress.readerPathMatches
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -80,19 +81,18 @@ class PocketBookProgressSource @Inject constructor(
     /**
      * Найти книгу с прогрессом.
      *
-     * Сначала по имени файла, затем — если имён несколько — по хвосту относительного пути: папка из
-     * базы плюс имя файла должны оканчиваться на наш путь. Неоднозначную пару не разгадываем:
-     * записать прогресс чужой книге хуже, чем не записать ничего.
+     * Папка из базы плюс имя файла должны сойтись с нашим относительным путём и папкой библиотеки
+     * (`readerPathMatches`). По одному имени не угадываем: у двух книг с одинаковым именем процент
+     * попадёт не той, а это хуже, чем не записать ничего.
      */
     private fun match(book: ProgressBookRef): Entry? {
         val candidates = entries[book.fileName].orEmpty()
         if (candidates.isEmpty()) return null
-        val byPathTail = candidates.filter { "${it.folder.orEmpty()}${it.name}".endsWith("/${book.relativePath}") }
-        return when {
-            byPathTail.size == 1 -> byPathTail.first()
-            byPathTail.isNotEmpty() -> byPathTail.maxByOrNull { it.timeEdt }
-            else -> candidates.singleOrNull()
-        }
+        // Папка и имя файла в базе лежат отдельно, вместе они дают путь, который и сверяем с нашим;
+        // если ни одна запись не подошла, книгу в PocketBook не открывали.
+        return candidates
+            .filter { readerPathMatches("${it.folder.orEmpty()}${it.name}", book) }
+            .maxByOrNull { it.timeEdt }
     }
 
     /**

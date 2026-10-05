@@ -16,6 +16,7 @@ import io.github.bookshelf.core.readerlink.fbreader.FbReaderAdapter
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import io.github.bookshelf.core.readerlink.coolreader.CoolReaderProgressSource
 import io.github.bookshelf.core.readerlink.koreader.KoReaderProgressSource
+import io.github.bookshelf.core.readerlink.librera.LibreraProgressSource
 import io.github.bookshelf.core.readerlink.pocketbook.PocketBookProgressSource
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import javax.inject.Singleton
@@ -119,4 +120,14 @@ internal abstract class ReaderLinkModule {
     @Binds
     @IntoSet
     abstract fun bindPocketBookProgressSource(impl: PocketBookProgressSource): ReadingProgressSource
+
+    /**
+     * Librera: прогресс из её JSON в `/sdcard/Librera/profile.Librera/device.<модель>/`.
+     *
+     * Нужен доступ ко всей памяти: файлы лежат вне папки библиотеки, а каталог `device.<модель>`
+     * источниками не выводится из книги — его находит сам источник через `ProgressStorage`.
+     */
+    @Binds
+    @IntoSet
+    abstract fun bindLibreraProgressSource(impl: LibreraProgressSource): ReadingProgressSource
 }

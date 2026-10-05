@@ -53,12 +53,20 @@ class EnabledProgressSourcesTest {
     }
 
     @Test
+    fun `the librera switch enables its json source`() {
+        val settings = ReaderSettings(enableLibreraProgress = true)
+
+        assertThat(settings.enabledProgressSources()).containsExactly(ProgressSourceId.LIBRERA_JSON)
+    }
+
+    @Test
     fun `every switched-on reader gives its source in a stable order`() {
         val settings = ReaderSettings(
             enableFbReaderProgress = true,
             enableKoReaderProgress = true,
             enableCoolReaderProgress = true,
             enablePocketBookProgress = true,
+            enableLibreraProgress = true,
         )
 
         assertThat(settings.enabledProgressSources().toList()).containsExactly(
@@ -66,6 +74,7 @@ class EnabledProgressSourcesTest {
             ProgressSourceId.KOREADER_SIDECAR,
             ProgressSourceId.COOLREADER_DB,
             ProgressSourceId.POCKETBOOK_DB,
+            ProgressSourceId.LIBRERA_JSON,
         ).inOrder()
     }
 

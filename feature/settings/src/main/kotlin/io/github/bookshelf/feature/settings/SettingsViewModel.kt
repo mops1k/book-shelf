@@ -643,6 +643,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     isKoReaderProgressEnabled = settings.reader.enableKoReaderProgress,
     isCoolReaderProgressEnabled = settings.reader.enableCoolReaderProgress,
     isPocketBookProgressEnabled = settings.reader.enablePocketBookProgress,
+    isLibreraProgressEnabled = settings.reader.enableLibreraProgress,
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
@@ -890,6 +891,7 @@ internal fun readersBackLevelOf(level: ReadersLevelUi): ReadersLevelUi? = when (
     ReadersLevelUi.Categories -> null
     is ReadersLevelUi.Formats -> ReadersLevelUi.Categories
     is ReadersLevelUi.ReadersOfFormat -> ReadersLevelUi.Formats(formatCategoryOf(level.extension))
+    ReadersLevelUi.Progress -> ReadersLevelUi.Categories
 }
 
 /**
@@ -949,6 +951,7 @@ private fun ReaderProgressAction.sourceSwitch(): ((ReaderSettings) -> ReaderSett
     is ReaderProgressAction.SetKoReaderEnabled -> { reader -> reader.copy(enableKoReaderProgress = enabled) }
     is ReaderProgressAction.SetCoolReaderEnabled -> { reader -> reader.copy(enableCoolReaderProgress = enabled) }
     is ReaderProgressAction.SetPocketBookEnabled -> { reader -> reader.copy(enablePocketBookProgress = enabled) }
+    is ReaderProgressAction.SetLibreraEnabled -> { reader -> reader.copy(enableLibreraProgress = enabled) }
     else -> null
 }
 
@@ -983,6 +986,9 @@ sealed interface ReaderProgressAction {
 
     /** Включить или выключить прогресс из PocketBook (его база `/sdcard/.pocketbook/books.db`). */
     data class SetPocketBookEnabled(val enabled: Boolean) : ReaderProgressAction
+
+    /** Включить или выключить прогресс из Librera (её JSON в `/sdcard/Librera/profile.Librera/`). */
+    data class SetLibreraEnabled(val enabled: Boolean) : ReaderProgressAction
 
     data class SetInterval(val minutes: Int) : ReaderProgressAction
 

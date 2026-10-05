@@ -134,6 +134,26 @@ class CoolReaderProgressSourceTest {
         assertThat(source.progressFor(ourBook()).isFailure).isTrue()
     }
 
+    @Test
+    fun `a root-level book is not confused with a same-named file elsewhere`() = runBlocking {
+        // Книга лежит в корне папки библиотеки: относительный путь — одно имя файла, поэтому одного
+        // хвоста мало и нужна ещё папка библиотеки из адреса документа.
+        val source = connected(
+            row(pathname = "/sdcard/Other/$ROOT_BOOK_NAME", filename = ROOT_BOOK_NAME, percent = "5000"),
+        )
+
+        assertThat(source.progressFor(rootBook()).isFailure).isTrue()
+    }
+
+    @Test
+    fun `a root-level book in the library folder is ours`() = runBlocking {
+        val source = connected(
+            row(pathname = "/sdcard/Books/$ROOT_BOOK_NAME", filename = ROOT_BOOK_NAME, percent = "5000"),
+        )
+
+        assertThat(source.progressFor(rootBook()).getOrNull()?.percent).isWithin(0.001f).of(50f)
+    }
+
     private suspend fun connected(vararg rows: Map<String, String?>): CoolReaderProgressSource {
         val source = CoolReaderProgressSource(databases = FakeDatabase(rows = rows.toList()))
         source.connect()
@@ -166,6 +186,9 @@ class CoolReaderProgressSourceTest {
         librarySourceId = "source-1",
     )
 
+    /** Книга в корне папки библиотеки: относительный путь — одно имя файла. */
+    private fun rootBook() = ourBook().copy(fileName = ROOT_BOOK_NAME, relativePath = ROOT_BOOK_NAME)
+
     /** Фейк порта базы: `null` — «базу не открыть» (нет файла, нет доступа, мусор). */
     private class FakeDatabase(private val rows: List<Map<String, String?>>?) : ProgressDatabase {
 
@@ -188,6 +211,7 @@ class CoolReaderProgressSourceTest {
 
     private companion object {
         const val BOOK_NAME = "Книга.fb2.epub"
+        const val ROOT_BOOK_NAME = "Книга-в-корне.fb2.epub"
         const val RELATIVE_PATH = "Лем/Книга.fb2.epub"
         const val BOOK_PATH = "/sdcard/Books/Лем/Книга.fb2.epub"
         const val DOCUMENT_URI =

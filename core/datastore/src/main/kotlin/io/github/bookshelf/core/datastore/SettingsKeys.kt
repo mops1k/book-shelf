@@ -98,6 +98,9 @@ object SettingsKeys {
     /** Прогресс из PocketBook: читается его база `/sdcard/.pocketbook/books.db`. */
     val ENABLE_POCKETBOOK_PROGRESS: Preferences.Key<Boolean> =
         booleanPreferencesKey("reader.enable_pocketbook_progress")
+    /** Прогресс из Librera: её JSON в `/sdcard/Librera/profile.Librera/device.<модель>/`. */
+    val ENABLE_LIBRERA_PROGRESS: Preferences.Key<Boolean> =
+        booleanPreferencesKey("reader.enable_librera_progress")
     val TEMP_EXPORT_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reader.temp_export_enabled")
 
     /**
@@ -168,6 +171,8 @@ object SettingsKeys {
         const val ENABLE_COOLREADER_PROGRESS = false
 
         const val ENABLE_POCKETBOOK_PROGRESS = false
+
+        const val ENABLE_LIBRERA_PROGRESS = false
 
         /** Пять минут: достаточно часто, чтобы прогресс был свежим, и достаточно редко для батареи. */
         const val PROGRESS_SYNC_INTERVAL_MINUTES = 5

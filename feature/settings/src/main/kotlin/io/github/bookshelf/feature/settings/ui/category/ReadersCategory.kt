@@ -29,6 +29,7 @@ import io.github.bookshelf.feature.settings.ReaderProgressAction
 import io.github.bookshelf.feature.settings.ReadersLevelUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
+import io.github.bookshelf.feature.settings.progressSourcesSummary
 import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
 import io.github.bookshelf.feature.settings.R
@@ -64,9 +65,8 @@ internal fun ReadersCategory(
                 viewModel = viewModel,
                 extension = level.extension,
             )
+            ReadersLevelUi.Progress -> progressLevel(state = state, viewModel = viewModel)
         }
-
-        progressItems(state = state, viewModel = viewModel)
     }
 }
 
@@ -110,6 +110,18 @@ private fun LazyListScope.categoriesLevel(
                 onClick = { viewModel.onReadersLevel(ReadersLevelUi.Formats(row.category)) },
             )
         }
+    }
+
+    // Прогресс чтения — отдельным подэкраном: переключателей стало пять (FBReader, KOReader,
+    // CoolReader, PocketBook, Librera), и на первом уровне от блока остаётся одна строка со сводкой
+    // (требование Александра 05.10.2026). Текст сводки лежит рядом с настройками, а не здесь.
+    item(key = "readers-progress-entry") {
+        EinkListRow(
+            title = stringResource(R.string.settings_readers_progress_header),
+            subtitle = progressSourcesSummary(state.settings).resolve(),
+            trailing = stringResource(R.string.settings_reader_category_open),
+            onClick = { viewModel.onReadersLevel(ReadersLevelUi.Progress) },
+        )
     }
 }
 
@@ -209,16 +221,16 @@ private fun ReaderIcon(packageName: String) {
 }
 
 /**
- * Блок «Прогресс чтения»: по переключателю на читалку и общий интервал.
+ * Подэкран «Прогресс чтения»: по переключателю на читалку и общий интервал.
  *
  * Каждая интеграция включается отдельно, потому что условия у них разные: FBReader отдаёт позицию
  * через свой сервис, пока читалка жива, KOReader — файлом рядом с книгой (доступ ко всей памяти не
- * нужен), а читалкам на общей памяти (CoolReader, PocketBook, Librera, XReader) он понадобится.
+ * нужен), а читалкам на общей памяти (CoolReader, PocketBook, Librera) он понадобится.
  * Расписание одно на всех: цепочку фоновых работ ставит `ReadingProgressSyncWorker`, и варианты
  * интервала берутся из `ProgressSyncInterval` — ровно те, что допускает планировщик. Интервал
  * показывается, когда включён хотя бы один источник: иначе он ни на что не влияет.
  */
-private fun LazyListScope.progressItems(
+private fun LazyListScope.progressLevel(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
@@ -310,6 +322,13 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
         hint = R.string.settings_readers_pocketbook_hint,
         enabled = state.settings.isPocketBookProgressEnabled,
         action = { ReaderProgressAction.SetPocketBookEnabled(it) },
+    ),
+    ProgressSwitch(
+        key = "librera",
+        title = R.string.settings_readers_librera,
+        hint = R.string.settings_readers_librera_hint,
+        enabled = state.settings.isLibreraProgressEnabled,
+        action = { ReaderProgressAction.SetLibreraEnabled(it) },
     ),
 )
 

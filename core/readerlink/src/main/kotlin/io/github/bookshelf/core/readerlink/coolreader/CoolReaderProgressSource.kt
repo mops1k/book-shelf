@@ -8,6 +8,7 @@ import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
 import io.github.bookshelf.core.readerlink.progress.ReaderBookAddress
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSnapshot
 import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
+import io.github.bookshelf.core.readerlink.progress.readerPathMatches
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -78,20 +79,19 @@ class CoolReaderProgressSource @Inject constructor(
     /**
      * Найти позицию книги среди прочитанных.
      *
-     * В базе CoolReader лежит **реальный путь** (`/sdcard/Books/…`), а у нас адрес SAF, поэтому
-     * сверяем имя файла и, если имён несколько, хвост относительного пути (он у нас есть).
-     * Неоднозначную пару «одинаковое имя, несовпадающие пути» не разгадываем: записать прогресс
-     * чужой книге хуже, чем не записать ничего.
+     * В базе CoolReader лежит **реальный путь** (`/sdcard/Books/…`), а у нас адрес SAF: путь читалки
+     * должен совпасть с относительным путём книги и с папкой библиотеки (`readerPathMatches`).
+     * По одному имени файла не угадываем: у двух книг с одинаковым именем процент попадёт не той, а
+     * это хуже, чем не записать ничего.
      */
     private fun match(book: ProgressBookRef): CoolReaderPosition? {
         val candidates = positions[book.fileName].orEmpty()
         if (candidates.isEmpty()) return null
-        val byPathTail = candidates.filter { it.pathname.endsWith("/${book.relativePath}") }
-        return when {
-            byPathTail.size == 1 -> byPathTail.first()
-            byPathTail.isNotEmpty() -> byPathTail.maxByOrNull { it.timeStamp }
-            else -> candidates.singleOrNull()
-        }
+        // Берём только те записи, чей путь действительно наш (см. `readerPathMatches`): если ни одна
+        // не подошла, книгу в CoolReader не открывали, и свежая по времени запись здесь не поможет.
+        return candidates
+            .filter { readerPathMatches(it.pathname, book) }
+            .maxByOrNull { it.timeStamp }
     }
 
     /** Строка базы в позицию; `null` — строку разобрать нельзя (колонки нет или значение мусорное). */

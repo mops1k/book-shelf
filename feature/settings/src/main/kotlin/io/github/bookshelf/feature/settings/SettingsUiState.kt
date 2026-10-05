@@ -83,6 +83,16 @@ sealed interface ReadersLevelUi {
 
     /** Третий уровень: читалки, которые умеют выбранный формат. */
     data class ReadersOfFormat(val extension: String) : ReadersLevelUi
+
+    /**
+     * Подэкран «Прогресс чтения».
+     *
+     * Требование Александра (05.10.2026): «давай вот эти „Прогресс из“ отдельным экраном настроек…
+     * а то экран сильно разрастается». Переключателей стало пять, и на первом уровне вместо них —
+     * одна строка со сводкой; заодно блок перестал рисоваться под уровнями форматов, где он висел
+     * без дела.
+     */
+    data object Progress : ReadersLevelUi
 }
 
 /**
@@ -241,6 +251,8 @@ data class AppSettingsUi(
     val isCoolReaderProgressEnabled: Boolean = false,
     /** Прогресс из PocketBook: его база на общей памяти; по умолчанию выключен. */
     val isPocketBookProgressEnabled: Boolean = false,
+    /** Прогресс из Librera: её JSON на общей памяти; по умолчанию выключен. */
+    val isLibreraProgressEnabled: Boolean = false,
     /** Как часто опрашивать читалку, минут; варианты ограничены `ProgressSyncInterval`. */
     val progressSyncIntervalMinutes: Int = SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES,
     /** Разрешена ли временная копия книги для читалки, которая не открывает ссылку. */
@@ -266,7 +278,8 @@ data class AppSettingsUi(
         get() = isFbReaderProgressEnabled ||
             isKoReaderProgressEnabled ||
             isCoolReaderProgressEnabled ||
-            isPocketBookProgressEnabled
+            isPocketBookProgressEnabled ||
+            isLibreraProgressEnabled
 }
 
 /**

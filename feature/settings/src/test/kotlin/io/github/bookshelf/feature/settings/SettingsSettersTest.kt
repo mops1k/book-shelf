@@ -317,6 +317,17 @@ class SettingsSettersTest {
     }
 
     @Test
+    fun `librera progress switch is written and reschedules the chain`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onReaderProgress(ReaderProgressAction.SetLibreraEnabled(true))
+        advanceUntilIdle()
+
+        assertThat(settings.last().reader.enableLibreraProgress).isTrue()
+        assertThat(schedule.reviews).isEqualTo(1)
+    }
+
+    @Test
     fun `temp export switch is written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 

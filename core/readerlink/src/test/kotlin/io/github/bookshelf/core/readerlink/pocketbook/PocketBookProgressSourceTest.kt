@@ -144,6 +144,16 @@ class PocketBookProgressSourceTest {
         assertThat(connected().progressFor(ourBook()).isFailure).isTrue()
     }
 
+    @Test
+    fun `a root-level book is not confused with a same-named file elsewhere`() = runBlocking {
+        // Книга в корне папки библиотеки: нужна не только концовка пути, но и сама папка библиотеки.
+        val source = connected(
+            progressRow(share = "0.5", name = ROOT_BOOK_NAME, path = "/sdcard/Other/"),
+        )
+
+        assertThat(source.progressFor(rootBook()).isFailure).isTrue()
+    }
+
     private suspend fun connected(vararg rows: Map<String, String?>): PocketBookProgressSource {
         val source = PocketBookProgressSource(databases = FakeDatabase(rows = rows.toList()))
         source.connect()
@@ -214,6 +224,9 @@ class PocketBookProgressSourceTest {
         librarySourceId = "source-1",
     )
 
+    /** Книга в корне папки библиотеки: относительный путь — одно имя файла. */
+    private fun rootBook() = ourBook().copy(fileName = ROOT_BOOK_NAME, relativePath = ROOT_BOOK_NAME)
+
     /** Фейк порта базы: `null` — «базу не открыть» (нет файла, нет доступа, мусор). */
     private class FakeDatabase(private val rows: List<Map<String, String?>>?) : ProgressDatabase {
 
@@ -238,6 +251,7 @@ class PocketBookProgressSourceTest {
         const val READ_PROGRESS_TAG = "doc.read_progress"
         const val LAST_POSITION_TAG = "doc.last_read_position"
         const val BOOK_NAME = "Книга.fb2.epub"
+        const val ROOT_BOOK_NAME = "Книга-в-корне.fb2.epub"
         const val BOOK_TITLE = "Книга"
         const val RELATIVE_PATH = "Лем/Книга.fb2.epub"
         const val BOOK_FOLDER = "/sdcard/Books/Лем/"
