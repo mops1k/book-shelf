@@ -74,8 +74,15 @@ class ReaderRepositoryImpl @Inject constructor(
         flow { emit(discovery.installedReaders()) },
     ) { stored: List<ReaderProfileEntity>, installed: List<InstalledReader> ->
         val byPackage = installed.associate { it.profile.packageName to it }
-        (stored.map { it.toSummary() } + installed.filter { found ->
-            stored.none { it.packageName == found.profile.packageName }
+        val (gone, present) = stored.partition { storedProfile ->
+            storedProfile.packageName !in byPackage
+        }
+        // Требование Александра (06.10.2026): удалённой читалки не должно быть видно нигде. Профиль
+        // без установленной читалки наружу не отдаём, а строку вычищаем: иначе она вернётся в список
+        // при следующем чтении из базы (так и вышло с FBReader и xReaderPro после их удаления).
+        gone.forEach { old -> profileDao.deleteById(old.id) }
+        (present.map { it.toSummary() } + installed.filter { found ->
+            present.none { it.packageName == found.profile.packageName }
         }.map { found ->
             ReaderProfileSummary(
                 id = found.profile.id,
@@ -92,12 +99,43 @@ class ReaderRepositoryImpl @Inject constructor(
             .also { byPackage }
     }
 
-    override fun defaultForFormat(format: String): Flow<String?> =
-        formatDefaultDao.observeAll().map { entries -> entries.firstOrNull { it.format == format }?.profileId }
+    override fun defaultForFormat(format: String): Flow<String?> = combine(
+        formatDefaultDao.observeAll(),
+        flow { emit(discovery.installedReaders()) },
+    ) { entries, installed ->
+        val binding = readerBinding(entries, installed, format) ?: return@combine null
+        binding.profileId
+    }
 
     /** Все привязки «формат → читалка» одним потоком: экран показывает их списком. */
-    override fun readerDefaults(): Flow<Map<String, String>> =
-        formatDefaultDao.observeAll().map { entries -> entries.associate { it.format to it.profileId } }
+    override fun readerDefaults(): Flow<Map<String, String>> = combine(
+        formatDefaultDao.observeAll(),
+        flow { emit(discovery.installedReaders()) },
+    ) { entries, installed ->
+        entries.mapNotNull { entry -> readerBinding(entries, installed, entry.format) }
+            .associate { binding -> binding.format to binding.profileId }
+    }
+
+    /**
+     * Привязка формата к читалке, если эта читалка установлена.
+     *
+     * Привязку на удалённую читалку не отдаём и вычищаем: иначе формат показывал бы читалку, которой
+     * в системе нет (требование Александра, 06.10.2026). Формат без привязки открывается в любой
+     * установленной читалке — так работает резолвер.
+     */
+    private suspend fun readerBinding(
+        entries: List<FormatDefaultEntity>,
+        installed: List<InstalledReader>,
+        format: String,
+    ): FormatDefaultEntity? {
+        val binding = entries.firstOrNull { it.format == format } ?: return null
+        val known = installed.flatMap { reader ->
+            listOf(reader.profile.id, reader.profile.packageName)
+        }
+        if (binding.profileId in known) return binding
+        formatDefaultDao.deleteByFormat(format)
+        return null
+    }
 
     /** Привязка формата к читалке пишется одним upsert; `null` снимает привязку строкой. */
     override suspend fun setDefault(format: String, profileId: String?): AppResult<Unit> =

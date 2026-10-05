@@ -29,7 +29,10 @@ import io.github.bookshelf.feature.settings.ReaderProgressAction
 import io.github.bookshelf.feature.settings.ReadersLevelUi
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.SettingsViewModel
+import io.github.bookshelf.feature.settings.installedReaderPackages
 import io.github.bookshelf.feature.settings.progressSourcesSummary
+import io.github.bookshelf.feature.settings.visibleProgressSources
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
 import io.github.bookshelf.feature.settings.readersFoundText
 import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.ui.ValueChoiceRow
@@ -99,7 +102,7 @@ private fun LazyListScope.categoriesLevel(
     item(key = "readers-progress-entry") {
         EinkListRow(
             title = stringResource(R.string.settings_readers_progress_header),
-            subtitle = progressSourcesSummary(state.settings).resolve(),
+            subtitle = progressSourcesSummary(state.settings, installedReaderPackages(state)).resolve(),
             trailing = stringResource(R.string.settings_reader_category_open),
             onClick = { viewModel.onReadersLevel(ReadersLevelUi.Progress) },
         )
@@ -315,7 +318,10 @@ private fun LazyListScope.readerProgressSwitches(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    progressSwitches(state).forEach { switch ->
+    // Удалённой читалки в переключателях нет: показываем источники только установленных читалок.
+    progressSwitches(state)
+        .filter { switch -> switch.source in visibleProgressSources(state) }
+        .forEach { switch ->
         item(key = "progress-${switch.key}") {
             ToggleRow(
                 title = stringResource(switch.title),
@@ -330,6 +336,8 @@ private fun LazyListScope.readerProgressSwitches(
 /** Что показать в блоке «Прогресс чтения»: ключ строки, тексты, состояние и что записать. */
 private data class ProgressSwitch(
     val key: String,
+    /** Источник прогресса: по нему видно, установлена ли читалка источника. */
+    val source: ProgressSourceId,
     @StringRes val title: Int,
     @StringRes val hint: Int,
     val enabled: Boolean,
@@ -339,6 +347,7 @@ private data class ProgressSwitch(
 private fun progressSwitches(state: SettingsUiState) = listOf(
     ProgressSwitch(
         key = "fbreader",
+        source = ProgressSourceId.FBREADER_AIDL,
         title = R.string.settings_readers_sync,
         hint = R.string.settings_readers_sync_hint,
         enabled = state.settings.isFbReaderProgressEnabled,
@@ -346,6 +355,7 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
     ),
     ProgressSwitch(
         key = "koreader",
+        source = ProgressSourceId.KOREADER_SIDECAR,
         title = R.string.settings_readers_koreader,
         hint = R.string.settings_readers_koreader_hint,
         enabled = state.settings.isKoReaderProgressEnabled,
@@ -353,6 +363,7 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
     ),
     ProgressSwitch(
         key = "coolreader",
+        source = ProgressSourceId.COOLREADER_DB,
         title = R.string.settings_readers_coolreader,
         hint = R.string.settings_readers_coolreader_hint,
         enabled = state.settings.isCoolReaderProgressEnabled,
@@ -360,6 +371,7 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
     ),
     ProgressSwitch(
         key = "pocketbook",
+        source = ProgressSourceId.POCKETBOOK_DB,
         title = R.string.settings_readers_pocketbook,
         hint = R.string.settings_readers_pocketbook_hint,
         enabled = state.settings.isPocketBookProgressEnabled,
@@ -367,6 +379,7 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
     ),
     ProgressSwitch(
         key = "librera",
+        source = ProgressSourceId.LIBRERA_JSON,
         title = R.string.settings_readers_librera,
         hint = R.string.settings_readers_librera_hint,
         enabled = state.settings.isLibreraProgressEnabled,
@@ -374,6 +387,7 @@ private fun progressSwitches(state: SettingsUiState) = listOf(
     ),
     ProgressSwitch(
         key = "xreader",
+        source = ProgressSourceId.XREADER_CACHE,
         title = R.string.settings_readers_xreader,
         hint = R.string.settings_readers_xreader_hint,
         enabled = state.settings.isXReaderProgressEnabled,

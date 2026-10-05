@@ -1,6 +1,8 @@
 package io.github.bookshelf.feature.settings
 
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
+import io.github.bookshelf.core.readerlink.progress.ProgressSourceId
+import io.github.bookshelf.core.readerlink.progress.readerPackagesOf
 import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.readerlink.progress.ProgressSourceKeys
 
@@ -24,15 +26,15 @@ internal typealias SettingsText = AppText
  * в каком порядке включали читалки. Когда включено несколько, называется первая и счёт остальных:
  * перечислять пять имён в подписи некуда.
  */
-internal fun progressSourcesSummary(settings: AppSettingsUi): AppText {
-    val sources = buildList {
-        if (settings.isFbReaderProgressEnabled) add(R.string.settings_readers_progress_source_fbreader)
-        if (settings.isKoReaderProgressEnabled) add(R.string.settings_readers_progress_source_koreader)
-        if (settings.isCoolReaderProgressEnabled) add(R.string.settings_readers_progress_source_coolreader)
-        if (settings.isPocketBookProgressEnabled) add(R.string.settings_readers_progress_source_pocketbook)
-        if (settings.isLibreraProgressEnabled) add(R.string.settings_readers_progress_source_librera)
-        if (settings.isXReaderProgressEnabled) add(R.string.settings_readers_progress_source_xreader)
-    }
+internal fun progressSourcesSummary(
+    settings: AppSettingsUi,
+    installedPackages: Set<String>,
+): AppText {
+    // Удалённую читалку не называем: её в приложении быть не должно (требование Александра,
+    // 06.10.2026 — «если читалка удалена с устройства, её в приложении нигде не должно быть видно»).
+    val sources = progressSourceLines(settings)
+        .filter { line -> line.enabled && line.packages.any { packageName -> packageName in installedPackages } }
+        .map { line -> line.titleRes }
     return when (sources.size) {
         0 -> AppText(R.string.settings_readers_progress_none)
         1 -> AppText(R.string.settings_readers_progress_one, AppText(sources.first()))
@@ -43,6 +45,47 @@ internal fun progressSourcesSummary(settings: AppSettingsUi): AppText {
         )
     }
 }
+
+/** Строка сводки: включён ли источник, какие пакеты читалок за него отвечают и как он называется. */
+private data class ProgressSourceLine(
+    val enabled: Boolean,
+    val packages: Set<String>,
+    val titleRes: Int,
+)
+
+/** Источники в порядке опроса — он же порядок переключателей на подэкране «Прогресс чтения». */
+private fun progressSourceLines(settings: AppSettingsUi) = listOf(
+    ProgressSourceLine(
+        settings.isFbReaderProgressEnabled,
+        setOf(FBREADER_PACKAGE),
+        R.string.settings_readers_progress_source_fbreader,
+    ),
+    ProgressSourceLine(
+        settings.isKoReaderProgressEnabled,
+        setOf(KOREADER_PACKAGE),
+        R.string.settings_readers_progress_source_koreader,
+    ),
+    ProgressSourceLine(
+        settings.isCoolReaderProgressEnabled,
+        setOf(COOLREADER_PACKAGE),
+        R.string.settings_readers_progress_source_coolreader,
+    ),
+    ProgressSourceLine(
+        settings.isPocketBookProgressEnabled,
+        setOf(POCKETBOOK_PACKAGE),
+        R.string.settings_readers_progress_source_pocketbook,
+    ),
+    ProgressSourceLine(
+        settings.isLibreraProgressEnabled,
+        LIBRERA_PACKAGES,
+        R.string.settings_readers_progress_source_librera,
+    ),
+    ProgressSourceLine(
+        settings.isXReaderProgressEnabled,
+        setOf(XREADER_PACKAGE),
+        R.string.settings_readers_progress_source_xreader,
+    ),
+)
 
 /**
  * Подпись строки «Читалки по умолчанию» на первом уровне: сколько читалок нашлось.
@@ -106,3 +149,29 @@ internal fun progressSourcesLines(report: ProgressSourcesReport): List<ProgressS
         }
     }
 }
+
+/** Пакеты установленных читалок: по ним видно, что показывать, а что скрыть. */
+internal fun installedReaderPackages(state: SettingsUiState): Set<String> =
+    state.installedReaders.mapTo(mutableSetOf()) { reader -> reader.packageName }
+
+/**
+ * Источники прогресса, которые показываем: только те, чья читалка установлена.
+ *
+ * Требование Александра (06.10.2026): удалённой читалки в приложении не должно быть видно нигде —
+ * в том числе в переключателях «Прогресс из …». Порядок источников — порядок объявления
+ * [ProgressSourceId], он же порядок переключателей на подэкране.
+ */
+internal fun visibleProgressSources(state: SettingsUiState): List<ProgressSourceId> {
+    val installed = installedReaderPackages(state)
+    return ProgressSourceId.entries.filter { source ->
+        readerPackagesOf(source).any { packageName -> packageName in installed }
+    }
+}
+
+/** Пакеты читалок для проверки «установлена ли»: те же строки, что и в [readerPackagesOf]. */
+private const val FBREADER_PACKAGE = "com.fbreader"
+private const val KOREADER_PACKAGE = "org.koreader.launcher"
+private const val COOLREADER_PACKAGE = "org.coolreader"
+private const val POCKETBOOK_PACKAGE = "com.obreey.reader"
+private const val XREADER_PACKAGE = "com.xrz.xreaderV3"
+private val LIBRERA_PACKAGES = setOf("com.foobnix.pdf.reader", "com.foobnix.pro.pdf.reader")
