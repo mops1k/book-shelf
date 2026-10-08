@@ -139,7 +139,7 @@
     <string name="settings_view_series">Серии</string>
     <string name="settings_view_genres">Жанры</string>
     <string name="settings_library_sort">Сортировка по умолчанию</string>
-    <string name="settings_library_sort_hint">Чем открывается полка. На самой полке порядок можно сменить на время</string>
+    <string name="settings_library_sort_hint">Чем открывается полка. Выбор, сделанный на самой полке, сохраняется здесь</string>
     <string name="settings_library_descending">Обратный порядок</string>
     <string name="settings_library_descending_hint">От новых к старым, от больших файлов к маленьким — наоборот к выбранной сортировке</string>
     <string name="settings_library_grouping">Группировка по умолчанию</string>

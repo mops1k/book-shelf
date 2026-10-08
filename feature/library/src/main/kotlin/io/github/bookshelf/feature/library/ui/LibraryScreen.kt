@@ -108,6 +108,9 @@ fun LibraryScreen(
     // Шаг выбора живёт только на время экрана: сам порядок хранит ViewModel, а «на каком мы шаге»
     // — состояние экрана, и хранить его в ViewModel незачем.
     var sortStep by remember { mutableStateOf(SortStep.Hidden) }
+    // Новый порядок начинается с первой книги: иначе список остаётся прокрученным на прежнем
+    // месте и видно кусок нового порядка — выглядит как «сортировка не применилась».
+    ScrollToTopOnOrderChange(gridState, state.sort, state.descending, state.grouping)
 
     EinkScaffold(
         title = stringResource(R.string.library_title),

@@ -61,3 +61,32 @@ fun SettingsGrouping.toQueryGrouping(): Grouping = when (this) {
     SettingsGrouping.FOLDER -> Grouping.FOLDER
     SettingsGrouping.FORMAT -> Grouping.FORMAT
 }
+
+/**
+ * Сортировка запроса полки → сортировка в настройках.
+ *
+ * Обратный маппинг нужен с 08.10.2026: выбор, сделанный на полке, пишется в настройки
+ * («Сортировка по умолчанию»). Без него после перезапуска приложения полка возвращалась к
+ * прежнему умолчанию, и пользователь видел не тот порядок, который выбирал. `when` без `else` по
+ * той же причине, что и в прямом маппинге: новое значение упадёт на компиляции здесь, а не
+ * покажет тихо чужой порядок книг.
+ */
+fun SortOrder.toSettingsSortOrder(): SettingsSortOrder = when (this) {
+    SortOrder.TITLE -> SettingsSortOrder.TITLE
+    SortOrder.AUTHOR -> SettingsSortOrder.AUTHOR
+    SortOrder.SERIES -> SettingsSortOrder.SERIES
+    SortOrder.ADDED_AT -> SettingsSortOrder.ADDED_AT
+    SortOrder.LAST_OPENED -> SettingsSortOrder.LAST_OPENED
+    SortOrder.SIZE -> SettingsSortOrder.SIZE
+    SortOrder.PROGRESS -> SettingsSortOrder.PROGRESS
+    SortOrder.YEAR -> SettingsSortOrder.YEAR
+}
+
+/** Группировка запроса полки → группировка в настройках. */
+fun Grouping.toSettingsGrouping(): SettingsGrouping = when (this) {
+    Grouping.NONE -> SettingsGrouping.NONE
+    Grouping.SERIES -> SettingsGrouping.SERIES
+    Grouping.AUTHOR -> SettingsGrouping.AUTHOR
+    Grouping.FOLDER -> SettingsGrouping.FOLDER
+    Grouping.FORMAT -> SettingsGrouping.FORMAT
+}

@@ -582,8 +582,9 @@ class SettingsViewModel @Inject constructor(
     /**
      * Сортировка полки по умолчанию.
      *
-     * Это начальное значение: полка читает его при открытии (`LibraryViewModel`), а дальше
-     * порядком управляет выбор на самой полке — иначе настройка перебивала бы его.
+     * Это то же значение, что и порядок, выбранный на самой полке: с 08.10.2026 полка пишет свой
+     * выбор сюда (`LibraryViewModel.rememberOrder`), поэтому настройка и подвал полки показывают
+     * одно и то же.
      */
     fun onSetDefaultSortOrder(order: SortOrder) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->

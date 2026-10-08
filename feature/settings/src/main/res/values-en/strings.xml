@@ -138,7 +138,7 @@
     <string name="settings_view_series">Series</string>
     <string name="settings_view_genres">Genres</string>
     <string name="settings_library_sort">Default sorting</string>
-    <string name="settings_library_sort_hint">How the shelf opens. On the shelf itself the order can be changed temporarily</string>
+    <string name="settings_library_sort_hint">How the shelf opens. The choice made on the shelf is saved here</string>
     <string name="settings_library_descending">Reverse order</string>
     <string name="settings_library_descending_hint">From new to old, from large files to small — the opposite of the chosen sorting</string>
     <string name="settings_library_grouping">Default grouping</string>

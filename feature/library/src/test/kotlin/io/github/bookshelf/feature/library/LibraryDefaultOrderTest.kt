@@ -46,6 +46,10 @@ import org.junit.Test
  * тем же порядком. Здесь важно и обратное: настройка — живая (изменил её — полка перестроилась
  * сразу), но выбор, сделанный на самой полке, не откатывается эмиссиями, которые тройку порядка
  * не меняют.
+ *
+ * С 08.10.2026 выбор на полке пишется в эти же настройки (решение Александра): раньше он жил «на
+ * время» и после перезапуска приложения полка возвращалась к прежнему умолчанию — пользователь
+ * видел не тот порядок, который выбирал.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryDefaultOrderTest {
@@ -125,9 +129,9 @@ class LibraryDefaultOrderTest {
         viewModel.onSetSort(SortOrder.SIZE)
         advanceUntilIdle()
 
-        // Любая другая настройка рождает новый AppSettings, но тройка порядка та же: выбор на
-        // полке обязан устоять, иначе полка пересортировывалась бы при смене лимита кэша.
-        settingsFlow.value = appSettings()
+        // Выбор с полки записан в настройки, поэтому их следующая эмиссия несёт уже SIZE: полка
+        // от неё не пересортировывается и остаётся в выбранном порядке.
+        settingsFlow.value = appSettings(sort = SettingsSortOrder.SIZE)
         advanceUntilIdle()
         assertThat(repository.queries.last().sort).isEqualTo(SortOrder.SIZE)
 
@@ -148,26 +152,29 @@ class LibraryDefaultOrderTest {
     }
 
     @Test
-    fun `direction chosen on the shelf applies at once and is not written to the settings`() =
-        runTest(dispatcher) {
-            val settingsFlow = MutableStateFlow(appSettings())
-            val settings = FakeSettingsRepository(settingsFlow)
-            val viewModel = viewModel(settings)
-            advanceUntilIdle()
-            viewModel.onSetSort(SortOrder.LAST_OPENED)
-            advanceUntilIdle()
+    fun `the order chosen on the shelf is written to the settings`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository(MutableStateFlow(appSettings()))
+        val viewModel = viewModel(settings)
+        advanceUntilIdle()
 
-            viewModel.onSetSortDirection(descending = false)
-            advanceUntilIdle()
+        viewModel.onSetSort(SortOrder.LAST_OPENED)
+        advanceUntilIdle()
 
-            // Направление — порядок «на время», как и выбор поля: запрос меняется сразу...
-            assertThat(repository.queries.last().sort).isEqualTo(SortOrder.LAST_OPENED)
-            assertThat(repository.queries.last().descending).isFalse()
-            assertThat(viewModel.uiState.value.descending).isFalse()
-            // ...а умолчание в настройках остаётся прежним: иначе выбор на полке переписывал бы
-            // настройку, и «Обратный порядок» терял бы смысл.
-            assertThat(settings.updateCalls).isEqualTo(0)
-        }
+        // Выбор на полке — это и есть настройка «Сортировка по умолчанию»: он виден на экране
+        // настроек и переживает перезапуск (решение Александра 08.10.2026). Раньше он жил «на время»
+        // и после перезапуска полка возвращалась к прежнему умолчанию — «Прогресс», из-за чего
+        // первым показывался не тот, кого открывали последним.
+        assertThat(settings.updated.last().library.sortOrder)
+            .isEqualTo(SettingsSortOrder.LAST_OPENED)
+
+        viewModel.onSetSortDirection(descending = false)
+        advanceUntilIdle()
+        assertThat(settings.updated.last().library.sortDescending).isFalse()
+
+        viewModel.onSetGrouping(Grouping.AUTHOR)
+        advanceUntilIdle()
+        assertThat(settings.updated.last().library.grouping).isEqualTo(SettingsGrouping.AUTHOR)
+    }
 
     private fun viewModel(
         settings: SettingsRepository,
@@ -259,12 +266,16 @@ class LibraryDefaultOrderTest {
 
         override suspend fun resetToDefaults() = Unit
         override suspend fun current(): AppSettings = AppSettings()
-        /** Сколько раз настройки пытались изменить: полка не должна писать умолчания. */
-        var updateCalls: Int = 0
-            private set
+
+        /** Состояния настроек после правок: полка пишет выбор порядка именно сюда. */
+        val updated = mutableListOf<AppSettings>()
+
+        /** Последнее записанное состояние: правка применяется к нему, как в настоящем хранилище. */
+        private var stored: AppSettings = AppSettings()
 
         override suspend fun update(transform: (AppSettings) -> AppSettings) {
-            updateCalls += 1
+            stored = transform(stored)
+            updated += stored
         }
     }
 }

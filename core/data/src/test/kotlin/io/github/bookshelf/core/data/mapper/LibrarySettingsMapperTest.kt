@@ -56,6 +56,34 @@ class LibrarySettingsMapperTest {
     }
 
     @Test
+    fun `every query sort order maps back to its settings counterpart`() {
+        val mapped = SortOrder.entries.map { it.toSettingsSortOrder() }
+
+        assertThat(mapped).containsExactlyElementsIn(SettingsSortOrder.entries)
+        assertThat(mapped).hasSize(SortOrder.entries.size)
+    }
+
+    @Test
+    fun `every query grouping maps back to its settings counterpart`() {
+        val mapped = Grouping.entries.map { it.toSettingsGrouping() }
+
+        assertThat(mapped).containsExactlyElementsIn(SettingsGrouping.entries)
+        assertThat(mapped).hasSize(Grouping.entries.size)
+    }
+
+    @Test
+    fun `the order chosen on the shelf survives the round trip`() {
+        // Выбор, сделанный на полке, пишется в настройки и читается обратно при следующем открытии
+        // (решение Александра 08.10.2026): без round-trip полка возвращалась бы к прежнему порядку.
+        SortOrder.entries.forEach { order ->
+            assertThat(order.toSettingsSortOrder().toQuerySortOrder()).isEqualTo(order)
+        }
+        Grouping.entries.forEach { grouping ->
+            assertThat(grouping.toSettingsGrouping().toQueryGrouping()).isEqualTo(grouping)
+        }
+    }
+
+    @Test
     fun `documented defaults are not inverted`() {
         // Умолчание — «Название», прямой порядок, без группировки («E-ink UX» §6.2):
         // обратный порядок по умолчанию показал бы библиотеку с конца.

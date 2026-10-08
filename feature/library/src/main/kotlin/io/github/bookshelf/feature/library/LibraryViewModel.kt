@@ -9,6 +9,8 @@ import io.github.bookshelf.core.common.error.toAppError
 import io.github.bookshelf.core.data.author.authorSetNames
 import io.github.bookshelf.core.data.mapper.LibraryQueryDefaults
 import io.github.bookshelf.core.data.mapper.toLibraryQueryDefaults
+import io.github.bookshelf.core.data.mapper.toSettingsGrouping
+import io.github.bookshelf.core.data.mapper.toSettingsSortOrder
 import io.github.bookshelf.core.data.model.AuthorSeries
 import io.github.bookshelf.core.data.model.AuthorSet
 import io.github.bookshelf.core.data.model.Book
@@ -29,6 +31,7 @@ import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -169,19 +172,21 @@ class LibraryViewModel @Inject constructor(
         query = query.withFreshWindow { it.copy(sort = sort) }
         _uiState.update { it.copy(sort = sort, page = 0) }
         observePage(query)
+        rememberShelfOrder(viewModelScope, settingsRepository, query)
     }
 
     /**
      * Смена направления порядка — второй шаг выбора сортировки.
      *
-     * Как и выбор поля, это порядок «на время»: настройка `library.sortDescending` остаётся
-     * умолчанием для открытия полки, и полка её не переписывает. Иначе выбор направления на полке
-     * молча менял бы настройку, а «Обратный порядок» в настройках терял бы смысл.
+     * Выбор сразу становится и настройкой `library.sortDescending`: до 08.10.2026 он жил «на время»
+     * и после перезапуска приложения полка возвращалась к прежнему умолчанию, то есть человек видел
+     * не тот порядок, который выбрал.
      */
     fun onSetSortDirection(descending: Boolean) {
         query = query.withFreshWindow { it.copy(descending = descending) }
         _uiState.update { it.copy(descending = descending, page = 0) }
         observePage(query)
+        rememberShelfOrder(viewModelScope, settingsRepository, query)
     }
 
     /** Смена группировки: запрос к БД начинается с первой страницы. */
@@ -189,6 +194,7 @@ class LibraryViewModel @Inject constructor(
         query = query.withFreshWindow { it.copy(grouping = grouping) }
         _uiState.update { it.copy(grouping = grouping, page = 0) }
         observePage(query)
+        rememberShelfOrder(viewModelScope, settingsRepository, query)
     }
 
     /**
@@ -702,6 +708,37 @@ class LibraryViewModel @Inject constructor(
     private companion object {
         const val MIN_PROGRESS_PERCENT = 0
         const val MAX_PROGRESS_PERCENT = 100
+    }
+}
+
+/**
+ * Запомнить порядок, выбранный на полке, в настройках.
+ *
+ * Полка и экран «Сортировка по умолчанию» держат одно значение: выбор переживает перезапуск, а в
+ * настройках видно то же, что показывает подвал полки (решение Александра 08.10.2026). Пишется
+ * одним `update` — тремя отдельными записями это стоило бы трёх перезаписей файла настроек, а
+ * тройка порядка всё равно меняется как одно решение.
+ *
+ * Свободная функция, а не метод `LibraryViewModel`: у класса порог detekt `TooManyFunctions` 30.
+ */
+private fun rememberShelfOrder(
+    scope: CoroutineScope,
+    settingsRepository: SettingsRepository,
+    order: LibraryQuery,
+) {
+    val sort = order.sort.toSettingsSortOrder()
+    val descending = order.descending
+    val grouping = order.grouping.toSettingsGrouping()
+    scope.launch {
+        settingsRepository.update { settings ->
+            settings.copy(
+                library = settings.library.copy(
+                    sortOrder = sort,
+                    sortDescending = descending,
+                    grouping = grouping,
+                ),
+            )
+        }
     }
 }
 
