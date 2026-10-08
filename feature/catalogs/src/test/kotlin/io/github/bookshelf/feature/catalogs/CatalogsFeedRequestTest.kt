@@ -107,5 +107,6 @@ class CatalogsFeedRequestTest {
         opdsRepository = repository,
         sourceRepository = FakeSourceRepository,
         catalogFeedRequest = request,
+        loadedEntries = LoadedFeedEntries(),
     )
 }

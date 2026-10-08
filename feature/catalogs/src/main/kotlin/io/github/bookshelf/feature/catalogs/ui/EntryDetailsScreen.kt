@@ -25,9 +25,11 @@ import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.feature.catalogs.EntryCardPlaceholder
 import io.github.bookshelf.feature.catalogs.EntryDetailsUiState
 import io.github.bookshelf.feature.catalogs.EntryDetailsViewModel
 import io.github.bookshelf.feature.catalogs.R
+import io.github.bookshelf.feature.catalogs.entryCardPlaceholder
 import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.text.sourceNameOrFolder
@@ -95,14 +97,24 @@ fun EntryDetailsScreen(
             )
         }
 
-        if (state.title.isEmpty()) {
-            EinkEmptyState(
+        when (entryCardPlaceholder(isLoading = state.isLoading, hasTitle = state.title.isNotEmpty())) {
+            // Пока запись читается, «Запись не найдена» — неправда: пользователь только что видел
+            // её в списке, и экран выглядел как поломка каталога вместо ожидания.
+            EntryCardPlaceholder.LOADING -> LoadingRow(
+                label = stringResource(R.string.catalogs_entry_loading),
+            )
+
+            EntryCardPlaceholder.MISSING -> EinkEmptyState(
                 title = stringResource(R.string.catalogs_entry_missing_title),
                 message = stringResource(R.string.catalogs_entry_missing_message),
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            EntryCardBody(state = state, viewModel = viewModel, onOpenFeed = onOpenFeed)
+
+            EntryCardPlaceholder.CONTENT -> EntryCardBody(
+                state = state,
+                viewModel = viewModel,
+                onOpenFeed = onOpenFeed,
+            )
         }
     }
 }

@@ -54,6 +54,7 @@
     <string name="catalogs_downloads_one">1 download</string>
     <string name="catalogs_download_status_downloading">Downloading</string>
     <string name="catalogs_entry_details">Catalog entry</string>
+    <string name="catalogs_entry_loading">Loading the catalog entry…</string>
     <string name="catalogs_entry_no_description">The catalog has no description of this book. Everything known about it is above: author, series, year, language and file formats.</string>
     <string name="catalogs_catalog_unavailable">unavailable</string>
     <string name="catalogs_catalog_login">login required</string>

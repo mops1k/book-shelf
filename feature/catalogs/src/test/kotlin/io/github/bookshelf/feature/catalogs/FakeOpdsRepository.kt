@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.catalogs
 
 import io.github.bookshelf.core.common.error.AppError
 import io.github.bookshelf.core.common.error.AppResult
+import io.github.bookshelf.core.common.error.map
 import io.github.bookshelf.core.data.model.OpdsCatalog
 import io.github.bookshelf.core.data.model.OpdsDownload
 import io.github.bookshelf.core.data.model.OpdsEntry
@@ -20,6 +21,13 @@ internal const val SERIES_FEED_URL: String = "https://host/opds/sequences/24147"
 
 /** Шаблон OpenSearch в том виде, в каком его объявляет Флибуста. */
 internal const val SEARCH_TEMPLATE: String = "https://host/opds/search?searchTerm={searchTerms}"
+
+/**
+ * Адрес второй страницы фида: Флибуста нумерует страницы от нуля (`/opds/new/1/new/` — вторая).
+ *
+ * Нужен проверкам догрузки: книга, пришедшая со второй страницы, обязана открываться карточкой.
+ */
+internal const val SECOND_PAGE_URL: String = "https://host/opds/new/1/new/"
 
 /** Запись фида для тестов: по умолчанию книга без метаданных. */
 internal fun entry(
@@ -62,6 +70,12 @@ internal class FakeOpdsRepository : OpdsRepository {
     /** Записи корневого фида. */
     var rootEntries: List<OpdsEntry> = listOf(entry("1", "Черновик"), entry("2", "Дозор"))
 
+    /** Ссылка `rel="next"` корневого фида: `null` — фид умещается в одну страницу. */
+    var rootNextUrl: String? = null
+
+    /** Ссылка `rel="next"` конкретных страниц: адрес → следующая страница. */
+    val urlNextUrls = mutableMapOf<String, String?>()
+
     /** Ответы на конкретные адреса фидов: адрес → записи. */
     val urlEntries = linkedMapOf<String, List<OpdsEntry>>()
 
@@ -100,14 +114,21 @@ internal class FakeOpdsRepository : OpdsRepository {
         return AppResult.success(Unit)
     }
 
+    /**
+     * Отбор записей фида.
+     *
+     * Идёт через [browsePage], а не напрямую в [entriesFor]: тогда адрес запроса попадает в
+     * [requestedUrls], и проверка «карточка не ходила в сеть» видит и этот путь.
+     */
     override suspend fun browse(catalogId: String, url: String?): AppResult<List<OpdsEntry>> =
-        AppResult.success(entriesFor(url))
+        browsePage(catalogId, url).map { page -> page.entries }
 
     override suspend fun browsePage(catalogId: String, url: String?): AppResult<OpdsPage> {
         requestedUrls += url
         return AppResult.success(
             OpdsPage(
                 entries = entriesFor(url),
+                nextUrl = if (url == null) rootNextUrl else urlNextUrls[url],
                 searchUrl = searchTemplate,
                 url = url ?: "https://host/opds",
             ),

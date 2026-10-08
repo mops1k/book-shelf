@@ -27,6 +27,7 @@ class EntryDetailsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val repository = FakeOpdsRepository()
     private val request = CatalogFeedRequest()
+    private val loadedEntries = LoadedFeedEntries()
 
     @Before
     fun setUp() {
@@ -129,16 +130,58 @@ class EntryDetailsViewModelTest {
         assertThat(request.request.value).isNull()
     }
 
-    private fun card() = EntryDetailsViewModel(
+    @Test
+    fun `the card opens the book the list showed even when the feed no longer has it`() =
+        runTest(dispatcher) {
+            // Дефект от 08.10.2026: «Боевая целительница» лежит на третьей странице фида, а карточка
+            // перечитывала первую и отвечала «Запись больше не входит в этот фид», хотя книга
+            // показана в списке. То, что отдал список, карточка обязана помнить сама.
+            val shown = entry(
+                id = "2",
+                title = "Боевая целительница в Академии. Книга 1",
+                authors = "Иванова Мария",
+                formats = listOf("FB2"),
+            )
+            loadedEntries.remember(
+                catalogId = FakeOpdsRepository.CATALOG_ID,
+                entries = listOf(shown),
+                feedUrl = SECOND_PAGE_URL,
+            )
+            // Свежий фид книги не содержит: так выглядит ответ сервера, где она ушла на другую страницу.
+            repository.rootEntries = listOf(entry(id = "7", title = "Другая книга"))
+
+            val viewModel = card(entryId = "2")
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.title).isEqualTo(shown.title)
+            assertThat(viewModel.uiState.value.canDownload).isTrue()
+            assertThat(viewModel.uiState.value.error).isNull()
+            // За фидом не ходили вовсе: то, что увидел пользователь, уже есть в памяти.
+            assertThat(repository.requestedUrls).isEmpty()
+        }
+
+    @Test
+    fun `a card that is still loading reports loading, not a missing entry`() = runTest(dispatcher) {
+        // Фид не отвечает: экран не должен утверждать, что записи нет, пока идёт чтение.
+        repository.rootEntries = emptyList()
+
+        val viewModel = card()
+
+        assertThat(viewModel.uiState.value.isLoading).isTrue()
+        assertThat(viewModel.uiState.value.error).isNull()
+    }
+
+    private fun card(entryId: String = "1", feedUrl: String = "") = EntryDetailsViewModel(
         savedStateHandle = SavedStateHandle(
             mapOf(
                 EntryRoute.ARG_CATALOG_ID to FakeOpdsRepository.CATALOG_ID,
-                EntryRoute.ARG_ENTRY_ID to "1",
-                EntryRoute.ARG_FEED_URL to "",
+                EntryRoute.ARG_ENTRY_ID to entryId,
+                EntryRoute.ARG_FEED_URL to feedUrl,
             ),
         ),
         opdsRepository = repository,
         sourceRepository = FakeSourceRepository,
         catalogFeedRequest = request,
+        loadedEntries = loadedEntries,
     )
 }

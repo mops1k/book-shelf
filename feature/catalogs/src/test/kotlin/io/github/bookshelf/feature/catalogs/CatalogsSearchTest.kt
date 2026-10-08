@@ -148,6 +148,7 @@ class CatalogsSearchTest {
         opdsRepository = repository,
         sourceRepository = FakeSourceRepository,
         catalogFeedRequest = CatalogFeedRequest(),
+        loadedEntries = LoadedFeedEntries(),
     )
 
     private companion object {

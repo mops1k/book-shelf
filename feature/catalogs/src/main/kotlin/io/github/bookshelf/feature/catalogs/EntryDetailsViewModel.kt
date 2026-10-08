@@ -108,9 +108,10 @@ data class EntryDetailsUiState(
 /**
  * ViewModel карточки записи каталога.
  *
- * Запись берётся повторным чтением фида по id каталога: держать в памяти загруженные записи
- * через несколько экранов навигации нельзя — экран пересоздаётся, а список фида может уже
- * быть другой страницей.
+ * Запись берётся из того, что пользователь видел в списке ([loadedEntries]): список догружает
+ * страницы 2, 3…, и книга может лежать не на первой странице — повторное чтение первой страницы
+ * объявляло её «больше не входящей в фид». Чтение фида остаётся запасным путём: оно нужно, когда
+ * записи в памяти нет (например, процесс был перезапущен).
  */
 @HiltViewModel
 class EntryDetailsViewModel @Inject constructor(
@@ -119,6 +120,8 @@ class EntryDetailsViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
     /** Просьба к браузеру каталога: открыть фид автора или серии. */
     private val catalogFeedRequest: CatalogFeedRequest,
+    /** Записи, которые показал браузер каталога: из них карточка берёт книгу. */
+    private val loadedEntries: LoadedFeedEntries,
 ) : ViewModel() {
 
     private val catalogId: String =
@@ -227,48 +230,43 @@ class EntryDetailsViewModel @Inject constructor(
         catalogFeedRequest.open(catalogId, url, title)
     }
 
-    /** Перечитать фид и найти запись по id. */
+    /**
+     * Показать карточку: запись из показанного списка, а чтение фида — запасной путь.
+     *
+     * Основной путь — [loadedEntries]: в карточке должна открываться та книга, которую пользователь
+     * видит в списке. Фид перечитывается только тогда, когда записи в памяти нет (процесс
+     * перезапущен, карточка открыта из восстановленного стека).
+     */
     fun onRefresh() {
         if (catalogId.isEmpty()) {
-            _uiState.update { it.copy(error = AppText(R.string.catalogs_entry_error_no_catalog)) }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = AppText(R.string.catalogs_entry_error_no_catalog),
+                )
+            }
             return
         }
+        val remembered = loadedEntries.find(catalogId, entryId)
+        if (remembered != null) {
+            show(remembered)
+            return
+        }
+        // Флаг ставится до запуска корутины: иначе первый кадр показывал пустое название, и экран
+        // успевал сказать «Запись не найдена» раньше, чем начиналось чтение фида.
+        _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
             val result = opdsRepository.browse(catalogId, feedUrl.takeIf { it.isNotBlank() })
             result.fold(
                 onSuccess = { entries ->
                     val found = entries.firstOrNull { it.id == entryId }
-                    entry = found
-                    _uiState.value = if (found == null) {
-                        EntryDetailsUiState(error = AppText(R.string.catalogs_entry_error_not_in_feed))
-                    } else {
-                        // Список папок не теряется: refresh перезаписывает состояние целиком,
-                        // а папки приходят отдельной подпиской — иначе карточка показывала
-                        // «Папка не выбрана», хотя папка в приложении есть.
-                        EntryDetailsUiState(
-                            folders = _uiState.value.folders,
-                            selectedFolderId = _uiState.value.selectedFolderId,
-                            title = found.title,
-                            authors = found.authorsText.orEmpty(),
-                            authorUrl = found.authorUrl,
-                            seriesName = found.seriesName,
-                            seriesUrl = found.seriesUrl,
-                            // Метаданные записи берутся из фида целиком: раньше здесь стояли
-                            // null-ы, и карточка показывала только автора и формат, хотя фид
-                            // прислал и описание, и серию, и язык, и год.
-                            summary = found.summary,
-                            coverUrl = found.coverUrl,
-                            formatsLabel = found.formats.joinToString(separator = ", "),
-                            sizeLabel = found.expectedSize?.let(::fileSizeLabel),
-                            language = found.language,
-                            issued = found.issued,
-                            genresLabel = found.genres.joinToString(separator = ", ")
-                                .takeIf { it.isNotBlank() },
-                            updated = found.updated?.let(::updatedLabel),
-                            canDownload = !found.acquisitionUrl.isNullOrBlank(),
-                            isLoading = false,
+                    if (found == null) {
+                        entry = null
+                        _uiState.value = EntryDetailsUiState(
+                            error = AppText(R.string.catalogs_entry_error_not_in_feed),
                         )
+                    } else {
+                        show(found)
                     }
                 },
                 onFailure = {
@@ -281,6 +279,37 @@ class EntryDetailsViewModel @Inject constructor(
                 },
             )
         }
+    }
+
+    /**
+     * Заполнить состояние карточки найденной записью.
+     *
+     * Метаданные берутся из фида целиком: раньше здесь стояли null-ы, и карточка показывала только
+     * автора и формат, хотя фид прислал и описание, и серию, и язык, и год. Список папок при этом
+     * не теряется: он приходит отдельной подпиской, а состояние перезаписывается целиком — иначе
+     * карточка показывала «Папка не выбрана», хотя папка в приложении есть.
+     */
+    private fun show(found: OpdsEntry) {
+        entry = found
+        _uiState.value = EntryDetailsUiState(
+            folders = _uiState.value.folders,
+            selectedFolderId = _uiState.value.selectedFolderId,
+            title = found.title,
+            authors = found.authorsText.orEmpty(),
+            authorUrl = found.authorUrl,
+            seriesName = found.seriesName,
+            seriesUrl = found.seriesUrl,
+            summary = found.summary,
+            coverUrl = found.coverUrl,
+            formatsLabel = found.formats.joinToString(separator = ", "),
+            sizeLabel = found.expectedSize?.let(::fileSizeLabel),
+            language = found.language,
+            issued = found.issued,
+            genresLabel = found.genres.joinToString(separator = ", ").takeIf { it.isNotBlank() },
+            updated = found.updated?.let(::updatedLabel),
+            canDownload = !found.acquisitionUrl.isNullOrBlank(),
+            isLoading = false,
+        )
     }
 
     /**

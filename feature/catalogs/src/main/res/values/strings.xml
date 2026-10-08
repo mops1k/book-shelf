@@ -55,6 +55,7 @@
     <string name="catalogs_downloads_one">1 загрузка</string>
     <string name="catalogs_download_status_downloading">Скачивание</string>
     <string name="catalogs_entry_details">Запись каталога</string>
+    <string name="catalogs_entry_loading">Загружаем запись каталога…</string>
     <string name="catalogs_entry_no_description">В каталоге нет описания этой книги. Всё, что о ней известно, — выше: автор, серия, год издания, язык и форматы файлов.</string>
     <string name="catalogs_catalog_unavailable">недоступен</string>
     <string name="catalogs_catalog_login">нужен вход</string>

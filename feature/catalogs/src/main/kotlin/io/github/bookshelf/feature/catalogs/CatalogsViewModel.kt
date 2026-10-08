@@ -53,6 +53,14 @@ class CatalogsViewModel @Inject constructor(
     private val sourceRepository: SourceRepository,
     /** Просьбы из карточки книги: «открой фид автора/серии». */
     private val catalogFeedRequest: CatalogFeedRequest,
+    /**
+     * Записи показанных фидов.
+     *
+     * Карточка книги берёт запись отсюда, а не из свежего ответа сервера: список догружает страницы
+     * 2, 3… (`onLoadNextPage`), и книга, которую пользователь видит, может лежать не на первой
+     * странице — перечитывание первой объявляло её «больше не входящей в фид» (08.10.2026).
+     */
+    private val loadedEntries: LoadedFeedEntries,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogsUiState())
@@ -260,7 +268,13 @@ class CatalogsViewModel @Inject constructor(
         if (!entry.isSection || sectionHref == null) {
             // Книга: показываем карточку с описанием. Скачивание запускается из неё кнопкой —
             // раньше нажатие сразу ставило загрузку в очередь, и описание было негде посмотреть.
-            onOpenEntryCard(catalogId, entryId, currentFeedUrl)
+            // Адрес берётся у самой записи: догруженные страницы живут не по адресу уровня, и
+            // карточка, перечитав первую страницу, не нашла бы книгу.
+            onOpenEntryCard(
+                catalogId,
+                entryId,
+                loadedEntries.feedUrlOf(catalogId, entryId) ?: currentFeedUrl,
+            )
             return
         }
         viewModelScope.launch {
@@ -655,6 +669,9 @@ class CatalogsViewModel @Inject constructor(
         // из-за чего приложение падало на третьем вложенном уровне. Показываем книгу один раз.
         val unique = entries.distinctBy { it.id }
         currentEntries = unique.associateBy { it.id }
+        // Записи запоминаются вместе с адресом страницы: карточка книги обязана показывать то, что
+        // видел пользователь, а не требовать запись в свежем ответе сервера.
+        loadedEntries.remember(catalogId, unique, currentFeedUrl)
         currentNextUrl = nextUrl
         val catalog = _uiState.value.catalogs.firstOrNull { it.id == catalogId }
         _uiState.value = _uiState.value.copy(
@@ -712,6 +729,10 @@ class CatalogsViewModel @Inject constructor(
     private fun appendFeed(catalogId: String, page: OpdsPage) {
         val feed = _uiState.value.currentFeed ?: return
         val merged = (currentEntries.values.toList() + page.entries).distinctBy { it.id }
+        // Новые записи приходят со своей страницы: адрес нужен карточке книги, чтобы найти её в фиде
+        // заново. Запоминается до showFeed, иначе догруженные записи получили бы адрес первой
+        // страницы уровня — та самая поломка, из-за которой книга «больше не входит в фид».
+        loadedEntries.remember(catalogId, page.entries, page.url)
         showFeed(
             catalogId = catalogId,
             entries = merged,

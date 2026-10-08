@@ -73,5 +73,6 @@ class CatalogsClearHistoryTest {
         opdsRepository = repository,
         sourceRepository = FakeSourceRepository,
         catalogFeedRequest = CatalogFeedRequest(),
+        loadedEntries = LoadedFeedEntries(),
     )
 }
