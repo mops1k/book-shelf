@@ -1,50 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Все строки — только здесь, с первого дня (требование сквозного backlog: локализация ru/en).
+  Строки самого приложения: здесь только то, что принадлежит ему целиком, — имя приложения.
+  Подписи экранов лежат в своих feature-модулях (library, catalogs, settings и так далее): раньше
+  все они были собраны здесь, экраны переехали, а копии остались и копились мёртвым грузом — 26 штук,
+  удалены 08.10.2026. За этим следит правило UnusedResources в config/lint/lint.xml: новый мёртвый
+  ресурс валит сборку, а не шепчет в отчёте.
   Основной язык — русский; английский лежит в values-en.
 -->
 <resources>
     <string name="app_name">Книжная полка</string>
-
-    <!-- Разделы навигации -->
-    <string name="nav_library">Полка</string>
-    <string name="nav_search">Поиск</string>
-    <string name="nav_collections">Полки</string>
-    <string name="nav_catalogs">Каталоги</string>
-    <string name="nav_settings">Настройки</string>
-    <string name="nav_scan">Сканирование</string>
-
-    <!-- Общие действия -->
-    <string name="action_back">Назад</string>
-    <string name="action_cancel">Отмена</string>
-    <string name="action_apply">Применить</string>
-    <string name="action_reset">Сбросить</string>
-    <string name="action_add">Добавить</string>
-    <string name="action_read">Читать</string>
-    <string name="action_more">Ещё</string>
-
-    <!-- Полка -->
-    <string name="library_empty_title">Библиотека пуста</string>
-    <string name="library_empty_message">Добавьте папку с книгами — приложение не копирует файлы, а читает их на месте.</string>
-    <string name="library_add_folder">Добавить папку</string>
-    <plurals name="library_books_count">
-        <item quantity="one">%d книга</item>
-        <item quantity="few">%d книги</item>
-        <item quantity="many">%d книг</item>
-        <item quantity="other">%d книги</item>
-    </plurals>
-    <string name="library_page_status">Стр. %1$d/%2$d · %3$s</string>
-
-    <!-- Сканирование -->
-    <string name="scan_running">Сканирование… %1$d из %2$d</string>
-    <string name="scan_resume">Продолжить сканирование</string>
-    <string name="scan_done">Готово: добавлено %1$d, обновлено %2$d</string>
-
-    <!-- Ошибки доступа -->
-    <string name="error_access_lost">Папка недоступна — выберите её заново</string>
-    <string name="error_no_reader">Подходящая читалка не найдена</string>
-    <string name="error_file_unreadable">Читалка не смогла открыть файл</string>
-
-    <!-- Соглашение SAF: текст обязан объяснять ограничение системы -->
-    <string name="saf_hint">Выберите саму папку с книгами (например, Books), а не корень хранилища</string>
 </resources>

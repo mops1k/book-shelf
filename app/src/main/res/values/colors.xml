@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Базовые цвета интерфейса. Других оттенков в проекте быть не должно («E-ink UX» §2.1) -->
+    <!--
+      Базовые цвета интерфейса. Других оттенков в проекте быть не должно («E-ink UX» §2.1).
+      `eink_foreground` удалён 08.10.2026: чёрный цвет рисует тема `core:designsystem`, а копия в
+      app-модуле не использовалась нигде.
+    -->
     <color name="eink_background">#FFFFFFFF</color>
-    <color name="eink_foreground">#FF000000</color>
     <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>

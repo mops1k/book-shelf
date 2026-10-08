@@ -12,11 +12,20 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application>
+        <!--
+          Провайдер обязан быть экспортируемым: инструментальный тест живёт в отдельном APK и
+          обращается к заглушке через ContentResolver, а не изнутри процесса приложения. Данные в
+          заглушке тестовые (URI и колонки DocumentsContract), но lint справедливо предупреждает, что
+          через экспортируемый провайдер вообще можно отдать чужие данные, поэтому предупреждение
+          гасится осознанно — так же, как `AppLinkUrlError` ниже. В release-сборке этого провайдера
+          нет: файл лежит в `src/debug`.
+        -->
         <provider
             android:name="io.github.bookshelf.debug.DebugDocumentsProvider"
             android:authorities="${applicationId}.debug.saf"
             android:exported="true"
-            android:grantUriPermissions="true" />
+            android:grantUriPermissions="true"
+            tools:ignore="ExportedContentProvider" />
 
         <activity
             android:name="io.github.bookshelf.debug.DebugReaderActivity"

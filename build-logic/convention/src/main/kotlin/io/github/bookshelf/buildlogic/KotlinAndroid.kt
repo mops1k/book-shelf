@@ -59,6 +59,8 @@ internal fun Project.configureKotlinAndroid(extension: CommonExtension<*, *, *, 
             warningsAsErrors = false
             // Зависимости проверяются отдельной задачей, а не при каждой сборке модуля.
             checkDependencies = false
+            // Политика одна на весь проект — как у detekt (`config/detekt/detekt.yml`).
+            lintConfig = rootProject.layout.projectDirectory.file("config/lint/lint.xml").asFile
         }
     }
 

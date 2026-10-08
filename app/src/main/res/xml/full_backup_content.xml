@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Что система имеет право выносить из приложения на Android 11 и ниже.
+
+  Та же политика, что и в `data_extraction_rules.xml` (Android 12+), только старым синтаксисом:
+  системная копия данных не нужна — библиотека лежит у пользователя в его папке, а своя резервная
+  копия приложение кладёт рядом (`/sdcard/Books/.bookshelf`).
+
+  Файл появился 08.10.2026 вместе с `data_extraction_rules.xml`: lint требует задать обе половины
+  (`DataExtractionRules`: «since minSdkVersion is API 24 you should also set android:fullBackupContent»),
+  иначе на Android 11- правила остаются неопределёнными, а `android:allowBackup="false"` на них
+  влияет не так, как на новые версии.
+-->
+<full-backup-content>
+    <exclude
+        domain="root"
+        path="." />
+    <exclude
+        domain="file"
+        path="." />
+    <exclude
+        domain="database"
+        path="." />
+    <exclude
+        domain="sharedpref"
+        path="." />
+    <exclude
+        domain="external"
+        path="." />
+    <exclude
+        domain="device_root"
+        path="." />
+    <exclude
+        domain="device_file"
+        path="." />
+    <exclude
+        domain="device_database"
+        path="." />
+    <exclude
+        domain="device_sharedpref"
+        path="." />
+</full-backup-content>
