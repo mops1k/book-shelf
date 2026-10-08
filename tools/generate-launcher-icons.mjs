@@ -1,5 +1,15 @@
-// Генератор launcher-иконок (PNG, 8-бит grayscale) без внешних зависимостей.
-// Иконки нужны для API 24–25: адаптивные иконки (mipmap-anydpi-v26) там не поддерживаются.
+// Генератор launcher-иконок — единственный источник рисунка, без внешних зависимостей.
+//
+// Пишет два вывода из одного описания книги (`BOOK_RECTS`):
+//   * растр RGBA в `mipmap-*dpi/ic_launcher{,_round}.png` — нужен для API 24–25, где адаптивных
+//     иконок ещё нет (mipmap-anydpi-v26 не поддерживается);
+//   * вектор `drawable/ic_launcher_foreground.xml` — передний план адаптивной иконки для API 26+.
+//
+// Раньше это были ДВА независимых рисунка: в векторе не было правой кромки обложки, а строки
+// доходили до неё, в PNG кромка была и пропорции были другие (0.2…0.8 против 34…74 из 108).
+// Александр заметил расхождение 08.10.2026: на устройстве (Android 14) показывался вектор, а PNG
+// он видел в отчёте. Теперь рисунок один, и разойтись они не могут: оба вывода строятся из
+// `BOOK_RECTS` ниже, а прогон проверяет, что в векторе ровно те же прямоугольники.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -8,6 +18,63 @@ import { deflateSync, inflateSync } from 'node:zlib';
 // Корень вычисляется от расположения скрипта: жёсткий путь привязывал генератор
 // к одной машине и ронял его в любом другом клоне репозитория.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'res');
+
+/**
+ * Рисунок книги: прямоугольники `[x0, y0, x1, y1]` в системе холста 108×108 (как viewport вектора).
+ *
+ * Размер 34…74 из 108 (0.315…0.685) выбран по безопасной зоне адаптивной иконки: система
+ * показывает центральные 66 из 108 и срезает остальное под форму лаунчера, а книга целиком лежит
+ * в 21…87 — значит, её не обрежет ни на круглой маске, ни на «капле».
+ */
+const SPINE = [34, 30, 40, 78]; // корешок
+const TOP = [34, 30, 74, 36]; // верхняя кромка обложки
+const BOTTOM = [34, 78, 74, 84]; // нижняя кромка обложки
+const RIGHT_EDGE = [68, 30, 74, 78]; // правая кромка — зеркало корешка, встык с кромками
+// Три строки «текста»: короче правой кромки, иначе срастаются с ней в сплошной блок.
+const LINES = [
+  [44, 44, 66, 48],
+  [44, 54, 66, 58],
+  [44, 64, 60, 68],
+];
+const BOOK_RECTS = [SPINE, TOP, BOTTOM, RIGHT_EDGE, ...LINES];
+
+/** Сторона холста описания: тот же viewport, что у вектора адаптивной иконки. */
+const VIEWPORT = 108;
+
+// Правая кромка обязательна (требование Александра 08.10.2026: «правая кромка нужна»). Проверка
+// стоит здесь, потому что кромку легко потерять при правке: без неё книга «открыта» справа — ровно
+// то расхождение, из-за которого появился этот разбор.
+if (!BOOK_RECTS.includes(RIGHT_EDGE)) throw new Error('в рисунке нет правой кромки');
+if (LINES.some(([, , x1]) => x1 >= RIGHT_EDGE[0])) {
+  throw new Error('строка упирается в правую кромку — сольётся с ней');
+}
+
+/** Путь для вектора: прямоугольник → `M x0,y0 h w v h h -w z`. */
+function rectToPathData([x0, y0, x1, y1]) {
+  return `M${x0},${y0}h${x1 - x0}v${y1 - y0}h${x0 - x1}z`;
+}
+
+/** Передний план адаптивной иконки: тот же рисунок, что и в растре, только путями. */
+function encodeVector() {
+  const paths = BOOK_RECTS.map(
+    (rect) =>
+      `    <path\n        android:fillColor="#FF000000"\n        android:pathData="${rectToPathData(rect)}" />`,
+  ).join('\n');
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Сгенерировано tools/generate-launcher-icons.mjs — не правьте руками, правьте там.
+  Передний план адаптивной иконки (API 26+); фон — @color/ic_launcher_background.
+  Рисунок книги обязан совпадать с растром mipmap-*dpi/ic_launcher{,_round}.png для API 24–25.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+${paths}
+</vector>
+`;
+}
 
 // --- CRC32 ---
 const CRC_TABLE = (() => {
@@ -64,7 +131,7 @@ function encodePng(size, pixels) {
 }
 
 /**
- * Рисует иконку: силуэт (скруглённый квадрат или круг) и чёрный корешок книги на нём.
+ * Рисует иконку: силуэт (скруглённый квадрат или круг) и книгу `BOOK_RECTS` на нём.
  *
  * Силуэт принципиален: до 08.10.2026 фон закрашивал весь квадрат, поэтому у иконки не было
  * очертаний (`IconLauncherShape`), а флаг `round` не давал видимого круга — вне круга рисовался
@@ -72,6 +139,8 @@ function encodePng(size, pixels) {
  * Теперь вне силуэта — прозрачность, поэтому квадратная и круглая версии разные.
  *
  * Край силуэта сглаживается 4×4 подвыборками: без этого круг и скругления были бы рваными.
+ * Сама книга берётся из `BOOK_RECTS` — того же описания, из которого собирается вектор, поэтому
+ * рисунок на API 24–25 и на API 26+ один и тот же.
  */
 function drawIcon(size, { round }) {
   const px = new Uint8Array(size * size * 4); // RGBA: по умолчанию всё прозрачно
@@ -80,10 +149,13 @@ function drawIcon(size, { round }) {
   const radius = size * 0.47;
   const margin = size * 0.04;
   const corner = size * 0.2;
-  const t = Math.max(1, Math.round(size * 0.035)); // толщина штриха
 
-  const inRect = (x, y, x0, y0, x1, y1) =>
-    x >= Math.round(x0 * size) && x <= Math.round(x1 * size) && y >= Math.round(y0 * size) && y <= Math.round(y1 * size);
+  /** Прямоугольник описания (в единицах 108×108) → попадание пикселя. Края включительно. */
+  const inBookRect = (x, y, [x0, y0, x1, y1]) =>
+    x >= Math.round((x0 / VIEWPORT) * size) &&
+    x <= Math.round((x1 / VIEWPORT) * size) &&
+    y >= Math.round((y0 / VIEWPORT) * size) &&
+    y <= Math.round((y1 / VIEWPORT) * size);
 
   const inRoundedRect = (x, y) => {
     const left = margin;
@@ -121,19 +193,7 @@ function drawIcon(size, { round }) {
       const alpha = Math.round(coverage(x, y) * 255);
       if (alpha === 0) continue;
 
-      let black = false;
-
-      // корешок
-      if (inRect(x, y, 0.28, 0.2, 0.35, 0.8)) black = true;
-      // верхняя и нижняя кромка обложки
-      if (inRect(x, y, 0.35, 0.2, 0.76, 0.2 + t / size)) black = true;
-      if (inRect(x, y, 0.35, 0.8 - t / size, 0.76, 0.8)) black = true;
-      // правая кромка
-      if (inRect(x, y, 0.76 - t / size, 0.2, 0.76, 0.8)) black = true;
-      // строки «текста»
-      if (inRect(x, y, 0.42, 0.34, 0.68, 0.34 + t / size)) black = true;
-      if (inRect(x, y, 0.42, 0.46, 0.68, 0.46 + t / size)) black = true;
-      if (inRect(x, y, 0.42, 0.58, 0.60, 0.58 + t / size)) black = true;
+      const black = BOOK_RECTS.some((rect) => inBookRect(x, y, rect));
 
       const value = black ? 0 : 255;
       const i = (y * size + x) * 4;
@@ -188,3 +248,33 @@ for (const [density, size] of densities) {
   writeFileSync(`${dir}/ic_launcher_round.png`, round);
   console.log(`mipmap-${density}`, `${size}x${size}`, `квадрат ${square.length} байт, круг ${round.length} байт`);
 }
+
+// Вектор адаптивной иконки (API 26+) — тот же рисунок, что и в растре выше.
+const vectorPath = `${ROOT}/drawable/ic_launcher_foreground.xml`;
+const vector = encodeVector();
+
+/**
+ * Растр и вектор обязаны описывать один рисунок.
+ *
+ * Проверка не косметическая: расхождение этих двух файлов и было дефектом, который нашёл Александр
+ * 08.10.2026 (в векторе не было правой кромки, в PNG была). Оба вывода строятся из `BOOK_RECTS`, но
+ * проверка ловит правку вектора руками и ошибку в сборке путей.
+ */
+function checkVectorMatchesRaster(text) {
+  const expected = BOOK_RECTS.map(rectToPathData).sort();
+  const actual = [...text.matchAll(/android:pathData="([^"]+)"/g)].map((m) => m[1]).sort();
+  if (actual.length !== expected.length) {
+    throw new Error(`в векторе ${actual.length} путей, а в рисунке ${expected.length} прямоугольников`);
+  }
+  for (let i = 0; i < expected.length; i++) {
+    if (actual[i] !== expected[i]) throw new Error(`путь «${actual[i]}» не совпал с рисунком «${expected[i]}»`);
+  }
+  if (!text.includes(`android:pathData="${rectToPathData(RIGHT_EDGE)}"`)) {
+    throw new Error('в векторе нет правой кромки обложки');
+  }
+}
+
+checkVectorMatchesRaster(vector);
+writeFileSync(vectorPath, vector);
+console.log(`drawable/ic_launcher_foreground.xml`, `${BOOK_RECTS.length} прямоугольников`, `${vector.length} байт`);
+console.log("рисунок книги:", BOOK_RECTS.map((rect) => `[${rect.join(",")}]`).join(" "));

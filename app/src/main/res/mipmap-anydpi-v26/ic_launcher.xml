@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Иконка-адаптив (API 26+): белый фон, чёрный силуэт книги.
-  Для API 24–25 в репозитории лежат обычные PNG в mipmap-*dpi (генерируются
-  tools/generate-launcher-icons.mjs).
+  Передний план `drawable/ic_launcher_foreground.xml` и обычные PNG в `mipmap-*dpi` для API 24–25
+  рисует ОДИН скрипт — `tools/generate-launcher-icons.mjs`, поэтому рисунок книги совпадает на всех
+  версиях Android. Расхождение нашёл Александр 08.10.2026: в векторе не было правой кромки обложки,
+  а в PNG была.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
