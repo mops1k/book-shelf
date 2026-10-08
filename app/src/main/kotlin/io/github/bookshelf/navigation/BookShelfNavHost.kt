@@ -101,6 +101,9 @@ fun BookShelfNavHost(
         bookDetailsScreen(
             onBack = { navController.popBackStack() },
             onOpenCollections = { navController.navigate(CollectionsRoute.route) },
+            // Стрелки по серии заменяют карточку, а не кладут вторую: иначе стек рос бы на каждую
+            // книгу серии, и «Назад» вела бы через все просмотренные книги вместо полки.
+            onOpenSeriesBook = { bookId -> navController.openSeriesBook(bookId) },
             // Правка метаданных — отдельный экран: полей пять, в карточке им тесно, а на e-ink
             // крупные поля важнее, чем «всё на одном экране».
             onEditMetadata = { bookId ->
@@ -254,4 +257,17 @@ private fun NavGraphBuilder.shelfScreens(navController: NavHostController) {
         onBack = { navController.popBackStack() },
         onOpenBook = openBook,
     )
+}
+
+/**
+ * Перейти к соседней книге серии из карточки.
+ *
+ * Карточка заменяется, а не кладётся поверх: иначе стек рос бы на каждую книгу серии, и «Назад»
+ * вела бы через все просмотренные книги вместо полки, откуда карточку открыли. Отдельная функция,
+ * а не лямбда в графе: `BookShelfNavHost` уже на пределе длины метода (detekt `LongMethod`).
+ */
+private fun NavHostController.openSeriesBook(bookId: String) {
+    navigate(BookDetailsRoute.createRoute(bookId)) {
+        popUpTo(BookDetailsRoute.route) { inclusive = true }
+    }
 }

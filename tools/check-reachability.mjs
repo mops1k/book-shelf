@@ -244,11 +244,34 @@ for (const file of featureFiles) {
 // проверка перестала бы ловить что-либо вообще. Переходы из feature-модулей ловит проверка 1 —
 // по вызовам `navigate(…)` и `createRoute(…)` в любом файле.
 const BACK = "popBackStack";
+
+/**
+ * Имена функций файла, которые сами выполняют переход.
+ *
+ * Нужно с 08.10.2026: переход можно вынести в функцию (`navController.openSeriesBook(bookId)`), чтобы
+ * не раздувать `BookShelfNavHost` за предел длины метода (detekt `LongMethod`). Без этого правила
+ * вынесенный переход считался бы заглушкой, то есть проверка наказывала бы за исправление другого
+ * правила. Тело ищется до закрывающей скобки в начале строки: у функций графа вложенные лямбды
+ * отступами глубже.
+ */
+function navigatingFunctions(text) {
+  const names = new Set();
+  for (const m of text.matchAll(/fun\s+(?:[\w.]+\.)?(\w+)\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g)) {
+    if (m[2].includes("navigate") || m[2].includes(BACK)) names.add(m[1]);
+  }
+  return names;
+}
+
 for (const file of appFiles) {
   const text = read(file);
+  const navigating = navigatingFunctions(text);
   for (const m of text.matchAll(/(on[A-Z]\w*)\s*=\s*\{([^{}]*)\}/g)) {
     const [, name, body] = m;
     if (body.includes("navigate") || body.includes(BACK)) continue;
+    const callsNavigating = [...navigating].some((fn) =>
+      new RegExp(`\\b${fn}\\s*\\(`).test(body),
+    );
+    if (callsNavigating) continue;
     problems.push(
       `${relative(ROOT, file)} — «${name}» никуда не ведёт: {${body.trim()}}`,
     );

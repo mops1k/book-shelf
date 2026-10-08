@@ -137,6 +137,17 @@ class BookRepositoryImpl @Inject constructor(
     override fun observeById(id: String): Flow<Book?> =
         bookDao.observeWithRelations(id).map { relations -> relations?.let { bookOf(it) } }
 
+    /**
+     * Книги серии в порядке чтения.
+     *
+     * Тот же признак «тяжёлое — не на главном потоке», что и у страницы полки: сопоставление строк в
+     * домен идёт в IO.
+     */
+    override fun observeSeriesBooks(seriesName: String): Flow<List<Book>> =
+        bookDao.observePage(BookPageSql.series(seriesName))
+            .map { entities -> shelfBooks(entities) }
+            .flowOn(dispatchers.io)
+
     override suspend fun getById(id: String): AppResult<Book?> {
         val relations = bookDao.getWithRelations(id)
             ?: return AppResult.failure(AppError.NotFound(what = "book", message = "Книга $id не найдена"))

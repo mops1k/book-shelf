@@ -355,6 +355,8 @@ class LibraryBrowseTest {
 
         override fun observeById(id: String): Flow<Book?> = flowOf(null)
 
+        override fun observeSeriesBooks(seriesName: String): Flow<List<Book>> = flowOf(emptyList())
+
         override suspend fun getById(id: String) = io.github.bookshelf.core.common.error.AppResult.success<Book?>(null)
 
         override suspend fun updateMetadata(bookId: String, patch: io.github.bookshelf.core.data.model.MetadataPatch) =

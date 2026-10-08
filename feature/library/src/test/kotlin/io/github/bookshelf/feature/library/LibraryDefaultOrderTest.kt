@@ -199,6 +199,8 @@ class LibraryDefaultOrderTest {
         }
 
         override fun observeById(id: String): Flow<Book?> = flowOf(null)
+
+        override fun observeSeriesBooks(seriesName: String): Flow<List<Book>> = flowOf(emptyList())
         override suspend fun getById(id: String): AppResult<Book?> = AppResult.success(null)
         override suspend fun updateMetadata(bookId: String, patch: MetadataPatch) = AppResult.success(Unit)
         override suspend fun setFavorite(bookId: String, favorite: Boolean) = AppResult.success(Unit)

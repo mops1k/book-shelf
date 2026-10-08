@@ -85,6 +85,11 @@ class FakeBookRepository(
 
     override fun observeById(id: String): Flow<Book?> = byIdFlow
 
+    /** Что отдаёт [observeSeriesBooks]: книги серии в порядке чтения (для стрелок в карточке). */
+    var seriesFlow: Flow<List<Book>> = flowOf(emptyList())
+
+    override fun observeSeriesBooks(seriesName: String): Flow<List<Book>> = seriesFlow
+
     override suspend fun getById(id: String): AppResult<Book?> = bookById
 
     /** Что вернуть на [updateMetadata]: тест может проверить и отказ сохранения. */

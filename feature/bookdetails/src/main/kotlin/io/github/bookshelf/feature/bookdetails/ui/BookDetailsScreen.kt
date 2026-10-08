@@ -1,6 +1,7 @@
 package io.github.bookshelf.feature.bookdetails.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,8 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +41,7 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.bookdetails.BookDetailsUiState
 import io.github.bookshelf.feature.bookdetails.BookDetailsViewModel
+import io.github.bookshelf.feature.bookdetails.SeriesNeighbourUi
 import io.github.bookshelf.feature.bookdetails.filePathLabel
 import io.github.bookshelf.feature.bookdetails.R
 
@@ -59,6 +64,8 @@ fun BookDetailsScreen(
     onRead: (String) -> Unit,
     onOpenCollections: (String) -> Unit,
     onEditMetadata: (String) -> Unit,
+    /** Перейти к соседней книге серии: стрелки «назад» и «вперёд» в подвале. */
+    onOpenSeriesBook: (String) -> Unit,
     /** Вернуться на полку: карточка кладёт просьбу «покажи автора/серию», а полка её забирает. */
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
@@ -85,7 +92,14 @@ fun BookDetailsScreen(
                 else -> Unit
             }
         },
-        footer = { BookReadFooter(bookId = bookId, onRead = onRead) },
+        footer = {
+            BookReadFooter(
+                bookId = bookId,
+                state = state,
+                onRead = onRead,
+                onOpenSeriesBook = onOpenSeriesBook,
+            )
+        },
     ) {
         BookDetailsContent(
             state = state,
@@ -413,18 +427,74 @@ private fun ActionsBlock(
 }
 
 
-/** Подвал карточки: единственная главная кнопка «Читать». */
+/**
+ * Подвал карточки: стрелки по серии и главная кнопка «Читать».
+ *
+ * Требование Александра (08.10.2026): если у книги есть более ранняя книга серии — слева «назад»,
+ * если есть следующая — справа «вперёд», посередине «Читать». На второй книге серии из трёх видны
+ * обе стрелки.
+ */
 @Composable
-private fun BookReadFooter(bookId: String, onRead: (String) -> Unit) {
+private fun BookReadFooter(
+    bookId: String,
+    state: BookDetailsUiState,
+    onRead: (String) -> Unit,
+    onOpenSeriesBook: (String) -> Unit,
+) {
     val dimens = LocalEinkDimens.current
-    Row(modifier = Modifier.fillMaxWidth().padding(dimens.gutter)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(dimens.gutter),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SeriesArrowButton(
+            labelRes = R.string.book_series_previous,
+            neighbour = state.previousInSeries,
+            arrow = "←",
+            onOpenSeriesBook = onOpenSeriesBook,
+            modifier = Modifier.weight(1f),
+        )
         EinkButton(
             text = stringResource(R.string.book_action_read),
             onClick = { onRead(bookId) },
             primary = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(2f),
+        )
+        SeriesArrowButton(
+            labelRes = R.string.book_series_next,
+            neighbour = state.nextInSeries,
+            arrow = "→",
+            onOpenSeriesBook = onOpenSeriesBook,
+            modifier = Modifier.weight(1f),
         )
     }
+}
+
+/**
+ * Стрелка перехода по серии.
+ *
+ * Место под стрелку сохраняется и тогда, когда соседа нет: иначе «Читать» прыгала бы влево-вправо на
+ * каждой книге серии. Подпись для чтения с экрана называет соседнюю книгу — «←» сама по себе ничего
+ * не объясняет, а название и есть то, что человеку нужно перед нажатием.
+ */
+@Composable
+private fun SeriesArrowButton(
+    labelRes: Int,
+    neighbour: SeriesNeighbourUi?,
+    arrow: String,
+    onOpenSeriesBook: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (neighbour == null) {
+        Box(modifier = modifier)
+        return
+    }
+    val label = stringResource(labelRes, neighbour.title)
+    EinkButton(
+        text = arrow,
+        onClick = { onOpenSeriesBook(neighbour.bookId) },
+        modifier = modifier.semantics { contentDescription = label },
+    )
 }
 
 /** Баннер ошибки карточки книги: переводимый текст по типу и кнопка «Повторить». */

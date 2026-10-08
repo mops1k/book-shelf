@@ -339,6 +339,56 @@ class BookDetailsViewModel @Inject constructor(
      */
     private var bookObservation: Job? = null
 
+    /**
+     * Подписка на книги серии — для стрелок «назад/вперёд» в подвале карточки.
+     *
+     * Держим ссылку и имя серии: книга может переиздаться из базы (например, отметили избранное), и
+     * подписку нельзя перезапускать на каждую такую эмиссию — новый запрос серии на каждое касание
+     * «В избранное» стоил бы лишней работы. При смене имени серии старая подписка гасится: иначе
+     * стрелки указывали бы в прежнюю серию (`BookDetailsRoute` заменяет карточку, но состояние
+     * обязано быть честным и до этого).
+     */
+    private var seriesObservation: Job? = null
+    private var observedSeriesName: String? = null
+
+    /**
+     * Пересчитать соседей в серии.
+     *
+     * Порядок книг приходит из запроса (`BookPageSql.series`), а не сортируется здесь: список серии
+     * на полке и стрелки в карточке обязаны ходить по одному порядку.
+     */
+    @Suppress("SwallowedException")
+    private fun observeSeries(seriesName: String?) {
+        if (seriesName == null) {
+            seriesObservation?.cancel()
+            observedSeriesName = null
+            _uiState.update { it.copy(previousInSeries = null, nextInSeries = null) }
+            return
+        }
+        if (observedSeriesName == seriesName && seriesObservation?.isActive == true) return
+        observedSeriesName = seriesName
+        seriesObservation?.cancel()
+        seriesObservation = viewModelScope.launch {
+            try {
+                bookRepository.observeSeriesBooks(seriesName).collect { books ->
+                    val neighbours = seriesNeighbours(books, bookId)
+                    _uiState.update {
+                        it.copy(
+                            previousInSeries = neighbours.previous,
+                            nextInSeries = neighbours.next,
+                        )
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: SQLException) {
+                // Серия не прочиталась — карточка остаётся рабочей, только без стрелок: показывать
+                // ошибку из-за навигации по соседям было бы шумом.
+                _uiState.update { it.copy(previousInSeries = null, nextInSeries = null) }
+            }
+        }
+    }
+
     private fun observeBook() {
         bookObservation = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -367,6 +417,7 @@ class BookDetailsViewModel @Inject constructor(
                         _uiState.update { state ->
                             state.withBook(book = book, sourceName = sourceName)
                         }
+                        observeSeries(book.seriesName)
                     }
                 }
                 if (!receivedBook) {

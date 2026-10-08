@@ -15,6 +15,7 @@ import io.github.bookshelf.core.testing.fake.FakeSourceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -82,6 +83,33 @@ class BookDetailsViewModelTest {
         assertThat(viewModel.uiState.value.isDeleting).isFalse()
     }
 
+    @Test
+    fun `a middle book of the series shows both neighbours`() = runTest(dispatcher) {
+        val repository = FakeBookRepository(
+            byIdFlow = MutableStateFlow(book(seriesName = "Ксили", seriesIndex = 2.0)),
+        )
+        repository.seriesFlow = flowOf(series)
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        // Требование Александра 08.10.2026: на второй книге серии из трёх видны обе стрелки.
+        assertThat(viewModel.uiState.value.previousInSeries?.bookId).isEqualTo("s1")
+        assertThat(viewModel.uiState.value.previousInSeries?.title).isEqualTo("Ксили. Книга 1")
+        assertThat(viewModel.uiState.value.nextInSeries?.bookId).isEqualTo("s3")
+    }
+
+    @Test
+    fun `a book without a series has no neighbours`() = runTest(dispatcher) {
+        val repository = FakeBookRepository(byIdFlow = MutableStateFlow(book()))
+        // Даже если в базе есть книги этой серии, без имени серии у книги стрелок быть не должно.
+        repository.seriesFlow = flowOf(series)
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.previousInSeries).isNull()
+        assertThat(viewModel.uiState.value.nextInSeries).isNull()
+    }
+
     private fun viewModel(repository: FakeBookRepository): BookDetailsViewModel = BookDetailsViewModel(
         savedStateHandle = SavedStateHandle(mapOf(BookDetailsRoute.ARG_BOOK_ID to BOOK_ID)),
         bookRepository = repository,
@@ -93,13 +121,27 @@ class BookDetailsViewModelTest {
         folderOpener = FolderOpener { AppResult.success(Unit) },
     )
 
-    private fun book() = Book(
-        id = BOOK_ID,
-        title = "Солярис",
+    private fun book(
+        id: String = BOOK_ID,
+        title: String = "Солярис",
+        seriesName: String? = null,
+        seriesIndex: Double? = null,
+    ) = Book(
+        id = id,
+        title = title,
         authorsText = "Станислав Лем",
         extension = "fb2",
         sizeBytes = 1_024L,
         addedAt = 1_000L,
+        seriesName = seriesName,
+        seriesIndex = seriesIndex,
+    )
+
+    /** Серия из трёх книг: карточка открыта на средней. */
+    private val series = listOf(
+        book(id = "s1", title = "Ксили. Книга 1", seriesName = "Ксили", seriesIndex = 1.0),
+        book(id = BOOK_ID, title = "Ксили. Книга 2", seriesName = "Ксили", seriesIndex = 2.0),
+        book(id = "s3", title = "Ксили. Книга 3", seriesName = "Ксили", seriesIndex = 3.0),
     )
 
     /** Разбор в этих проверках не запускается: карточка только просит его по команде. */

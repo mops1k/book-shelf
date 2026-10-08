@@ -2,6 +2,8 @@
 <resources>
     <string name="book_title">Book card</string>
     <string name="book_action_read">Read</string>
+    <string name="book_series_previous">Previous book in the series: %1$s</string>
+    <string name="book_series_next">Next book in the series: %1$s</string>
     <string name="book_action_retry">Retry</string>
     <string name="book_action_fill_manually">Fill in manually</string>
     <string name="book_collections_title">Which collection</string>

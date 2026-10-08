@@ -39,6 +39,8 @@ fun NavGraphBuilder.bookDetailsScreen(
     onOpenCollections: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     onEditMetadata: (String) -> Unit,
+    /** Переход к соседней книге серии: текущая карточка заменяется (решает вызывающий код навигации). */
+    onOpenSeriesBook: (String) -> Unit,
 ) {
     composable(route = BookDetailsRoute.route, arguments = BookDetailsRoute.arguments) { entry ->
         val bookId = entry.arguments?.getString(BookDetailsRoute.ARG_BOOK_ID).orEmpty()
@@ -52,6 +54,7 @@ fun NavGraphBuilder.bookDetailsScreen(
             onRead = { viewModel.onRead() },
             onOpenCollections = onOpenCollections,
             onOpenLibrary = onOpenLibrary,
+            onOpenSeriesBook = onOpenSeriesBook,
             // Правка метаданных — переход на отдельный экран: полей пять, в карточке им тесно.
             onEditMetadata = { onEditMetadata(bookId) },
         )

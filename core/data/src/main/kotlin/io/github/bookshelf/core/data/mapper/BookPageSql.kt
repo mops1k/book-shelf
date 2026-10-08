@@ -64,6 +64,18 @@ internal object BookPageSql {
     }
 
     /**
+     * Все книги одной серии в порядке чтения — для переходов «назад/вперёд» в карточке книги.
+     *
+     * Без `LIMIT`/`OFFSET` намеренно: карточке нужны соседи книги, а не страница списка, и серия не
+     * должна обрываться на размере окна полки. Порядок — тот же [SERIES_ORDER], что и в списке книг
+     * серии на полке: иначе стрелка «вперёд» вела бы не туда, где книга стоит в списке.
+     */
+    fun series(seriesName: String): SupportSQLiteQuery = SimpleSQLiteQuery(
+        "SELECT books.* FROM books WHERE books.seriesName = ? $SERIES_ORDER",
+        arrayOf<Any?>(seriesName),
+    )
+
+    /**
      * Условие `WHERE` и список параметров.
      *
      * Порядок условий фиксирован и совпадает с порядком добавления параметров: иначе placeholders

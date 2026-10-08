@@ -3,6 +3,8 @@
 <resources>
     <string name="book_title">Карточка книги</string>
     <string name="book_action_read">Читать</string>
+    <string name="book_series_previous">Предыдущая книга серии: %1$s</string>
+    <string name="book_series_next">Следующая книга серии: %1$s</string>
     <string name="book_action_retry">Повторить</string>
     <string name="book_action_fill_manually">Заполнить вручную</string>
     <string name="book_collections_title">В какую полку</string>
