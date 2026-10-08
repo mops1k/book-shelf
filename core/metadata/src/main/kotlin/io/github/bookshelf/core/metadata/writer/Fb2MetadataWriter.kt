@@ -263,27 +263,27 @@ class Fb2MetadataWriter {
  */
 private fun replaceAuthors(fragment: String, authors: List<String>): String {
     var result = fragment
-        // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
-        if (authors.isEmpty()) {
-            result = AUTHOR.replace(result, "")
-            return result
-        }
-        val xml = authors.joinToString(separator = "") { author -> authorXml(author) }
-        result = if (AUTHOR.containsMatchIn(result)) {
-            // Первый автор заменяется всем списком, остальные блоки убираются: иначе в файле
-            // остались бы и прежние авторы, и новые.
-            var first = true
-            AUTHOR.replace(result) { _ ->
-                if (first) {
-                    first = false
-                    xml
-                } else {
-                    ""
-                }
+    // Пустой список — «авторов убрать»: элементы удаляются, новые не пишутся.
+    if (authors.isEmpty()) {
+        result = AUTHOR.replace(result, "")
+        return result
+    }
+    val xml = authors.joinToString(separator = "") { author -> authorXml(author) }
+    result = if (AUTHOR.containsMatchIn(result)) {
+        // Первый автор заменяется всем списком, остальные блоки убираются: иначе в файле
+        // остались бы и прежние авторы, и новые.
+        var first = true
+        AUTHOR.replace(result) { _ ->
+            if (first) {
+                first = false
+                xml
+            } else {
+                ""
             }
-        } else {
-            insertBeforeEnd(result, xml)
         }
+    } else {
+        insertBeforeEnd(result, xml)
+    }
 
     return result
 }

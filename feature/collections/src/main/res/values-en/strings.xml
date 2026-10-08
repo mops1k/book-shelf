@@ -14,6 +14,10 @@
     <string name="collections_action_add">add</string>
     <string name="collections_empty_title">No collections yet</string>
     <string name="collections_empty_message">A manual collection is a list of books you build yourself. A smart collection counts its contents by rules (genre, author, series, reading status, favourites) — and updates itself as books are added.</string>
+    <string name="collections_smart_default_name">Smart collection</string>
+    <string name="collections_volume_title">Storage volume collection</string>
+    <string name="collections_volume_empty">No books on this storage volume</string>
+    <string name="collections_volume_unmount">Unmount</string>
     <string name="collections_save_filter">Save the current filter as a collection</string>
     <string name="collections_auto_header">Available auto-collections</string>
     <string name="collections_rename_title">New name</string>

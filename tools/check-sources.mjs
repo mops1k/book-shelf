@@ -4,13 +4,13 @@
 // Зачем: в проекте с жёстким TDD-циклом ошибка в синтаксисе должна находиться за секунды,
 // а не через десять минут сборки. Скрипт не заменяет компилятор, но ловит типовые дефекты
 // (небаланс скобок, табы, CRLF, строки > 120, `TODO` без спринта, `Thread.sleep` в тестах,
-// запрещённые правилами тестируемости вызовы).
+// запрещённые правилами тестируемости вызовы, ключи без перевода в `values-en`).
 //
 // Использование:
 //   node tools/check-sources.mjs            # проверка, код возврата 1 при ошибках
 //   node tools/check-sources.mjs --warn     # показывать и предупреждения
 //   node tools/check-sources.mjs --self-test  # проверить сам разбор литералов (без файлов проекта)
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative } from 'node:path';
 
@@ -67,6 +67,19 @@ function walk(dir) {
     const info = statSync(full);
     if (info.isDirectory()) result.push(...walk(full));
     else if (extname(entry) === '.kt' || extname(entry) === '.kts') result.push(full);
+  }
+  return result;
+}
+
+/** Файлы с указанными расширениями: для проверок ресурсов, а не Kotlin-исходников. */
+function walkByExtension(dir, extensions) {
+  const result = [];
+  for (const entry of readdirSync(dir)) {
+    if (SKIP_DIRS.has(entry)) continue;
+    const full = join(dir, entry);
+    const info = statSync(full);
+    if (info.isDirectory()) result.push(...walkByExtension(full, extensions));
+    else if (extensions.has(extname(entry))) result.push(full);
   }
   return result;
 }
@@ -296,6 +309,42 @@ function checkFile(file) {
   }
 }
 
+/**
+ * Паритет переводов: у каждой строки из `values` есть такая же в `values-en`.
+ *
+ * Дефект, ради которого правило появилось (08.10.2026): экран «Читалки» переделали и добавили
+ * ключи только в русский файл — английский остался без них, и `lint` валил сборку 33 ошибками
+ * `MissingTranslation`; в `feature:collections` нашлось ещё 4 таких ключа. Проверка идёт по всем
+ * модулям сразу и за секунды, без Gradle и lint; модуль без каталога `values-en` пропускается.
+ */
+function checkTranslations() {
+  const defaults = walkByExtension(ROOT, new Set(['.xml']))
+    .map((file) => file.replaceAll('\\', '/'))
+    .filter((file) => file.endsWith('/src/main/res/values/strings.xml'));
+
+  let modules = 0;
+  for (const file of defaults) {
+    const english = join(file, '..', '..', 'values-en', 'strings.xml');
+    if (!existsSync(english)) continue;
+    modules += 1;
+    const translated = stringKeys(english);
+    const missing = [...stringKeys(file)].filter((key) => !translated.has(key)).sort();
+    if (missing.length) {
+      errors.push(`${relative(ROOT, file)}: нет перевода в values-en — ${missing.join(', ')}`);
+    }
+  }
+  return modules;
+}
+
+/** Ключи строк и множественных форм: переводить нужно и то, и другое. */
+const STRING_KEY = /<(?:string|plurals)\s+name="([^"]+)"/g;
+
+function stringKeys(file) {
+  const keys = new Set();
+  for (const match of readFileSync(file, 'utf8').matchAll(STRING_KEY)) keys.add(match[1]);
+  return keys;
+}
+
 if (process.argv.includes('--self-test')) {
   selfTest();
   process.exit(0);
@@ -303,8 +352,10 @@ if (process.argv.includes('--self-test')) {
 
 const files = walk(ROOT).sort();
 for (const file of files) checkFile(file);
+const translatedModules = checkTranslations();
 
 console.log(`Проверено файлов: ${files.length}`);
+console.log(`Модулей с каталогом values-en: ${translatedModules}`);
 if (warnings.length) {
   console.log(`\nПредупреждения (${warnings.length}):`);
   for (const warning of warnings) console.log(`  warn  ${warning}`);

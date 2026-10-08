@@ -121,48 +121,48 @@ fun ShelfRulesScreen(
 private fun ShelfRulesFooter(state: ShelfRulesUiState, viewModel: ShelfRulesViewModel) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(
-                        R.string.shelf_rules_conditions,
-                        activeFilterCount(state.selected),
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.foreground,
-                )
-                Text(
-                    text = stringResource(R.string.shelf_rules_matching, state.resultCount),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.foreground,
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-            ) {
-                EinkButton(
-                    text = stringResource(R.string.filters_action_reset),
-                    onClick = viewModel::onReset,
-                    enabled = hasActiveFilters(state.selected),
-                    modifier = Modifier.weight(1f),
-                )
-                EinkButton(
-                    text = stringResource(R.string.shelf_rules_action_save),
-                    onClick = viewModel::onSave,
-                    primary = true,
-                    enabled = hasActiveFilters(state.selected),
-                    modifier = Modifier.weight(1f),
-                )
-            }
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.shelf_rules_conditions,
+                    activeFilterCount(state.selected),
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.shelf_rules_matching, state.resultCount),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.foreground,
+            )
         }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        ) {
+            EinkButton(
+                text = stringResource(R.string.filters_action_reset),
+                onClick = viewModel::onReset,
+                enabled = hasActiveFilters(state.selected),
+                modifier = Modifier.weight(1f),
+            )
+            EinkButton(
+                text = stringResource(R.string.shelf_rules_action_save),
+                onClick = viewModel::onSave,
+                primary = true,
+                enabled = hasActiveFilters(state.selected),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 /**

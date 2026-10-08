@@ -292,43 +292,43 @@ private fun ProblemFileRow(
 @Composable
 private fun ScanActionButtons(state: ScanUiState, viewModel: ScanViewModel) {
     val dimens = LocalEinkDimens.current
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-        ) {
-            if (state.actions.canPause) {
-                EinkButton(
-                    text = stringResource(R.string.scan_action_pause),
-                    onClick = viewModel::onPause,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (state.actions.canResume) {
-                EinkButton(
-                    text = stringResource(R.string.scan_action_resume),
-                    onClick = viewModel::onResume,
-                    primary = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (canOpenReport(state.report, state.actions.canPause)) {
-                EinkButton(
-                    text = stringResource(R.string.scan_action_report),
-                    onClick = viewModel::onShowReport,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            if (state.actions.canOpenLibrary) {
-                EinkButton(
-                    text = stringResource(R.string.scan_action_shelf),
-                    onClick = viewModel::onOpenLibrary,
-                    primary = !state.actions.canPause && !state.actions.canResume,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        if (state.actions.canPause) {
+            EinkButton(
+                text = stringResource(R.string.scan_action_pause),
+                onClick = viewModel::onPause,
+                modifier = Modifier.weight(1f),
+            )
         }
+        if (state.actions.canResume) {
+            EinkButton(
+                text = stringResource(R.string.scan_action_resume),
+                onClick = viewModel::onResume,
+                primary = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (canOpenReport(state.report, state.actions.canPause)) {
+            EinkButton(
+                text = stringResource(R.string.scan_action_report),
+                onClick = viewModel::onShowReport,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (state.actions.canOpenLibrary) {
+            EinkButton(
+                text = stringResource(R.string.scan_action_shelf),
+                onClick = viewModel::onOpenLibrary,
+                primary = !state.actions.canPause && !state.actions.canResume,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 

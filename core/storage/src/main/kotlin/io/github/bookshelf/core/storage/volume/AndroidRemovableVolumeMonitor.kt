@@ -94,8 +94,13 @@ class AndroidRemovableVolumeMonitor(
         }
 
         awaitClose {
-            volumeCallback?.let { registered ->
-                storageManager?.unregisterStorageVolumeCallback(registered)
+            // Проверка версии нужна и здесь: `unregisterStorageVolumeCallback` появился в API 30, а
+            // minSdk — 24. На старой версии колбэк и так null (ветка регистрации выше), но lint
+            // судит по вызову в коде и без явной проверки считает это падением на API 24.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                volumeCallback?.let { registered ->
+                    storageManager?.unregisterStorageVolumeCallback(registered)
+                }
             }
             context.unregisterReceiver(receiver)
         }
