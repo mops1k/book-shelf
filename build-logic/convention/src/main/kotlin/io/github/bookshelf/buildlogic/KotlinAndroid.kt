@@ -24,22 +24,29 @@ internal const val JVM_TARGET = "17"
  *
  * Desugaring включён везде осознанно: `java.time` и часть `java.nio` нужны на API 24,
  * а без него код пришлось бы писать на `Calendar`. См. `«Архитектура»` §1.
+ *
+ * AGP 9: у `CommonExtension` больше нет параметров типа (они были у 8.x), поэтому тип указан
+ * без generic'ов. Модуль-специфичные типы (`ApplicationExtension`/`LibraryExtension`) сюда
+ * по-прежнему подходят — они наследуют `CommonExtension`.
  */
-internal fun Project.configureKotlinAndroid(extension: CommonExtension<*, *, *, *, *, *>) {
+internal fun Project.configureKotlinAndroid(extension: CommonExtension) {
     extension.apply {
         compileSdk = COMPILE_SDK
 
-        defaultConfig {
+        // AGP 9: блочные формы (`defaultConfig { … }`, `lint { … }`) остались только у конкретных
+        // типов расширений (ApplicationExtension/LibraryExtension), а общая конвенция работает
+        // с CommonExtension. Поэтому блоки здесь настраиваются через его геттеры: `…apply { … }`.
+        defaultConfig.apply {
             minSdk = MIN_SDK
         }
 
-        compileOptions {
+        compileOptions.apply {
             sourceCompatibility = JavaVersion.VERSION_17
             targetCompatibility = JavaVersion.VERSION_17
             isCoreLibraryDesugaringEnabled = true
         }
 
-        packaging {
+        packaging.apply {
             resources.excludes += setOf(
                 "/META-INF/{AL2.0,LGPL2.1}",
                 "/META-INF/DEPENDENCIES",
@@ -48,17 +55,19 @@ internal fun Project.configureKotlinAndroid(extension: CommonExtension<*, *, *, 
             )
         }
 
-        testOptions {
+        testOptions.apply {
             unitTests.isReturnDefaultValues = true
             // Robolectric-тестам нужны ресурсы и манифест модуля.
             unitTests.isIncludeAndroidResources = true
         }
 
-        lint {
-            abortOnError = true
-            warningsAsErrors = false
+        lintOptions.apply {
+            // AGP 9: геттеры стали `isAbortOnError()`/`isWarningsAsErrors()`/`isCheckDependencies()`,
+            // поэтому в Kotlin это свойства с префиксом `is` (в AGP 8 было `abortOnError` и т. д.).
+            isAbortOnError = true
+            isWarningsAsErrors = false
             // Зависимости проверяются отдельной задачей, а не при каждой сборке модуля.
-            checkDependencies = false
+            isCheckDependencies = false
             // Политика одна на весь проект — как у detekt (`config/detekt/detekt.yml`).
             lintConfig = rootProject.layout.projectDirectory.file("config/lint/lint.xml").asFile
         }
