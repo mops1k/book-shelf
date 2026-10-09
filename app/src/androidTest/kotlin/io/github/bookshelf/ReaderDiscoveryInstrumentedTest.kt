@@ -3,6 +3,7 @@ package io.github.bookshelf
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.readerlink.discovery.AndroidReaderDiscovery
 import io.github.bookshelf.core.readerlink.discovery.NonReaderApps
@@ -19,8 +20,13 @@ import org.junit.runner.RunWith
  * видеть и открывать в выбранной, к примеру в устройстве есть ещё XReader». Проверка идёт на
  * настоящем `PackageManager`: сравниваем найденное с тем, что система отдаёт по книжным MIME
  * напрямую, — тест не повторяет логику discovery, а сверяет её с системой.
+ *
+ * `@RequiresDevice`: на чистом эмуляторе не установлено ни одной читалки, ожидание пустеет, и
+ * `containsAtLeastElementsIn(∅)` проходит всегда — такая зелень ничего не доказывает (проверено
+ * 09.10.2026). Смысл у проверки появляется только на устройстве, где читалки есть.
  */
 @RunWith(AndroidJUnit4::class)
+@RequiresDevice
 class ReaderDiscoveryInstrumentedTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()

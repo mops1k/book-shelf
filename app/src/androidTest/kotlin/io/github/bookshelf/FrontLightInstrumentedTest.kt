@@ -1,6 +1,7 @@
 package io.github.bookshelf
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.eink.frontlight.SysfsFrontLightController
 import io.github.bookshelf.core.eink.noop.NoopEinkController
@@ -15,8 +16,12 @@ import org.junit.runner.RunWith
  * нет вовсе, `/sys/class/leds` приложению не читается (SELinux) — подсветка недоступна, значит
  * `frontLight()` обязан вернуть `null`. На устройстве с открытым узлом проверка пройдёт так же:
  * тогда `frontLight()` вернёт уровень, и тест это подтвердит отдельной веткой.
+ *
+ * `@RequiresDevice`: на эмуляторе ветка «узел открыт» недостижима, и проверка выродилась бы
+ * в «подсветки нет». Место этого теста — прогон на устройстве, эмуляторный job его пропускает.
  */
 @RunWith(AndroidJUnit4::class)
+@RequiresDevice
 class FrontLightInstrumentedTest {
 
     @Test

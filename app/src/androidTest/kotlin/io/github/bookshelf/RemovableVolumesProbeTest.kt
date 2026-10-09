@@ -1,6 +1,7 @@
 package io.github.bookshelf
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.bookshelf.core.storage.volume.AndroidRemovableVolumeMonitor
 import kotlinx.coroutines.flow.first
@@ -14,8 +15,12 @@ import org.junit.runner.RunWith
  * Проверок здесь нет намеренно: на устройстве без носителя ожидать нечего, а на устройстве с
  * носителем результат зависит от прошивки. Задача зонда — напечатать факты в лог прогона
  * (Bigme B6 Color, 02.10.2026: система монтирует партиции только в /mnt/media_rw/<uuid>).
+ *
+ * `@RequiresDevice`: зонд нужен на устройстве со съёмным носителем; на эмуляторе виден только
+ * встроенный эмулированный том, и напечатанные факты ничего не значат.
  */
 @RunWith(AndroidJUnit4::class)
+@RequiresDevice
 class RemovableVolumesProbeTest {
 
     @Test

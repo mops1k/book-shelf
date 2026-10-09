@@ -66,6 +66,7 @@ class BookDetailsConfirmInstrumentedTest {
                     onRead = {},
                     onOpenCollections = {},
                     onEditMetadata = {},
+                    onOpenSeriesBook = {},
                     onOpenLibrary = {},
                     // Окно заведомо ниже карточки: так дефект виден на любом устройстве.
                     modifier = Modifier.requiredSize(width = 400.dp, height = 640.dp),

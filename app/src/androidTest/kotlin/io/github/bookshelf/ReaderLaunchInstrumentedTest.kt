@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
  *
  * Проверяется то, что юнит-тесты проверить не могут: настоящее разрешение `PackageManager`
  * и настоящая доставка намерения чужому приложению. Заглушка-читалка (`DebugReaderActivity`,
- * только debug) записывает полученное намерение — по нему видно URI, тип и пакет.
+ * только debug) записывает полученное намерение — по нему видно URI, пакет и выданные права.
  *
  * Здесь же ловится класс ошибок «книга ушла не туда»: приложение обязано открывать книгу
  * в ВЫБРАННОЙ читалке, а не в первом попавшемся приложении, которое заявило книжный MIME.
@@ -38,7 +38,7 @@ class ReaderLaunchInstrumentedTest {
     }
 
     @Test
-    fun the_book_reaches_the_chosen_reader_with_its_uri_and_type() {
+    fun the_book_reaches_the_chosen_reader_with_its_uri_and_read_grant() {
         val launcher = DefaultReaderLauncher(context)
         val bookUri = DocumentsContract.buildDocumentUri(authority(), BOOK_ID)
 
@@ -57,7 +57,10 @@ class ReaderLaunchInstrumentedTest {
         val received = DebugReaderActivity.awaitIntent(INTENT_WAIT_MS)
         assertThat(received?.action).isEqualTo(Intent.ACTION_VIEW)
         assertThat(received?.data).isEqualTo(bookUri)
-        assertThat(received?.type).isEqualTo(EPUB_MIME)
+        // Тип в намерении НЕ ставится: с 06.10.2026 (c899502) `ACTION_VIEW` с типом книгу
+        // на устройстве не открывал, поэтому читалке уходит только адрес. Поведение «без типа»
+        // закреплено юнит-тестом `ReaderLauncherIntentTest`.
+        assertThat(received?.type).isNull()
         // Читалка чужого пакета получает доступ к книге только выданным правом на чтение.
         assertThat(received?.flags?.and(Intent.FLAG_GRANT_READ_URI_PERMISSION)).isNotEqualTo(0)
     }
