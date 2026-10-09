@@ -168,6 +168,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Место на раннере: первый прогон (37941014984) упал не на тестах, а на запуске эмулятора —
+      # «FATAL | Not enough space to create userdata partition. Available: 6846 MB, need 7372 MB».
+      # На стандартном Linux-раннере ~14 ГБ, из них половину занимают предустановленные тулчейны,
+      # которые этой сборке не нужны. Удаляем их; размер userdata задаём отдельно (`disk-size`).
+      - name: Освободить место для эмулятора
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1
+
       # Вариант fullDebug: заглушки DebugDocumentsProvider/DebugReaderActivity и артефакт
       # ui-test-manifest подключаются только к debug, а flavor `full` несёт QUERY_ALL_PACKAGES —
       # без него поиск читалок на устройстве неполон (`play` это разрешение не заявляет).
@@ -180,6 +189,9 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
+          # Размер userdata: по умолчанию система просит под него ~7.4 ГБ, а приложению с тестовым
+          # APK (179 МБ) двух гигабайт хватает с запасом — иначе эмулятор не стартует на раннере.
+          disk-size: 2048M
           script: ./gradlew :app:connectedFullDebugAndroidTest --stacktrace
 
       - name: Отчёты инструментальных тестов
