@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="BookShelf">
+  <package name="io/github/bookshelf/core/data/repository/impl">
+    <class name="io/github/bookshelf/core/data/repository/impl/BookRepositoryImpl" sourcefilename="BookRepositoryImpl.kt">
+      <counter type="INSTRUCTION" missed="30" covered="70"/>
+      <counter type="LINE" missed="60" covered="40"/>
+    </class>
+    <counter type="INSTRUCTION" missed="30" covered="70"/>
+    <counter type="LINE" missed="60" covered="40"/>
+  </package>
+  <counter type="INSTRUCTION" missed="30" covered="70"/>
+  <counter type="LINE" missed="60" covered="40"/>
+</report>

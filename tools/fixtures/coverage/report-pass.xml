@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="BookShelf">
+  <sessioninfo id="ci" start="1" dump="2"/>
+  <package name="io/github/bookshelf/core/metadata/parser/impl">
+    <class name="io/github/bookshelf/core/metadata/parser/impl/Fb2Parser" sourcefilename="Fb2Parser.kt">
+      <method name="parse" desc="()V" line="10">
+        <counter type="INSTRUCTION" missed="3" covered="17"/>
+        <counter type="LINE" missed="2" covered="8"/>
+      </method>
+      <counter type="INSTRUCTION" missed="3" covered="17"/>
+      <counter type="LINE" missed="2" covered="8"/>
+    </class>
+    <counter type="INSTRUCTION" missed="10" covered="90"/>
+    <counter type="LINE" missed="20" covered="80"/>
+  </package>
+  <counter type="INSTRUCTION" missed="10" covered="90"/>
+  <counter type="LINE" missed="20" covered="80"/>
+</report>

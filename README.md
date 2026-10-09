@@ -98,9 +98,13 @@ APK публикуются в разделе [Releases](https://github.com/mops1
 # проверки
 ./gradlew testDebugUnitTest             # юнит-тесты всех модулей
 ./gradlew detekt                        # статический анализ
+./gradlew :app:connectedFullDebugAndroidTest   # инструментальные тесты (эмулятор или устройство)
+./gradlew koverXmlReportDebug :app:koverXmlReportFullDebug   # отчёты покрытия (Kover)
+node tools/check-coverage.mjs           # порог покрытия по модулям (config/coverage.json)
 node tools/check-sources.mjs            # санитария исходников
 node tools/check-versions.mjs           # каждая версия из каталога существует
 node tools/check-reachability.mjs       # все маршруты достижимы
+node --test "tools/*.test.mjs"          # тесты самих инструментов репозитория
 
 # релизные сборки: подпись — ключ `keystore.properties` в корне,
 # в CI те же значения приходят переменными окружения
@@ -112,7 +116,9 @@ node tools/check-reachability.mjs       # все маршруты достижи
 ```bash
 ./gradlew testDebugUnitTest :app:testFullDebugUnitTest :app:testFdroidDebugUnitTest \
   :app:testPlayDebugUnitTest :app:assembleFullDebug :app:assembleFdroidDebug \
-  :app:assemblePlayDebug detekt --continue
+  :app:assemblePlayDebug :app:assembleFullDebugAndroidTest detekt \
+  koverXmlReportDebug :app:koverXmlReportFullDebug --continue
+node tools/check-coverage.mjs && node --test "tools/*.test.mjs"
 ```
 
 ## Требования

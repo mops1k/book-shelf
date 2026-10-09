@@ -39,17 +39,34 @@ jobs:
       - name: Unit-тесты всех модулей
         run: ./gradlew testDebugUnitTest --stacktrace
 
+      - name: Компиляция инструментальных тестов
+        # Дешёвая страховка для слоя, который иначе проверяется только ночным прогоном
+        # с эмулятором: 08.10.2026 тестовый APK перестал компилироваться (карточка книги
+        # получила параметр без значения по умолчанию), и этого не заметил никто — эмулятора
+        # в CI не было, а ошибка компиляции молча закрывала все 14 инструментальных тестов.
+        # Сборка тестового APK ловит такой дефект на каждом PR за минуты, без эмулятора.
+        run: ./gradlew :app:assembleFullDebugAndroidTest --stacktrace
+
       - name: detekt (maxIssues = 0)
         # Гейт блокирующий: замечаний нет (maxIssues = 0), красный detekt останавливает слияние
         # и релиз («TDD» §9). Каркаса с заглушками в дереве давно нет.
         run: ./gradlew detekt
 
-      # TODO(Sprint 1): порог покрытия (Kover) — после появления базовой линии тестов.
-      #  Ориентиры по модулям: «TDD» §6. Задача вида:
-      #  ./gradlew koverXmlReportDebug && node tools/check-coverage.mjs --threshold-from docs/tdd.md
-      #  Точное имя задачи зависит от варианта сборки; включать вместе с первыми тестами данных.
+      - name: Покрытие (Kover) и порог по модулям
+        # Порог блокирующий, но поставлен 09.10.2026 по ИЗМЕРЕННОЙ базовой линии
+        # (config/coverage.json), поэтому краснеет на падении покрытия, а не «на пустом месте».
+        # Варианты *Debug: release идёт с isMinifyEnabled, R8 переименовывает классы и покрытие
+        # по нему недостоверно. Инструментальные тесты Kover не покрывает вовсе.
+        run: |
+          ./gradlew koverXmlReportDebug :app:koverXmlReportFullDebug --stacktrace
+          node tools/check-coverage.mjs
 
-      - name: Отчёты тестов и detekt
+      - name: Тесты инструментов репозитория
+        # Инструменты — тоже код: проверка порога покрытия тестируется на фикстурах XML,
+        # а не «на глаз» (ADR-012: тест написан до инструмента).
+        run: node --test "tools/*.test.mjs"
+
+      - name: Отчёты тестов, detekt и покрытия
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -57,6 +74,7 @@ jobs:
           path: |
             **/build/reports/tests/**
             **/build/reports/detekt/**
+            **/build/reports/kover/*.xml
           if-no-files-found: ignore
 
   # Сборка всех трёх flavor'ов: расхождение в манифестах и разрешениях должно ломать CI,
@@ -114,6 +132,64 @@ jobs:
         with:
           name: lint-report
           path: app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+
+  # Инструментальные тесты (androidTest) на эмуляторе: SAF-провайдер, FileProvider, доставка
+  # намерения читалке, разметка карточки на живом измерении — юнит-тестами это не проверить
+  # («TDD» §4). До 09.10.2026 слой не выполнялся нигде: в CI не было ни эмулятора, ни
+  # connected-задач, а тестовый APK перестал компилироваться незаметно.
+  #
+  # Запуск ночной и ручной (решение Александра, 09.10.2026): подъём системы и прогон занимают
+  # минуты, и на каждом PR это тормозило бы слияние. Блокирующий PR-прогон включается снятием
+  # условия `if` ниже — тогда эмулятор заработает и на pull_request.
+  #
+  # Тесты, которым нужен реальный девайс (`@RequiresDevice`), эмуляторный прогон пропускает сам.
+  instrumented:
+    name: Инструментальные тесты (эмулятор)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Аппаратное ускорение эмулятора требует /dev/kvm: без правила udev пользователь раннера
+      # в группу kvm не попадает, и эмулятор поднимается на программном режиме (медленно).
+      - name: Разрешить KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Вариант fullDebug: заглушки DebugDocumentsProvider/DebugReaderActivity и артефакт
+      # ui-test-manifest подключаются только к debug, а flavor `full` несёт QUERY_ALL_PACKAGES —
+      # без него поиск читалок на устройстве неполон (`play` это разрешение не заявляет).
+      - name: Тесты на эмуляторе
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: ./gradlew :app:connectedFullDebugAndroidTest --stacktrace
+
+      - name: Отчёты инструментальных тестов
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-reports
+          # Путь к androidTest-results обязателен: HTML-отчёт показывает только шаги, а XML
+          # с причинами падений лежит рядом с результатами.
+          path: |
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
           if-no-files-found: ignore
 
   # Проверка версий: запускается по расписанию и вручную, чтобы не тратить время на каждом PR.

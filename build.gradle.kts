@@ -10,8 +10,6 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.detekt) apply false
+    // Покрытие: плагин применяется общей конвенцией к каждому модулю, здесь — только версия.
+    alias(libs.plugins.kover) apply false
 }
-
-// TODO(Sprint 1): alias(libs.plugins.kover) — отчёт о покрытии и порог для CI.
-//  Политика покрытия и целевые значения — «TDD» §6. Включается, когда появится
-//  базовая линия тестов, иначе порог будет падать на заглушках.

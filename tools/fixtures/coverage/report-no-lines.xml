@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="BookShelf">
+  <package name="io/github/bookshelf/core/designsystem/theme">
+    <class name="io/github/bookshelf/core/designsystem/theme/EinkColors" sourcefilename="EinkColors.kt">
+      <counter type="INSTRUCTION" missed="0" covered="42"/>
+    </class>
+  </package>
+  <counter type="INSTRUCTION" missed="0" covered="42"/>
+</report>

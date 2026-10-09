@@ -14,6 +14,9 @@ dependencies {
     implementation(libs.gradlePlugin.ksp)
     implementation(libs.gradlePlugin.hilt)
     implementation(libs.gradlePlugin.detekt)
+    // Kover применяется общей конвенцией (`configureKover`), поэтому плагин нужен здесь, а не
+    // в build-файлах модулей: Kover 0.9.x не собирает покрытие чужих модулей из корня.
+    implementation(libs.gradlePlugin.kover)
 }
 
 // Id плагинов, которые подключают модули: id("bookshelf.android.library") и т.д.

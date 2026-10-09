@@ -1,0 +1,144 @@
+{
+  "note": "Пороги строкового покрытия по модулям. Ориентиры — docs/tdd.md §6, но порог здесь НИЖЕ измеренной базы: правило «min(ориентир §6, floor(база − 2 п.п.))». Замер 09.10.2026 на JDK 21, Kover 0.9.1, варианты *Debug (release идёт с R8, покрытие по нему недостоверно). Проверяет node tools/check-coverage.mjs; отчёты — core/*/build/reports/kover/reportDebug.xml, feature/*/…/reportDebug.xml, app/build/reports/kover/reportFullDebug.xml.",
+  "modules": [
+    {
+      "name": ":core:metadata",
+      "report": "core/metadata/build/reports/kover/reportDebug.xml",
+      "minLine": 82,
+      "note": "замер 84.4 %, ориентир §6 — 85 %"
+    },
+    {
+      "name": ":core:storage",
+      "report": "core/storage/build/reports/kover/reportDebug.xml",
+      "minLine": 73,
+      "note": "замер 75.6 %, ориентир §6 — 80 %"
+    },
+    {
+      "name": ":core:readerlink",
+      "report": "core/readerlink/build/reports/kover/reportDebug.xml",
+      "minLine": 64,
+      "note": "замер 66.8 %, ориентир §6 — 80 %"
+    },
+    {
+      "name": ":core:opds",
+      "report": "core/opds/build/reports/kover/reportDebug.xml",
+      "minLine": 65,
+      "note": "замер 67.1 %, ориентир §6 — 80 %"
+    },
+    {
+      "name": ":core:data",
+      "report": "core/data/build/reports/kover/reportDebug.xml",
+      "minLine": 75,
+      "note": "замер 79.3 % — ориентир §6 достигнут, порог равен ему"
+    },
+    {
+      "name": ":core:database",
+      "report": "core/database/build/reports/kover/reportDebug.xml",
+      "minLine": 30,
+      "note": "замер 32.3 % по строкам; правило §6 «100 % DAO-методов» — отдельное, проверяется на ревью"
+    },
+    {
+      "name": ":core:datastore",
+      "report": "core/datastore/build/reports/kover/reportDebug.xml",
+      "minLine": 92,
+      "note": "замер 94.2 %"
+    },
+    {
+      "name": ":core:fb2opt",
+      "report": "core/fb2opt/build/reports/kover/reportDebug.xml",
+      "minLine": 90,
+      "note": "замер 92.4 %"
+    },
+    {
+      "name": ":core:eink",
+      "report": "core/eink/build/reports/kover/reportDebug.xml",
+      "minLine": 60,
+      "note": "замер 62.4 %"
+    },
+    {
+      "name": ":core:covers",
+      "report": "core/covers/build/reports/kover/reportDebug.xml",
+      "minLine": 32,
+      "note": "замер 34.5 %"
+    },
+    {
+      "name": ":core:common",
+      "report": "core/common/build/reports/kover/reportDebug.xml",
+      "minLine": 26,
+      "note": "замер 28.5 %"
+    },
+    {
+      "name": ":core:designsystem",
+      "report": "core/designsystem/build/reports/kover/reportDebug.xml",
+      "minLine": 11,
+      "note": "замер 13.8 % по строкам всего модуля; ориентир §6 — 60 % ЧИСТОЙ логики, это другая метрика"
+    },
+    {
+      "name": ":core:testing",
+      "report": "core/testing/build/reports/kover/reportDebug.xml",
+      "minLine": 0,
+      "optional": true,
+      "note": "фейки и тестовые утилиты: своего продового поведения у модуля нет"
+    },
+    {
+      "name": ":feature:library",
+      "report": "feature/library/build/reports/kover/reportDebug.xml",
+      "minLine": 43,
+      "note": "замер 45.3 %"
+    },
+    {
+      "name": ":feature:settings",
+      "report": "feature/settings/build/reports/kover/reportDebug.xml",
+      "minLine": 36,
+      "note": "замер 38 %"
+    },
+    {
+      "name": ":feature:catalogs",
+      "report": "feature/catalogs/build/reports/kover/reportDebug.xml",
+      "minLine": 34,
+      "note": "замер 36.7 %"
+    },
+    {
+      "name": ":feature:collections",
+      "report": "feature/collections/build/reports/kover/reportDebug.xml",
+      "minLine": 28,
+      "note": "замер 30 %"
+    },
+    {
+      "name": ":feature:bookdetails",
+      "report": "feature/bookdetails/build/reports/kover/reportDebug.xml",
+      "minLine": 27,
+      "note": "замер 29.6 %"
+    },
+    {
+      "name": ":feature:search",
+      "report": "feature/search/build/reports/kover/reportDebug.xml",
+      "minLine": 27,
+      "note": "замер 29.2 %"
+    },
+    {
+      "name": ":feature:scan",
+      "report": "feature/scan/build/reports/kover/reportDebug.xml",
+      "minLine": 25,
+      "note": "замер 27.7 %"
+    },
+    {
+      "name": ":feature:filters",
+      "report": "feature/filters/build/reports/kover/reportDebug.xml",
+      "minLine": 23,
+      "note": "замер 25.8 %"
+    },
+    {
+      "name": ":feature:onboarding",
+      "report": "feature/onboarding/build/reports/kover/reportDebug.xml",
+      "minLine": 13,
+      "note": "замер 15.6 %"
+    },
+    {
+      "name": ":app",
+      "report": "app/build/reports/kover/reportFullDebug.xml",
+      "minLine": 6,
+      "note": "замер 8.4 %; ориентир §6 — smoke-тест запуска, а не проценты"
+    }
+  ]
+}

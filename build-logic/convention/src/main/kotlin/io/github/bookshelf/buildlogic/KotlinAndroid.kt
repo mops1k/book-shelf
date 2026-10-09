@@ -65,6 +65,7 @@ internal fun Project.configureKotlinAndroid(extension: CommonExtension<*, *, *, 
     }
 
     configureKotlinAndroidOptions()
+    configureKover()
 
     dependencies {
         add("coreLibraryDesugaring", lib("android-desugar-jdk-libs"))
@@ -192,4 +193,21 @@ internal fun Project.configureDetekt() {
             txt.required.set(false)
         }
     }
+}
+
+/**
+ * Kover — покрытие и порог по модулям.
+ *
+ * Плагин применяется к КАЖДОМУ модулю: Kover 0.9.x не собирает покрытие чужих модулей из корня,
+ * поэтому вызов живёт в общей конвенции, а не в build-файлах модулей.
+ *
+ * Правила проверки в DSL не задаются: пороги по модулям и политика проекта («TDD» §6) лежат
+ * в `config/coverage.json`, а сверяет их `node tools/check-coverage.mjs`. Так порог один, он
+ * читаем и проверяется тестом инструмента — в отличие от порога, размазанного по build-файлам.
+ *
+ * Отчёт нужен по варианту `*Debug`: release идёт с `isMinifyEnabled = true`, R8 переименовывает
+ * классы, и покрытие по нему недостоверно. Инструментальные тесты Kover не покрывает вовсе.
+ */
+internal fun Project.configureKover() {
+    pluginManager.apply("org.jetbrains.kotlinx.kover")
 }
