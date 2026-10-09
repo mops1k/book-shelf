@@ -36,16 +36,16 @@ jobs:
   # Тот же гейт, что в CI («TDD» §9): релиз не собирается на красных тестах.
   gate:
     name: Гейт (тесты и detekt)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Unit-тесты всех модулей
         run: ./gradlew testDebugUnitTest --stacktrace
@@ -55,20 +55,20 @@ jobs:
 
   publish:
     name: Сборка и публикация
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: gate
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # `--generate-notes` собирает список изменений по истории и тегам.
           fetch-depth: 0
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Версия релиза
         id: version
