@@ -104,7 +104,7 @@ node tools/check-coverage.mjs           # порог покрытия по мо�
 node tools/check-sources.mjs            # санитария исходников
 node tools/check-versions.mjs           # каждая версия из каталога существует
 node tools/check-reachability.mjs       # все маршруты достижимы
-node --test "tools/*.test.mjs"          # тесты самих инструментов репозитория
+node --test tools/*.test.mjs            # тесты самих инструментов репозитория
 
 # релизные сборки: подпись — ключ `keystore.properties` в корне,
 # в CI те же значения приходят переменными окружения
@@ -118,7 +118,7 @@ node --test "tools/*.test.mjs"          # тесты самих инструме
   :app:testPlayDebugUnitTest :app:assembleFullDebug :app:assembleFdroidDebug \
   :app:assemblePlayDebug :app:assembleFullDebugAndroidTest detekt \
   koverXmlReportDebug :app:koverXmlReportFullDebug --continue
-node tools/check-coverage.mjs && node --test "tools/*.test.mjs"
+node tools/check-coverage.mjs && node --test tools/*.test.mjs
 ```
 
 ## Требования

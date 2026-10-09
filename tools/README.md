@@ -1,7 +1,9 @@
 # Инструменты репозитория
 
 Все скрипты не требуют зависимостей: только Node 20+ и `bash`. У инструментов есть и свои тесты
-(встроенный раннер Node): `node --test "tools/*.test.mjs"`; фикстуры для них лежат в `tools/fixtures/`.
+(встроенный раннер Node): `node --test tools/*.test.mjs` — шаблон НЕ в кавычках: Node 20 сам `*`
+не разворачивает и падает с «Could not find …», раскрывать должен шелл. Фикстуры для тестов лежат
+в `tools/fixtures/`.
 
 Генератор карты репозитория (`generate-structure.mjs`) и сама карта — локальные: документация
 разработчика в репозиторий не кладётся (см. `.gitignore`).
@@ -28,7 +30,7 @@ node tools/generate-test-books.mjs    # тестовые книги в testdata/
 node tools/generate-launcher-icons.mjs
 node tools/check-coverage.mjs        # пороги покрытия из config/coverage.json
 node tools/check-coverage.mjs --warn # то же, но недоборы — предупреждение, код 0
-node --test "tools/*.test.mjs"       # тесты самих инструментов (встроенный раннер Node)
+node --test tools/*.test.mjs        # тесты самих инструментов (встроенный раннер Node)
 bash tools/list-stubs.sh              # бэклог по всему проекту
 bash tools/list-stubs.sh core/data    # только по модулю
 ```
