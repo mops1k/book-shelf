@@ -150,6 +150,13 @@ jobs:
     name: Инструментальные тесты (эмулятор)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    env:
+      # Один источник правды для образа эмулятора: эти же значения входят в ключ кэша AVD,
+      # поэтому смена любого параметра сама по себе делает кэш недействительным.
+      EMULATOR_API: '35'
+      EMULATOR_TARGET: google_apis
+      EMULATOR_ARCH: x86_64
+      EMULATOR_PROFILE: pixel_6
     steps:
       - uses: actions/checkout@v7
 
@@ -177,18 +184,51 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h / | tail -1
 
+      # Кэш AVD-снапшота: загрузка системы занимает минуты на каждом прогоне, а сам образ между
+      # прогонами не меняется. Ключ включает все параметры AVD, поэтому смена любого из них сама
+      # создаёт новый снапшот вместо подсовывания старого. Экономия измеряется прогонами подряд:
+      # первый (промах кэша) тратит время на создание снапшота, последующие берут его из кэша.
+      - name: Кэш AVD-снапшота
+        id: avd-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.EMULATOR_API }}-${{ env.EMULATOR_TARGET }}-${{ env.EMULATOR_ARCH }}-${{ env.EMULATOR_PROFILE }}
+
+      # На промахе кэша поднимаем эмулятор один раз только ради снапшота: без `-no-snapshot`
+      # выход эмулятора сохраняет состояние загрузки, которое и попадёт в кэш.
+      - name: Создать AVD и снять снапшот загрузки
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.EMULATOR_API }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          profile: ${{ env.EMULATOR_PROFILE }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          emulator-boot-timeout: 900
+          disk-size: 2048M
+          script: echo "Снапшот загрузки AVD создан для кэша."
+
       # Вариант fullDebug: заглушки DebugDocumentsProvider/DebugReaderActivity и артефакт
       # ui-test-manifest подключаются только к debug, а flavor `full` несёт QUERY_ALL_PACKAGES —
       # без него поиск читалок на устройстве неполон (`play` это разрешение не заявляет).
+      # `-no-snapshot-save`: прогон тестов не перезаписывает снапшот, лежащий в кэше.
       - name: Тесты на эмуляторе
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
+          api-level: ${{ env.EMULATOR_API }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          profile: ${{ env.EMULATOR_PROFILE }}
+          force-avd-creation: false
           disable-animations: true
           emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # Размер userdata: по умолчанию система просит под него ~7.4 ГБ, а приложению с тестовым
           # APK (179 МБ) двух гигабайт хватает с запасом — иначе эмулятор не стартует на раннере.
           disk-size: 2048M
