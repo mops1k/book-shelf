@@ -4,18 +4,20 @@
 # Включение: build-logic/convention/src/main/kotlin/.../KotlinAndroid.kt (configureDetekt).
 # Запуск: ./gradlew detekt
 #
-# Названия правил и их секции сверены с default-detekt-config.yml версии 1.23.7 —
+# Названия правил, их секции и свойства сверены с default-detekt-config.yml версии 2.0.0-alpha.6 —
 # при обновлении detekt конфиг нужно перепроверить: неизвестное имя ломает сборку.
-build:
-  # Ноль замечаний — цель для CI. На 2026-09-28 гейт снова зелёный: реальные дефекты вычищены,
-  # а оставшийся структурный долг (крупные функции парсеров и Compose-экранов) описан порогами
-  # и закрытыми списками ниже — со сроком «задача фазы 4 плана p_cf3535f45780».
-  maxIssues: 0
+#
+# Политика «ноль замечаний» живёт не здесь: в detekt 2.0 весовой `build.maxIssues` убран, и сборка
+# падает по важности замечания — `failOnSeverity = Info` в configureDetekt (build-logic).
+#
+# Осознанно оставленный структурный долг (крупные функции парсеров и Compose-экранов) описан
+# порогами и закрытыми списками ниже — со сроком «задача фазы 4 плана p_cf3535f45780».
 
 complexity:
   LongParameterList:
-    functionThreshold: 8
-    constructorThreshold: 10
+    # detekt 2.0: functionThreshold/constructorThreshold переименованы в allowed*Parameters.
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 10
     ignoreDefaultParameters: true
     # Строчные модели (BookEntity) читаются лучше длинным конструктором, чем билдером.
     ignoreDataClasses: true
@@ -38,11 +40,12 @@ complexity:
       # e-ink, кэш обложек, API читалки, флаги сборки). «Параметр-объект» спрятал бы граф.
       - '**/feature/settings/SettingsViewModel.kt'
   # DAO, парсеры форматов и реестры — длинные классы по своей природе.
+  # detekt 2.0: thresholdIn* переименованы в allowedFunctionsPer*.
   TooManyFunctions:
-    thresholdInClasses: 30
-    thresholdInInterfaces: 25
-    thresholdInObjects: 20
-    thresholdInFiles: 25
+    allowedFunctionsPerClass: 30
+    allowedFunctionsPerInterface: 25
+    allowedFunctionsPerObject: 20
+    allowedFunctionsPerFile: 25
   # Пороги сложности возвращены к ЗНАЧЕНИЯМ ПО УМОЛЧАНИЮ detekt 01.10.2026: `LongMethod` 60
   # (было ослаблено до 120 28.09.2026), `CyclomaticComplexMethod` 15 (было 30),
   # `NestedBlockDepth` 4 (было 6) — причём БЕЗ исключений: `OpdsDownloader.downloadToStaging`
@@ -73,13 +76,16 @@ complexity:
   # * `UnusedParameter`/`NotImplementedDeclaration` выключены: заглушки STUB(Sprint N) — по ADR-013;
   # * `MagicNumber`: токены дизайн-системы (48.dp, 600 px, 200 МБ) — данные, а не «магические числа».
   LongMethod:
-    threshold: 60
-  # Имя правила в detekt 1.23.7 — CyclomaticComplexMethod (`ComplexMethod` устарело и
+    # detekt 2.0: threshold переименован в allowedLines.
+    allowedLines: 60
+  # Имя правила в detekt 2.0.0-alpha.6 — CyclomaticComplexMethod (`ComplexMethod` устарело и
   # выдаёт предупреждение о переименовании).
   CyclomaticComplexMethod:
-    threshold: 15
+    # detekt 2.0: threshold переименован в allowedComplexity.
+    allowedComplexity: 15
   NestedBlockDepth:
-    threshold: 4
+    # detekt 2.0: threshold переименован в allowedDepth.
+    allowedDepth: 4
 exceptions:
   # Каркас намеренно состоит из заглушек, помеченных STUB(Sprint N) (ADR-013).
   # Правило включается, когда заглушек не останется (Спринт 9), иначе оно шумит на плане работ.
@@ -144,8 +150,8 @@ style:
     max: 6
   # Ранний выход (guard clause) — принятый стиль проекта; правило оставлено активным,
   # чтобы ловить действительно запутанные функции, а не каждую вторую.
-  # Секция именно style: в detekt 1.23.7 ReturnCount лежит в style, а не в complexity —
-  # в complexity такого свойства нет, и весь detekt падал с «Property is misspelled».
+  # Секция именно style: в detekt 2.0.0-alpha.6 ReturnCount лежит в style, а не в complexity —
+  # в complexity такого свойства нет, и весь detekt падал бы с «Property is misspelled».
   ReturnCount:
     max: 8
 

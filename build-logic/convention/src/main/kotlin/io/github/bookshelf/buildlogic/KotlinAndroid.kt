@@ -1,8 +1,9 @@
 package io.github.bookshelf.buildlogic
 
 import com.android.build.api.dsl.CommonExtension
-import io.gitlab.arturbosch.detekt.Detekt
-import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.extensions.DetektExtension
+import dev.detekt.gradle.extensions.FailOnSeverity
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.tasks.testing.Test
@@ -184,22 +185,26 @@ private fun Project.configureTestTaskDefaults() {
 
 /** detekt — единый статический анализ (форматирование — его правилами, ktlint отдельно не тянем). */
 internal fun Project.configureDetekt() {
-    pluginManager.apply("io.gitlab.arturbosch.detekt")
+    pluginManager.apply("dev.detekt")
 
     extensions.configure<DetektExtension> {
-        buildUponDefaultConfig = true
-        parallel = true
+        buildUponDefaultConfig.set(true)
+        parallel.set(true)
         config.setFrom(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+        // detekt 2.0: весовой maxIssues убран, сборка падает по важности замечания. Info —
+        // ближайший эквивалент прежнего `maxIssues: 0`: падаем на любом замечании, а не только на Error.
+        failOnSeverity.set(FailOnSeverity.Info)
     }
 
     tasks.withType<Detekt>().configureEach {
-        jvmTarget = JVM_TARGET
+        // detekt 2.0: jvmTarget стал Property<String>, поэтому set(...), а не присваивание.
+        jvmTarget.set(JVM_TARGET)
         reports {
+            // detekt 2.0: xml-отчёта больше нет, его место занял checkstyle; txt и md убраны из DSL.
             html.required.set(true)
-            xml.required.set(true)
+            checkstyle.required.set(true)
             sarif.required.set(false)
-            md.required.set(false)
-            txt.required.set(false)
+            markdown.required.set(false)
         }
     }
 }
