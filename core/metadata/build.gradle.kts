@@ -9,7 +9,7 @@ android {
     sourceSets {
         // Настоящая книга из Flibusta как фикстура: синтетический fb2 написан по моему же
         // пониманию формата и всегда совпадает с парсером — ошибок в нём не видно.
-        getByName("test") { resources.srcDir("src/test/resources") }
+        getByName("test") { resources.directories.add("src/test/resources") }
     }
 
     testOptions {

@@ -35,7 +35,7 @@ class AndroidRoomConventionPlugin : Plugin<Project> {
         // Подключаем весь каталог schemas/ — он один на модуль и коммитится в репозиторий.
         pluginManager.withPlugin("com.android.library") {
             val android = extensions.getByType<LibraryExtension>()
-            android.sourceSets.getByName("test").assets.srcDir(file("$projectDir/schemas"))
+            android.sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")
         }
     }
 }

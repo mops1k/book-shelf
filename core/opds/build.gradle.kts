@@ -10,7 +10,7 @@ android {
     sourceSets {
         // Android-модуль по умолчанию не берёт src/test/resources: без этого настоящий фид
         // из resources не найдётся и тест будет проверять не то.
-        getByName("test") { resources.srcDir("src/test/resources") }
+        getByName("test") { resources.directories.add("src/test/resources") }
     }
 }
 
