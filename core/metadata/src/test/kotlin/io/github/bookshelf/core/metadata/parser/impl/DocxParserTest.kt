@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * DOCX — ZIP с `docProps/core.xml` («Форматы» §7).
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
  * в файле есть. Обложки у DOCX обычно нет, поэтому разбор отдаёт только метаданные.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class DocxParserTest {
 
     @Test

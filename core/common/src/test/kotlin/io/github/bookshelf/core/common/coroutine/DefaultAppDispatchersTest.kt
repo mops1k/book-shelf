@@ -3,8 +3,15 @@ package io.github.bookshelf.core.common.coroutine
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -17,7 +24,24 @@ import org.junit.Test
  * Потоки настоящие, как в бою: подменять диспетчер в таком тесте нечем — проверяются как раз
  * размер пула и предел параллелизма.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultAppDispatchersTest {
+
+    /**
+     * `DefaultAppDispatchers` при создании берёт `Dispatchers.Main.immediate`. Начиная с
+     * coroutines-test 1.11 обращение к `Main` без установленного тестового диспетчера падает
+     * сразу, а не при отправке — поэтому подменяем `Main` на время теста, хотя сам он здесь
+     * не используется: проверяется пул разбора.
+     */
+    @Before
+    fun installMainDispatcher() {
+        Dispatchers.setMain(StandardTestDispatcher())
+    }
+
+    @After
+    fun resetMainDispatcher() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `no more parses run at once than the pool allows`() {

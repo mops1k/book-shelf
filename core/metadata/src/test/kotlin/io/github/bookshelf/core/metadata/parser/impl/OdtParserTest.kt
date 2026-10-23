@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * ODT — ZIP с `meta.xml` («Форматы» §7).
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
  * `meta:document-statistic`. Обложки в ODT нет.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class OdtParserTest {
 
     @Test

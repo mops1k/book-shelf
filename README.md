@@ -84,7 +84,7 @@ APK публикуются в разделе [Releases](https://github.com/mops1
 
 ### Из исходников
 
-Нужны JDK 17+ и Android SDK (compileSdk 35). Путь к SDK — в `local.properties` или в `ANDROID_HOME`.
+Нужны JDK 17+ и Android SDK (compileSdk 37). Путь к SDK — в `local.properties` или в `ANDROID_HOME`.
 
 ```bash
 # сборка

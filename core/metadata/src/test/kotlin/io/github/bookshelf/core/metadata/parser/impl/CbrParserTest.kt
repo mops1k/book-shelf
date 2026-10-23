@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * CBR — RAR с `ComicInfo.xml` и страницами-картинками («Форматы» §7).
@@ -25,6 +26,7 @@ import org.robolectric.RobolectricTestRunner
  * сборки без junrar обязаны честно не предлагать формат, а не падать.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class CbrParserTest {
 
     @Test

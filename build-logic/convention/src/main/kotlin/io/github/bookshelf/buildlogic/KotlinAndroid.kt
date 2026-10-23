@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 /** Единственное место, где заданы уровни SDK. Меняем здесь — меняется во всех модулях. */
-internal const val COMPILE_SDK = 35
+internal const val COMPILE_SDK = 37
 internal const val MIN_SDK = 24
 internal const val TARGET_SDK = 35
 internal const val JVM_TARGET = "17"

@@ -10,6 +10,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Сессия чтения: пока открыта читалка, тяжёлые работы обязаны уступать.
@@ -20,6 +21,7 @@ import org.robolectric.RobolectricTestRunner
  * после запуска читалки (системный выбор приложения, отказ читалки).
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class DefaultReaderSessionTest {
 
     private val clock = FakeAppClock()

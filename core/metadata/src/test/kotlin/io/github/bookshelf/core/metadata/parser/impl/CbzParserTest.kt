@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * CBZ — ZIP с `ComicInfo.xml` (Anansi v2.0) и страницами-картинками («Форматы» §7).
@@ -24,6 +25,7 @@ import org.robolectric.RobolectricTestRunner
  * естественном порядке (`page2` раньше `page10`).
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class CbzParserTest {
 
     @Test
