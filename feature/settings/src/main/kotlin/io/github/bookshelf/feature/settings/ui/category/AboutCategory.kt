@@ -60,8 +60,6 @@ internal fun AboutCategory(
         }
         einkDiagnosticsRows(diagnostics = diagnostics)
 
-        einkCapabilitiesRows(diagnostics = diagnostics)
-
         progressSourceRows(state = state)
 
         item(key = "about-refresh") {
@@ -187,7 +185,7 @@ private fun appVersion(context: Context): String {
 }
 
 
-/** Строки диагностики e-ink: устройство, экран и доступность вендорских команд. */
+/** Строки диагностики экрана: производитель и тип экрана — всё, что приложение о железе знает (ADR-017). */
 private fun LazyListScope.einkDiagnosticsRows(diagnostics: EinkDiagnosticsUi) {
     item(key = "about-eink-vendor") {
         EinkListRow(
@@ -206,29 +204,3 @@ private fun LazyListScope.einkDiagnosticsRows(diagnostics: EinkDiagnosticsUi) {
     }
 }
 
-
-/** Возможности вендорского контроллера: команды обновления и быстрый режим. */
-private fun LazyListScope.einkCapabilitiesRows(diagnostics: EinkDiagnosticsUi) {
-    item(key = "about-eink-commands") {
-        EinkListRow(
-            title = stringResource(R.string.settings_about_vendor_commands),
-            subtitle = stringResource(R.string.settings_about_vendor_commands_hint),
-            trailing = if (diagnostics.hasVendorCommands) {
-                stringResource(R.string.settings_about_available)
-            } else {
-                stringResource(R.string.settings_about_unavailable)
-            },
-        )
-    }
-    item(key = "about-eink-fast") {
-        EinkListRow(
-            title = stringResource(R.string.settings_about_fast_mode),
-            subtitle = stringResource(R.string.settings_about_fast_mode_hint),
-            trailing = if (diagnostics.supportsFastMode) {
-                stringResource(R.string.settings_about_available_short)
-            } else {
-                stringResource(R.string.settings_about_no)
-            },
-        )
-    }
-}

@@ -25,14 +25,12 @@ import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ReaderSettings
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.designsystem.text.text
-import io.github.bookshelf.core.eink.EinkController
 import io.github.bookshelf.core.opds.download.DOWNLOAD_FILE_NAME_TEMPLATES
 import io.github.bookshelf.core.readerlink.fbreader.FbReaderApi
 import java.util.Locale
@@ -60,7 +58,6 @@ class SettingsViewModel @Inject constructor(
     private val readerRepository: ReaderRepository,
     private val sourceRepository: SourceRepository,
     private val bookRepository: BookRepository,
-    private val einkController: EinkController,
     private val einkDeviceDetector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
     private val coverCache: CoverCache,
     private val progressSchedule: ProgressSyncSchedule,
@@ -161,7 +158,6 @@ class SettingsViewModel @Inject constructor(
 
     init {
         _uiState.value = _uiState.value.copy(isLoading = true).withFreshDiagnostics(
-            controller = einkController,
             detector = einkDeviceDetector,
             opdsEnabled = featureFlags.opdsEnabled,
         )
@@ -277,25 +273,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Выбрать режим обновления экрана: Авто / Полный / Быстрый. */
-    fun onSetRefreshMode(mode: String) {
-        val value = parseEnum(
-            value = mode,
-            aliases = mapOf(
-                "АВТО" to RefreshModeLike.AUTO,
-                "ПОЛНЫЙ" to RefreshModeLike.FULL,
-                "БЫСТРЫЙ" to RefreshModeLike.FAST,
-            ),
-        )
-        if (value == null) {
-            _uiState.showError(AppText(R.string.settings_error_unknown_refresh, mode))
-            return
-        }
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(refreshMode = value))
-        }
-    }
-
     /** Включить или выключить инверсию обложек. */
     fun onSetInvertCovers(enabled: Boolean) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
@@ -313,27 +290,6 @@ class SettingsViewModel @Inject constructor(
     fun onSetThemeMode(mode: ThemeMode) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
             settings.copy(appearance = settings.appearance.copy(themeMode = mode))
-        }
-    }
-
-    /** Полный кадр при смене экрана — главный источник «призраков» прежнего кадра. */
-    fun onSetRefreshOnScreenChange(enabled: Boolean) {
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(refreshOnScreenChange = enabled))
-        }
-    }
-
-    /** Полный кадр при открытии и закрытии диалога. */
-    fun onSetRefreshOnDialog(enabled: Boolean) {
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(refreshOnDialog = enabled))
-        }
-    }
-
-    /** Полный refresh при смене страницы списка. */
-    fun onSetFullRefreshOnPage(enabled: Boolean) {
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(refreshOnPageChange = enabled))
         }
     }
 
@@ -481,10 +437,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Перечитать диагностику вендора e-ink: вместе с ней пересобирается список разделов. */
+    /** Перечитать диагностику экрана: вендор и тип экрана. */
     fun onRefreshDiagnostics() {
         _uiState.value = _uiState.value.withFreshDiagnostics(
-            controller = einkController,
             detector = einkDeviceDetector,
             opdsEnabled = featureFlags.opdsEnabled,
         ).copy(
@@ -500,40 +455,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Задать интервал полного обновления: полный GC каждые [interval] частичных обновлений.
-     *
-     * Значение меньше [MIN_GC_INTERVAL] смысла не имеет: «полный кадр каждые 0 обновлений» — это
-     * либо тихое отключение механизма против «призраков», либо деление на ноль в вендорском слое.
-     */
-    fun onSetGcInterval(interval: Int) {
-        if (interval < MIN_GC_INTERVAL) {
-            _uiState.showError(AppText(R.string.settings_error_gc_interval, MIN_GC_INTERVAL))
-            return
-        }
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(gcInterval = interval))
-        }
-    }
-
     /** Включить или выключить листание клавишами громкости. */
     fun onSetVolumeKeysAsPageTurn(enabled: Boolean) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
             settings.copy(eink = settings.eink.copy(volumeKeysAsPageTurn = enabled))
-        }
-    }
-
-    /**
-     * Изменить уровень подсветки.
-     *
-     * Значение применяет `MainActivity` через [EinkController.setFrontLight] — сразу, без
-     * перезапуска. На устройствах без подсветки и на вендорских заглушках вызов безвреден:
-     * контроллер либо no-op, либо его ошибку гасит `runCatching`.
-     */
-    fun onSetFrontLight(level: Int) {
-        val safeLevel = level.coerceIn(MIN_FRONT_LIGHT, MAX_FRONT_LIGHT)
-        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
-            settings.copy(eink = settings.eink.copy(frontLightLevel = safeLevel))
         }
     }
 
@@ -643,11 +568,6 @@ class SettingsViewModel @Inject constructor(
     private companion object {
         const val MIN_FONT_SCALE = 50
         const val MAX_FONT_SCALE = 200
-        const val MIN_FRONT_LIGHT = 0
-        const val MAX_FRONT_LIGHT = 100
-
-        /** Меньше одного обновления между полными кадрами не бывает. */
-        const val MIN_GC_INTERVAL = 1
     }
 }
 
@@ -682,14 +602,8 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     density = settings.appearance.density,
     showCovers = !settings.appearance.textOnlyMode,
     fontScalePercent = settings.appearance.fontScale,
-    refreshMode = settings.eink.refreshMode,
-    fullRefreshOnScreenChange = settings.eink.refreshOnScreenChange,
-    fullRefreshOnDialog = settings.eink.refreshOnDialog,
-    fullRefreshOnPage = settings.eink.refreshOnPageChange,
     invertCovers = settings.appearance.invertCovers,
     themeMode = settings.appearance.themeMode,
-    gcInterval = settings.eink.gcInterval,
-    frontLightLevel = settings.eink.frontLightLevel,
     volumeKeysAsPageTurn = settings.eink.volumeKeysAsPageTurn,
     scanOnStart = settings.library.autoScanOnStart,
     viewPreset = settings.library.viewPreset,
@@ -830,76 +744,32 @@ private fun MutableStateFlow<SettingsUiState>.showError(message: AppText) {
 }
 
 /**
- * Свежая диагностика вместе с согласованным списком разделов.
+ * Свежая диагностика экрана вместе с согласованным списком разделов.
  *
- * Разделы зависят от железа: без вендорских команд раздел «Экран (e-ink)» состоял бы из одних
- * неработающих переключателей, поэтому его в списке нет (решение Александра, 05.10.2026). Список
- * пересобирается тем же вызовом, что и диагностика, иначе кнопка «Обновить диагностику» оставила
- * бы список устаревшим.
- *
- * Живёт вне класса по той же причине, что и [safeDiagnostics]: у `SettingsViewModel` порог detekt
- * `TooManyFunctions` уже под рукой.
+ * Список разделов от железа больше не зависит: раздела «Экран (e-ink)» нет вовсе — экран
+ * настраивают системные утилиты устройства (ADR-017). Диагностика пересобирается по кнопке
+ * «Обновить диагностику».
  */
 private fun SettingsUiState.withFreshDiagnostics(
-    controller: EinkController,
     detector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
     opdsEnabled: Boolean,
-): SettingsUiState {
-    val fresh = safeDiagnostics(controller, detector, diagnostics)
-    return copy(
-        diagnostics = fresh,
-        sections = defaultSettingsSections(opdsEnabled = opdsEnabled, einkEnabled = fresh.hasVendorCommands),
-    )
-}
+): SettingsUiState = copy(
+    diagnostics = detector.diagnostics(),
+    sections = defaultSettingsSections(opdsEnabled = opdsEnabled),
+)
 
 /**
- * Диагностика e-ink — «лучшее из возможного», а не команда с важным результатом.
+ * Диагностика экрана: только факты об устройстве — вендор и тип экрана.
  *
- * Вендорские контроллеры (Onyx, Rockchip) обращаются к скрытым API и бросают `Throwable`
- * произвольного типа, когда их нет на устройстве. Экран настроек от этого развалиться не должен:
- * показываем то, что удалось выяснить, и молча оставляем прежние значения там, где выяснить
- * не удалось. Подавление правил — прямое следствие этого решения, а не способ обойти анализатор.
- *
- * Живёт вне класса: помощник не трогает состояние, а у `SettingsViewModel` порог detekt
- * `TooManyFunctions` уже под рукой — каждый метод в классе приближает его к нарушению.
+ * Ни вендорского SDK, ни рефлексии здесь нет: детектор читает `Build.*` и системные свойства,
+ * поэтому падать нечему. Управление экраном приложению больше не принадлежит (ADR-017).
  */
-/**
- * Перехват здесь широкий осознанно.
- *
- * `controller` — вендорский контроллер: реализации для Onyx и Rockchip пока помечены
- * `TODO("STUB(Sprint 10)")` и бросают `NotImplementedError` (это `Error`, а не `Exception`),
- * а вендорские вызовы идут рефлексией и вправе упасть чем угодно. Диагностика — экран справки:
- * показать устаревшие данные честнее, чем уронить приложение из-за чужого SDK. Отмену корутины
- * функция пробрасывает.
- */
-@Suppress("SwallowedException")
-private fun safeDiagnostics(
-    controller: EinkController,
-    detector: io.github.bookshelf.core.eink.device.EinkDeviceDetector,
-    current: EinkDiagnosticsUi,
-): EinkDiagnosticsUi = try {
-    // Железо описывает детектор, а контроллер — только то, что мы умеем с ним делать. Пока это
-    // были одни и те же данные, устройство с бумагой без вендорского контроллера выглядело
-    // обычным экраном и с неизвестным вендором.
-    val device = detector.detect()
-    val hasFrontLight = try {
-        controller.frontLight() != null
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (error: Throwable) {
-        current.supportsFrontLight
-    }
-    current.copy(
-        hasVendorCommands = controller.hasVendorCommands,
+private fun io.github.bookshelf.core.eink.device.EinkDeviceDetector.diagnostics(): EinkDiagnosticsUi {
+    val device = detect()
+    return EinkDiagnosticsUi(
         vendorLabel = device.vendor.displayName,
         screenLabel = device.screen.text(),
-        supportsFastMode = controller.supportsFastMode,
-        supportsFrontLight = hasFrontLight,
     )
-} catch (cancelled: CancellationException) {
-    throw cancelled
-} catch (error: Throwable) {
-    current
 }
 
 /** Строка читалки: профиль из репозитория + признак «выбрана по умолчанию хотя бы для формата». */

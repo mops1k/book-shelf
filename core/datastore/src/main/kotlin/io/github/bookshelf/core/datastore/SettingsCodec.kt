@@ -11,7 +11,6 @@ import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.LibrarySettings
 import io.github.bookshelf.core.datastore.model.OpdsSettings
 import io.github.bookshelf.core.datastore.model.ReaderSettings
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ScanSchedule
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
@@ -36,7 +35,7 @@ import kotlinx.serialization.json.Json
  * Запись всегда полная, а не «только изменившиеся ключи»: чтение и запись выполняются внутри
  * одной транзакции `edit`, поэтому частичная запись не дала бы выигрыша, зато могла бы оставить
  * ключ от предыдущего значения при смене типа. Удаление `null`-значений — явное: пустой `Map`
- * пишется как `{}`, а `frontLightLevel = null` удаляет ключ, чтобы чтение вернуло `null`.
+ * пишется как `{}`.
  */
 internal object SettingsCodec {
 
@@ -60,17 +59,6 @@ internal object SettingsCodec {
             target[SettingsKeys.TEXT_ONLY_MODE] = textOnlyMode
         }
         with(settings.eink) {
-            target[SettingsKeys.REFRESH_MODE] = refreshMode.name
-            target[SettingsKeys.REFRESH_ON_SCREEN_CHANGE] = refreshOnScreenChange
-            target[SettingsKeys.REFRESH_ON_DIALOG] = refreshOnDialog
-            target[SettingsKeys.REFRESH_ON_PAGE_CHANGE] = refreshOnPageChange
-            target[SettingsKeys.GC_INTERVAL] = gcInterval
-            // null — значит «подсветка не настраивалась»: ключ удаляется, а не пишется нулём.
-            if (frontLightLevel == null) {
-                target.remove(SettingsKeys.FRONT_LIGHT_LEVEL)
-            } else {
-                target[SettingsKeys.FRONT_LIGHT_LEVEL] = frontLightLevel
-            }
             target[SettingsKeys.VOLUME_KEYS_AS_PAGE_TURN] = volumeKeysAsPageTurn
             target[SettingsKeys.TAP_ZONE_LEFT_PERCENT] = tapZoneLeftPercent
             target[SettingsKeys.TAP_ZONE_RIGHT_PERCENT] = tapZoneRightPercent
@@ -117,23 +105,6 @@ internal object SettingsCodec {
     )
 
     private fun eink(preferences: Preferences) = EinkSettings(
-        refreshMode = enumNameOrDefault(
-            preferences[SettingsKeys.REFRESH_MODE],
-            SettingsKeys.Defaults.REFRESH_MODE,
-        ),
-        refreshOnScreenChange = preferences[SettingsKeys.REFRESH_ON_SCREEN_CHANGE]
-            ?: SettingsKeys.Defaults.REFRESH_ON_SCREEN_CHANGE,
-        refreshOnDialog = preferences[SettingsKeys.REFRESH_ON_DIALOG]
-            ?: SettingsKeys.Defaults.REFRESH_ON_DIALOG,
-        refreshOnPageChange = preferences[SettingsKeys.REFRESH_ON_PAGE_CHANGE]
-            ?: SettingsKeys.Defaults.REFRESH_ON_PAGE_CHANGE,
-        gcInterval = positiveIntOrDefault(
-            preferences[SettingsKeys.GC_INTERVAL],
-            SettingsKeys.Defaults.GC_INTERVAL,
-        ),
-        // Отсутствие ключа — единственный признак «не настраивалось»; значение же ограничиваем,
-        // потому что уходит в вендорский API подсветки.
-        frontLightLevel = percentOrNull(preferences[SettingsKeys.FRONT_LIGHT_LEVEL]),
         volumeKeysAsPageTurn = preferences[SettingsKeys.VOLUME_KEYS_AS_PAGE_TURN]
             ?: SettingsKeys.Defaults.VOLUME_KEYS_AS_PAGE_TURN,
         tapZoneLeftPercent = preferences[SettingsKeys.TAP_ZONE_LEFT_PERCENT]
@@ -250,8 +221,7 @@ internal object SettingsCodec {
      *
      * Это не перестраховка, а защита от падения. `metadataParallelism` уходит в
      * `Executors.newFixedThreadPool(...)`, который на нуле бросает `IllegalArgumentException`
-     * (проверено на JDK 21), а ноль в `gcInterval` превратил бы полный GC в «после каждого
-     * обновления». Файл настроек доступен пользователю для правки, поэтому мусор в нём —
+     * (проверено на JDK 21). Файл настроек доступен пользователю для правки, поэтому мусор в нём —
      * реальность, а не теория.
      */
     private fun positiveIntOrDefault(value: Int?, fallback: Int): Int =
@@ -261,17 +231,12 @@ internal object SettingsCodec {
     private fun nonNegativeIntOrDefault(value: Int?, fallback: Int): Int =
         if (value == null || value < 0) fallback else value
 
-    /** Уровень подсветки приводится к диапазону вендорского API, а не к умолчанию. */
-    private fun percentOrNull(value: Int?): Int? = value?.coerceIn(0, PERCENT_MAX)
-
     /** Карта «формат → профиль» из JSON; любой мусор читается как пустая карта. */
     private fun decodeFormatMap(raw: String?): Map<String, String> {
         if (raw.isNullOrBlank()) return emptyMap()
         return runCatching { json.decodeFromString<Map<String, String>>(raw) }.getOrDefault(emptyMap())
     }
 
-    /** Верхняя граница процента: столько же принимает `EinkController.setFrontLight`. */
-    private const val PERCENT_MAX = 100
 }
 
 

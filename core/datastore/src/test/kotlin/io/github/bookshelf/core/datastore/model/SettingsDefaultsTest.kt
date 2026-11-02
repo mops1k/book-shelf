@@ -8,8 +8,9 @@ import org.junit.Test
  *
  * Значения зафиксированы здесь буквально, а не ссылками на `SettingsKeys.Defaults`: смысл теста —
  * поймать случайное изменение документально согласованного дефолта (плотность «Крупный», кегль
- * 100 %, полный refresh при смене экрана/страницы/диалога, тап-зоны 25/25, параллелизм парсеров 2,
- * лимит временной копии 100 МБ, лимит кэша обложек 200 МБ, очистка пропавших через 30 дней).
+ * 100 %, тап-зоны 25/25, параллелизм парсеров 2, лимит временной копии 100 МБ, лимит кэша обложек
+ * 200 МБ, очистка пропавших через 30 дней). Настроек режима обновления, интервала полного кадра и
+ * подсветки здесь больше нет: экраном управляют системные утилиты (ADR-017).
  */
 class SettingsDefaultsTest {
 
@@ -25,14 +26,9 @@ class SettingsDefaultsTest {
     }
 
     @Test
-    fun eink_defaults_refresh_every_documented_event() {
+    fun eink_defaults_match_documented_values() {
         val eink = AppSettings().eink
 
-        assertThat(eink.refreshMode).isEqualTo(RefreshModeLike.AUTO)
-        assertThat(eink.refreshOnScreenChange).isTrue()
-        assertThat(eink.refreshOnDialog).isTrue()
-        assertThat(eink.refreshOnPageChange).isTrue()
-        assertThat(eink.frontLightLevel).isNull()
         assertThat(eink.volumeKeysAsPageTurn).isFalse()
         assertThat(eink.tapZoneLeftPercent).isEqualTo(25)
         assertThat(eink.tapZoneRightPercent).isEqualTo(25)

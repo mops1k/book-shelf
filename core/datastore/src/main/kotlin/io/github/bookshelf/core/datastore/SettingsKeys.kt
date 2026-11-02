@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ScanSchedule
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
@@ -36,13 +35,8 @@ object SettingsKeys {
     val TEXT_ONLY_MODE: Preferences.Key<Boolean> = booleanPreferencesKey("appearance.text_only_mode")
 
     // --- Экран (e-ink) ---
-    val REFRESH_MODE: Preferences.Key<String> = stringPreferencesKey("eink.refresh_mode")
-    val REFRESH_ON_SCREEN_CHANGE: Preferences.Key<Boolean> = booleanPreferencesKey("eink.refresh_on_screen_change")
-    val REFRESH_ON_DIALOG: Preferences.Key<Boolean> = booleanPreferencesKey("eink.refresh_on_dialog")
-    val REFRESH_ON_PAGE_CHANGE: Preferences.Key<Boolean> = booleanPreferencesKey("eink.refresh_on_page_change")
-    val GC_INTERVAL: Preferences.Key<Int> = intPreferencesKey("eink.gc_interval")
-    /** Отсутствие ключа означает «не настроено» → `frontLightLevel = null`. */
-    val FRONT_LIGHT_LEVEL: Preferences.Key<Int> = intPreferencesKey("eink.front_light_level")
+    // Режим обновления, интервал полного кадра и подсветка больше не настройки приложения:
+    // экраном управляют системные утилиты устройства (ADR-017).
     val VOLUME_KEYS_AS_PAGE_TURN: Preferences.Key<Boolean> = booleanPreferencesKey("eink.volume_keys_as_page_turn")
     val TAP_ZONE_LEFT_PERCENT: Preferences.Key<Int> = intPreferencesKey("eink.tap_zone_left_percent")
     val TAP_ZONE_RIGHT_PERCENT: Preferences.Key<Int> = intPreferencesKey("eink.tap_zone_right_percent")
@@ -141,11 +135,6 @@ object SettingsKeys {
         const val INVERT_COVERS = false
         const val TEXT_ONLY_MODE = false
 
-        val REFRESH_MODE: RefreshModeLike = RefreshModeLike.AUTO
-        const val REFRESH_ON_SCREEN_CHANGE = true
-        const val REFRESH_ON_DIALOG = true
-        const val REFRESH_ON_PAGE_CHANGE = true
-        const val GC_INTERVAL = 10
         const val VOLUME_KEYS_AS_PAGE_TURN = false
         const val TAP_ZONE_LEFT_PERCENT = 25
         const val TAP_ZONE_RIGHT_PERCENT = 25

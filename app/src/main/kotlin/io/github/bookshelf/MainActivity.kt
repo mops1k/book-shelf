@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -17,7 +16,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
@@ -32,15 +30,11 @@ import io.github.bookshelf.core.data.sync.LibrarySync
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
 import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.EinkTheme
 import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
 import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
-import io.github.bookshelf.core.eink.EinkController
-import io.github.bookshelf.core.eink.RefreshMode
 import io.github.bookshelf.navigation.BookShelfNavHost
-import io.github.bookshelf.ui.EinkRefreshBridge
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
@@ -52,7 +46,6 @@ import kotlinx.coroutines.launch
  * Здесь сходятся три вещи, которые больше нигде не должны встречаться:
  * * тема применяется ко всему приложению — смена плотности/кегля/тёмного режима работает
  *   без перезапуска («E-ink UX» §2);
- * * `EinkRefreshBridge` связывает дизайн-систему с вендорским слоем e-ink («Архитектура» §6);
  * * навигационный граф собирается из feature-модулей, сама Activity про экраны не знает.
  */
 @AndroidEntryPoint
@@ -70,9 +63,6 @@ class MainActivity : ComponentActivity() {
             launchProgressSync()
         }
     }
-
-    @Inject
-    lateinit var einkController: EinkController
 
     /** Решает, показывать ли онбординг: пока источников нет, это единственный вход в приложение. */
     @Inject
@@ -194,11 +184,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeState by viewModel.themeState.collectAsStateWithLifecycle()
-            // Тот же корневой view, что и у `EinkRefreshBridge`: вендорские команды действуют
-            // на экран целиком, а не на отдельный экран навигации.
-            val rootView = LocalView.current
-
-            ApplyEinkSettings(controller = einkController, view = rootView, state = themeState)
 
             EinkTheme(
                 darkTheme = themeState.themeMode.isDarkTheme(),
@@ -212,13 +197,11 @@ class MainActivity : ComponentActivity() {
                     LocalInvertCovers provides themeState.invertCovers,
                     LocalVolumeKeysAsPageTurn provides themeState.volumeKeysAsPageTurn,
                 ) {
-                    EinkRefreshBridge(controller = einkController, settings = themeState.refresh) {
-                        Surface(modifier = Modifier.fillMaxSize()) {
-                            BookShelfNavHost(
-                                sourceRepository = sourceRepository,
-                                opdsEnabled = themeState.opdsEnabled,
-                            )
-                        }
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        BookShelfNavHost(
+                            sourceRepository = sourceRepository,
+                            opdsEnabled = themeState.opdsEnabled,
+                        )
                     }
                 }
             }
@@ -260,47 +243,6 @@ private fun ThemeMode.isDarkTheme(): Boolean = when (this) {
     ThemeMode.LIGHT -> false
     ThemeMode.DARK -> true
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
-}
-
-/**
- * Применяет настройки экрана к [EinkController] — единственному месту, которое знает про вендора.
- *
- * `LaunchedEffect` на каждое значение, а не один общий: смена подсветки не должна трогать режим
- * обновления, а GC-интервал не нужно переустанавливать при изменении любого другого поля.
- *
- * Все вызовы в `runCatching` осознанно: вендорские реализации пока бросают `NotImplementedError`
- * из заглушек (`OnyxEinkController`), а подсветки на конкретном устройстве может не быть вовсе.
- * Настройка не должна ронять приложение — правила вызова прямо разрешают деградацию до no-op
- * («E-ink UX» §8.4).
- */
-@Composable
-private fun ApplyEinkSettings(
-    controller: EinkController,
-    view: View,
-    state: ThemeState,
-) {
-    LaunchedEffect(controller, state.gcInterval) {
-        runCatching { controller.setGcInterval(state.gcInterval) }
-    }
-    LaunchedEffect(controller, view, state.refreshMode) {
-        runCatching { controller.setRefreshMode(view, state.refreshMode.toCoreRefreshMode()) }
-    }
-    LaunchedEffect(controller, state.frontLightLevel) {
-        state.frontLightLevel?.let { level -> runCatching { controller.setFrontLight(level) } }
-    }
-}
-
-/**
- * Режим обновления из настроек → режим контроллера.
- *
- * `AUTO` — «как решит платформа»: у дизайн-системы для этого есть `NORMAL`, а вендорский слой сам
- * деградирует до `invalidate()`, если быстрый режим недоступен (`supportsFastMode`). Поэтому
- * проверять поддержку здесь не нужно — контракт `EinkController` это уже гарантирует.
- */
-private fun RefreshModeLike.toCoreRefreshMode(): RefreshMode = when (this) {
-    RefreshModeLike.AUTO -> RefreshMode.NORMAL
-    RefreshModeLike.FULL -> RefreshMode.FULL
-    RefreshModeLike.FAST -> RefreshMode.FAST
 }
 
 /** Действие события читалки: «книгу открыли», «позиция изменилась» (спайк 29.09.2026). */

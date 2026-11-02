@@ -8,7 +8,6 @@ import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ScanSchedule
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
@@ -74,12 +73,6 @@ class DataStoreSettingsRepositoryTest {
                 textOnlyMode = true,
             ),
             eink = io.github.bookshelf.core.datastore.model.EinkSettings(
-                refreshMode = RefreshModeLike.FULL,
-                refreshOnScreenChange = false,
-                refreshOnDialog = false,
-                refreshOnPageChange = false,
-                gcInterval = 25,
-                frontLightLevel = 70,
                 volumeKeysAsPageTurn = true,
                 tapZoneLeftPercent = 10,
                 tapZoneRightPercent = 40,
@@ -144,17 +137,6 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
-    fun null_front_light_is_not_stored_as_zero() = runBlocking {
-        val repository = repository()
-
-        repository.update { it.copy(eink = it.eink.copy(frontLightLevel = 50)) }
-        assertThat(repository.current().eink.frontLightLevel).isEqualTo(50)
-
-        repository.update { it.copy(eink = it.eink.copy(frontLightLevel = null)) }
-        assertThat(repository.current().eink.frontLightLevel).isNull()
-    }
-
-    @Test
     fun clearing_reader_map_returns_it_to_empty() = runBlocking {
         val repository = repository()
         repository.update { it.copy(reader = it.reader.copy(defaultReaderByFormat = mapOf("fb2" to "p1"))) }
@@ -204,23 +186,18 @@ class DataStoreSettingsRepositoryTest {
         )
         store.edit { prefs ->
             // metadataParallelism уходит в Executors.newFixedThreadPool, который на 0 бросает
-            // IllegalArgumentException (проверено на JDK 21), а gcInterval = 0 означал бы полный
-            // GC после каждого частичного обновления.
+            // IllegalArgumentException (проверено на JDK 21).
             prefs[SettingsKeys.METADATA_PARALLELISM] = 0
-            prefs[SettingsKeys.GC_INTERVAL] = 0
             prefs[SettingsKeys.GRID_COLUMNS] = 0
             prefs[SettingsKeys.ROWS_PER_PAGE] = -3
-            prefs[SettingsKeys.FRONT_LIGHT_LEVEL] = 9999
         }
         val repository = DataStoreSettingsRepository(store)
 
         val current = repository.current()
         assertThat(current.library.metadataParallelism)
             .isEqualTo(SettingsKeys.Defaults.METADATA_PARALLELISM)
-        assertThat(current.eink.gcInterval).isEqualTo(SettingsKeys.Defaults.GC_INTERVAL)
         assertThat(current.library.gridColumns).isEqualTo(SettingsKeys.Defaults.GRID_COLUMNS)
         assertThat(current.library.rowsPerPage).isEqualTo(SettingsKeys.Defaults.ROWS_PER_PAGE)
-        assertThat(current.eink.frontLightLevel).isEqualTo(100)
         assertThat(current.reader.progressSyncIntervalMinutes)
             .isEqualTo(SettingsKeys.Defaults.PROGRESS_SYNC_INTERVAL_MINUTES)
         assertThat(current.reader.enableFbReaderProgress)

@@ -24,7 +24,6 @@ class SettingsSectionsTest {
 
         assertThat(sections.map { section -> section.kind }).containsExactly(
             SettingsSectionKind.APPEARANCE,
-            SettingsSectionKind.EINK_SCREEN,
             SettingsSectionKind.LIBRARY_SCAN,
             SettingsSectionKind.READERS,
             SettingsSectionKind.OPDS,
@@ -41,23 +40,11 @@ class SettingsSectionsTest {
 
         assertThat(kinds).containsExactly(
             SettingsSectionKind.APPEARANCE,
-            SettingsSectionKind.EINK_SCREEN,
             SettingsSectionKind.LIBRARY_SCAN,
             SettingsSectionKind.READERS,
             SettingsSectionKind.STORAGE,
             SettingsSectionKind.ABOUT,
         ).inOrder()
-    }
-
-    @Test
-    fun `without vendor commands the e-ink screen section is not listed`() {
-        // Раздел собран из настроек, которыми управляет вендорский контроллер e-ink. Держать
-        // в списке раздел без единой работающей строки — то же самое, что переключатель без
-        // действия (решение Александра, 05.10.2026).
-        assertThat(defaultSettingsSections(einkEnabled = false).map { section -> section.kind })
-            .doesNotContain(SettingsSectionKind.EINK_SCREEN)
-        assertThat(defaultSettingsSections(einkEnabled = true).map { section -> section.kind })
-            .contains(SettingsSectionKind.EINK_SCREEN)
     }
 
     @Test
@@ -68,7 +55,6 @@ class SettingsSectionsTest {
 
         assertThat(pairs).containsExactly(
             R.string.settings_section_appearance to R.string.settings_section_appearance_summary,
-            R.string.settings_section_eink to R.string.settings_section_eink_summary,
             R.string.settings_section_library to R.string.settings_section_library_summary,
             R.string.settings_section_readers to R.string.settings_section_readers_summary,
             R.string.settings_section_opds to R.string.settings_section_opds_summary,

@@ -1,6 +1,5 @@
 package io.github.bookshelf.feature.settings
 
-import android.view.View
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.testing.FakeFeatureFlags
 import io.github.bookshelf.core.common.error.AppError
@@ -35,8 +34,6 @@ import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.common.permission.AllFilesAccess
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.core.data.sync.ProgressSourcesReporter
-import io.github.bookshelf.core.eink.EinkController
-import io.github.bookshelf.core.eink.RefreshMode
 import io.github.bookshelf.core.eink.vendor.EinkVendor
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +72,6 @@ class SettingsSettersTest {
     private val readers = FakeReaderRepository()
     private val sources = FakeSourceRepository()
     private val books = FakeBookRepository()
-    private val eink = FakeEinkController()
     private val detector = FakeEinkDeviceDetector()
     private val covers = FakeCoverCache()
     private val schedule = FakeProgressSyncSchedule()
@@ -164,54 +160,25 @@ class SettingsSettersTest {
         // Слова выбирает экран приложения: ядро отдаёт только вид («TDD» §5).
         assertThat(diagnostics.screenLabel)
             .isEqualTo(AppText(R.string.settings_screen_eink_color))
-        assertThat(diagnostics.hasVendorCommands).isFalse()
     }
 
     @Test
-    fun `without vendor commands the e-ink section is not shown`() = runTest(dispatcher) {
-        // Ровно случай Bigme B6 Color: контроллер — заглушка, вендорских команд нет. Раздел
-        // «Экран (e-ink)» состоял бы из одних неработающих переключателей, поэтому его нет
-        // в списке, а не «есть, но с надписью о недоступности».
+    fun `refreshed diagnostics update vendor and screen`() = runTest(dispatcher) {
+        // Диагностика перечитывается кнопкой в «О приложении»: вендор и экран — единственное,
+        // что приложение о железе рассказывает (ADR-017).
         val viewModel = viewModel()
         advanceUntilIdle()
-
-        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
-            .doesNotContain(SettingsSectionKind.EINK_SCREEN)
-    }
-
-    @Test
-    fun `vendor commands keep the e-ink section in the list`() = runTest(dispatcher) {
-        val viewModel = viewModel(einkController = FakeEinkController(hasCommands = true))
-        advanceUntilIdle()
-
-        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
-            .contains(SettingsSectionKind.EINK_SCREEN)
-    }
-
-    @Test
-    fun `refreshed diagnostics rebuild the settings sections`() = runTest(dispatcher) {
-        // Диагностика читается заново кнопкой в «О приложении»: если контроллер отозвался
-        // командами, раздел обязан появиться в списке без перезапуска экрана настроек.
-        val viewModel = viewModel()
-        advanceUntilIdle()
-        val before = viewModel.uiState.value.sections.map { section -> section.kind }
-        eink.hasCommands = true
+        detector.device = detector.device.copy(vendor = EinkVendor.UNKNOWN)
 
         viewModel.onRefreshDiagnostics()
 
-        assertThat(before).doesNotContain(SettingsSectionKind.EINK_SCREEN)
-        assertThat(viewModel.uiState.value.sections.map { section -> section.kind })
-            .contains(SettingsSectionKind.EINK_SCREEN)
+        assertThat(viewModel.uiState.value.diagnostics.vendorLabel).isNull()
     }
 
     @Test
-    fun `e-ink and library switches are written`() = runTest(dispatcher) {
+    fun `volume keys and library switches are written`() = runTest(dispatcher) {
         val viewModel = viewModel()
 
-        viewModel.onSetRefreshOnScreenChange(false)
-        viewModel.onSetRefreshOnDialog(false)
-        viewModel.onSetFullRefreshOnPage(false)
-        viewModel.onSetGcInterval(50)
         viewModel.onSetVolumeKeysAsPageTurn(true)
         viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetScanOnStart(true))
         viewModel.onSetLibraryBehaviour(LibraryBehaviourAction.SetKeepMetadataOnFileChange(false))
@@ -225,10 +192,6 @@ class SettingsSettersTest {
         assertThat(state.advanced.keepMetadataOnFileChange).isFalse()
         // Полка съёмного носителя: выключена — карта памяти отдельной полкой не показывается.
         assertThat(state.library.showRemovableShelf).isFalse()
-        assertThat(state.eink.refreshOnScreenChange).isFalse()
-        assertThat(state.eink.refreshOnDialog).isFalse()
-        assertThat(state.eink.refreshOnPageChange).isFalse()
-        assertThat(state.eink.gcInterval).isEqualTo(50)
         assertThat(state.eink.volumeKeysAsPageTurn).isTrue()
         assertThat(state.library.autoScanOnStart).isTrue()
         assertThat(state.library.coverCacheLimitMb).isEqualTo(500)
@@ -441,12 +404,11 @@ class SettingsSettersTest {
         assertThat(viewModel.uiState.value.settings.isAllFilesAccessGranted).isTrue()
     }
 
-    private fun viewModel(einkController: EinkController = eink) = SettingsViewModel(
+    private fun viewModel() = SettingsViewModel(
         settingsRepository = settings,
         readerRepository = readers,
         sourceRepository = sources,
         bookRepository = books,
-        einkController = einkController,
         einkDeviceDetector = detector,
         coverCache = covers,
         progressSchedule = schedule,
@@ -564,30 +526,6 @@ class SettingsSettersTest {
             ),
     ) : io.github.bookshelf.core.eink.device.EinkDeviceDetector {
         override fun detect() = device
-    }
-
-    private class FakeEinkController(
-        /** Изменяемый: тест перечитывает диагностику и ждёт пересборки списка разделов. */
-        var hasCommands: Boolean = false,
-    ) : EinkController {
-
-        override val isEinkDevice: Boolean = true
-
-        override val hasVendorCommands: Boolean get() = hasCommands
-
-        override val vendor: EinkVendor = EinkVendor.UNKNOWN
-
-        override val supportsFastMode: Boolean = false
-
-        override fun setRefreshMode(view: View, mode: RefreshMode) = Unit
-
-        override fun fullRefresh(view: View) = Unit
-
-        override fun setGcInterval(partialUpdates: Int) = Unit
-
-        override fun setFrontLight(level: Int) = Unit
-
-        override fun frontLight(): Int? = null
     }
 
     private class FakeCoverCache : CoverCache {

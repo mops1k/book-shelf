@@ -6,7 +6,6 @@ import io.github.bookshelf.core.designsystem.text.AppText
 
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
@@ -17,9 +16,6 @@ import io.github.bookshelf.core.datastore.model.ThemeMode
 enum class SettingsSectionKind {
     /** Плотность, сетка/список, обложки, сортировка и группировка по умолчанию. */
     APPEARANCE,
-
-    /** Режим обновления экрана, события полного кадра и подсветка: только там, где есть вендорские команды. */
-    EINK_SCREEN,
 
     /** Источники, автоскан, исключения, приоритет метаданных. */
     LIBRARY_SCAN,
@@ -161,16 +157,14 @@ data class PermissionItemUi(
     val isGranted: Boolean,
 )
 
-/** Диагностика e-ink для раздела «О приложении» («E-ink UX» §8.5). */
+/**
+ * Диагностика e-ink для раздела «О приложении» («E-ink UX» §8.5).
+ *
+ * Экран настраивают системные утилиты устройства (ADR-017), поэтому приложение о нём только
+ * рассказывает: какой вендор определён и какой у него экран. Признаков «мы умеем управлять
+ * режимом/подсветкой» здесь нет — управлять больше нечем.
+ */
 data class EinkDiagnosticsUi(
-    /**
-     * Доступны ли команды вендора: ими управляет блок «Экран» в настройках.
-     *
-     * Раньше на этом месте стоял признак «устройство с бумагой», и два разных вопроса — «какой
-     * экран» и «что мы умеем» — отвечались одним значением: Bigme с настоящей бумагой выглядел
-     * обычным экраном только потому, что вендорского контроллера для него нет.
-     */
-    val hasVendorCommands: Boolean = false,
     /**
      * Имя производителя: «Onyx Boox», «Bigme». `null` — вендор не определён, и экран показывает
      * переводимое «неизвестное устройство» из своих ресурсов.
@@ -178,10 +172,6 @@ data class EinkDiagnosticsUi(
     val vendorLabel: String? = null,
     /** Тип экрана словами: ресурс выбирает [EinkScreen.text], показывает экран. */
     val screenLabel: AppText = AppText(R.string.settings_screen_normal),
-    /** Доступен быстрый режим обновления. */
-    val supportsFastMode: Boolean = false,
-    /** Управляемая подсветка. */
-    val supportsFrontLight: Boolean = false,
 )
 
 /**
@@ -216,15 +206,6 @@ data class AppSettingsUi(
     val fontScalePercent: Int = 100,
     /** Засечный шрифт для заголовков книг. */
     val serifTitles: Boolean = false,
-    /** Режим обновления экрана: Авто / Полный / Быстрый. */
-    /** Режим обновления экрана: значение настройки, а не её подпись. */
-    val refreshMode: RefreshModeLike = RefreshModeLike.AUTO,
-    /** Полный refresh при смене экрана. */
-    val fullRefreshOnScreenChange: Boolean = true,
-    /** Полный refresh при открытии и закрытии диалога. */
-    val fullRefreshOnDialog: Boolean = true,
-    /** Полный refresh при смене страницы. */
-    val fullRefreshOnPage: Boolean = true,
     /** Инвертировать обложки при отрисовке (файл кэша не перезаписывается). */
     val invertCovers: Boolean = false,
     /**
@@ -234,10 +215,6 @@ data class AppSettingsUi(
      * (`MainActivity`), и булево потеряло бы этот вариант при первом же открытии экрана.
      */
     val themeMode: ThemeMode = ThemeMode.LIGHT,
-    /** Полный GC каждые N частичных обновлений (`EinkController.setGcInterval`). */
-    val gcInterval: Int = 10,
-    /** Уровень подсветки 0..100; `null` — пользователь её не настраивал. */
-    val frontLightLevel: Int? = null,
     /** Клавиши громкости листают страницы (на устройствах без Page Up/Down). */
     val volumeKeysAsPageTurn: Boolean = false,
     /** Отключить все анимации (на e-ink анимаций быть не должно). */
@@ -305,9 +282,9 @@ data class AppSettingsUi(
 /**
  * Состояние экрана настроек.
  *
- * На этапе каркаса заполнено значением по умолчанию: репозиториев и `EinkController`
- * не вызываем. После Sprint 5 [settings] собирается из `AppSettings`, [installedReaders] —
- * из `ReaderRepository.installedReaders()`, [diagnostics] — из `EinkController`.
+ * После Sprint 5 [settings] собирается из `AppSettings`, [installedReaders] —
+ * из `ReaderRepository.installedReaders()`, [diagnostics] — из `EinkDeviceDetector`:
+ * вендор и тип экрана, без управления экраном (ADR-017).
  */
 data class SettingsUiState(
     /** Разделы настроек в порядке отображения. */
@@ -363,26 +340,15 @@ data class SettingsUiState(
  *
  * @param opdsEnabled сборка с OPDS (`ENABLE_OPDS`): без него раздела каталогов нет вовсе —
  *   экранов и переключателей без потребителя в интерфейсе не держим (ADR-006).
- * @param einkEnabled есть ли у устройства вендорские команды e-ink (`EinkController.
- *   hasVendorCommands`). Без них раздел «Экран (e-ink)» состоял бы из одних неработающих
- *   переключателей, и в списке его нет (решение Александра, 05.10.2026). Переключатель «Клавиши
- *   громкости листают страницы» работает и без вендорского контроллера, поэтому он живёт
- *   в «Внешнем виде», а не здесь.
  */
 fun defaultSettingsSections(
     opdsEnabled: Boolean = true,
-    einkEnabled: Boolean = true,
 ): List<SettingsSectionUi> = listOf(
     SettingsSectionUi(
         kind = SettingsSectionKind.APPEARANCE,
         titleRes = R.string.settings_section_appearance,
         summaryRes = R.string.settings_section_appearance_summary,
     ),
-    SettingsSectionUi(
-        kind = SettingsSectionKind.EINK_SCREEN,
-        titleRes = R.string.settings_section_eink,
-        summaryRes = R.string.settings_section_eink_summary,
-    ).takeIf { einkEnabled },
     SettingsSectionUi(
         kind = SettingsSectionKind.LIBRARY_SCAN,
         titleRes = R.string.settings_section_library,

@@ -16,7 +16,6 @@ import io.github.bookshelf.feature.settings.defaultSettingsSections
 import io.github.bookshelf.feature.settings.readersBackLevelOf
 import io.github.bookshelf.feature.settings.ui.category.AboutCategory
 import io.github.bookshelf.feature.settings.ui.category.AppearanceCategory
-import io.github.bookshelf.feature.settings.ui.category.EinkCategory
 import io.github.bookshelf.feature.settings.ui.category.LibraryScanCategory
 import io.github.bookshelf.feature.settings.ui.category.OpdsCategory
 import io.github.bookshelf.feature.settings.ui.category.ReadersCategory
@@ -80,7 +79,6 @@ fun SettingsCategoryScreen(
 
         when (kind) {
             SettingsSectionKind.APPEARANCE -> AppearanceCategory(state = state, viewModel = viewModel)
-            SettingsSectionKind.EINK_SCREEN -> EinkCategory(state = state, viewModel = viewModel)
             SettingsSectionKind.LIBRARY_SCAN -> LibraryScanCategory(
                 state = state,
                 viewModel = viewModel,

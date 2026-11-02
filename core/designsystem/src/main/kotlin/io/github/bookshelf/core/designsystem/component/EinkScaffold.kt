@@ -30,8 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import io.github.bookshelf.core.designsystem.R
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.input.onEinkKeys
-import io.github.bookshelf.core.designsystem.refresh.RefreshReason
-import io.github.bookshelf.core.designsystem.refresh.RequestRefreshOnEnter
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
@@ -72,8 +70,6 @@ fun EinkScaffold(
     val dimens = LocalEinkDimens.current
     var isMenuOpen by remember { mutableStateOf(false) }
     val keyFocus = remember { FocusRequester() }
-
-    RequestRefreshOnEnter(RefreshReason.SCREEN_CHANGED)
 
     // Аппаратные клавиши приходят только узлу в фокусе. Без явного запроса фокуса `onEinkKeys`
     // не получал ни одного события: на устройстве 28.09.2026 не работали ни Page Up/Down

@@ -10,7 +10,6 @@ import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
-import io.github.bookshelf.core.datastore.model.RefreshModeLike
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.EinkDensity
 import io.github.bookshelf.core.designsystem.theme.FontScale
@@ -31,10 +30,6 @@ import kotlinx.coroutines.launch
  *
  * @param themeMode выбор пользователя, а не готовое «тёмно/светло»: `SYSTEM` разрешается при
  *   отрисовке (`MainActivity`), потому что для этого нужен `isSystemInDarkTheme()`.
- * @param refresh какие события заканчиваются полным кадром (`EinkRefreshSettings`, «E-ink UX» §4).
- * @param refreshMode режим обновления экрана для `EinkController.setRefreshMode`.
- * @param gcInterval полный GC каждые N частичных обновлений («E-ink UX» §4).
- * @param frontLightLevel уровень подсветки 0..100; `null` — пользователь её не настраивал.
  */
 data class ThemeState(
     val themeMode: ThemeMode = SettingsKeys.Defaults.THEME_MODE,
@@ -44,10 +39,6 @@ data class ThemeState(
     val fontScale: FontScale = FontScale.S100,
     val invertCovers: Boolean = SettingsKeys.Defaults.INVERT_COVERS,
     val volumeKeysAsPageTurn: Boolean = SettingsKeys.Defaults.VOLUME_KEYS_AS_PAGE_TURN,
-    val refresh: EinkRefreshSettings = EinkRefreshSettings(),
-    val refreshMode: RefreshModeLike = SettingsKeys.Defaults.REFRESH_MODE,
-    val gcInterval: Int = SettingsKeys.Defaults.GC_INTERVAL,
-    val frontLightLevel: Int? = null,
     /**
      * Есть ли в сборке OPDS (`ENABLE_OPDS`).
      *
@@ -109,16 +100,6 @@ private fun AppSettings.toThemeState(opdsEnabled: Boolean): ThemeState = ThemeSt
     fontScale = fontScaleOf(appearance.fontScale),
     invertCovers = appearance.invertCovers,
     volumeKeysAsPageTurn = eink.volumeKeysAsPageTurn,
-    refresh = EinkRefreshSettings(
-        onScreenChange = eink.refreshOnScreenChange,
-        onDialog = eink.refreshOnDialog,
-        onPageChange = eink.refreshOnPageChange,
-        // Полного кадра на события сканирования настройки нет: скан и так идёт редко и упирается
-        // в полный перерисон сам, поэтому значение оставлено умолчанием `EinkRefreshSettings`.
-    ),
-    refreshMode = eink.refreshMode,
-    gcInterval = eink.gcInterval,
-    frontLightLevel = eink.frontLightLevel,
 )
 
 /** Плотность слоя данных → плотность дизайн-системы; `Like` существует ровно ради этого перевода. */

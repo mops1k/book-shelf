@@ -36,16 +36,14 @@ data class AppearanceSettings(
     val textOnlyMode: Boolean = SettingsKeys.Defaults.TEXT_ONLY_MODE,
 )
 
-/** Экран (e-ink): режим обновления, события полного refresh, подсветка, тап-зоны («E-ink UX» §4). */
+/**
+ * Экран (e-ink): то, что осталось после отказа от управления экраном из приложения (ADR-017).
+ *
+ * Режим обновления, интервал полного кадра и подсветка удалены: экраном управляют системные
+ * утилиты устройства, а приложение о нём только рассказывает в диагностике. Здесь — настройки
+ * поведения, которые к вендорскому слою отношения не имеют.
+ */
 data class EinkSettings(
-    val refreshMode: RefreshModeLike = SettingsKeys.Defaults.REFRESH_MODE,
-    val refreshOnScreenChange: Boolean = SettingsKeys.Defaults.REFRESH_ON_SCREEN_CHANGE,
-    val refreshOnDialog: Boolean = SettingsKeys.Defaults.REFRESH_ON_DIALOG,
-    val refreshOnPageChange: Boolean = SettingsKeys.Defaults.REFRESH_ON_PAGE_CHANGE,
-    /** Полный GC каждые N частичных обновлений (`EinkController.setGcInterval`). */
-    val gcInterval: Int = SettingsKeys.Defaults.GC_INTERVAL,
-    /** Уровень подсветки 0..100; `null` — пользователь её не настраивал / устройства нет. */
-    val frontLightLevel: Int? = null,
     val volumeKeysAsPageTurn: Boolean = SettingsKeys.Defaults.VOLUME_KEYS_AS_PAGE_TURN,
     val tapZoneLeftPercent: Int = SettingsKeys.Defaults.TAP_ZONE_LEFT_PERCENT,
     val tapZoneRightPercent: Int = SettingsKeys.Defaults.TAP_ZONE_RIGHT_PERCENT,
@@ -139,14 +137,6 @@ enum class ThemeMode { LIGHT, DARK, SYSTEM }
  * Маппинг делает `:feature:settings`.
  */
 enum class EinkDensityLike { LARGE, NORMAL, COMPACT }
-
-/**
- * Режим обновления экрана («E-ink UX» §4).
- *
- * `Like` — по той же причине, что и у [EinkDensityLike]: `:core:eink` объявляет свой `RefreshMode`,
- * и слой данных не должен зависеть от него.
- */
-enum class RefreshModeLike { AUTO, FULL, FAST }
 
 /** Сортировка полки («E-ink UX» §6.2). */
 enum class SortOrder { TITLE, AUTHOR, SERIES, ADDED_AT, LAST_OPENED, SIZE, PROGRESS, YEAR }
