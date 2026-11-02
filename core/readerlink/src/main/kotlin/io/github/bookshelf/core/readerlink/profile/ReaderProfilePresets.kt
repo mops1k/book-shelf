@@ -5,8 +5,9 @@ import io.github.bookshelf.core.readerlink.koreader.KoReaderPreset
 /**
  * Встроенные presets читалок.
  *
- * FBReader — главная читалка проекта, поэтому его preset содержит все константы интеграции
- * из «Читалки»: action'ы открытия (L1), сервис API (L2) и сервис библиотеки (L3).
+ * FBReader — главная читалка проекта, поэтому его preset содержит константы интеграции
+ * из «Читалки»: action'ы открытия (L1) и сервис API (L2). Сервиса библиотеки (L3) здесь нет
+ * намеренно: в проверенном билде он не зарегистрирован, а платный SDK мы не берём (ADR-016).
  * Константы объявлены своими (ADR-005): мы не вендорим код FBReader, а только фиксируем строки,
  * которые публично декларирует его манифест.
  *
@@ -79,18 +80,11 @@ object FbReaderPreset {
     /** L2: сервис API (AIDL `ApiInterface`). */
     const val ACTION_API: String = "android.fbreader.action.API"
 
-    /** L3: сервис библиотеки (AIDL `LibraryInterface`). */
-    const val ACTION_LIBRARY_SERVICE: String = "android.fbreader.action.LIBRARY_SERVICE"
-
     /** Широковещательное событие API; тип приходит в `int`-дополнительном поле `event.type`. */
     const val ACTION_API_CALLBACK: String = "android.fbreader.action.API_CALLBACK"
 
     /** Класс сервиса L2 — для диагностики и `bindService`. */
     const val API_SERVICE_NAME: String = "org.geometerplus.android.fbreader.api.ApiService"
-
-    /** Класс сервиса L3 — для диагностики и `bindService`. */
-    const val LIBRARY_SERVICE_NAME: String =
-        "org.geometerplus.android.fbreader.libraryService.LibraryService"
 
     /** MIME-типы из манифеста FBReader, включая нестандартный `application/x-fictionbook+xml`. */
     val MIME_TYPES: List<String> = listOf(
@@ -129,7 +123,6 @@ object FbReaderPreset {
         {
           "viewActions": ["android.intent.action.VIEW", "android.fbreader.action.VIEW"],
           "apiAction": "android.fbreader.action.API",
-          "libraryServiceAction": "android.fbreader.action.LIBRARY_SERVICE",
           "apiCallbackAction": "android.fbreader.action.API_CALLBACK",
           "uriPreference": ["CONTENT_URI_WITH_GRANT", "FILE_URI", "FILE_PROVIDER", "TEMP_COPY"],
           "progressRead": true,

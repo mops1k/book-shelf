@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
  * @param mimeTypes MIME-типы, которые читалка декларирует; используются при фильтрации кандидатов.
  * @param supportsContentUri принимает ли читалка `content://`; иначе нужен `file://` или
  *   временная копия файла.
- * @param extrasJson дополнительные возможности (actions, порядок способов URI, сервисы L2/L3)
+ * @param extrasJson дополнительные возможности (actions, порядок способов URI, сервис L2)
  *   в виде JSON; null — дополнительных данных нет.
  * @param isBuiltIn встроенный preset: пользователь может его отключить, но не удалить.
  * @param enabled включён ли профиль; выключенный не участвует в выборе.

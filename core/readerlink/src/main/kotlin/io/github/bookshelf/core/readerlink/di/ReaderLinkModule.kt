@@ -23,20 +23,18 @@ import io.github.bookshelf.core.readerlink.progress.ReadingProgressSource
 import javax.inject.Singleton
 import io.github.bookshelf.core.readerlink.discovery.AndroidReaderDiscovery
 import io.github.bookshelf.core.readerlink.discovery.ReaderDiscovery
-import io.github.bookshelf.core.readerlink.fbreader.DefaultFbReaderConnection
-import io.github.bookshelf.core.readerlink.fbreader.FbReaderConnection
 import io.github.bookshelf.core.readerlink.launch.DefaultReaderLauncher
 import io.github.bookshelf.core.readerlink.launch.ReaderLauncher
-import io.github.bookshelf.core.readerlink.resolve.DefaultReaderResolver
-import io.github.bookshelf.core.readerlink.resolve.ReaderResolver
 
 /**
  * DI-модуль интеграции с читалками.
  *
- * Часть интерфейсов связывается с заглушками, которые падают с `NotImplementedError` при вызове:
- * так граф зависимостей проверяется компилятором, а реализация наполняется по мере надобности.
- * Источники прогресса (`ReadingProgressSource`) — набор (`@IntoSet`): читалок с доступным прогрессом
- * несколько, и добавление каждой не должно менять ни сценарий синхронизации, ни его тесты.
+ * Заглушек здесь нет: всё, что связывается, реализовано. Порт L3 (сервис библиотеки FBReader,
+ * события `API_CALLBACK` через `FbReaderConnection`) удалён — сервиса библиотеки в билде нет,
+ * платный SDK не берём (ADR-016); события читалки принимает `MainActivity`, а позицию отдаёт
+ * API уровня L2 (`FbReaderApi`). Источники прогресса (`ReadingProgressSource`) — набор
+ * (`@IntoSet`): читалок с доступным прогрессом несколько, и добавление каждой не должно менять
+ * ни сценарий синхронизации, ни его тесты.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -46,11 +44,6 @@ internal abstract class ReaderLinkModule {
     abstract fun bindReaderDiscovery(
         impl: AndroidReaderDiscovery,
     ): ReaderDiscovery
-
-    @Binds
-    abstract fun bindReaderResolver(
-        impl: DefaultReaderResolver,
-    ): ReaderResolver
 
     @Binds
     abstract fun bindReaderLauncher(
@@ -73,11 +66,6 @@ internal abstract class ReaderLinkModule {
             logger: AppLogger,
         ): FbReaderApi = DefaultFbReaderApi(BinderFbReaderTransport(context, dispatchers, logger))
     }
-
-    @Binds
-    abstract fun bindFbReaderConnection(
-        impl: DefaultFbReaderConnection,
-    ): FbReaderConnection
 
     /**
      * Источники прогресса — набор, а не один биндинг.
