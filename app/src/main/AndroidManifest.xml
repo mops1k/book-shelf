@@ -158,6 +158,15 @@
             <data
                 android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
         </intent>
+        <!--
+            Список приложений (ADR-015): сигнатура MAIN/LAUNCHER делает видимыми чужие приложения
+            с launcher-активностью. Без неё на Android 11+ видны только пакеты, объявленные выше,
+            и список приложений был бы пустым в play-flavor, где нет QUERY_ALL_PACKAGES.
+        -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application

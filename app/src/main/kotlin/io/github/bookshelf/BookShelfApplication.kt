@@ -9,6 +9,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
+import io.github.bookshelf.core.applist.icon.AppIconFetcherFactory
 import io.github.bookshelf.work.CoverCleanupScheduler
 import io.github.bookshelf.work.LibrarySyncScheduler
 import javax.inject.Inject
@@ -43,6 +44,10 @@ class BookShelfApplication : Application(), Configuration.Provider, SingletonIma
     @Inject
     lateinit var coverCleanupScheduler: CoverCleanupScheduler
 
+    /** Иконки чужих приложений для списка лаунчера (ADR-015). */
+    @Inject
+    lateinit var appIconFetcherFactory: AppIconFetcherFactory
+
     override fun onCreate() {
         super.onCreate()
         // Фоновая синхронизация ставится один раз на установку: новые и удалённые на устройстве
@@ -61,6 +66,8 @@ class BookShelfApplication : Application(), Configuration.Provider, SingletonIma
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
         .components {
             add(OkHttpNetworkFetcherFactory(callFactory = { coverHttpClient }))
+            // Иконки приложений читаются из PackageManager, а не из сети.
+            add(appIconFetcherFactory)
         }
         .build()
 }

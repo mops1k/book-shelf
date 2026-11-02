@@ -33,6 +33,7 @@ rootProject.name = "BookShelf"
 include(":app")
 
 include(":core:common")
+include(":core:applist")
 include(":core:designsystem")
 include(":core:database")
 include(":core:datastore")
