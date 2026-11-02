@@ -48,6 +48,10 @@ data class EinkDimens(
      * главных экранов, а попасть по кнопке всё ещё нужно (замечание Александра 02.11.2026).
      */
     val tabBarHeight: Dp = 48.dp,
+    /** Ширина карточки меню долгого нажатия: по ширине иконок и подписей, не на весь экран. */
+    val menuWidth: Dp = 300.dp,
+    /** Высота строки меню: та же комфортная тап-зона, что у кнопок действий. */
+    val menuRowHeight: Dp = 56.dp,
     val rowHeight: Dp = touchComfort,
 ) {
     companion object {

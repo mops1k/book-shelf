@@ -5,6 +5,16 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -88,16 +98,21 @@ fun LauncherScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    // Выбранное долгим нажатием приложение: пока не null, вместо сетки — список действий.
+    // Выбранное долгим нажатием приложение: пока не null, рядом с иконкой висит меню действий.
     var actionApp by remember { mutableStateOf<InstalledApp?>(null) }
+    var actionAnchor by remember { mutableStateOf(AppAnchor()) }
 
     LauncherContent(
         state = state,
         modifier = modifier,
         actionApp = actionApp,
+        actionAnchor = actionAnchor,
         onQueryChange = viewModel::onQueryChange,
         onLaunch = { app -> launch(context, viewModel.launchIntent(app)) },
-        onLongPress = { app -> actionApp = app },
+        onLongPress = { app, anchor ->
+            actionApp = app
+            actionAnchor = anchor
+        },
         onDismissActions = { actionApp = null },
         onAbout = { app ->
             open(context, appDetailsIntent(app))
@@ -124,9 +139,10 @@ fun LauncherScreen(
 private fun LauncherContent(
     state: LauncherUiState,
     actionApp: InstalledApp?,
+    actionAnchor: AppAnchor,
     onQueryChange: (String) -> Unit,
     onLaunch: (InstalledApp) -> Unit,
-    onLongPress: (InstalledApp) -> Unit,
+    onLongPress: (InstalledApp, AppAnchor) -> Unit,
     onDismissActions: () -> Unit,
     onAbout: (InstalledApp) -> Unit,
     onDelete: (InstalledApp) -> Unit,
@@ -154,7 +170,8 @@ private fun LauncherContent(
                 EinkAction.PREVIOUS_PAGE -> if (isList) scrollList(-1) else scrollGrid(-1)
                 // Аппаратный и системный BACK: список приложений не корень — возвращаемся
                 // на полку (ADR-015). Без этой ветки клавиша поглощалась и ничего не делала.
-                EinkAction.BACK -> onOpenShelf()
+                // Открытое меню закрывается первым: BACK не должен уносить на полку.
+                EinkAction.BACK -> if (actionApp != null) onDismissActions() else onOpenShelf()
                 else -> Unit
             }
         },
@@ -166,22 +183,28 @@ private fun LauncherContent(
             onOpenSettings = onOpenSettings,
         )
         StateBanners(state = state, onRetry = onRetry, onErrorShown = onErrorShown)
+        if (state.visible.isEmpty()) {
+            EmptyList(state = state)
+        } else if (isList) {
+            AppRows(state = state, listState = listState, onLaunch = onLaunch, onLongPress = onLongPress)
+        } else {
+            AppGrid(state = state, gridState = gridState, onLaunch = onLaunch, onLongPress = onLongPress)
+        }
+
+        // Меню долгого нажатия — карточка у иконки (как в вендорском Launcher3), сетка остаётся
+        // за ней: видно, к какому приложению относятся действия.
         if (actionApp != null) {
-            ActionsPanel(
+            AppActionsMenu(
                 app = actionApp,
                 state = state,
+                anchor = actionAnchor,
+                onOpen = { onLaunch(actionApp) },
                 onAbout = { onAbout(actionApp) },
                 onDelete = { onDelete(actionApp) },
                 onHide = { onHide(actionApp) },
                 onToggleFavorite = { onToggleFavorite(actionApp) },
                 onDismiss = onDismissActions,
             )
-        } else if (state.visible.isEmpty()) {
-            EmptyList(state = state)
-        } else if (isList) {
-            AppRows(state = state, listState = listState, onLaunch = onLaunch, onLongPress = onLongPress)
-        } else {
-            AppGrid(state = state, gridState = gridState, onLaunch = onLaunch, onLongPress = onLongPress)
         }
     }
 }
@@ -267,7 +290,7 @@ private fun AppGrid(
     state: LauncherUiState,
     gridState: LazyGridState,
     onLaunch: (InstalledApp) -> Unit,
-    onLongPress: (InstalledApp) -> Unit,
+    onLongPress: (InstalledApp, AppAnchor) -> Unit,
 ) {
     val dimens = LocalEinkDimens.current
     LazyVerticalGrid(
@@ -286,7 +309,7 @@ private fun AppGrid(
                 app = app,
                 isFavorite = app.packageName in state.favorites,
                 onClick = { onLaunch(app) },
-                onLongClick = { onLongPress(app) },
+                onLongClick = { anchor -> onLongPress(app, anchor) },
             )
         }
     }
@@ -303,7 +326,7 @@ private fun AppRows(
     state: LauncherUiState,
     listState: LazyListState,
     onLaunch: (InstalledApp) -> Unit,
-    onLongPress: (InstalledApp) -> Unit,
+    onLongPress: (InstalledApp, AppAnchor) -> Unit,
 ) {
     val dimens = LocalEinkDimens.current
     LazyColumn(
@@ -315,11 +338,13 @@ private fun AppRows(
         modifier = Modifier.fillMaxSize(),
     ) {
         items(items = state.visible, key = { app -> app.packageName }) { app ->
+            var anchor by remember { mutableStateOf(AppAnchor()) }
             EinkListRow(
                 title = labelWithFavorite(app, state.favorites),
                 leadingContent = { AppIcon(app = app, size = dimens.appListIcon) },
                 onClick = { onLaunch(app) },
-                onLongClick = { onLongPress(app) },
+                onLongClick = { onLongPress(app, anchor) },
+                modifier = Modifier.anchoredTo { anchor = it },
             )
         }
     }
@@ -346,14 +371,16 @@ private fun AppTile(
     app: InstalledApp,
     isFavorite: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (AppAnchor) -> Unit,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
+    var anchor by remember { mutableStateOf(AppAnchor()) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickableNoIndication(onClick = onClick, onLongClick = onLongClick),
+            .anchoredTo { anchor = it }
+            .combinedClickableNoIndication(onClick = onClick, onLongClick = { onLongClick(anchor) }),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
@@ -375,11 +402,20 @@ private fun AppTile(
     }
 }
 
-/** Список действий долгого нажатия: показывается на месте сетки, без диалога. */
+/**
+ * Меню долгого нажатия — карточка у иконки (решение 02.11.2026).
+ *
+ * Раньше действия занимали весь экран вместо сетки; на e-ink это выглядело как отдельный экран и
+ * терялась связь с приложением. Теперь карточка висит рядом с плиткой (как меню рабочего стола
+ * Launcher3), закрывается касанием мимо и BACK. Позицию считает [MenuPlacement], размер карточки
+ * уточняет система при измерении.
+ */
 @Composable
-private fun ActionsPanel(
+private fun AppActionsMenu(
     app: InstalledApp,
     state: LauncherUiState,
+    anchor: AppAnchor,
+    onOpen: () -> Unit,
     onAbout: () -> Unit,
     onDelete: () -> Unit,
     onHide: () -> Unit,
@@ -387,21 +423,76 @@ private fun ActionsPanel(
     onDismiss: () -> Unit,
 ) {
     val dimens = LocalEinkDimens.current
+    val density = LocalDensity.current
+    val margin = with(density) { dimens.gutter.toPx().roundToInt() }
+    val provider = remember(anchor, margin) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset = MenuPlacement.place(
+                anchor = anchor.position,
+                anchorSize = anchor.size,
+                menuSize = popupContentSize,
+                screenSize = windowSize,
+                margin = margin,
+            )
+        }
+    }
+    Popup(
+        popupPositionProvider = provider,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(
+            focusable = true,
+            dismissOnClickOutside = true,
+            dismissOnBackPress = true,
+        ),
+    ) {
+        AppActionsCard(
+            app = app,
+            state = state,
+            onOpen = onOpen,
+            onAbout = onAbout,
+            onDelete = onDelete,
+            onHide = onHide,
+            onToggleFavorite = onToggleFavorite,
+        )
+    }
+}
+
+/** Карточка меню: рамка, строки с разделителями — как меню рабочего стола на этом устройстве. */
+@Composable
+private fun AppActionsCard(
+    app: InstalledApp,
+    state: LauncherUiState,
+    onOpen: () -> Unit,
+    onAbout: () -> Unit,
+    onDelete: () -> Unit,
+    onHide: () -> Unit,
+    onToggleFavorite: () -> Unit,
+) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = dimens.gutter),
-        verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+            .width(dimens.menuWidth)
+            .background(colors.background)
+            .border(width = dimens.borderAccent, color = colors.divider),
     ) {
-        EinkSectionHeader(title = app.label)
-        EinkButton(text = stringResource(R.string.launcher_action_open), onClick = onDismiss)
-        EinkButton(text = stringResource(R.string.launcher_action_about), onClick = onAbout)
+        MenuRow(text = stringResource(R.string.launcher_action_open), onClick = onOpen)
+        MenuDivider()
+        MenuRow(text = stringResource(R.string.launcher_action_about), onClick = onAbout)
         // Удаление системного приложения система всё равно не даст: пункт не показываем.
         if (!app.isSystem) {
-            EinkButton(text = stringResource(R.string.launcher_action_delete), onClick = onDelete)
+            MenuDivider()
+            MenuRow(text = stringResource(R.string.launcher_action_delete), onClick = onDelete)
         }
-        EinkButton(text = stringResource(R.string.launcher_action_hide), onClick = onHide)
-        EinkButton(
+        MenuDivider()
+        MenuRow(text = stringResource(R.string.launcher_action_hide), onClick = onHide)
+        MenuDivider()
+        MenuRow(
             text = if (app.packageName in state.favorites) {
                 stringResource(R.string.launcher_action_unfavorite)
             } else {
@@ -409,8 +500,37 @@ private fun ActionsPanel(
             },
             onClick = onToggleFavorite,
         )
-        EinkButton(text = stringResource(R.string.launcher_action_close), onClick = onDismiss)
     }
+}
+
+/** Строка меню: во всю ширину карточки, с комфортной тап-зоной и без «волны». */
+@Composable
+private fun MenuRow(text: String, onClick: () -> Unit) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(dimens.menuRowHeight)
+            .clickableNoIndication(onClick = onClick)
+            .padding(horizontal = dimens.gutter),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, color = colors.foreground)
+    }
+}
+
+/** Разделитель строк меню: тонкая линия, как в вендорском меню. */
+@Composable
+private fun MenuDivider() {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(dimens.border)
+            .background(colors.divider),
+    )
 }
 
 /** Пустой результат поиска и пустой список — разные сообщения, чтобы не гадать, что случилось. */
