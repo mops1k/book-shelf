@@ -338,7 +338,7 @@ class CatalogsViewModel @Inject constructor(
             // ради того, чтобы её наполнять, и спрашивать её при каждой загрузке — лишний шаг.
             // Если источников нет, репозиторий вернёт понятную ошибку, а не потеряет загрузку.
             val targetSourceId = sourceRepository.observeSources().first()
-                ?.firstOrNull { it.enabled && !it.accessLost }
+                .firstOrNull { it.enabled && !it.accessLost }
                 ?.id
             val result = opdsRepository.enqueueDownload(
                 entry = entry,

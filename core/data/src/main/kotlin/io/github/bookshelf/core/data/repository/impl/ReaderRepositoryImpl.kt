@@ -96,7 +96,6 @@ class ReaderRepositoryImpl @Inject constructor(
         }).sortedWith(
             compareByDescending<ReaderProfileSummary> { it.priority }.thenBy { it.name },
         )
-            .also { byPackage }
     }
 
     override fun defaultForFormat(format: String): Flow<String?> = combine(

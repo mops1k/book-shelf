@@ -46,7 +46,7 @@ fun TapZoneLayout(
                     modifier = Modifier
                         .weight(centerFraction)
                         .fillMaxHeight()
-                        .clickableNoIndication(onClick = { onCenter?.invoke() }),
+                        .clickableNoIndication(onClick = { onCenter() }),
                 )
             } else {
                 // Пустое место вместо зоны: без него вес уходил боковым зонам, и они

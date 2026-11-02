@@ -185,9 +185,7 @@ class PdfParser(
 
     private fun copyToTemporaryFile(input: BookInput): File {
         // Заявленный размер известен заранее: гигантский документ отвергается до копирования.
-        input.sizeBytes?.let { size ->
-            if (size > maxCopyBytes) throw tooLarge(size)
-        }
+        if (input.sizeBytes > maxCopyBytes) throw tooLarge(input.sizeBytes)
         val temporaryFile = File.createTempFile(TEMP_PREFIX, TEMP_SUFFIX)
         val copied = tryCopyChannel(input, temporaryFile)
         if (copied) {

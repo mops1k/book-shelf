@@ -25,7 +25,6 @@ import io.github.bookshelf.core.opds.auth.OpdsCredentials
 import io.github.bookshelf.core.opds.cache.CachedFeed
 import io.github.bookshelf.core.opds.client.OpdsHttpClient
 import io.github.bookshelf.core.opds.model.OpdsFeed
-import io.github.bookshelf.core.opds.model.OpdsLink
 import io.github.bookshelf.core.opds.model.isAcquisition
 import io.github.bookshelf.core.opds.model.isNavigation
 import io.github.bookshelf.core.opds.parser.OpdsFeedParser
@@ -416,7 +415,7 @@ class OpdsRepositoryImpl @Inject constructor(
             acquisitionUrl = chosen?.href,
             isSection = links.none { link -> link.isAcquisition() },
             sectionHref = links.firstOrNull { link -> link.isNavigation() }?.href,
-            mimeType = chosen?.type ?: (acquisition as? OpdsLink)?.type,
+            mimeType = chosen?.type ?: acquisition?.type,
             // Размер берётся у выбранной ссылки: у Флибусты его нет, у Project Gutenberg он есть
             // атрибутом length — и тогда в карточке видно, сколько книга весит.
             expectedSize = chosen?.length,

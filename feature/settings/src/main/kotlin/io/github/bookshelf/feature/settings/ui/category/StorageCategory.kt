@@ -271,10 +271,8 @@ private fun LazyListScope.storageExportRow(
             title = stringResource(R.string.settings_storage_export),
             subtitle = when {
                 state.isExporting -> stringResource(R.string.settings_storage_exporting)
-                // `let` вместо проверки на null: состояние — делегированное свойство, и
-                // компилятор не может сузить его тип после проверки (smart cast невозможен).
-                state.error != null -> state.error?.resolve().orEmpty()
-                state.message != null -> state.message?.resolve().orEmpty()
+                state.error != null -> state.error.resolve().orEmpty()
+                state.message != null -> state.message.resolve().orEmpty()
                 else -> stringResource(R.string.settings_storage_export_hint)
             },
             onClick = onExport,

@@ -125,7 +125,6 @@ class SafTreeWriterImpl @Inject constructor(
         // метод. Проверено на Bigme 29.09.2026: через `resolver.delete` удаление файла падало,
         // и книга оставалась в библиотеке.
         DocumentsContract.deleteDocument(resolver, Uri.parse(documentUri))
-        Unit
     }
 
     /** Идентификатор папки назначения; пустой `relativeDir` — корень дерева. */

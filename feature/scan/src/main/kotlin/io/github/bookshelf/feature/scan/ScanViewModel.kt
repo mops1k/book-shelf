@@ -18,6 +18,7 @@ import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.designsystem.text.text
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -211,6 +212,8 @@ class ScanViewModel @Inject constructor(
         }
     }
 
+    /** `flatMapLatest` — `ExperimentalCoroutinesApi`: поведение стабильно, нужен явный `@OptIn`. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeProgress() {
         viewModelScope.launch {
             try {

@@ -18,6 +18,7 @@ import io.github.bookshelf.core.database.entity.ScanRunEntity
 import io.github.bookshelf.core.database.model.ScanRunStatus
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -71,7 +72,11 @@ class ScanRepositoryImpl @Inject constructor(
      * `throttleLatest` ограничивает UI не чаще раза в секунду: на e-ink частая перерисовка строки
      * «Сканирование… 412/1200» вызывает ghosting и расходует батарею («E-ink UX» §5).
      * `distinctUntilChanged` дополнительно отсекает повторные запросы Room с тем же значением.
+     *
+     * `sample` — ещё preview-API (`FlowPreview`): поведение стабильно, но компилятор требует
+     * явного согласия, что мы опираемся на него.
      */
+    @OptIn(FlowPreview::class)
     override fun observeProgress(sourceId: String): Flow<ScanProgress> =
         combine(
             scanRunDao.observeRunning(),

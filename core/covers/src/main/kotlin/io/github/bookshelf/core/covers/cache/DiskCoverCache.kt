@@ -77,12 +77,10 @@ class DiskCoverCache @Inject constructor(
         CoverCache.CoverKind.entries.forEach { kind ->
             CoverPaths.fileFor(cacheDir, bookId, kind).delete()
         }
-        Unit
     }
 
     override suspend fun clear(): Unit = withContext(dispatchers.io) {
         cacheDir.listFiles()?.forEach { it.delete() }
-        Unit
     }
 
     override suspend fun sizeBytes(): Long = withContext(dispatchers.io) {
