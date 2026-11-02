@@ -19,7 +19,7 @@ object HomeRolePolicy {
      * Решение Александра 02.11.2026: в роли лаунчера первым ожидают список приложений, а полка
      * остаётся вкладкой. Вне роли HOME приложение стартует на полке, как раньше.
      */
-    const val DEFAULT_SCREEN: String = AppsRoute.route
+    val DEFAULT_SCREEN: String = routeOf(HomeScreen.APPS)
 
     /** Мы ли домашний экран: система разрешает MAIN/HOME в наш пакет. */
     fun isOurHome(packageName: String?, ownPackage: String): Boolean =
@@ -35,17 +35,34 @@ object HomeRolePolicy {
         homeRoleHeld && collapseInsteadOfExit
 
     /**
-     * Экран, который открыть по Home: последний из памяти процесса, иначе выбранный в настройках.
+     * Экран, который открыть по Home (решение Александра 02.11.2026, уточнено в той же сессии).
      *
-     * По умолчанию — список приложений ([DEFAULT_SCREEN]); настройка позволяет открывать полку.
+     * Всегда настройка «Открывать по Home»: по умолчанию список приложений, по выбору — полка.
+     * «Последний экран из памяти процесса» отменён: человек ожидает стабильный экран, а не тот,
+     * на котором его застали в прошлый раз.
      */
-    fun startScreen(remembered: String?, preferred: HomeScreen = HomeScreen.APPS): String =
-        remembered ?: routeOf(preferred)
+    fun startScreen(preferred: HomeScreen = HomeScreen.APPS): String = routeOf(preferred)
 
     /** Маршрут экрана по настройке «Открывать по Home». */
     fun routeOf(screen: HomeScreen): String = when (screen) {
         HomeScreen.APPS -> AppsRoute.route
         HomeScreen.SHELF -> LibraryRoute.route
+    }
+
+    /**
+     * Экран для входящего запуска.
+     *
+     * Home — экран из настройки «Открывать по Home»; запуск приложения (иконка на рабочем столе,
+     * аппаратная кнопка, назначенная на BookShelf) — полка; остальное навигацию не задаёт.
+     */
+    fun launchScreen(
+        isHomeLaunch: Boolean,
+        isLauncherLaunch: Boolean,
+        preferred: HomeScreen = HomeScreen.APPS,
+    ): String? = when {
+        isHomeLaunch -> startScreen(preferred)
+        isLauncherLaunch -> LibraryRoute.route
+        else -> null
     }
 
     /** Состояние alias HOME после смены мастер-режима: без режима лаунчера роль освобождаем. */

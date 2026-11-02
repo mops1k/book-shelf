@@ -33,20 +33,21 @@ class HomeRolePolicyTest {
     }
 
     @Test
-    fun home_without_memory_opens_the_apps_list() {
+    fun home_opens_the_apps_list_by_default() {
         // Решение Александра 02.11.2026: в роли лаунчера первым ожидают список приложений.
-        assertThat(HomeRolePolicy.startScreen(remembered = null)).isEqualTo(AppsRoute.route)
-    }
-
-    @Test
-    fun home_opens_the_last_screen_remembered_in_the_process() {
-        assertThat(HomeRolePolicy.startScreen(remembered = "library")).isEqualTo("library")
+        assertThat(HomeRolePolicy.startScreen()).isEqualTo(AppsRoute.route)
     }
 
     @Test
     fun home_opens_the_shelf_when_the_user_prefers_it() {
-        assertThat(HomeRolePolicy.startScreen(remembered = null, preferred = HomeScreen.SHELF))
-            .isEqualTo(LibraryRoute.route)
+        assertThat(HomeRolePolicy.startScreen(preferred = HomeScreen.SHELF)).isEqualTo(LibraryRoute.route)
+    }
+
+    @Test
+    fun home_always_opens_the_configured_screen() {
+        // «Последний экран из памяти процесса» отменён: экран определяется настройкой.
+        assertThat(HomeRolePolicy.startScreen(preferred = HomeScreen.APPS)).isEqualTo(AppsRoute.route)
+        assertThat(HomeRolePolicy.startScreen(preferred = HomeScreen.SHELF)).isEqualTo(LibraryRoute.route)
     }
 
     @Test
@@ -62,6 +63,30 @@ class HomeRolePolicyTest {
     @Test
     fun back_at_root_exits_when_we_are_not_home() {
         assertThat(HomeRolePolicy.shouldCollapse(homeRoleHeld = false, collapseInsteadOfExit = true)).isFalse()
+    }
+
+    @Test
+    fun launching_the_app_opens_the_shelf() {
+        // Иконка на рабочем столе и аппаратная кнопка, назначенная на BookShelf, — это запуск
+        // приложения, а не Home: открываем полку, даже если лаунчер сейчас на списке приложений.
+        assertThat(
+            HomeRolePolicy.launchScreen(isHomeLaunch = false, isLauncherLaunch = true),
+        ).isEqualTo(LibraryRoute.route)
+    }
+
+    @Test
+    fun home_launch_wins_over_launcher_category() {
+        // У HOME-запуска тоже есть MAIN, но категории разные: Home важнее.
+        assertThat(
+            HomeRolePolicy.launchScreen(isHomeLaunch = true, isLauncherLaunch = true),
+        ).isEqualTo(AppsRoute.route)
+    }
+
+    @Test
+    fun plain_start_does_not_dictate_a_screen() {
+        assertThat(
+            HomeRolePolicy.launchScreen(isHomeLaunch = false, isLauncherLaunch = false),
+        ).isNull()
     }
 
     @Test

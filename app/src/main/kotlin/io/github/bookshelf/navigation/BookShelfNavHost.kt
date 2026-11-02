@@ -56,7 +56,11 @@ import io.github.bookshelf.feature.settings.settingsScreen
 private fun NavGraphBuilder.launcherTab(navController: NavHostController, viewModel: LauncherViewModel) {
     launcherScreen(
         viewModel = viewModel,
-        onOpenShelf = { navController.popBackStack() },
+        onOpenShelf = {
+            // Запуск по Home начинается сразу со списка приложений: возврат на полку тогда
+            // невозможен через стек, поэтому открываем её явно.
+            if (!navController.popBackStack()) navController.navigate(LibraryRoute.route)
+        },
         onOpenSettings = { navController.navigate(SettingsRoute.route) },
     )
 }
@@ -152,6 +156,8 @@ fun BookShelfNavHost(
     /** Маршрут, который открыть сразу после поднятия графа: настройки из отдельного экрана. */
     /** Включён ли режим лаунчера: выключенный прячет вкладку и нижнюю панель на полке. */
     launcherEnabled: Boolean = true,
+    /** Экран, с которого открыть граф (запуск по Home): без мигания полки перед списком. */
+    startRoute: String? = null,
     pendingRoute: String? = null,
     onPendingRouteHandled: () -> Unit = {},
 ) {
@@ -162,7 +168,7 @@ fun BookShelfNavHost(
     NavHost(
         navController = navController,
         // Пока источников нет, единственный способ их завести — онбординг.
-        startDestination = if (hasSources) LibraryRoute.route else OnboardingRoute.route,
+        startDestination = if (hasSources) startRoute ?: LibraryRoute.route else OnboardingRoute.route,
     ) {
 
         libraryScreen(

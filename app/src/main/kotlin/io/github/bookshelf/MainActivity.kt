@@ -40,7 +40,6 @@ import io.github.bookshelf.ui.BookShelfThemeRoot
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
 import io.github.bookshelf.ui.HomeRolePolicy
-import io.github.bookshelf.ui.LastScreen
 import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -202,7 +201,9 @@ class MainActivity : ComponentActivity() {
         registerReaderEvents()
         super.onCreate(savedInstanceState)
         // Отдельная активити «Приложения» открывает настройки через нас: маршрут приходит в интенте.
-        pendingRoute = routeOf(intent)
+        // Нажали Home: открываем выбранный экран сразу, без промежуточной полки.
+        homeStartRoute = if (isHomeLaunch(intent)) HomeRolePolicy.startScreen(preferred = homeScreen) else null
+        pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
         lifecycleScope.launch {
             launcherStore.state.collect { state ->
                 collapseInsteadOfExit = state.collapseInsteadOfExit
@@ -228,13 +229,11 @@ class MainActivity : ComponentActivity() {
                 BookShelfNavHost(
                     sourceRepository = sourceRepository,
                     opdsEnabled = themeState.opdsEnabled,
-                    routeListener = { route ->
-                        currentRoute = route
-                        if (route != null) LastScreen.route = route
-                    },
+                    routeListener = { route -> currentRoute = route },
                     launcherViewModel = launcherViewModel,
                     launcherEnabled = launcherState.launcherEnabled,
                     onExit = ::handleExit,
+                    startRoute = homeStartRoute,
                     pendingRoute = pendingRoute,
                     onPendingRouteHandled = ::clearPendingRoute,
                 )
@@ -249,6 +248,9 @@ class MainActivity : ComponentActivity() {
      * основное приложение сразу на «Настройках» (ADR-015, фаза 6).
      */
     private var pendingRoute by mutableStateOf<String?>(null)
+
+    /** Экран, с которого открыть граф при запуске по Home; `null` — обычный запуск. */
+    private var homeStartRoute: String? = null
 
     /** Роль домашнего экрана: пересчитывается при каждом возврате на экран и при старте. */
     private var homeRoleHeld = false
@@ -280,14 +282,24 @@ class MainActivity : ComponentActivity() {
      * По Home открывается последний экран из памяти процесса, а если его нет — список приложений
      * [HomeRolePolicy.startScreen]. Интент нашей иконки маршрута не задаёт: остаёмся на полке.
      */
+    private fun isHomeLaunch(intent: Intent?): Boolean =
+        intent?.hasCategory(Intent.CATEGORY_HOME) == true
+
+    /**
+     * Маршрут для навигации после запуска: явный из интента или экран по Home.
+     *
+     * Отдельная активити «Приложения» открывает настройки через нас. Если Home нажали в уже
+     * запущенном приложении (`onNewIntent`), граф уже поднят — идём навигацией; при холодном
+     * старте тот же экран задаётся стартовым ([homeStartRoute]).
+     */
     private fun routeOf(intent: Intent?): String? {
         val explicit = intent?.getStringExtra(EXTRA_ROUTE)
         if (explicit != null) return explicit
-        return if (intent?.hasCategory(Intent.CATEGORY_HOME) == true) {
-            HomeRolePolicy.startScreen(remembered = LastScreen.route, preferred = homeScreen)
-        } else {
-            null
-        }
+        return HomeRolePolicy.launchScreen(
+            isHomeLaunch = isHomeLaunch(intent),
+            isLauncherLaunch = intent?.hasCategory(Intent.CATEGORY_LAUNCHER) == true,
+            preferred = homeScreen,
+        )
     }
 
     /** BACK в корне: в роли HOME сворачиваем приложение, иначе выходим (ADR-015). */
