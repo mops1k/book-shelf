@@ -88,6 +88,7 @@ internal object SettingsCodec {
             target[SettingsKeys.KEEP_METADATA_ON_FILE_CHANGE] = keepMetadataOnFileChange
             target[SettingsKeys.DUPLICATE_SCAN_ENABLED] = duplicateScanEnabled
             target[SettingsKeys.DB_BACKUP_ENABLED] = dbBackupEnabled
+            target[SettingsKeys.CHECK_UPDATES] = checkUpdates
         }
     }
 
@@ -210,6 +211,8 @@ internal object SettingsCodec {
             ?: SettingsKeys.Defaults.DUPLICATE_SCAN_ENABLED,
         dbBackupEnabled = preferences[SettingsKeys.DB_BACKUP_ENABLED]
             ?: SettingsKeys.Defaults.DB_BACKUP_ENABLED,
+        checkUpdates = preferences[SettingsKeys.CHECK_UPDATES]
+            ?: SettingsKeys.Defaults.CHECK_UPDATES,
     )
 
     /**

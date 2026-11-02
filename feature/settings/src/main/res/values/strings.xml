@@ -329,4 +329,12 @@
     <string name="settings_launcher_hide_tab_bar_hint">Полка и приложения открываются кнопками устройства; по умолчанию панель показывается</string>
     <string name="settings_launcher_hidden_row">Скрытые приложения (%1$d)</string>
     <string name="settings_launcher_hidden_row_hint">Вернуть приложение в список приложений</string>
+    <string name="settings_updates_check">Проверять обновления</string>
+    <string name="settings_updates_check_hint">Раз в сутки приложение спрашивает GitHub о новой версии</string>
+    <string name="settings_updates_check_now">Проверить обновления</string>
+    <string name="settings_updates_checking">Проверяю…</string>
+    <string name="settings_updates_none">Обновлений нет</string>
+    <string name="settings_updates_failed">Не удалось проверить: нет сети или GitHub недоступен</string>
+    <string name="settings_updates_unavailable">Проверка обновлений отключена</string>
+    <string name="settings_updates_available">Доступна версия %1$s</string>
 </resources>

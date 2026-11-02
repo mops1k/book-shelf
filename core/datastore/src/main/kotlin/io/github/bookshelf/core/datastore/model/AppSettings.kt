@@ -121,6 +121,14 @@ data class AdvancedSettings(
     val keepMetadataOnFileChange: Boolean = SettingsKeys.Defaults.KEEP_METADATA_ON_FILE_CHANGE,
     val duplicateScanEnabled: Boolean = SettingsKeys.Defaults.DUPLICATE_SCAN_ENABLED,
     val dbBackupEnabled: Boolean = SettingsKeys.Defaults.DB_BACKUP_ENABLED,
+    /**
+     * Проверять обновления на GitHub (ADR-018).
+     *
+     * Выключенная настройка означает полный отказ от сетевого запроса, а не только скрытие
+     * диалога: пользователь, который не хочет ни одного лишнего обращения в сеть, должен
+     * получить именно это.
+     */
+    val checkUpdates: Boolean = SettingsKeys.Defaults.CHECK_UPDATES,
 )
 
 /**

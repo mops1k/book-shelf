@@ -83,4 +83,8 @@
     <string name="library_sort_direction_back">Назад к выбору поля</string>
     <string name="library_sort_arrow_down">↓</string>
     <string name="library_sort_arrow_up">↑</string>
+    <string name="update_dialog_title">Доступна версия %1$s</string>
+    <string name="update_dialog_current_version">Новая версия приложения BookShelf: что нового ниже</string>
+    <string name="update_dialog_download">Скачать и установить</string>
+    <string name="update_dialog_later">Позже</string>
 </resources>

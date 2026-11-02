@@ -328,4 +328,12 @@
     <string name="settings_launcher_hide_tab_bar_hint">Shelf and apps are opened by device buttons; the bar is shown by default</string>
     <string name="settings_launcher_hidden_row">Hidden apps (%1$d)</string>
     <string name="settings_launcher_hidden_row_hint">Restore an app to the app list</string>
+    <string name="settings_updates_check">Check for updates</string>
+    <string name="settings_updates_check_hint">Once a day the app asks GitHub about a new version</string>
+    <string name="settings_updates_check_now">Check for updates</string>
+    <string name="settings_updates_checking">Checking…</string>
+    <string name="settings_updates_none">No updates available</string>
+    <string name="settings_updates_failed">Could not check: no network or GitHub is unreachable</string>
+    <string name="settings_updates_unavailable">Update checks are turned off</string>
+    <string name="settings_updates_available">Version %1$s is available</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -19,11 +20,16 @@ import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.EinkDiagnosticsUi
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
+import io.github.bookshelf.feature.settings.ui.ToggleRow
 import io.github.bookshelf.feature.settings.SettingsUiState
 import io.github.bookshelf.feature.settings.progressSourceNameRes
 import io.github.bookshelf.feature.settings.progressSourcesLines
 import io.github.bookshelf.feature.settings.SettingsViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.feature.settings.ui.openAppInfoSettings
+import io.github.bookshelf.feature.settings.update.UpdateResult
+import io.github.bookshelf.feature.settings.update.UpdatesSettingsViewModel
 import io.github.bookshelf.feature.settings.R
 
 /**
@@ -38,10 +44,12 @@ import io.github.bookshelf.feature.settings.R
 internal fun AboutCategory(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    updatesViewModel: UpdatesSettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val dimens = LocalEinkDimens.current
     val diagnostics = state.diagnostics
+    val updates by updatesViewModel.uiState.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier
@@ -53,6 +61,22 @@ internal fun AboutCategory(
                 title = stringResource(R.string.settings_about_version),
                 subtitle = stringResource(R.string.settings_about_version_hint),
                 trailing = appVersion(context),
+            )
+        }
+        item(key = "about-updates-toggle") {
+            // ToggleRow — внутренний компонент настроек; здесь он же, что у остальных выключателей.
+            ToggleRow(
+                title = stringResource(R.string.settings_updates_check),
+                subtitle = stringResource(R.string.settings_updates_check_hint),
+                enabled = state.settings.checkUpdates,
+                onToggle = viewModel::onSetCheckUpdates,
+            )
+        }
+        item(key = "about-updates-check") {
+            EinkListRow(
+                title = stringResource(R.string.settings_updates_check_now),
+                subtitle = updatesSubtitle(updates),
+                onClick = updatesViewModel::onCheck,
             )
         }
         item(key = "about-eink-header") {
@@ -80,6 +104,21 @@ internal fun AboutCategory(
         }
     }
 }
+
+/** Подпись строки «Проверить обновления»: идёт проверка или чем она закончилась (ADR-018). */
+@Composable
+private fun updatesSubtitle(state: io.github.bookshelf.feature.settings.update.UpdatesSettingsUiState): String =
+    when {
+        state.checking -> stringResource(R.string.settings_updates_checking)
+        state.result == UpdateResult.NO_UPDATE -> stringResource(R.string.settings_updates_none)
+        state.result == UpdateResult.FAILED -> stringResource(R.string.settings_updates_failed)
+        state.result == UpdateResult.UNAVAILABLE -> stringResource(R.string.settings_updates_unavailable)
+        state.result == UpdateResult.AVAILABLE -> stringResource(
+            R.string.settings_updates_available,
+            state.availableVersion,
+        )
+        else -> stringResource(R.string.settings_updates_check_hint)
+    }
 
 /**
  * Что показала диагностика источников прогресса.

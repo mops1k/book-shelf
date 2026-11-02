@@ -15,5 +15,7 @@ dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":core:covers"))
     implementation(project(":core:readerlink"))
+    // Проверка обновлений (ADR-018): порт, GitHub-источник и готовый UpdateChecker.
+    implementation(project(":core:update"))
     testImplementation(project(":core:testing"))
 }

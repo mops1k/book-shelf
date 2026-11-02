@@ -288,6 +288,13 @@ class SettingsViewModel @Inject constructor(
      * флага, а отдельный выбор, и сводить его к `false` значило бы потерять настройку, которую
      * пользователь поставил («E-ink UX» §2.1).
      */
+    /** Выключатель «Проверять обновления» (ADR-018): полностью убирает сетевой запрос. */
+    fun onSetCheckUpdates(enabled: Boolean) {
+        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
+            settings.copy(advanced = settings.advanced.copy(checkUpdates = enabled))
+        }
+    }
+
     fun onSetThemeMode(mode: ThemeMode) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
             settings.copy(appearance = settings.appearance.copy(themeMode = mode))
@@ -607,6 +614,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     progressSyncIntervalMinutes = settings.reader.progressSyncIntervalMinutes,
     isTempExportEnabled = settings.reader.tempExportEnabled,
     isKeepMetadataOnFileChange = settings.advanced.keepMetadataOnFileChange,
+    checkUpdates = settings.advanced.checkUpdates,
     density = settings.appearance.density,
     showCovers = !settings.appearance.textOnlyMode,
     fontScalePercent = settings.appearance.fontScale,

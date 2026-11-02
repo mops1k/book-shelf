@@ -261,6 +261,8 @@ data class AppSettingsUi(
     val isTempExportEnabled: Boolean = SettingsKeys.Defaults.TEMP_EXPORT_ENABLED,
     /** Сохранять ли данные книги (оценку, статус, полки, прогресс), когда её файл заменили. */
     val isKeepMetadataOnFileChange: Boolean = SettingsKeys.Defaults.KEEP_METADATA_ON_FILE_CHANGE,
+    /** Проверять обновления на GitHub (ADR-018): выключатель в «О приложении». */
+    val checkUpdates: Boolean = SettingsKeys.Defaults.CHECK_UPDATES,
     /** Лимит временной копии книги из облачного источника, МБ: 50 / 100 / 200. */
     val tempCopyLimitMb: Int = 100,
     /** Шаблон имени скачанного файла (`opds.downloadFileNameTemplate`). */

@@ -19,6 +19,8 @@ dependencies {
     implementation(project(":core:readerlink"))
     implementation(project(":core:eink"))
     implementation(project(":core:opds"))
+    // Проверка обновлений в «О приложении» (ADR-018).
+    implementation(project(":core:update"))
     // Системный выборщик папки и запрос разрешений — оба через activity-compose.
     implementation("androidx.activity:activity-compose")
     testImplementation(project(":core:testing"))

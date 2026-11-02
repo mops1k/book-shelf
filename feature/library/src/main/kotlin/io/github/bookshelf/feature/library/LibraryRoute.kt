@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.library
 
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import io.github.bookshelf.feature.library.update.UpdateDialogHost
 import io.github.bookshelf.feature.library.ui.LibraryScreen
 
 /** Маршрут полки — главный экран приложения («E-ink UX» §6.2). */
@@ -49,5 +50,7 @@ fun NavGraphBuilder.libraryScreen(
             onOpenApps = onOpenApps,
             showTabBar = showTabBar,
         )
+        // Диалог обновления (ADR-018): единственный модальный диалог, только на полке.
+        UpdateDialogHost()
     }
 }

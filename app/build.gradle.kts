@@ -65,6 +65,8 @@ dependencies {
     // features
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:library"))
+    // Проверка обновлений: DI отдаёт AppBuildInfo из BuildConfig (ADR-018).
+    implementation(project(":core:update"))
     implementation(project(":feature:bookdetails"))
     implementation(project(":feature:collections"))
     implementation(project(":feature:search"))

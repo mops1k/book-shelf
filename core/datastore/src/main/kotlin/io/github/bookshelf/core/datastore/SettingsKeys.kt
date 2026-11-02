@@ -125,6 +125,9 @@ object SettingsKeys {
     val DUPLICATE_SCAN_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("advanced.duplicate_scan_enabled")
     val DB_BACKUP_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("advanced.db_backup_enabled")
 
+    /** Проверка обновлений на GitHub (ADR-018). */
+    val CHECK_UPDATES: Preferences.Key<Boolean> = booleanPreferencesKey("advanced.check_updates")
+
     /**
      * Значения по умолчанию («E-ink UX» §2, §4; «Архитектура» §4.4, §5).
      *
@@ -195,5 +198,8 @@ object SettingsKeys {
         const val KEEP_METADATA_ON_FILE_CHANGE = true
         const val DUPLICATE_SCAN_ENABLED = false
         const val DB_BACKUP_ENABLED = true
+
+        /** Проверка обновлений включена: пользователь может её выключить (ADR-018). */
+        const val CHECK_UPDATES = true
     }
 }

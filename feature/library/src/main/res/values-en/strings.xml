@@ -77,4 +77,8 @@
     <string name="library_sort_direction_back">Back to the field</string>
     <string name="library_sort_arrow_down">↓</string>
     <string name="library_sort_arrow_up">↑</string>
+    <string name="update_dialog_title">Version %1$s is available</string>
+    <string name="update_dialog_current_version">A new BookShelf version: details below</string>
+    <string name="update_dialog_download">Download and install</string>
+    <string name="update_dialog_later">Later</string>
 </resources>
