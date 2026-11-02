@@ -23,9 +23,14 @@ object AppsRoute {
  *   списка приложений уничтожается, и без общего ViewModel поиск и список пересоздавались бы при
  *   каждом возврате — то есть «состояние вкладок сохраняется» (решение 02.11.2026) не выполнялось бы.
  * @param onOpenShelf возврат на полку касанием активной панели вкладок.
+ * @param onOpenSettings переход в настройки по шестерёнке рядом с поиском.
  */
-fun NavGraphBuilder.launcherScreen(viewModel: LauncherViewModel, onOpenShelf: () -> Unit) {
+fun NavGraphBuilder.launcherScreen(
+    viewModel: LauncherViewModel,
+    onOpenShelf: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     composable(AppsRoute.route) {
-        LauncherScreen(viewModel = viewModel, onOpenShelf = onOpenShelf)
+        LauncherScreen(viewModel = viewModel, onOpenShelf = onOpenShelf, onOpenSettings = onOpenSettings)
     }
 }

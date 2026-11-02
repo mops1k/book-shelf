@@ -48,6 +48,20 @@ import io.github.bookshelf.feature.settings.settingsCategoryScreen
 import io.github.bookshelf.feature.settings.settingsScreen
 
 /**
+ * Вкладка «Приложения»: экран и его переходы.
+ *
+ * Вынесено из `BookShelfNavHost` ради предела длины функции у detekt: регистрация вкладки не
+ * относится к стартовому экрану и переходам полки.
+ */
+private fun NavGraphBuilder.launcherTab(navController: NavHostController, viewModel: LauncherViewModel) {
+    launcherScreen(
+        viewModel = viewModel,
+        onOpenShelf = { navController.popBackStack() },
+        onOpenSettings = { navController.navigate(SettingsRoute.route) },
+    )
+}
+
+/**
  * Есть ли хотя бы один источник книг: от этого зависит стартовый экран.
  *
  * Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
@@ -136,12 +150,11 @@ fun BookShelfNavHost(
             // Аппаратный BACK и Page Up на корневом экране: экран перехватывает BACK,
             // поэтому выход из приложения обрабатывается здесь («E-ink UX» §3.2).
             onExit = onExit,
-            // Вкладка «Приложения» нижней панели: экран кладётся поверх полки, поэтому BACK
-            // с него возвращает на полку сам (ADR-015), а состояние полки не теряется.
+            // Вкладка «Приложения»: экран поверх полки, BACK возвращает на полку (ADR-015).
             onOpenApps = { navController.navigate(AppsRoute.route) { launchSingleTop = true } },
         )
 
-        launcherScreen(viewModel = launcherViewModel, onOpenShelf = { navController.popBackStack() })
+        launcherTab(navController = navController, viewModel = launcherViewModel)
 
         bookDetailsScreen(
             onBack = { navController.popBackStack() },

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="launcher_search_label">Search</string>
-    <string name="launcher_search_placeholder">App name</string>
+    <string name="launcher_search_placeholder">Find an app</string>
     <string name="launcher_empty">No apps</string>
     <string name="launcher_empty_search">Nothing found</string>
     <string name="launcher_empty_hint">Change the query or check that apps are installed. System apps are enabled in the Launcher section.</string>
@@ -15,4 +14,5 @@
     <string name="launcher_action_unfavorite">Remove from favorites</string>
     <string name="launcher_action_close">Close</string>
     <string name="launcher_action_retry">Retry</string>
+    <string name="launcher_open_settings">Settings</string>
 </resources>

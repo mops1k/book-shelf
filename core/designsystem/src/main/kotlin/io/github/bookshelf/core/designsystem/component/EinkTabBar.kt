@@ -21,8 +21,9 @@ import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
  * Нижняя панель вкладок (ADR-015).
  *
  * Две текстовые кнопки равной ширины, активная — инверсией (чёрная плашка, белый текст): на e-ink
- * цвет и подчёркивание плохо различимы, а инверсия читается без напряжения. Высота — не меньше
- * комфортной тап-зоны, иначе на ходу не попасть; анимации перехода не используются.
+ * цвет и подчёркивание плохо различимы, а инверсия читается без напряжения. Высота — компактная
+ * (`EinkDimens.tabBarHeight`, 48 dp): панель стоит на двух главных экранах и не должна отнимать
+ * у сетки больше строки; анимации перехода не используются.
  *
  * Панель живёт только на двух экранах — полке и списке приложений («E-ink UX» §6.9).
  */
@@ -47,7 +48,7 @@ fun EinkTabBar(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .defaultMinSize(minHeight = dimens.touchComfort)
+                    .defaultMinSize(minHeight = dimens.tabBarHeight)
                     .background(if (selected) colors.invertedBackground else colors.background)
                     .border(width = dimens.borderAccent, color = colors.divider)
                     .clickableNoIndication(onClick = { onSelect(index) }),

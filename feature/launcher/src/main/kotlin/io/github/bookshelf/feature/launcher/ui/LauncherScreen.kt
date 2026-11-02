@@ -5,12 +5,19 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -21,6 +28,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +58,7 @@ import io.github.bookshelf.core.designsystem.component.EinkLauncherTabBar
 import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.component.EinkTextField
+import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.designsystem.component.combinedClickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
@@ -73,6 +83,8 @@ fun LauncherScreen(
     modifier: Modifier = Modifier,
     /** Переход на полку нижней панелью (ADR-015); в отдельном запуске не используется. */
     onOpenShelf: () -> Unit = {},
+    /** Переход в настройки по шестерёнке рядом с поиском. */
+    onOpenSettings: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -103,6 +115,7 @@ fun LauncherScreen(
         onRetry = viewModel::onRetry,
         onErrorShown = viewModel::onErrorShown,
         onOpenShelf = onOpenShelf,
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -122,6 +135,7 @@ private fun LauncherContent(
     onRetry: () -> Unit,
     onErrorShown: () -> Unit,
     onOpenShelf: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
@@ -146,7 +160,11 @@ private fun LauncherContent(
         },
         bottomBar = { EinkLauncherTabBar(selectedApps = true, onSelectShelf = onOpenShelf, onSelectApps = {}) },
     ) {
-        LauncherSearch(query = state.query, onQueryChange = onQueryChange)
+        LauncherSearch(
+            query = state.query,
+            onQueryChange = onQueryChange,
+            onOpenSettings = onOpenSettings,
+        )
         StateBanners(state = state, onRetry = onRetry, onErrorShown = onErrorShown)
         if (actionApp != null) {
             ActionsPanel(
@@ -168,19 +186,56 @@ private fun LauncherContent(
     }
 }
 
-/** Строка поиска: всегда на экране, без скрытия и анимаций (ADR-015, «E-ink UX» §6.9). */
+/**
+ * Строка поиска с шестерёнкой настроек в одной строке (ADR-015, «E-ink UX» §6.9).
+ *
+ * Подписи «Поиск» нет: место подсказки занимает сам плейсхолдер «Найти приложение», а шестерёнка
+ * ведёт в настройки — отдельный пункт меню на этом экране не нужен.
+ */
 @Composable
-private fun LauncherSearch(query: String, onQueryChange: (String) -> Unit) {
+private fun LauncherSearch(query: String, onQueryChange: (String) -> Unit, onOpenSettings: () -> Unit) {
     val dimens = LocalEinkDimens.current
-    EinkTextField(
-        value = query,
-        onValueChange = onQueryChange,
+    Row(
+        // Высота строки — ровно высота поля ввода: кнопка настроек тянется по ней и остаётся
+        // квадратной, иначе рядом с полем торчит плашка другого размера.
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-        label = stringResource(R.string.launcher_search_label),
-        placeholder = stringResource(R.string.launcher_search_placeholder),
-    )
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+    ) {
+        EinkTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            placeholder = stringResource(R.string.launcher_search_placeholder),
+        )
+        SettingsButton(onClick = onOpenSettings, modifier = Modifier.fillMaxHeight())
+    }
+}
+
+/** Кнопка с шестерёнкой: та же тап-зона, что у прочих действий, без ripple. */
+@Composable
+private fun SettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalEinkColors.current
+    val dimens = LocalEinkDimens.current
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .background(colors.background)
+            .border(width = dimens.borderAccent, color = colors.divider)
+            .clickableNoIndication(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_launcher_settings),
+            contentDescription = stringResource(R.string.launcher_open_settings),
+            tint = colors.foreground,
+            modifier = Modifier.size(dimens.touchMin / 2),
+        )
+    }
 }
 
 /** Баннеры ошибок и загрузки — над содержимым, а не поверх него. */
