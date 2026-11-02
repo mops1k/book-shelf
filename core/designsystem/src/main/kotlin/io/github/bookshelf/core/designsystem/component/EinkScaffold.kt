@@ -54,7 +54,13 @@ import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
  */
 @Composable
 fun EinkScaffold(
-    title: String,
+    /**
+     * Заголовок шапки; `null` — шапки нет вовсе.
+     *
+     * Экрану приложений заголовок не нужен (решение 02.11.2026): его роль играет нижняя вкладка
+     * «Приложения», а лишняя строка отнимает место у сетки.
+     */
+    title: String?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
@@ -62,6 +68,11 @@ fun EinkScaffold(
     menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
     menuTitle: String? = null,
     footer: @Composable (() -> Unit)? = null,
+    /**
+     * Нижняя панель вкладок («Полка | Приложения», ADR-015). Отдельный слот, а не часть `content`:
+     * панель стоит ниже подвала и не перекрывает список.
+     */
+    bottomBar: @Composable (() -> Unit)? = null,
     volumeKeysAsPageTurn: Boolean = LocalVolumeKeysAsPageTurn.current,
     onKeyAction: (EinkAction) -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
@@ -91,17 +102,19 @@ fun EinkScaffold(
                 onKeyAction = onKeyAction,
             ),
     ) {
-        ScaffoldHeader(
-            title = title,
-            subtitle = subtitle,
-            onBack = onBack,
-            actions = actions,
-            hasMenu = menu != null,
-            isMenuOpen = isMenuOpen,
-            onToggleMenu = { isMenuOpen = !isMenuOpen },
-        )
+        if (title != null) {
+            ScaffoldHeader(
+                title = title,
+                subtitle = subtitle,
+                onBack = onBack,
+                actions = actions,
+                hasMenu = menu != null,
+                isMenuOpen = isMenuOpen,
+                onToggleMenu = { isMenuOpen = !isMenuOpen },
+            )
 
-        EinkDivider()
+            EinkDivider()
+        }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxSize(), content = content)
@@ -127,6 +140,11 @@ fun EinkScaffold(
         if (footer != null) {
             EinkDivider()
             footer()
+        }
+
+        if (bottomBar != null) {
+            EinkDivider()
+            bottomBar()
         }
     }
 }

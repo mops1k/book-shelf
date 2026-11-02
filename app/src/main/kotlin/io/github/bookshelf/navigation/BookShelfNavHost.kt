@@ -27,6 +27,9 @@ import io.github.bookshelf.feature.filters.FiltersRoute
 import io.github.bookshelf.feature.filters.ShelfRulesRoute
 import io.github.bookshelf.feature.filters.filtersScreen
 import io.github.bookshelf.feature.filters.shelfRulesScreen
+import io.github.bookshelf.feature.launcher.AppsRoute
+import io.github.bookshelf.feature.launcher.LauncherViewModel
+import io.github.bookshelf.feature.launcher.launcherScreen
 import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.library.libraryScreen
 import io.github.bookshelf.feature.onboarding.OnboardingRoute
@@ -43,6 +46,21 @@ import io.github.bookshelf.feature.settings.SettingsCategoryRoute
 import io.github.bookshelf.feature.settings.SettingsRoute
 import io.github.bookshelf.feature.settings.settingsCategoryScreen
 import io.github.bookshelf.feature.settings.settingsScreen
+
+/**
+ * Есть ли хотя бы один источник книг: от этого зависит стартовый экран.
+ *
+ * Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
+ * и подписка пересоздавалась бы (это ловил lint — `FlowOperatorInvokedInComposition`).
+ */
+@Composable
+private fun rememberHasSources(sourceRepository: SourceRepository): Boolean {
+    val hasSourcesFlow = remember(sourceRepository) {
+        sourceRepository.observeSources().map { sources -> sources.isNotEmpty() }
+    }
+    val hasSources by hasSourcesFlow.collectAsState(initial = true)
+    return hasSources
+}
 
 /**
  * Сообщает наружу текущий маршрут графа: по нему `MainActivity` применяет режим системных панелей
@@ -92,13 +110,13 @@ fun BookShelfNavHost(
      * и проверка связности (`check-reachability.mjs`) не должна видеть в нём переход.
      */
     routeListener: (String?) -> Unit = {},
+    /**
+     * Общий ViewModel списка приложений: переживает переключение вкладок, чтобы поиск
+     * и загруженный список не пересоздавались при каждом возврате (ADR-015).
+     */
+    launcherViewModel: LauncherViewModel,
 ) {
-    // Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
-    // и подписка пересоздавалась бы (на это и указал lint, режим FlowOperatorInvokedInComposition).
-    val hasSourcesFlow = remember(sourceRepository) {
-        sourceRepository.observeSources().map { sources -> sources.isNotEmpty() }
-    }
-    val hasSources by hasSourcesFlow.collectAsState(initial = true)
+    val hasSources = rememberHasSources(sourceRepository)
     ReportCurrentRoute(navController = navController, listener = routeListener)
 
     NavHost(
@@ -118,7 +136,12 @@ fun BookShelfNavHost(
             // Аппаратный BACK и Page Up на корневом экране: экран перехватывает BACK,
             // поэтому выход из приложения обрабатывается здесь («E-ink UX» §3.2).
             onExit = onExit,
+            // Вкладка «Приложения» нижней панели: экран кладётся поверх полки, поэтому BACK
+            // с него возвращает на полку сам (ADR-015), а состояние полки не теряется.
+            onOpenApps = { navController.navigate(AppsRoute.route) { launchSingleTop = true } },
         )
+
+        launcherScreen(viewModel = launcherViewModel, onOpenShelf = { navController.popBackStack() })
 
         bookDetailsScreen(
             onBack = { navController.popBackStack() },

@@ -31,6 +31,7 @@ class AppListRulesTest {
     private val bukva = app("ru.bukva", "Буква")
     private val yabloko = app("ru.yabloko", "Яблоко")
     private val settings = app("com.android.settings", "Настройки", isSystem = true)
+    private val vendorJunk = app("com.test.logcollect", "Отчет о регистрации", isSystem = true)
     private val hiddenApp = app("ru.hidden", "Скрытое")
     private val all = listOf(own, azbuka, bukva, yabloko, settings, hiddenApp)
 
@@ -51,15 +52,33 @@ class AppListRulesTest {
     }
 
     @Test
-    fun visible_shows_system_apps_only_when_asked() {
+    fun visible_excludes_release_copy_of_own_app_next_to_debug_build() {
+        // На устройстве могут стоять обе сборки: отладочная и релизная. Обе — «Книжная полка»,
+        // и обе не должны показываться в собственном списке приложений.
+        val release = app("io.github.bookshelf", "Книжная полка")
+
+        val visible = AppListRules.visible(
+            apps = listOf(own, release, azbuka),
+            hiddenPackages = emptySet(),
+            showSystem = false,
+            ownPackage = own.packageName,
+        )
+
+        assertThat(visible.map { it.packageName }).containsExactly(azbuka.packageName)
+    }
+
+    @Test
+    fun visible_shows_only_whitelisted_system_apps_when_asked() {
         val withSystem = AppListRules.visible(
-            apps = all,
+            apps = all + vendorJunk,
             hiddenPackages = emptySet(),
             showSystem = true,
             ownPackage = own.packageName,
         )
 
+        // Полезное системное — показываем, служебную запись вендора — нет даже с галочкой.
         assertThat(withSystem).contains(settings)
+        assertThat(withSystem).doesNotContain(vendorJunk)
     }
 
     @Test

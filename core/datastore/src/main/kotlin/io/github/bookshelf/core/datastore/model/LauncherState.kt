@@ -19,6 +19,8 @@ data class LauncherState(
     /** Пакеты, которые пользователь убрал из списка долгим нажатием. */
     val hiddenPackages: Set<String> = emptySet(),
     val sortMode: AppSortMode = AppSortMode.NAME,
+    /** Сетка иконок или список «маленькая иконка + название» (требование 02.11.2026). */
+    val viewMode: AppListView = AppListView.GRID,
     /** Системные приложения скрыты, пока пользователь не включит их галочкой. */
     val showSystemApps: Boolean = false,
     /** Пакет → сколько раз запускали из нашего списка. */
@@ -54,4 +56,14 @@ enum class AppSortMode {
 
     /** По числу запусков из нашего списка, при равенстве — по подписи. */
     LAUNCH_FREQUENCY,
+}
+
+/** Как показывать список приложений (требование Александра 02.11.2026). */
+@Serializable
+enum class AppListView {
+    /** Сетка иконок — как на рабочем столе лаунчера. */
+    GRID,
+
+    /** Список: маленькая иконка и название приложения строкой. */
+    LIST,
 }

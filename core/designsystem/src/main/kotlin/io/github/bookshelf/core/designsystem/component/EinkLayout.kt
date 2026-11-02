@@ -103,6 +103,11 @@ fun EinkListRow(
     enabled: Boolean = true,
     hasDivider: Boolean = true,
     onClick: (() -> Unit)? = null,
+    /**
+     * Долгое нажатие (ADR-015): в списке приложений долгий тап открывает меню действий,
+     * а обычный запускает приложение.
+     */
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
@@ -113,7 +118,7 @@ fun EinkListRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (selected) colors.invertedBackground else colors.background)
-                .then(rowClickModifier(onClick = onClick, enabled = enabled))
+                .then(rowClickModifier(onClick = onClick, enabled = enabled, onLongClick = onLongClick))
                 .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -177,13 +182,21 @@ fun EinkListRow(
  * с `MutableInteractionSource` — цельный кусок (индикатор нажатия на e-ink не рисуется).
  */
 @Composable
-private fun rowClickModifier(onClick: (() -> Unit)?, enabled: Boolean): Modifier =
-    if (onClick != null && enabled) {
-        Modifier.clickable(
+private fun rowClickModifier(
+    onClick: (() -> Unit)?,
+    enabled: Boolean,
+    onLongClick: (() -> Unit)? = null,
+): Modifier =
+    when {
+        // Долгое нажатие требует `combinedClickable`: обычный `clickable` его не знает.
+        onClick != null && enabled && onLongClick != null -> Modifier.combinedClickableNoIndication(
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+        onClick != null && enabled -> Modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
             indication = null,
             onClick = onClick,
         )
-    } else {
-        Modifier
+        else -> Modifier
     }

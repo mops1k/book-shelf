@@ -2,6 +2,8 @@ package io.github.bookshelf.core.applist.catalog
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -10,6 +12,8 @@ import io.github.bookshelf.core.applist.model.InstalledApp
 import io.github.bookshelf.core.common.coroutine.AppDispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.content.pm.LauncherActivityInfo
+import android.os.Process
 import kotlinx.coroutines.withContext
 
 /**

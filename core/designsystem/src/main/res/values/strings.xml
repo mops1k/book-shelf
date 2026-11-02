@@ -110,4 +110,6 @@
     <string name="status_read">прочитано</string>
     <string name="status_reading_progress">читаю %1$d%%</string>
     <string name="source_default_name">Папка</string>
+    <string name="eink_tab_shelf">Полка</string>
+    <string name="eink_tab_apps">Приложения</string>
 </resources>

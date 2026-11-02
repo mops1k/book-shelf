@@ -71,6 +71,7 @@ dependencies {
     implementation(project(":feature:filters"))
     implementation(project(":feature:catalogs"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:launcher"))
     implementation(project(":feature:scan"))
 
     // Инструментальные тесты (androidTest) и Robolectric-инфраструктура.

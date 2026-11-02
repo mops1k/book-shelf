@@ -298,4 +298,12 @@
     <string name="settings_reader_format_change">change</string>
     <string name="settings_reader_category_summary">Chosen for %1$d of %2$d format(s)</string>
     <string name="settings_reader_category_open">open</string>
+    <string name="settings_section_launcher">Launcher</string>
+    <string name="settings_section_launcher_summary">App list view, system apps and the home screen</string>
+    <string name="settings_launcher_view">App list view</string>
+    <string name="settings_launcher_view_hint">Grid is like a home screen; list is a small icon with the app name</string>
+    <string name="settings_launcher_view_grid">Grid</string>
+    <string name="settings_launcher_view_list">List</string>
+    <string name="settings_launcher_show_system">Show useful system apps</string>
+    <string name="settings_launcher_show_system_hint">Show useful system apps (settings, files, camera, clock) — vendor service entries are not shown</string>
 </resources>

@@ -27,6 +27,7 @@ class SettingsSectionsTest {
             SettingsSectionKind.LIBRARY_SCAN,
             SettingsSectionKind.READERS,
             SettingsSectionKind.OPDS,
+            SettingsSectionKind.LAUNCHER,
             SettingsSectionKind.STORAGE,
             SettingsSectionKind.ABOUT,
         ).inOrder()
@@ -42,6 +43,7 @@ class SettingsSectionsTest {
             SettingsSectionKind.APPEARANCE,
             SettingsSectionKind.LIBRARY_SCAN,
             SettingsSectionKind.READERS,
+            SettingsSectionKind.LAUNCHER,
             SettingsSectionKind.STORAGE,
             SettingsSectionKind.ABOUT,
         ).inOrder()
@@ -58,6 +60,7 @@ class SettingsSectionsTest {
             R.string.settings_section_library to R.string.settings_section_library_summary,
             R.string.settings_section_readers to R.string.settings_section_readers_summary,
             R.string.settings_section_opds to R.string.settings_section_opds_summary,
+            R.string.settings_section_launcher to R.string.settings_section_launcher_summary,
             R.string.settings_section_storage to R.string.settings_section_storage_summary,
             R.string.settings_section_about to R.string.settings_section_about_summary,
         ).inOrder()

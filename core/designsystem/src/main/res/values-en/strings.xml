@@ -106,4 +106,6 @@
     <string name="status_read">read</string>
     <string name="status_reading_progress">reading %1$d%%</string>
     <string name="source_default_name">Folder</string>
+    <string name="eink_tab_shelf">Shelf</string>
+    <string name="eink_tab_apps">Apps</string>
 </resources>

@@ -299,4 +299,12 @@
     <string name="settings_reader_format_change">сменить</string>
     <string name="settings_reader_category_summary">Выбрано для %1$d из %2$d формат(ов)</string>
     <string name="settings_reader_category_open">открыть</string>
+    <string name="settings_section_launcher">Лаунчер</string>
+    <string name="settings_section_launcher_summary">Вид списка приложений, системные приложения и домашний экран</string>
+    <string name="settings_launcher_view">Вид списка приложений</string>
+    <string name="settings_launcher_view_hint">Сетка — как на рабочем столе, список — маленькая иконка и название</string>
+    <string name="settings_launcher_view_grid">Сетка</string>
+    <string name="settings_launcher_view_list">Список</string>
+    <string name="settings_launcher_show_system">Показывать полезные системные приложения</string>
+    <string name="settings_launcher_show_system_hint">Показывать полезные системные приложения (настройки, файлы, камера, часы) — служебные записи вендора не показываются</string>
 </resources>

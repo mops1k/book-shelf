@@ -5,6 +5,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.applist.model.AppCatalog
 import io.github.bookshelf.core.applist.model.InstalledApp
 import io.github.bookshelf.core.datastore.launcher.LauncherStore
+import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.datastore.model.AppSortMode
 import io.github.bookshelf.core.datastore.model.LauncherState
 import io.github.bookshelf.core.testing.rule.MainDispatcherRule
@@ -94,6 +95,17 @@ class LauncherViewModelTest {
 
         assertThat(viewModel.uiState.value.visible.map { it.label })
             .containsExactly("KOReader", "Cool Reader").inOrder()
+    }
+
+    @Test
+    fun view_mode_comes_from_store_and_can_be_changed() = runTest {
+        val viewModel = viewModel(apps = listOf(coolReader), state = LauncherState(viewMode = AppListView.LIST))
+
+        assertThat(viewModel.uiState.value.viewMode).isEqualTo(AppListView.LIST)
+
+        viewModel.onSetViewMode(AppListView.GRID)
+
+        assertThat(viewModel.uiState.value.viewMode).isEqualTo(AppListView.GRID)
     }
 
     @Test

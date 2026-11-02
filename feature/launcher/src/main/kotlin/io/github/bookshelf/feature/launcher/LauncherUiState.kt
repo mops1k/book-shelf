@@ -2,6 +2,7 @@ package io.github.bookshelf.feature.launcher
 
 import io.github.bookshelf.core.applist.model.InstalledApp
 import io.github.bookshelf.core.applist.rule.AppListRules
+import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.datastore.model.AppSortMode
 
 /**
@@ -16,6 +17,7 @@ data class LauncherUiState(
     val ownPackage: String = "",
     val query: String = "",
     val sortMode: AppSortMode = AppSortMode.NAME,
+    val viewMode: AppListView = AppListView.GRID,
     val showSystemApps: Boolean = false,
     val favorites: Set<String> = emptySet(),
     val hidden: Set<String> = emptySet(),

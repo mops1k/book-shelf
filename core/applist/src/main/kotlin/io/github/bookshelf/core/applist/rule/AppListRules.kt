@@ -32,7 +32,9 @@ object AppListRules {
      * Что показывать в списке.
      *
      * Себя исключаем всегда: пункт «BookShelf» в собственном лаунчере запускает сам лаунчер.
-     * Скрытые пользователем приложения — тоже всегда. Системные — только по галочке.
+     * Скрытые пользователем приложения — тоже всегда. Системные — только по галочке и только
+     * полезные из [SystemAppWhitelist]: служебные записи вендора (тестовые пакеты, отчёты,
+     * «настройки клавиатуры») не показываются даже с галочкой.
      */
     fun visible(
         apps: List<InstalledApp>,
@@ -40,10 +42,25 @@ object AppListRules {
         showSystem: Boolean,
         ownPackage: String,
     ): List<InstalledApp> = apps.filter { app ->
-        app.packageName != ownPackage &&
+        !isOwnPackage(app.packageName, ownPackage) &&
             app.packageName !in hiddenPackages &&
-            (showSystem || !app.isSystem)
+            isVisibleSystem(app.isSystem, app.packageName, showSystem)
     }
+
+    /** Системное приложение видно, только если галочка включена и оно в белом списке. */
+    private fun isVisibleSystem(isSystem: Boolean, packageName: String, showSystem: Boolean): Boolean =
+        !isSystem || (showSystem && SystemAppWhitelist.isUseful(packageName))
+
+    /**
+     * Наша сборка, в любом flavor.
+     *
+     * Отладочный пакет носит суффикс `.debug`, релизный — нет, и на устройстве они вполне могут
+     * стоять одновременно (проверка релиза рядом с разработкой). Для лаунчера это одно и то же
+     * приложение: запускать «Книжную полку» из её же списка приложений бессмысленно, поэтому
+     * скрываем оба имени, а не только текущий пакет.
+     */
+    private fun isOwnPackage(packageName: String, ownPackage: String): Boolean =
+        packageName == ownPackage || packageName == ownPackage.removeSuffix(".debug")
 
     /**
      * Поиск по подписи без учёта регистра.

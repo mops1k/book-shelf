@@ -8,11 +8,14 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -29,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,15 +40,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import io.github.bookshelf.core.applist.icon.AppIconKey
 import io.github.bookshelf.core.applist.model.InstalledApp
+import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
+import io.github.bookshelf.core.designsystem.component.EinkLauncherTabBar
+import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.component.EinkSectionHeader
 import io.github.bookshelf.core.designsystem.component.EinkTextField
 import io.github.bookshelf.core.designsystem.component.combinedClickableNoIndication
 import io.github.bookshelf.core.designsystem.input.EinkAction
 import io.github.bookshelf.core.designsystem.paging.rememberEinkGridPageScroller
+import io.github.bookshelf.core.designsystem.paging.rememberEinkListPageScroller
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.launcher.LauncherError
@@ -65,6 +71,8 @@ import io.github.bookshelf.feature.launcher.R
 fun LauncherScreen(
     viewModel: LauncherViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    /** Переход на полку нижней панелью (ADR-015); в отдельном запуске не используется. */
+    onOpenShelf: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -94,6 +102,7 @@ fun LauncherScreen(
         onToggleFavorite = viewModel::onToggleFavorite,
         onRetry = viewModel::onRetry,
         onErrorShown = viewModel::onErrorShown,
+        onOpenShelf = onOpenShelf,
     )
 }
 
@@ -112,22 +121,30 @@ private fun LauncherContent(
     onToggleFavorite: (InstalledApp) -> Unit,
     onRetry: () -> Unit,
     onErrorShown: () -> Unit,
+    onOpenShelf: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
-    val scrollByPage = rememberEinkGridPageScroller(gridState)
+    val listState = rememberLazyListState()
+    val scrollGrid = rememberEinkGridPageScroller(gridState)
+    val scrollList = rememberEinkListPageScroller(listState)
+    val isList = state.viewMode == AppListView.LIST
 
     EinkScaffold(
-        title = stringResource(R.string.launcher_title),
+        // Шапки нет: вкладку «Приложения» видно на нижней панели, а строка отнимала бы место.
+        title = null,
         modifier = modifier,
         onKeyAction = { action ->
             when (action) {
-                EinkAction.NEXT_PAGE -> scrollByPage(1)
-                EinkAction.PREVIOUS_PAGE -> scrollByPage(-1)
+                EinkAction.NEXT_PAGE -> if (isList) scrollList(1) else scrollGrid(1)
+                EinkAction.PREVIOUS_PAGE -> if (isList) scrollList(-1) else scrollGrid(-1)
+                // Аппаратный и системный BACK: список приложений не корень — возвращаемся
+                // на полку (ADR-015). Без этой ветки клавиша поглощалась и ничего не делала.
+                EinkAction.BACK -> onOpenShelf()
                 else -> Unit
             }
         },
-        footer = { LauncherFooter(state = state, gridState = gridState) },
+        bottomBar = { EinkLauncherTabBar(selectedApps = true, onSelectShelf = onOpenShelf, onSelectApps = {}) },
     ) {
         LauncherSearch(query = state.query, onQueryChange = onQueryChange)
         StateBanners(state = state, onRetry = onRetry, onErrorShown = onErrorShown)
@@ -143,6 +160,8 @@ private fun LauncherContent(
             )
         } else if (state.visible.isEmpty()) {
             EmptyList(state = state)
+        } else if (isList) {
+            AppRows(state = state, listState = listState, onLaunch = onLaunch, onLongPress = onLongPress)
         } else {
             AppGrid(state = state, gridState = gridState, onLaunch = onLaunch, onLongPress = onLongPress)
         }
@@ -197,7 +216,7 @@ private fun AppGrid(
 ) {
     val dimens = LocalEinkDimens.current
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = dimens.coverMinWidth),
+        columns = GridCells.Adaptive(minSize = dimens.appTileMinWidth),
         state = gridState,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             horizontal = dimens.gutter,
@@ -218,6 +237,54 @@ private fun AppGrid(
     }
 }
 
+/**
+ * Режим списка: маленькая иконка и название строкой (требование 02.11.2026).
+ *
+ * Строка выше комфортной тап-зоны, а иконка — 32 dp: список читается по названиям, как список
+ * приложений в системных настройках, и на экран влезает больше, чем в сетке.
+ */
+@Composable
+private fun AppRows(
+    state: LauncherUiState,
+    listState: LazyListState,
+    onLaunch: (InstalledApp) -> Unit,
+    onLongPress: (InstalledApp) -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    LazyColumn(
+        state = listState,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = dimens.gutter,
+            vertical = dimens.gutterSmall,
+        ),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        items(items = state.visible, key = { app -> app.packageName }) { app ->
+            EinkListRow(
+                title = labelWithFavorite(app, state.favorites),
+                leadingContent = { AppIcon(app = app, size = dimens.appListIcon) },
+                onClick = { onLaunch(app) },
+                onLongClick = { onLongPress(app) },
+            )
+        }
+    }
+}
+
+/** Иконка приложения из кэша Coil; размер задаёт вызывающий экран. */
+@Composable
+private fun AppIcon(app: InstalledApp, size: androidx.compose.ui.unit.Dp) {
+    AsyncImage(
+        model = AppIconKey(packageName = app.packageName, versionCode = app.versionCode),
+        contentDescription = app.label,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.size(size),
+    )
+}
+
+/** Подпись с отметкой избранного: звёздочка вместо цвета — на e-ink цвет не признак. */
+private fun labelWithFavorite(app: InstalledApp, favorites: Set<String>): String =
+    if (app.packageName in favorites) "★ ${app.label}" else app.label
+
 /** Плитка: иконка и название (до двух строк) — решение 02.11.2026. */
 @Composable
 private fun AppTile(
@@ -236,21 +303,13 @@ private fun AppTile(
         verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f),
+            modifier = Modifier.size(dimens.appIcon),
             contentAlignment = Alignment.Center,
         ) {
-            AsyncImage(
-                model = AppIconKey(packageName = app.packageName, versionCode = app.versionCode),
-                contentDescription = app.label,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
+            AppIcon(app = app, size = dimens.appIcon)
         }
         Text(
-            // Избранное помечаем звёздочкой, а не цветом: на e-ink цвет — не признак.
-            text = if (isFavorite) "★ ${app.label}" else app.label,
+            text = labelWithFavorite(app, if (isFavorite) setOf(app.packageName) else emptySet()),
             style = MaterialTheme.typography.labelMedium,
             color = colors.foreground,
             textAlign = TextAlign.Center,
@@ -310,36 +369,6 @@ private fun EmptyList(state: LauncherUiState) {
         },
         message = stringResource(R.string.launcher_empty_hint),
     )
-}
-
-/** Подвал: страница и число приложений (счётчик считается по видимой сетке). */
-@Composable
-private fun LauncherFooter(state: LauncherUiState, gridState: LazyGridState) {
-    val colors = LocalEinkColors.current
-    val dimens = LocalEinkDimens.current
-    val layout = gridState.layoutInfo
-    val perPage = layout.visibleItemsInfo.size.coerceAtLeast(1)
-    val firstIndex = layout.visibleItemsInfo.firstOrNull()?.index ?: 0
-    val page = firstIndex / perPage + 1
-    val pages = ((state.visible.size - 1) / perPage + 1).coerceAtLeast(1)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = stringResource(R.string.launcher_page, page, pages),
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.foreground,
-        )
-        Text(
-            text = pluralStringResource(R.plurals.launcher_app_count, state.visible.size, state.visible.size),
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.foreground,
-        )
-    }
 }
 
 /** Запуск приложения; неудачный запуск уже отметил ViewModel — здесь только не падаем. */

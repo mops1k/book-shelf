@@ -27,6 +27,9 @@ enum class SettingsSectionKind {
     /** Каталоги OPDS, авторизация, загрузки. */
     OPDS,
 
+    /** Лаунчер (ADR-015): вид списка приложений, домашний экран, кнопки устройства, системные. */
+    LAUNCHER,
+
     /** Размер кэша обложек, очистка, экспорт и импорт библиотеки. */
     STORAGE,
 
@@ -367,6 +370,11 @@ fun defaultSettingsSections(
         titleRes = R.string.settings_section_opds,
         summaryRes = R.string.settings_section_opds_summary,
     ).takeIf { opdsEnabled },
+    SettingsSectionUi(
+        kind = SettingsSectionKind.LAUNCHER,
+        titleRes = R.string.settings_section_launcher,
+        summaryRes = R.string.settings_section_launcher_summary,
+    ),
     SettingsSectionUi(
         kind = SettingsSectionKind.STORAGE,
         titleRes = R.string.settings_section_storage,

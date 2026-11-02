@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="launcher_title">Приложения</string>
     <string name="launcher_search_label">Поиск</string>
     <string name="launcher_search_placeholder">Название приложения</string>
-    <string name="launcher_page">Стр. %1$d/%2$d</string>
-    <plurals name="launcher_app_count">
-        <item quantity="one">%d приложение</item>
-        <item quantity="few">%d приложения</item>
-        <item quantity="many">%d приложений</item>
-        <item quantity="other">%d приложения</item>
-    </plurals>
     <string name="launcher_empty">Приложений нет</string>
     <string name="launcher_empty_search">Ничего не найдено</string>
     <string name="launcher_empty_hint">Измените запрос или проверьте, что приложения установлены. Системные приложения включаются в разделе «Лаунчер».</string>

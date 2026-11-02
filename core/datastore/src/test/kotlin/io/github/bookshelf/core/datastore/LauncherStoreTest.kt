@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.common.truth.Truth.assertThat
 import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.datastore.launcher.DataStoreLauncherStore
+import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.datastore.model.AppSortMode
 import io.github.bookshelf.core.datastore.model.LauncherState
 import java.io.File
@@ -49,6 +50,8 @@ class LauncherStoreTest {
 
         assertThat(defaults.showSystemApps).isFalse()
         assertThat(defaults.sortMode).isEqualTo(AppSortMode.NAME)
+        // По умолчанию — сетка, как на рабочем столе (требование 02.11.2026).
+        assertThat(defaults.viewMode).isEqualTo(AppListView.GRID)
         assertThat(defaults.favoritePackages).isEmpty()
         assertThat(defaults.hiddenPackages).isEmpty()
         assertThat(defaults.launchCounts).isEmpty()
@@ -65,6 +68,7 @@ class LauncherStoreTest {
             favoritePackages = setOf("org.coolreader"),
             hiddenPackages = setOf("com.android.settings"),
             sortMode = AppSortMode.LAUNCH_FREQUENCY,
+            viewMode = AppListView.LIST,
             showSystemApps = true,
             launchCounts = mapOf("org.coolreader" to 7),
             appsItemVisible = true,

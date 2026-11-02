@@ -39,7 +39,8 @@ import io.github.bookshelf.core.designsystem.theme.EinkTheme
 import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
 import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
 import io.github.bookshelf.feature.library.LibraryRoute
-import io.github.bookshelf.navigation.AppsRoute
+import io.github.bookshelf.feature.launcher.AppsRoute
+import io.github.bookshelf.feature.launcher.LauncherViewModel
 import io.github.bookshelf.navigation.BookShelfNavHost
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
@@ -59,6 +60,12 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    /**
+     * Общий на Activity ViewModel списка приложений: вкладки переключаются навигацией, и запись
+     * экрана приложений уничтожается — без общего экземпляра поиск и список терялись бы.
+     */
+    private val launcherViewModel: LauncherViewModel by viewModels()
 
     private var readerEventsRegistered = false
 
@@ -217,6 +224,7 @@ class MainActivity : ComponentActivity() {
                             sourceRepository = sourceRepository,
                             opdsEnabled = themeState.opdsEnabled,
                             routeListener = { currentRoute = it },
+                            launcherViewModel = launcherViewModel,
                         )
                     }
                 }

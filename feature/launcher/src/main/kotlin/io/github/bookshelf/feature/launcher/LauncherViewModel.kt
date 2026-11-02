@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.applist.model.AppCatalog
 import io.github.bookshelf.core.applist.model.InstalledApp
 import io.github.bookshelf.core.datastore.launcher.LauncherStore
+import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.datastore.model.AppSortMode
 import io.github.bookshelf.core.datastore.model.LauncherState
 import javax.inject.Inject
@@ -71,6 +72,11 @@ class LauncherViewModel @Inject constructor(
         updateLauncherState { state -> state.copy(sortMode = mode) }
     }
 
+    /** Сетка иконок или список «маленькая иконка + название» (требование 02.11.2026). */
+    fun onSetViewMode(mode: AppListView) {
+        updateLauncherState { state -> state.copy(viewMode = mode) }
+    }
+
     fun onSetShowSystemApps(show: Boolean) {
         updateLauncherState { state -> state.copy(showSystemApps = show) }
     }
@@ -117,6 +123,7 @@ class LauncherViewModel @Inject constructor(
                 _uiState.update { current ->
                     current.copy(
                         sortMode = state.sortMode,
+                        viewMode = state.viewMode,
                         showSystemApps = state.showSystemApps,
                         favorites = state.favoritePackages,
                         hidden = state.hiddenPackages,

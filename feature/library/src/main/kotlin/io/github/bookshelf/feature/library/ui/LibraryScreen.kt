@@ -46,6 +46,7 @@ import io.github.bookshelf.core.designsystem.component.EinkEmptyState
 import io.github.bookshelf.core.designsystem.component.EinkErrorBanner
 import io.github.bookshelf.core.designsystem.text.resolve
 import io.github.bookshelf.core.designsystem.component.EinkListRow
+import io.github.bookshelf.core.designsystem.component.EinkLauncherTabBar
 import io.github.bookshelf.core.designsystem.component.EinkScaffold
 import io.github.bookshelf.core.designsystem.component.clickableNoIndication
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
@@ -83,6 +84,8 @@ fun LibraryScreen(
     onOpenScan: () -> Unit,
     onOpenSettings: () -> Unit,
     onExit: () -> Unit,
+    /** Переход к списку приложений нижней панелью (ADR-015). */
+    onOpenApps: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -126,6 +129,9 @@ fun LibraryScreen(
         },
         menuTitle = stringResource(R.string.library_title),
         menu = { close -> LibraryMenu(state, close, onOpenCollections, onOpenCatalogs, onOpenSettings) },
+        // Нижняя панель — только на двух главных экранах («E-ink UX» §6.9): на карточке книги,
+        // в настройках и поиске она отнимала бы строку у контента без пользы.
+        bottomBar = { EinkLauncherTabBar(selectedApps = false, onSelectShelf = {}, onSelectApps = onOpenApps) },
         onKeyAction = { action ->
             libraryKeyAction(
                 action = action,

@@ -16,6 +16,7 @@ import io.github.bookshelf.feature.settings.defaultSettingsSections
 import io.github.bookshelf.feature.settings.readersBackLevelOf
 import io.github.bookshelf.feature.settings.ui.category.AboutCategory
 import io.github.bookshelf.feature.settings.ui.category.AppearanceCategory
+import io.github.bookshelf.feature.settings.ui.category.LauncherCategory
 import io.github.bookshelf.feature.settings.ui.category.LibraryScanCategory
 import io.github.bookshelf.feature.settings.ui.category.OpdsCategory
 import io.github.bookshelf.feature.settings.ui.category.ReadersCategory
@@ -92,6 +93,7 @@ fun SettingsCategoryScreen(
                 viewModel = viewModel,
                 onOpenCatalogs = onOpenCatalogs,
             )
+            SettingsSectionKind.LAUNCHER -> LauncherCategory()
             SettingsSectionKind.STORAGE -> StorageCategory(
                 state = state,
                 viewModel = viewModel,
