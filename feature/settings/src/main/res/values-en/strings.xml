@@ -307,5 +307,5 @@
     <string name="settings_launcher_show_system">Show useful system apps</string>
     <string name="settings_launcher_show_system_hint">Show useful system apps (settings, files, camera, clock) — vendor service entries are not shown</string>
     <string name="settings_launcher_apps_item">“Apps” item for device buttons</string>
-    <string name="settings_launcher_apps_item_hint">Adds “BookShelf Apps” to the device app list so it can be assigned to a hardware button</string>
+    <string name="settings_launcher_apps_item_hint">Adds “BookShelf Apps” to app lists (including hardware-button pickers). The Bigme button picker groups by app, so the entry will not appear there. Turning it off removes the entry from lists, but remove the home-screen icon manually</string>
 </resources>

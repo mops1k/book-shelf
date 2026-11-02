@@ -308,5 +308,5 @@
     <string name="settings_launcher_show_system">Показывать полезные системные приложения</string>
     <string name="settings_launcher_show_system_hint">Показывать полезные системные приложения (настройки, файлы, камера, часы) — служебные записи вендора не показываются</string>
     <string name="settings_launcher_apps_item">Пункт «Приложения» для кнопок устройства</string>
-    <string name="settings_launcher_apps_item_hint">Добавляет «Приложения BookShelf» в список приложений устройства — можно назначить на аппаратную кнопку</string>
+    <string name="settings_launcher_apps_item_hint">Добавляет «Приложения BookShelf» в списки приложений (в том числе для кнопок устройства). В списке кнопки Bigme пункта не будет — он группирует по приложению. Выключение убирает пункт из списков, но иконку с рабочего стола удалите вручную</string>
 </resources>
