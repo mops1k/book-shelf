@@ -16,6 +16,12 @@
     <string name="settings_toggle_on">on</string>
     <string name="settings_toggle_off">off</string>
     <string name="settings_appearance_theme">Theme</string>
+    <string name="settings_appearance_system_bars">System bars</string>
+    <string name="settings_appearance_system_bars_hint">Where to show the status bar and navigation. Hidden bars come back with a swipe from the edge.</string>
+    <string name="settings_system_bars_hide_always">Hide always</string>
+    <string name="settings_system_bars_hide_on_shelf">Hide on the shelf</string>
+    <string name="settings_system_bars_hide_except_apps">Hide everywhere except the app list</string>
+    <string name="settings_system_bars_show_always">Never hide</string>
     <string name="settings_appearance_theme_hint">«System» follows the Android setting</string>
     <string name="settings_appearance_density">Density</string>
     <string name="settings_appearance_density_hint">How many rows and books fit on the screen</string>

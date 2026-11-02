@@ -8,6 +8,7 @@ import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.ScanSchedule
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
 
@@ -33,6 +34,8 @@ object SettingsKeys {
     val FONT_SCALE: Preferences.Key<Int> = intPreferencesKey("appearance.font_scale")
     val INVERT_COVERS: Preferences.Key<Boolean> = booleanPreferencesKey("appearance.invert_covers")
     val TEXT_ONLY_MODE: Preferences.Key<Boolean> = booleanPreferencesKey("appearance.text_only_mode")
+    /** Политика системных панелей: скрывать всегда / на полке / кроме приложений / никогда (ADR-015). */
+    val SYSTEM_BARS_MODE: Preferences.Key<String> = stringPreferencesKey("appearance.system_bars_mode")
 
     // --- Экран (e-ink) ---
     // Режим обновления, интервал полного кадра и подсветка больше не настройки приложения:
@@ -130,6 +133,11 @@ object SettingsKeys {
      */
     object Defaults {
         val THEME_MODE: ThemeMode = ThemeMode.LIGHT
+        /**
+         * Панели скрыты всегда: так приложение вело себя до лаунчера, и это поведение по умолчанию
+         * остаётся, пока пользователь не выберет другое (ADR-015).
+         */
+        val SYSTEM_BARS_MODE: SystemBarsMode = SystemBarsMode.HIDE_ALWAYS
         val DENSITY: EinkDensityLike = EinkDensityLike.LARGE
         const val FONT_SCALE = 100
         const val INVERT_COVERS = false

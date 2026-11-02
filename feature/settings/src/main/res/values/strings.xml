@@ -17,6 +17,12 @@
     <string name="settings_toggle_on">включено</string>
     <string name="settings_toggle_off">выключено</string>
     <string name="settings_appearance_theme">Тема</string>
+    <string name="settings_appearance_system_bars">Системные панели</string>
+    <string name="settings_appearance_system_bars_hint">Где показывать статус-бар и навигацию. Скрытые панели возвращаются свайпом от края.</string>
+    <string name="settings_system_bars_hide_always">Скрывать всегда</string>
+    <string name="settings_system_bars_hide_on_shelf">Скрывать на полке</string>
+    <string name="settings_system_bars_hide_except_apps">Скрывать везде, кроме приложений</string>
+    <string name="settings_system_bars_show_always">Не скрывать</string>
     <string name="settings_appearance_theme_hint">«Системная» следует за настройкой Android</string>
     <string name="settings_appearance_density">Плотность</string>
     <string name="settings_appearance_density_hint">Сколько строк и книг помещается на экран</string>

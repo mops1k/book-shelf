@@ -10,6 +10,7 @@ import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.EinkDensity
 import io.github.bookshelf.core.designsystem.theme.FontScale
@@ -39,6 +40,8 @@ data class ThemeState(
     val fontScale: FontScale = FontScale.S100,
     val invertCovers: Boolean = SettingsKeys.Defaults.INVERT_COVERS,
     val volumeKeysAsPageTurn: Boolean = SettingsKeys.Defaults.VOLUME_KEYS_AS_PAGE_TURN,
+    /** Когда скрывать системные панели (ADR-015): применяется по текущему маршруту. */
+    val systemBarsMode: SystemBarsMode = SettingsKeys.Defaults.SYSTEM_BARS_MODE,
     /**
      * Есть ли в сборке OPDS (`ENABLE_OPDS`).
      *
@@ -100,6 +103,7 @@ private fun AppSettings.toThemeState(opdsEnabled: Boolean): ThemeState = ThemeSt
     fontScale = fontScaleOf(appearance.fontScale),
     invertCovers = appearance.invertCovers,
     volumeKeysAsPageTurn = eink.volumeKeysAsPageTurn,
+    systemBarsMode = appearance.systemBarsMode,
 )
 
 /** Плотность слоя данных → плотность дизайн-системы; `Like` существует ровно ради этого перевода. */

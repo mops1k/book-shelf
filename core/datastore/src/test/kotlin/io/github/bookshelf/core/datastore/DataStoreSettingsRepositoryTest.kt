@@ -10,6 +10,7 @@ import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.ScanSchedule
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.SortOrder
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import java.io.File
@@ -62,6 +63,15 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
+    fun system_bars_mode_round_trips() = runBlocking {
+        val repository = repository()
+
+        repository.update { it.copy(appearance = it.appearance.copy(systemBarsMode = SystemBarsMode.HIDE_EXCEPT_APPS)) }
+
+        assertThat(repository.current().appearance.systemBarsMode).isEqualTo(SystemBarsMode.HIDE_EXCEPT_APPS)
+    }
+
+    @Test
     fun update_round_trips_every_group() = runBlocking {
         val repository = repository()
         val target = AppSettings(
@@ -71,6 +81,7 @@ class DataStoreSettingsRepositoryTest {
                 fontScale = 130,
                 invertCovers = true,
                 textOnlyMode = true,
+                systemBarsMode = SystemBarsMode.HIDE_ON_SHELF,
             ),
             eink = io.github.bookshelf.core.datastore.model.EinkSettings(
                 volumeKeysAsPageTurn = true,

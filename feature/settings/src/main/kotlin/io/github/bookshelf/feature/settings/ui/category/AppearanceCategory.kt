@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import io.github.bookshelf.core.datastore.model.EinkDensityLike
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
 import io.github.bookshelf.feature.settings.SettingsUiState
@@ -58,6 +59,9 @@ internal fun AppearanceCategory(
                 subtitle = stringResource(R.string.settings_appearance_theme_hint),
             )
         }
+        item(key = "appearance-system-bars") {
+            SystemBarsChoice(settings.systemBarsMode, viewModel)
+        }
         item(key = "appearance-density") {
             ChoiceRow(
                 title = stringResource(R.string.settings_appearance_density),
@@ -104,6 +108,35 @@ private fun themeLabelRes(mode: ThemeMode): Int = when (mode) {
     ThemeMode.LIGHT -> R.string.settings_theme_light
     ThemeMode.DARK -> R.string.settings_theme_dark
     ThemeMode.SYSTEM -> R.string.settings_theme_system
+}
+
+/**
+ * Выбор режима системных панелей (ADR-015).
+ *
+ * Вынесено в отдельный composable ради предела длины `AppearanceCategory`: четыре режима и
+ * подсказка занимают больше строк, чем весь остальной раздел.
+ */
+@Composable
+private fun SystemBarsChoice(selected: SystemBarsMode, viewModel: SettingsViewModel) {
+    ChoiceRow(
+        title = stringResource(R.string.settings_appearance_system_bars),
+        // Варианты строятся из `SystemBarsMode`, как у темы: список и подпись текущего значения
+        // не могут разойтись.
+        options = SystemBarsMode.entries.map { mode ->
+            ChoiceOption(id = mode.name, labelRes = systemBarsLabelRes(mode))
+        },
+        selected = selected.name,
+        onPick = { id -> viewModel.onSetSystemBarsMode(SystemBarsMode.valueOf(id)) },
+        subtitle = stringResource(R.string.settings_appearance_system_bars_hint),
+    )
+}
+
+/** Подпись режима системных панелей (ADR-015). */
+private fun systemBarsLabelRes(mode: SystemBarsMode): Int = when (mode) {
+    SystemBarsMode.HIDE_ALWAYS -> R.string.settings_system_bars_hide_always
+    SystemBarsMode.HIDE_ON_SHELF -> R.string.settings_system_bars_hide_on_shelf
+    SystemBarsMode.HIDE_EXCEPT_APPS -> R.string.settings_system_bars_hide_except_apps
+    SystemBarsMode.SHOW_ALWAYS -> R.string.settings_system_bars_show_always
 }
 
 /** Подпись плотности. Ресурс: значение настройки — имя перечисления, а не слово. */

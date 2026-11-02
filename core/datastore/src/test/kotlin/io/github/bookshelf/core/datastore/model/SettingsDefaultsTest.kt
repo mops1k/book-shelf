@@ -23,6 +23,8 @@ class SettingsDefaultsTest {
         assertThat(appearance.fontScale).isEqualTo(100)
         assertThat(appearance.invertCovers).isFalse()
         assertThat(appearance.textOnlyMode).isFalse()
+        // Панели по умолчанию скрыты — это поведение приложения до лаунчера (ADR-015).
+        assertThat(appearance.systemBarsMode).isEqualTo(SystemBarsMode.HIDE_ALWAYS)
     }
 
     @Test

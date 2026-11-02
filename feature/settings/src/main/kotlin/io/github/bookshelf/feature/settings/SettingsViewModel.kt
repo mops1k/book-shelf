@@ -28,6 +28,7 @@ import io.github.bookshelf.core.datastore.model.Grouping
 import io.github.bookshelf.core.datastore.model.ReaderSettings
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.text.AppText
 import io.github.bookshelf.core.designsystem.text.text
@@ -290,6 +291,13 @@ class SettingsViewModel @Inject constructor(
     fun onSetThemeMode(mode: ThemeMode) {
         updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
             settings.copy(appearance = settings.appearance.copy(themeMode = mode))
+        }
+    }
+
+    /** Когда скрывать системные панели: всегда / на полке / кроме приложений / никогда (ADR-015). */
+    fun onSetSystemBarsMode(mode: SystemBarsMode) {
+        updateSettings(settingsRepository, _uiState, viewModelScope) { settings ->
+            settings.copy(appearance = settings.appearance.copy(systemBarsMode = mode))
         }
     }
 
@@ -604,6 +612,7 @@ private fun AppSettingsUi.withSettings(settings: AppSettings): AppSettingsUi = c
     fontScalePercent = settings.appearance.fontScale,
     invertCovers = settings.appearance.invertCovers,
     themeMode = settings.appearance.themeMode,
+    systemBarsMode = settings.appearance.systemBarsMode,
     volumeKeysAsPageTurn = settings.eink.volumeKeysAsPageTurn,
     scanOnStart = settings.library.autoScanOnStart,
     viewPreset = settings.library.viewPreset,

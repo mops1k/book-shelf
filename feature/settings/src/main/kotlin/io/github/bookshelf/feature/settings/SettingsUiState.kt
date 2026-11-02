@@ -9,6 +9,7 @@ import io.github.bookshelf.core.datastore.model.EinkDensityLike
 import io.github.bookshelf.core.data.sync.ProgressSourcesReport
 import io.github.bookshelf.core.datastore.model.ShelfViewPreset
 import io.github.bookshelf.core.datastore.model.SortOrder
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.SettingsKeys
 import io.github.bookshelf.core.datastore.model.ThemeMode
 
@@ -215,6 +216,8 @@ data class AppSettingsUi(
      * (`MainActivity`), и булево потеряло бы этот вариант при первом же открытии экрана.
      */
     val themeMode: ThemeMode = ThemeMode.LIGHT,
+    /** Когда скрывать системные панели (ADR-015): четыре варианта, по умолчанию — всегда. */
+    val systemBarsMode: SystemBarsMode = SystemBarsMode.HIDE_ALWAYS,
     /** Клавиши громкости листают страницы (на устройствах без Page Up/Down). */
     val volumeKeysAsPageTurn: Boolean = false,
     /** Отключить все анимации (на e-ink анимаций быть не должно). */

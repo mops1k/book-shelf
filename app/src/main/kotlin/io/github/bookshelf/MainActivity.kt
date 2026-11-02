@@ -15,6 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -30,12 +33,16 @@ import io.github.bookshelf.core.data.sync.LibrarySync
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
 import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
+import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.core.datastore.model.ThemeMode
 import io.github.bookshelf.core.designsystem.theme.EinkTheme
 import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
 import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
+import io.github.bookshelf.feature.library.LibraryRoute
+import io.github.bookshelf.navigation.AppsRoute
 import io.github.bookshelf.navigation.BookShelfNavHost
 import io.github.bookshelf.ui.MainViewModel
+import io.github.bookshelf.ui.SystemBarsPolicy
 import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -180,10 +187,18 @@ class MainActivity : ComponentActivity() {
         // подписки к видимому экрану означала бы, что событий мы не увидим никогда.
         registerReaderEvents()
         super.onCreate(savedInstanceState)
-        enterImmersiveMode()
+        applySystemBars()
 
         setContent {
             val themeState by viewModel.themeState.collectAsStateWithLifecycle()
+            // Маршрут нужен политике панелей: «скрывать только на полке» и «кроме приложений»
+            // без текущего экрана не отличить друг от друга (ADR-015).
+            var currentRoute by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(themeState.systemBarsMode, currentRoute) {
+                systemBarsMode = themeState.systemBarsMode
+                route = currentRoute
+                applySystemBars()
+            }
 
             EinkTheme(
                 darkTheme = themeState.themeMode.isDarkTheme(),
@@ -201,6 +216,7 @@ class MainActivity : ComponentActivity() {
                         BookShelfNavHost(
                             sourceRepository = sourceRepository,
                             opdsEnabled = themeState.opdsEnabled,
+                            routeListener = { currentRoute = it },
                         )
                     }
                 }
@@ -208,26 +224,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Режим панелей из настроек; до первой подписки — «скрывать всегда», как раньше. */
+    private var systemBarsMode: SystemBarsMode = SystemBarsMode.HIDE_ALWAYS
+
+    /** Текущий маршрут графа; `null` — граф ещё не поднялся, считаем полкой. */
+    private var route: String? = null
+
     /**
-     * Полноэкранный режим: статусная панель и навигация скрыты.
+     * Применить режим системных панелей к текущему экрану (ADR-015).
      *
-     * На e-ink обе панели съедают часть полосы чтения и перерисовываются при каждом
-     * касании. Полностью их не убираем: без системной навигации не выйти из приложения
-     * и не открыть уведомления, поэтому панели возвращаются свайпом от края.
+     * На e-ink панели съедают полосу у контента и перерисовываются при каждом касании, поэтому
+     * по умолчанию они скрыты; но на карточке книги и в списке приложений пользователю нужны
+     * заряд и сеть, и режимы «только на полке» / «кроме приложений» показывают их там.
+     * Полностью не убираем: без системной навигации не выйти из приложения, поэтому панели
+     * возвращаются свайпом от края.
      */
-    private fun enterImmersiveMode() {
+    private fun applySystemBars() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        val hideBars = SystemBarsPolicy.shouldHideBars(
+            mode = systemBarsMode,
+            isShelf = (route ?: LibraryRoute.route) == LibraryRoute.route,
+            isApps = route == AppsRoute.route,
+        )
         WindowInsetsControllerCompat(window, window.decorView).apply {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
+            if (hideBars) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
-    /** Возврат приложения из фона снова полноэкранный. */
+    /** Возврат приложения из фона снова применяет режим панелей. */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enterImmersiveMode()
+        if (hasFocus) applySystemBars()
     }
 }
 

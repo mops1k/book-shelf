@@ -57,6 +57,7 @@ internal object SettingsCodec {
             target[SettingsKeys.FONT_SCALE] = fontScale
             target[SettingsKeys.INVERT_COVERS] = invertCovers
             target[SettingsKeys.TEXT_ONLY_MODE] = textOnlyMode
+            target[SettingsKeys.SYSTEM_BARS_MODE] = systemBarsMode.name
         }
         with(settings.eink) {
             target[SettingsKeys.VOLUME_KEYS_AS_PAGE_TURN] = volumeKeysAsPageTurn
@@ -102,6 +103,10 @@ internal object SettingsCodec {
         fontScale = preferences[SettingsKeys.FONT_SCALE] ?: SettingsKeys.Defaults.FONT_SCALE,
         invertCovers = preferences[SettingsKeys.INVERT_COVERS] ?: SettingsKeys.Defaults.INVERT_COVERS,
         textOnlyMode = preferences[SettingsKeys.TEXT_ONLY_MODE] ?: SettingsKeys.Defaults.TEXT_ONLY_MODE,
+        systemBarsMode = enumNameOrDefault(
+            preferences[SettingsKeys.SYSTEM_BARS_MODE],
+            SettingsKeys.Defaults.SYSTEM_BARS_MODE,
+        ),
     )
 
     private fun eink(preferences: Preferences) = EinkSettings(

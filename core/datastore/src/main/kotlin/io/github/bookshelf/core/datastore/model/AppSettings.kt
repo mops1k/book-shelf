@@ -34,6 +34,8 @@ data class AppearanceSettings(
     val fontScale: Int = SettingsKeys.Defaults.FONT_SCALE,
     val invertCovers: Boolean = SettingsKeys.Defaults.INVERT_COVERS,
     val textOnlyMode: Boolean = SettingsKeys.Defaults.TEXT_ONLY_MODE,
+    /** Когда скрывать системные панели (статус-бар и навигация) — ADR-015. */
+    val systemBarsMode: SystemBarsMode = SettingsKeys.Defaults.SYSTEM_BARS_MODE,
 )
 
 /**
@@ -128,6 +130,26 @@ data class AdvancedSettings(
  * всего именно так («E-ink UX» §2.1).
  */
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
+
+/**
+ * Политика системных панелей на e-ink (ADR-015, «E-ink UX» §6.8).
+ *
+ * Панели скрываются не «всегда», а по режиму: полноэкранная полка без статус-бара экономит строку,
+ * но на карточке книги и в настройках панели нужны — по ним видно заряд и сеть.
+ */
+enum class SystemBarsMode {
+    /** Скрывать на любом экране — поведение приложения до режима лаунчера. */
+    HIDE_ALWAYS,
+
+    /** Скрывать только на полке, на остальных экранах показывать. */
+    HIDE_ON_SHELF,
+
+    /** Скрывать везде, кроме списка приложений (там панели видны всегда). */
+    HIDE_EXCEPT_APPS,
+
+    /** Не скрывать никогда. */
+    SHOW_ALWAYS,
+}
 
 /**
  * Плотность интерфейса («E-ink UX» §2.3).

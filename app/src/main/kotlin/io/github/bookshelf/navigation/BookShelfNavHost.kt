@@ -1,6 +1,7 @@
 package io.github.bookshelf.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -9,6 +10,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.flow.map
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.bookshelf.core.data.repository.SourceRepository
 import io.github.bookshelf.feature.bookdetails.BookDetailsRoute
@@ -43,6 +45,18 @@ import io.github.bookshelf.feature.settings.settingsCategoryScreen
 import io.github.bookshelf.feature.settings.settingsScreen
 
 /**
+ * Сообщает наружу текущий маршрут графа: по нему `MainActivity` применяет режим системных панелей
+ * (ADR-015). Вынесено из `BookShelfNavHost` ради предела длины функции у detekt.
+ */
+@Composable
+private fun ReportCurrentRoute(navController: NavHostController, listener: (String?) -> Unit) {
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(backStackEntry) {
+        listener(backStackEntry?.destination?.route)
+    }
+}
+
+/**
  * Навигационный граф приложения.
  *
  * `:app` знает только маршруты и переходы между экранами; сами экраны регистрируются
@@ -71,6 +85,13 @@ fun BookShelfNavHost(
      */
     opdsEnabled: Boolean = true,
     onExit: () -> Unit = rememberExitAction(),
+    /**
+     * Текущий маршрут графа — наружу, чтобы `MainActivity` применяла режим системных панелей
+     * к тому экрану, который виден (ADR-015): режим «скрывать только на полке» без маршрута
+     * не отличить от «скрывать всегда». Имя без `on…` намеренно: это не навигационное действие,
+     * и проверка связности (`check-reachability.mjs`) не должна видеть в нём переход.
+     */
+    routeListener: (String?) -> Unit = {},
 ) {
     // Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
     // и подписка пересоздавалась бы (на это и указал lint, режим FlowOperatorInvokedInComposition).
@@ -78,6 +99,7 @@ fun BookShelfNavHost(
         sourceRepository.observeSources().map { sources -> sources.isNotEmpty() }
     }
     val hasSources by hasSourcesFlow.collectAsState(initial = true)
+    ReportCurrentRoute(navController = navController, listener = routeListener)
 
     NavHost(
         navController = navController,
