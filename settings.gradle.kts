@@ -45,6 +45,7 @@ include(":core:readerlink")
 include(":core:opds")
 include(":core:fb2opt")
 include(":core:eink")
+include(":core:update")
 include(":core:testing")
 
 include(":feature:onboarding")
