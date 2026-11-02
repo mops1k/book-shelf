@@ -93,6 +93,8 @@ shelf, the bottom bar and the home-screen role disappear, and the role is releas
   network request at all.
 * The Google Play build has no checks: updates there come from the store.
 
+![Update dialog](assets/screenshots/update-dialog.png)
+
 ### OPDS catalogs
 
 * Connect OPDS catalogs, browse sections, search and download books straight into your folder.
