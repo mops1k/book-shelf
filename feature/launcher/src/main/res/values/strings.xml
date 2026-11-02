@@ -15,4 +15,9 @@
     <string name="launcher_action_close">Закрыть</string>
     <string name="launcher_action_retry">Повторить</string>
     <string name="launcher_open_settings">Настройки</string>
+    <string name="launcher_hidden_title">Скрытые приложения</string>
+    <string name="launcher_hidden_restore">Вернуть в список</string>
+    <string name="launcher_hidden_empty_title">Скрытых приложений нет</string>
+    <string name="launcher_hidden_empty_message">Спрятанные приложения появятся здесь, и их можно будет вернуть</string>
+    <string name="launcher_hidden_row">Скрытые приложения (%1$d)</string>
 </resources>

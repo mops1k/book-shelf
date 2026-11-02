@@ -28,7 +28,9 @@ import io.github.bookshelf.feature.filters.ShelfRulesRoute
 import io.github.bookshelf.feature.filters.filtersScreen
 import io.github.bookshelf.feature.filters.shelfRulesScreen
 import io.github.bookshelf.feature.launcher.AppsRoute
+import io.github.bookshelf.feature.launcher.HiddenAppsRoute
 import io.github.bookshelf.feature.launcher.LauncherViewModel
+import io.github.bookshelf.feature.launcher.hiddenAppsScreen
 import io.github.bookshelf.feature.launcher.launcherScreen
 import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.library.libraryScreen
@@ -68,6 +70,7 @@ private fun NavGraphBuilder.launcherTab(
         },
         onOpenSettings = { navController.navigate(SettingsRoute.route) },
     )
+    hiddenAppsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
 }
 
 /**
@@ -239,20 +242,38 @@ fun BookShelfNavHost(
 
         shelfScreens(navController)
 
-        searchScreen(
-            onBack = { navController.popBackStack() },
-            onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
-        )
-
-        filtersScreen(
-            onBack = { navController.popBackStack() },
-            // (состояние фильтров — часть навигационного состояния, «Архитектура» §3.5).
-            onApply = { navController.popBackStack() },
-        )
-
-        systemRoutes(navController = navController, opdsEnabled = opdsEnabled, onExit = onExit)
+        secondaryRoutes(navController, opdsEnabled, onExit)
 
     }
+}
+
+
+/**
+ * Второстепенные маршруты: поиск, фильтры и системная часть (настройки, каталоги, скан).
+ *
+ * Вынесено из `BookShelfNavHost` ради предела длины функции у detekt; переход к скрытым
+ * приложениям создаётся здесь же, потому что экран живёт в лаунчерной части графа.
+ */
+private fun NavGraphBuilder.secondaryRoutes(
+    navController: NavHostController,
+    opdsEnabled: Boolean,
+    onExit: () -> Unit,
+) {
+    searchScreen(
+        onBack = { navController.popBackStack() },
+        onOpenBook = { bookId -> navController.navigate(BookDetailsRoute.createRoute(bookId)) },
+    )
+    filtersScreen(
+        onBack = { navController.popBackStack() },
+        // (состояние фильтров — часть навигационного состояния, «Архитектура» §3.5).
+        onApply = { navController.popBackStack() },
+    )
+    systemRoutes(
+        navController = navController,
+        opdsEnabled = opdsEnabled,
+        onExit = onExit,
+        onOpenHiddenApps = { navController.navigate(HiddenAppsRoute.route) },
+    )
 }
 
 /**
@@ -266,6 +287,7 @@ private fun NavGraphBuilder.systemRoutes(
     navController: NavHostController,
     opdsEnabled: Boolean,
     onExit: () -> Unit,
+    onOpenHiddenApps: () -> Unit,
 ) {
         scanScreen(
             onBack = { navController.popBackStack() },
@@ -317,6 +339,8 @@ private fun NavGraphBuilder.systemRoutes(
             // Тот же экран сканирования, что и с пустой полки: отчёт и проблемные файлы должны
             // быть доступны и при живой библиотеке.
             onOpenScan = { navController.navigate(ScanRoute.route) },
+            // Возврат спрятанного приложения: «Скрыть из списка» без пути назад — ловушка.
+            onOpenHiddenApps = { navController.navigate(HiddenAppsRoute.route) },
         )
 }
 

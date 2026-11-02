@@ -15,4 +15,9 @@
     <string name="launcher_action_close">Close</string>
     <string name="launcher_action_retry">Retry</string>
     <string name="launcher_open_settings">Settings</string>
+    <string name="launcher_hidden_title">Hidden apps</string>
+    <string name="launcher_hidden_restore">Restore to list</string>
+    <string name="launcher_hidden_empty_title">No hidden apps</string>
+    <string name="launcher_hidden_empty_message">Apps you hide will appear here and can be restored</string>
+    <string name="launcher_hidden_row">Hidden apps (%1$d)</string>
 </resources>

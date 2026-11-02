@@ -327,4 +327,6 @@
     <string name="settings_launcher_collapse_hint">BACK в корне лаунчера оставляет приложение в недавних; действует только в роли HOME</string>
     <string name="settings_launcher_hide_tab_bar">Скрывать нижнюю панель</string>
     <string name="settings_launcher_hide_tab_bar_hint">Полка и приложения открываются кнопками устройства; по умолчанию панель показывается</string>
+    <string name="settings_launcher_hidden_row">Скрытые приложения (%1$d)</string>
+    <string name="settings_launcher_hidden_row_hint">Вернуть приложение в список приложений</string>
 </resources>

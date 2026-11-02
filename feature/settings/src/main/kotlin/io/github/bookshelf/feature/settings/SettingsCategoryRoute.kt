@@ -38,6 +38,8 @@ fun NavGraphBuilder.settingsCategoryScreen(
     onBack: () -> Unit,
     onOpenCatalogs: () -> Unit,
     onOpenScan: () -> Unit,
+    /** Переход к экрану «Скрытые приложения»: возврат спрятанного из списка. */
+    onOpenHiddenApps: () -> Unit = {},
 ) {
     composable(
         route = SettingsCategoryRoute.route,
@@ -55,6 +57,7 @@ fun NavGraphBuilder.settingsCategoryScreen(
                 onBack = onBack,
                 onOpenCatalogs = onOpenCatalogs,
                 onOpenScan = onOpenScan,
+                onOpenHiddenApps = onOpenHiddenApps,
             )
         }
     }

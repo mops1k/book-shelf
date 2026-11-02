@@ -30,6 +30,17 @@ data class LauncherUiState(
     val error: LauncherError? = null,
 ) {
 
+    /**
+     * Скрытые пользователем приложения — по названию.
+     *
+     * Нужны экрану «Скрытые приложения» в настройках: без него «Скрыть из списка» было бы
+     * односторонним действием (нашёл Александр 02.11.2026).
+     */
+    val hiddenApps: List<InstalledApp>
+        get() = apps
+            .filter { app -> app.packageName in hidden }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { app: InstalledApp -> app.label })
+
     /** Что видит пользователь: отбор → поиск → порядок. */
     val visible: List<InstalledApp>
         get() {

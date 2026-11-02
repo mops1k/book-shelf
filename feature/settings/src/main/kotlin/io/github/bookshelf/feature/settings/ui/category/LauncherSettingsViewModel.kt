@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import io.github.bookshelf.core.designsystem.component.EinkButton
+import io.github.bookshelf.core.designsystem.component.EinkListRow
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -193,6 +194,7 @@ class LauncherSettingsViewModel @Inject constructor(
 @Composable
 internal fun LauncherCategory(
     modifier: Modifier = Modifier,
+    onOpenHiddenApps: () -> Unit = {},
     viewModel: LauncherSettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -235,6 +237,10 @@ internal fun LauncherCategory(
         collapseItems(
             state = state,
             onSetCollapseInsteadOfExit = viewModel::onSetCollapseInsteadOfExit,
+        )
+        hiddenItems(
+            hiddenCount = state.hiddenPackages.size,
+            onOpenHiddenApps = onOpenHiddenApps,
         )
         systemItems(state = state, onSetShowSystemApps = viewModel::onSetShowSystemApps)
     }
@@ -359,6 +365,22 @@ private fun LazyListScope.collapseItems(
             subtitle = stringResource(R.string.settings_launcher_collapse_hint),
             enabled = state.collapseInsteadOfExit,
             onToggle = onSetCollapseInsteadOfExit,
+        )
+    }
+}
+
+/**
+ * Строка «Скрытые приложения (N)» (ADR-015, решение 7).
+ *
+ * Показываем только когда скрытые есть: пустая строка в настройках ничего не объясняет.
+ */
+private fun LazyListScope.hiddenItems(hiddenCount: Int, onOpenHiddenApps: () -> Unit) {
+    if (hiddenCount == 0) return
+    item(key = "launcher-hidden-apps") {
+        EinkListRow(
+            title = stringResource(R.string.settings_launcher_hidden_row, hiddenCount),
+            subtitle = stringResource(R.string.settings_launcher_hidden_row_hint),
+            onClick = onOpenHiddenApps,
         )
     }
 }

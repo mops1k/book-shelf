@@ -44,6 +44,8 @@ fun SettingsCategoryScreen(
     onBack: () -> Unit,
     onOpenCatalogs: () -> Unit,
     onOpenScan: () -> Unit,
+    /** Переход к экрану «Скрытые приложения» (возврат спрятанного из списка). */
+    onOpenHiddenApps: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -93,7 +95,7 @@ fun SettingsCategoryScreen(
                 viewModel = viewModel,
                 onOpenCatalogs = onOpenCatalogs,
             )
-            SettingsSectionKind.LAUNCHER -> LauncherCategory()
+            SettingsSectionKind.LAUNCHER -> LauncherCategory(onOpenHiddenApps = onOpenHiddenApps)
             SettingsSectionKind.STORAGE -> StorageCategory(
                 state = state,
                 viewModel = viewModel,
