@@ -86,5 +86,5 @@
     <string name="update_dialog_download_failed">Download failed: %1$s</string>
     <string name="update_dialog_install">Install</string>
     <string name="update_dialog_permission_hint">Allow installing from this app in the system settings</string>
-    <string name="update_dialog_permission_action">Allow</string>
+    <string name="update_dialog_permission_action">Update</string>
 </resources>

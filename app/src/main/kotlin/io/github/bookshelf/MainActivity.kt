@@ -36,6 +36,7 @@ import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.launcher.AppsRoute
 import io.github.bookshelf.feature.launcher.LauncherViewModel
 import io.github.bookshelf.navigation.BookShelfNavHost
+import io.github.bookshelf.feature.library.update.UpdateDialogHost
 import io.github.bookshelf.ui.BookShelfThemeRoot
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
@@ -241,6 +242,10 @@ class MainActivity : ComponentActivity() {
                     pendingRoute = pendingRoute,
                     onPendingRouteHandled = ::clearPendingRoute,
                 )
+                // Диалог обновления (ADR-018): поверх любого стартового экрана, включая
+                // список приложений, если Home открывает его. Не на полке только — иначе
+                // пользователь, у которого Home = «Приложения», не увидел бы предложение.
+                UpdateDialogHost()
             }
         }
     }

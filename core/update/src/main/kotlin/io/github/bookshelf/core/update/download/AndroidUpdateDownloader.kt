@@ -50,7 +50,8 @@ class AndroidUpdateDownloader @Inject constructor(
                 null -> return@flow emit(UpdateDownloadState.Failed(REASON_LOST))
                 else -> when (snapshot.status) {
                     DownloadManager.STATUS_SUCCESSFUL -> {
-                        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), UPDATE_DIR + fileName)
+                        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                        val file = File(dir, UPDATE_DIR + fileName)
                         val done = if (file.exists() && file.length() > 0) {
                             UpdateDownloadState.Done(file)
                         } else {

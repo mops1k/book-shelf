@@ -92,5 +92,5 @@
     <string name="update_dialog_download_failed">Не удалось скачать: %1$s</string>
     <string name="update_dialog_install">Установить</string>
     <string name="update_dialog_permission_hint">Разрешите установку из этого приложения в настройках системы</string>
-    <string name="update_dialog_permission_action">Разрешить</string>
+    <string name="update_dialog_permission_action">Обновить</string>
 </resources>

@@ -11,6 +11,7 @@ import io.github.bookshelf.core.update.download.UpdateDownloader
 import io.github.bookshelf.core.update.install.ApkInstaller
 import io.github.bookshelf.core.update.install.InstallGate
 import io.github.bookshelf.core.update.model.AppBuildInfo
+import io.github.bookshelf.core.update.model.ReleaseNotes
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -120,7 +121,9 @@ class UpdateViewModel @Inject constructor(
                     checking = false,
                     visible = true,
                     versionName = result.release.version.toString(),
-                    notes = result.release.notes,
+                    // В диалог — короткий текст без markdown-картинок: полное тело релиза
+                    // растягивало карточку на весь экран (найдено на устройстве 02.11.2026).
+                    notes = ReleaseNotes.preview(result.release.notes),
                     pageUrl = result.release.pageUrl,
                     // APK берётся из проверки: там уже выбран ассет по flavor, и `play` его не получит.
                     assetUrl = result.asset?.downloadUrl.orEmpty(),

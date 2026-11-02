@@ -1,10 +1,12 @@
 package io.github.bookshelf.feature.library.update
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +63,9 @@ internal fun UpdateDialog(
             modifier = Modifier
                 .widthIn(max = 480.dp)
                 .fillMaxWidth()
+                // Заливка обязательна: без неё диалог прозрачный и сквозь него видно полку
+                // (замечание Александра 02.11.2026).
+                .background(colors.background)
                 .border(dimens.borderAccent, colors.foreground)
                 .padding(dimens.gutter),
             verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
@@ -77,8 +82,11 @@ internal fun UpdateDialog(
             )
             if (state.notes.isNotBlank()) {
                 Column(
+                    // Высота ограничена, а не «сколько есть»: иначе текст релиза растягивал
+                    // карточку на весь экран и кнопки уезжали к самому краю дисплея.
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(max = NOTES_MAX_HEIGHT)
                         .verticalScroll(rememberScrollState()),
                 ) {
                     Text(
@@ -106,8 +114,10 @@ private fun UpdateDialogStatus(state: UpdateUiState) {
     val colors = LocalEinkColors.current
     val text = when {
         state.permissionRequired -> stringResource(R.string.update_dialog_permission_hint)
-        state.download is UpdateDownloadState.Failed ->
-            stringResource(R.string.update_dialog_download_failed, (state.download as UpdateDownloadState.Failed).reason)
+        state.download is UpdateDownloadState.Failed -> {
+            val reason = (state.download as UpdateDownloadState.Failed).reason
+            stringResource(R.string.update_dialog_download_failed, reason)
+        }
         state.download is UpdateDownloadState.Running -> {
             val percent = (state.download as UpdateDownloadState.Running).percent
             if (percent == null) {
@@ -138,33 +148,36 @@ private fun UpdateDialogActions(
 ) {
     val dimens = LocalEinkDimens.current
     val done = state.download is UpdateDownloadState.Done
-    Row(
+    val primaryAction = when {
+        state.permissionRequired -> onRequestPermission
+        done -> onInstall
+        else -> onDownload
+    }
+    val primaryLabel = when {
+        state.permissionRequired -> stringResource(R.string.update_dialog_permission_action)
+        done -> stringResource(R.string.update_dialog_install)
+        else -> stringResource(R.string.update_dialog_download)
+    }
+    // Кнопки в столбик на всю ширину: в две колонки длинная подпись обрезалась
+    // («Скачать и установ…», замечание Александра 02.11.2026).
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
     ) {
-        val primaryAction = when {
-            state.permissionRequired -> onRequestPermission
-            done -> onInstall
-            else -> onDownload
-        }
-        val primaryLabel = when {
-            state.permissionRequired -> stringResource(R.string.update_dialog_permission_action)
-            done -> stringResource(R.string.update_dialog_install)
-            state.download is UpdateDownloadState.Failed -> stringResource(R.string.update_dialog_download)
-            else -> stringResource(R.string.update_dialog_download)
-        }
         EinkButton(
             text = primaryLabel,
             onClick = primaryAction,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             primary = true,
             enabled = state.download !is UpdateDownloadState.Running,
         )
         EinkButton(
             text = stringResource(R.string.update_dialog_later),
             onClick = onDismiss,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
+
+/** Предел высоты блока «что нового»: примерно половина экрана 6-дюймовой читалки. */
+private val NOTES_MAX_HEIGHT = 360.dp
