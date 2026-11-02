@@ -81,4 +81,10 @@
     <string name="update_dialog_current_version">A new BookShelf version: details below</string>
     <string name="update_dialog_download">Download and install</string>
     <string name="update_dialog_later">Later</string>
+    <string name="update_dialog_downloading">Downloading: %1$d%%</string>
+    <string name="update_dialog_downloading_unknown">Downloading…</string>
+    <string name="update_dialog_download_failed">Download failed: %1$s</string>
+    <string name="update_dialog_install">Install</string>
+    <string name="update_dialog_permission_hint">Allow installing from this app in the system settings</string>
+    <string name="update_dialog_permission_action">Allow</string>
 </resources>

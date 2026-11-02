@@ -87,4 +87,10 @@
     <string name="update_dialog_current_version">Новая версия приложения BookShelf: что нового ниже</string>
     <string name="update_dialog_download">Скачать и установить</string>
     <string name="update_dialog_later">Позже</string>
+    <string name="update_dialog_downloading">Скачивание: %1$d%%</string>
+    <string name="update_dialog_downloading_unknown">Скачивание…</string>
+    <string name="update_dialog_download_failed">Не удалось скачать: %1$s</string>
+    <string name="update_dialog_install">Установить</string>
+    <string name="update_dialog_permission_hint">Разрешите установку из этого приложения в настройках системы</string>
+    <string name="update_dialog_permission_action">Разрешить</string>
 </resources>

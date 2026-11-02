@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -23,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.designsystem.component.EinkButton
 import io.github.bookshelf.core.designsystem.theme.LocalEinkColors
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
+import io.github.bookshelf.core.update.download.UpdateDownloadState
 import io.github.bookshelf.feature.library.R
 
 /**
@@ -34,14 +34,13 @@ import io.github.bookshelf.feature.library.R
 @Composable
 fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val uriHandler = LocalUriHandler.current
     if (state.visible) {
         UpdateDialog(
             state = state,
             onDismiss = viewModel::onDismiss,
-            // Пока скачивание в приложении не сделано (фаза 3 ADR-018), «Скачать и установить»
-            // ведёт на страницу релиза: кнопка не должна быть пустой.
-            onDownload = { if (state.pageUrl.isNotBlank()) uriHandler.openUri(state.pageUrl) },
+            onDownload = viewModel::onDownload,
+            onInstall = viewModel::onInstall,
+            onRequestPermission = viewModel::onRequestPermission,
         )
     }
 }
@@ -52,6 +51,8 @@ internal fun UpdateDialog(
     state: UpdateUiState,
     onDismiss: () -> Unit,
     onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onRequestPermission: () -> Unit,
 ) {
     val colors = LocalEinkColors.current
     val dimens = LocalEinkDimens.current
@@ -87,23 +88,83 @@ internal fun UpdateDialog(
                     )
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                EinkButton(
-                    text = stringResource(R.string.update_dialog_download),
-                    onClick = onDownload,
-                    modifier = Modifier.weight(1f),
-                    primary = true,
-                )
-                EinkButton(
-                    text = stringResource(R.string.update_dialog_later),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                )
+            UpdateDialogStatus(state = state)
+            UpdateDialogActions(
+                state = state,
+                onDownload = onDownload,
+                onInstall = onInstall,
+                onRequestPermission = onRequestPermission,
+                onDismiss = onDismiss,
+            )
+        }
+    }
+}
+
+/** Строка состояния под «что нового»: прогресс, ошибка или просьба о разрешении. */
+@Composable
+private fun UpdateDialogStatus(state: UpdateUiState) {
+    val colors = LocalEinkColors.current
+    val text = when {
+        state.permissionRequired -> stringResource(R.string.update_dialog_permission_hint)
+        state.download is UpdateDownloadState.Failed ->
+            stringResource(R.string.update_dialog_download_failed, (state.download as UpdateDownloadState.Failed).reason)
+        state.download is UpdateDownloadState.Running -> {
+            val percent = (state.download as UpdateDownloadState.Running).percent
+            if (percent == null) {
+                stringResource(R.string.update_dialog_downloading_unknown)
+            } else {
+                stringResource(R.string.update_dialog_downloading, percent)
             }
         }
+        else -> null
+    }
+    if (text != null) {
+        Text(
+            text = text,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            color = colors.foreground,
+        )
+    }
+}
+
+/** Кнопки диалога: скачать, установить, разрешить или отложить. */
+@Composable
+private fun UpdateDialogActions(
+    state: UpdateUiState,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onRequestPermission: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val dimens = LocalEinkDimens.current
+    val done = state.download is UpdateDownloadState.Done
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val primaryAction = when {
+            state.permissionRequired -> onRequestPermission
+            done -> onInstall
+            else -> onDownload
+        }
+        val primaryLabel = when {
+            state.permissionRequired -> stringResource(R.string.update_dialog_permission_action)
+            done -> stringResource(R.string.update_dialog_install)
+            state.download is UpdateDownloadState.Failed -> stringResource(R.string.update_dialog_download)
+            else -> stringResource(R.string.update_dialog_download)
+        }
+        EinkButton(
+            text = primaryLabel,
+            onClick = primaryAction,
+            modifier = Modifier.weight(1f),
+            primary = true,
+            enabled = state.download !is UpdateDownloadState.Running,
+        )
+        EinkButton(
+            text = stringResource(R.string.update_dialog_later),
+            onClick = onDismiss,
+            modifier = Modifier.weight(1f),
+        )
     }
 }

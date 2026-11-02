@@ -6,6 +6,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.bookshelf.core.datastore.SettingsRepository
 import io.github.bookshelf.core.update.checker.UpdateCheck
 import io.github.bookshelf.core.update.checker.UpdateChecker
+import io.github.bookshelf.core.update.download.UpdateDownloadState
+import io.github.bookshelf.core.update.download.UpdateDownloader
+import io.github.bookshelf.core.update.install.ApkInstaller
+import io.github.bookshelf.core.update.install.InstallGate
 import io.github.bookshelf.core.update.model.AppBuildInfo
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +32,8 @@ class UpdateViewModel @Inject constructor(
     private val checker: UpdateChecker,
     private val settingsRepository: SettingsRepository,
     private val buildInfo: AppBuildInfo,
+    private val downloader: UpdateDownloader,
+    private val installer: ApkInstaller,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UpdateUiState())
@@ -53,6 +59,46 @@ class UpdateViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(visible = false, manualResult = null)
     }
 
+    /**
+     * «Скачать и установить»: сначала разрешение, потом скачивание (ADR-018).
+     *
+     * Диалог остаётся открытым: на e-ink не должно быть «нажал — и непонятно, что происходит».
+     */
+    fun onDownload() {
+        val state = _uiState.value
+        if (state.download is UpdateDownloadState.Running) return
+        if (state.assetUrl.isBlank()) {
+            _uiState.value = state.copy(download = UpdateDownloadState.Failed("нет ссылки на APK"))
+            return
+        }
+        if (installer.gate() == InstallGate.REQUEST_PERMISSION) {
+            _uiState.value = state.copy(permissionRequired = true)
+            return
+        }
+        startDownload(state.assetUrl, state.assetName)
+    }
+
+    /** «Разрешить установку»: открыть системный экран разрешения для нашего пакета. */
+    fun onRequestPermission() {
+        installer.requestPermission()
+        _uiState.value = _uiState.value.copy(permissionRequired = false)
+    }
+
+    /** «Установить»: отдать скачанный APK системному установщику. */
+    fun onInstall() {
+        val done = _uiState.value.download as? UpdateDownloadState.Done ?: return
+        installer.install(done.file)
+    }
+
+    private fun startDownload(url: String, assetName: String) {
+        _uiState.value = _uiState.value.copy(permissionRequired = false, download = UpdateDownloadState.Running(null))
+        viewModelScope.launch {
+            downloader.download(url, assetName).collect { state ->
+                _uiState.value = _uiState.value.copy(download = state)
+            }
+        }
+    }
+
     private fun runCheck(force: Boolean) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(checking = force, manualResult = null)
@@ -76,6 +122,9 @@ class UpdateViewModel @Inject constructor(
                     versionName = result.release.version.toString(),
                     notes = result.release.notes,
                     pageUrl = result.release.pageUrl,
+                    // APK берётся из проверки: там уже выбран ассет по flavor, и `play` его не получит.
+                    assetUrl = result.asset?.downloadUrl.orEmpty(),
+                    assetName = result.asset?.name.orEmpty(),
                 )
                 UpdateCheck.None -> _uiState.value.copy(
                     checking = false,

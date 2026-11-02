@@ -80,6 +80,19 @@ heavy vendor shell.
 To turn the mode off completely: **Settings → Launcher → Launcher mode** — the app stays a plain
 shelf, the bottom bar and the home-screen role disappear, and the role is released.
 
+### Updates
+
+* The app finds out about a new version by itself: once a day on launch and via the "Check for
+  updates" button in "About".
+* A new version is shown as a dialog with the change list: "Download and install" downloads the APK
+  and hands it to the system installer (Android asks for confirmation — this cannot be bypassed),
+  "Later" postpones it until the next check.
+* On the first run the system asks to allow "install unknown apps" for BookShelf — the app opens the
+  right settings screen.
+* Checks can be turned off: "Settings → About → Check for updates"; a disabled setting makes no
+  network request at all.
+* The Google Play build has no checks: updates there come from the store.
+
 ### OPDS catalogs
 
 * Connect OPDS catalogs, browse sections, search and download books straight into your folder.
@@ -169,8 +182,12 @@ node tools/check-coverage.mjs && node --test tools/*.test.mjs
 ## Privacy
 
 * No account, no subscription, no analytics, no crash reports.
-* The network is used only for OPDS catalogs and their covers — and only while you have a catalog
-  open.
+* The network is used for OPDS catalogs and their covers — and only while you have a catalog open.
+* One service request — the update check: once a day the app asks GitHub (`api.github.com`, the
+  latest BookShelf release) for the version number. It sends nothing about you beyond ordinary
+  network data and is fully disabled by the "Check for updates" setting.
+* The update itself is downloaded from GitHub Releases and only after "Download and install" is
+  pressed.
 * The library, settings and cover cache stay on the device.
 
 ## License

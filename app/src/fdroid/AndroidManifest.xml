@@ -14,4 +14,8 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
+
+    <!-- Установка скачанного APK обновления (ADR-018). В `play` разрешения нет:
+         обновления там только через магазин. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

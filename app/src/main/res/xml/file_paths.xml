@@ -8,4 +8,8 @@
     <cache-path
         name="export"
         path="export/" />
+    <!-- Скачанный APK обновления (ADR-018): отдаётся системному установщику через content://. -->
+    <external-files-path
+        name="updates"
+        path="Download/updates/" />
 </paths>

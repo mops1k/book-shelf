@@ -7,6 +7,10 @@ import io.github.bookshelf.core.datastore.model.AppSettings
 import io.github.bookshelf.core.datastore.update.UpdateStore
 import io.github.bookshelf.core.testing.rule.MainDispatcherRule
 import io.github.bookshelf.core.update.checker.UpdateChecker
+import io.github.bookshelf.core.update.download.UpdateDownloadState
+import io.github.bookshelf.core.update.download.UpdateDownloader
+import io.github.bookshelf.core.update.install.ApkInstaller
+import io.github.bookshelf.core.update.install.InstallGate
 import io.github.bookshelf.core.update.model.AppBuildInfo
 import io.github.bookshelf.core.update.model.AppFlavor
 import io.github.bookshelf.core.update.model.AppVersion
@@ -80,13 +84,41 @@ class UpdateViewModelTest {
         }
     }
 
+    private inner class FakeDownloader : UpdateDownloader {
+        var downloads = 0
+        override fun download(url: String, assetName: String): Flow<UpdateDownloadState> {
+            downloads++
+            return kotlinx.coroutines.flow.flowOf(UpdateDownloadState.Done(java.io.File("/tmp/$assetName")))
+        }
+    }
+
+    private inner class FakeInstaller(private val gate: InstallGate = InstallGate.ALLOWED) : ApkInstaller {
+        var permissionRequests = 0
+        var installed: java.io.File? = null
+        override fun gate(): InstallGate = gate
+        override fun requestPermission() {
+            permissionRequests++
+        }
+        override fun install(file: java.io.File) {
+            installed = file
+        }
+    }
+
     private fun viewModel(
         source: ReleaseSource,
         store: UpdateStore = FakeStore(),
         settings: FakeSettings = FakeSettings(),
+        downloader: UpdateDownloader = FakeDownloader(),
+        installer: ApkInstaller = FakeInstaller(),
     ): UpdateViewModel {
         val checker = UpdateChecker(source = source, store = store, clock = FakeClock(now))
-        return UpdateViewModel(checker = checker, settingsRepository = settings, buildInfo = buildInfo)
+        return UpdateViewModel(
+            checker = checker,
+            settingsRepository = settings,
+            buildInfo = buildInfo,
+            downloader = downloader,
+            installer = installer,
+        )
     }
 
     @Test
@@ -161,6 +193,45 @@ class UpdateViewModelTest {
 
         assertThat(model.uiState.value.visible).isFalse()
         assertThat(source.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun download_starts_when_permission_is_present() = runTest {
+        val downloader = FakeDownloader()
+        val model = viewModel(FakeSource { release }, downloader = downloader)
+        advanceUntilIdle()
+
+        model.onDownload()
+        advanceUntilIdle()
+
+        assertThat(downloader.downloads).isEqualTo(1)
+        assertThat(model.uiState.value.download).isInstanceOf(UpdateDownloadState.Done::class.java)
+    }
+
+    @Test
+    fun missing_permission_requests_it_instead_of_downloading() = runTest {
+        val downloader = FakeDownloader()
+        val installer = FakeInstaller(gate = InstallGate.REQUEST_PERMISSION)
+        val model = viewModel(FakeSource { release }, downloader = downloader, installer = installer)
+        advanceUntilIdle()
+
+        model.onDownload()
+
+        assertThat(model.uiState.value.permissionRequired).isTrue()
+        assertThat(downloader.downloads).isEqualTo(0)
+    }
+
+    @Test
+    fun done_download_is_installed_by_installer() = runTest {
+        val installer = FakeInstaller()
+        val model = viewModel(FakeSource { release }, installer = installer)
+        advanceUntilIdle()
+        model.onDownload()
+        advanceUntilIdle()
+
+        model.onInstall()
+
+        assertThat(installer.installed).isNotNull()
     }
 
     @Test
