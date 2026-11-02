@@ -317,4 +317,11 @@
     <string name="settings_launcher_home_role_current">BookShelf is the default launcher</string>
     <string name="settings_launcher_home_role_not_current">BookShelf is not the default launcher</string>
     <string name="settings_launcher_home_role_button">Set as default launcher</string>
+    <string name="settings_launcher_sort">App list order</string>
+    <string name="settings_launcher_sort_hint">By name or by how often you launch it from our lists</string>
+    <string name="settings_launcher_sort_name">By name</string>
+    <string name="settings_launcher_sort_frequency">By launch frequency</string>
+    <string name="settings_launcher_reset_stats">Reset launch statistics</string>
+    <string name="settings_launcher_collapse">Collapse instead of exiting</string>
+    <string name="settings_launcher_collapse_hint">BACK at the launcher root keeps the app in recents; only applies in the home role</string>
 </resources>

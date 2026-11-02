@@ -26,6 +26,7 @@ import io.github.bookshelf.core.applist.rule.AppsAliasController
 import io.github.bookshelf.core.applist.rule.HomeRoleController
 import io.github.bookshelf.core.datastore.launcher.LauncherStore
 import io.github.bookshelf.core.datastore.model.AppListView
+import io.github.bookshelf.core.datastore.model.AppSortMode
 import io.github.bookshelf.core.datastore.model.HomeScreen
 import io.github.bookshelf.core.datastore.model.LauncherState
 import io.github.bookshelf.core.designsystem.theme.LocalEinkDimens
@@ -98,6 +99,21 @@ class LauncherSettingsViewModel @Inject constructor(
     /** Сетка иконок или список «маленькая иконка + название». */
     fun onSetViewMode(mode: AppListView) {
         viewModelScope.launch { launcherStore.update { current -> current.copy(viewMode = mode) } }
+    }
+
+    /** Порядок списка приложений: по имени или по частоте запуска. */
+    fun onSetSortMode(mode: AppSortMode) {
+        viewModelScope.launch { launcherStore.update { current -> current.copy(sortMode = mode) } }
+    }
+
+    /** Сбросить счётчики запусков: статистика частоты начинается заново. */
+    fun onResetLaunchCounts() {
+        viewModelScope.launch { launcherStore.update { current -> current.copy(launchCounts = emptyMap()) } }
+    }
+
+    /** BACK в корне в роли HOME: сворачивать приложение или выходить. */
+    fun onSetCollapseInsteadOfExit(collapse: Boolean) {
+        viewModelScope.launch { launcherStore.update { current -> current.copy(collapseInsteadOfExit = collapse) } }
     }
 
     /** Что открывать по Home: список приложений или полку. */
@@ -203,6 +219,12 @@ internal fun LauncherCategory(
             state = state,
             onSetAppsItemVisible = viewModel::onSetAppsItemVisible,
         )
+        sortItems(state = state, onSetSortMode = viewModel::onSetSortMode)
+        resetItems(onResetLaunchCounts = viewModel::onResetLaunchCounts)
+        collapseItems(
+            state = state,
+            onSetCollapseInsteadOfExit = viewModel::onSetCollapseInsteadOfExit,
+        )
         systemItems(state = state, onSetShowSystemApps = viewModel::onSetShowSystemApps)
     }
 }
@@ -268,6 +290,52 @@ private fun LazyListScope.appsItemItems(
             subtitle = stringResource(R.string.settings_launcher_apps_item_hint),
             enabled = state.appsItemVisible,
             onToggle = onSetAppsItemVisible,
+        )
+    }
+}
+
+/** Порядок списка приложений. */
+private fun LazyListScope.sortItems(state: LauncherState, onSetSortMode: (AppSortMode) -> Unit) {
+    item(key = "launcher-sort") {
+        ChoiceRow(
+            title = stringResource(R.string.settings_launcher_sort),
+            options = AppSortMode.entries.map { mode ->
+                ChoiceOption(
+                    id = mode.name,
+                    labelRes = when (mode) {
+                        AppSortMode.NAME -> R.string.settings_launcher_sort_name
+                        AppSortMode.LAUNCH_FREQUENCY -> R.string.settings_launcher_sort_frequency
+                    },
+                )
+            },
+            selected = state.sortMode.name,
+            onPick = { id -> onSetSortMode(AppSortMode.valueOf(id)) },
+            subtitle = stringResource(R.string.settings_launcher_sort_hint),
+        )
+    }
+}
+
+/** Сброс статистики запусков: без него сортировка по частоте копила бы её вечно. */
+private fun LazyListScope.resetItems(onResetLaunchCounts: () -> Unit) {
+    item(key = "launcher-reset-stats") {
+        EinkButton(
+            text = stringResource(R.string.settings_launcher_reset_stats),
+            onClick = onResetLaunchCounts,
+        )
+    }
+}
+
+/** BACK в корне в роли HOME: сворачивать приложение вместо выхода. */
+private fun LazyListScope.collapseItems(
+    state: LauncherState,
+    onSetCollapseInsteadOfExit: (Boolean) -> Unit,
+) {
+    item(key = "launcher-collapse") {
+        ToggleRow(
+            title = stringResource(R.string.settings_launcher_collapse),
+            subtitle = stringResource(R.string.settings_launcher_collapse_hint),
+            enabled = state.collapseInsteadOfExit,
+            onToggle = onSetCollapseInsteadOfExit,
         )
     }
 }

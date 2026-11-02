@@ -318,4 +318,11 @@
     <string name="settings_launcher_home_role_current">BookShelf — лаунчер по умолчанию</string>
     <string name="settings_launcher_home_role_not_current">BookShelf не выбран лаунчером по умолчанию</string>
     <string name="settings_launcher_home_role_button">Сделать лаунчером по умолчанию</string>
+    <string name="settings_launcher_sort">Сортировка списка приложений</string>
+    <string name="settings_launcher_sort_hint">По имени или по частоте запуска из наших списков</string>
+    <string name="settings_launcher_sort_name">По имени</string>
+    <string name="settings_launcher_sort_frequency">По частоте запуска</string>
+    <string name="settings_launcher_reset_stats">Сбросить статистику запусков</string>
+    <string name="settings_launcher_collapse">Сворачивать вместо выхода</string>
+    <string name="settings_launcher_collapse_hint">BACK в корне лаунчера оставляет приложение в недавних; действует только в роли HOME</string>
 </resources>
