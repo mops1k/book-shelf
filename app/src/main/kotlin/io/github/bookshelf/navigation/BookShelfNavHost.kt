@@ -62,6 +62,26 @@ private fun NavGraphBuilder.launcherTab(navController: NavHostController, viewMo
 }
 
 /**
+ * Переход на маршрут из интента после поднятия графа.
+ *
+ * Отдельная активити «Приложения» не содержит графа: шестерёнка там запускает основное
+ * приложение сразу на «Настройках» (ADR-015, фаза 6). Переход нужен один раз — о нём сообщаем
+ * наружу, чтобы повторный запуск не открывал экран заново.
+ */
+@Composable
+private fun PendingRouteEffect(
+    navController: NavHostController,
+    pendingRoute: String?,
+    onHandled: () -> Unit,
+) {
+    LaunchedEffect(pendingRoute) {
+        val route = pendingRoute ?: return@LaunchedEffect
+        navController.navigate(route) { launchSingleTop = true }
+        onHandled()
+    }
+}
+
+/**
  * Есть ли хотя бы один источник книг: от этого зависит стартовый экран.
  *
  * Оператор потока — внутри `remember`: иначе на каждой рекомпозиции создавался бы новый поток
@@ -129,9 +149,13 @@ fun BookShelfNavHost(
      * и загруженный список не пересоздавались при каждом возврате (ADR-015).
      */
     launcherViewModel: LauncherViewModel,
+    /** Маршрут, который открыть сразу после поднятия графа: настройки из отдельного экрана. */
+    pendingRoute: String? = null,
+    onPendingRouteHandled: () -> Unit = {},
 ) {
     val hasSources = rememberHasSources(sourceRepository)
     ReportCurrentRoute(navController = navController, listener = routeListener)
+    PendingRouteEffect(navController, pendingRoute, onPendingRouteHandled)
 
     NavHost(
         navController = navController,

@@ -306,4 +306,6 @@
     <string name="settings_launcher_view_list">List</string>
     <string name="settings_launcher_show_system">Show useful system apps</string>
     <string name="settings_launcher_show_system_hint">Show useful system apps (settings, files, camera, clock) — vendor service entries are not shown</string>
+    <string name="settings_launcher_apps_item">“Apps” item for device buttons</string>
+    <string name="settings_launcher_apps_item_hint">Adds “BookShelf Apps” to the device app list so it can be assigned to a hardware button</string>
 </resources>

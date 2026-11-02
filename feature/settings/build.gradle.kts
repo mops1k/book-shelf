@@ -7,6 +7,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:applist"))
     implementation(project(":core:common"))
     implementation(project(":core:designsystem"))
     // Кэш обложек: раздел «Хранилище и кэш» показывает занятое место и очищает его

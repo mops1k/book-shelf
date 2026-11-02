@@ -8,17 +8,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
@@ -34,14 +29,11 @@ import io.github.bookshelf.core.data.sync.SyncReadingProgress
 import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
 import io.github.bookshelf.core.datastore.model.SystemBarsMode
-import io.github.bookshelf.core.datastore.model.ThemeMode
-import io.github.bookshelf.core.designsystem.theme.EinkTheme
-import io.github.bookshelf.core.designsystem.theme.LocalInvertCovers
-import io.github.bookshelf.core.designsystem.theme.LocalVolumeKeysAsPageTurn
 import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.launcher.AppsRoute
 import io.github.bookshelf.feature.launcher.LauncherViewModel
 import io.github.bookshelf.navigation.BookShelfNavHost
+import io.github.bookshelf.ui.BookShelfThemeRoot
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
 import io.github.bookshelf.ui.ThemeState
@@ -194,6 +186,8 @@ class MainActivity : ComponentActivity() {
         // подписки к видимому экрану означала бы, что событий мы не увидим никогда.
         registerReaderEvents()
         super.onCreate(savedInstanceState)
+        // Отдельная активити «Приложения» открывает настройки через нас: маршрут приходит в интенте.
+        pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
         applySystemBars()
 
         setContent {
@@ -207,29 +201,37 @@ class MainActivity : ComponentActivity() {
                 applySystemBars()
             }
 
-            EinkTheme(
-                darkTheme = themeState.themeMode.isDarkTheme(),
-                density = themeState.density,
-                fontScale = themeState.fontScale,
-            ) {
-                // Настройки, которые читают компоненты дизайн-системы сами: инверсия обложек
-                // (`BookCover`) и клавиши громкости (`EinkScaffold`). Прокидывать их параметрами
-                // пришлось бы через каждый экран, включая чужие feature-модули.
-                CompositionLocalProvider(
-                    LocalInvertCovers provides themeState.invertCovers,
-                    LocalVolumeKeysAsPageTurn provides themeState.volumeKeysAsPageTurn,
-                ) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        BookShelfNavHost(
-                            sourceRepository = sourceRepository,
-                            opdsEnabled = themeState.opdsEnabled,
-                            routeListener = { currentRoute = it },
-                            launcherViewModel = launcherViewModel,
-                        )
-                    }
-                }
+            BookShelfThemeRoot(themeState = themeState) {
+                BookShelfNavHost(
+                    sourceRepository = sourceRepository,
+                    opdsEnabled = themeState.opdsEnabled,
+                    routeListener = { currentRoute = it },
+                    launcherViewModel = launcherViewModel,
+                    pendingRoute = pendingRoute,
+                    onPendingRouteHandled = ::clearPendingRoute,
+                )
             }
         }
+    }
+
+    /**
+     * Маршрут, который нужно открыть после поднятия графа.
+     *
+     * Отдельная активити «Приложения» не содержит графа настроек: шестерёнка там запускает
+     * основное приложение сразу на «Настройках» (ADR-015, фаза 6).
+     */
+    private var pendingRoute by mutableStateOf<String?>(null)
+
+    /** Маршрут из интента отработан: повторный запуск не должен открывать экран заново. */
+    private fun clearPendingRoute() {
+        pendingRoute = null
+    }
+
+    /** Повторный запуск (singleTop): интент пришёл в живой экземпляр, маршрут берём из него. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingRoute = intent.getStringExtra(EXTRA_ROUTE)
     }
 
     /** Режим панелей из настроек; до первой подписки — «скрывать всегда», как раньше. */
@@ -268,19 +270,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Тёмная тема с учётом системной настройки.
- *
- * `SYSTEM` нельзя разрешить в `MainViewModel`: для этого нужен `isSystemInDarkTheme()`, то есть
- * композиция. Поэтому `ThemeState` хранит выбор пользователя, а не готовый флаг, и один и тот же
- * выбор даёт разный результат при смене системной темы — без перезапуска приложения.
- */
-@Composable
-private fun ThemeMode.isDarkTheme(): Boolean = when (this) {
-    ThemeMode.LIGHT -> false
-    ThemeMode.DARK -> true
-    ThemeMode.SYSTEM -> isSystemInDarkTheme()
-}
-
 /** Действие события читалки: «книгу открыли», «позиция изменилась» (спайк 29.09.2026). */
 private const val READER_EVENT_ACTION = "com.fbreader.action.API_CALLBACK"
+
+/** Маршрут для основного приложения: открыть конкретный экран после старта (фаза 6). */
+const val EXTRA_ROUTE: String = "io.github.bookshelf.extra.ROUTE"

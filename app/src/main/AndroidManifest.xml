@@ -195,6 +195,39 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Отдельный экран «Приложения» для аппаратной кнопки устройства (ADR-015, фаза 6).
+
+            Вендорский список назначения кнопок показывает приложения, а не компоненты, поэтому
+            у BookShelf есть собственный пункт запуска. Сама активити экспортирована ради
+            действия SHOW_APPS (внешние кнопки и автоматизация), а в списке приложений её
+            представляет alias: он выключен по умолчанию и включается в настройках → «Лаунчер».
+        -->
+        <activity
+            android:name=".apps.AppsActivity"
+            android:exported="true"
+            android:label="@string/apps_activity_label"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.BookShelf">
+            <intent-filter>
+                <action android:name="io.github.bookshelf.action.SHOW_APPS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name=".apps.AppsAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/apps_alias_label"
+            android:targetActivity=".apps.AppsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="io.github.bookshelf.action.SHOW_APPS" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Отдаём книги читалкам, которые не понимают content:// от SAF (ADR-004) -->
         <provider
             android:name="androidx.core.content.FileProvider"
