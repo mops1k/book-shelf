@@ -28,6 +28,9 @@ import io.github.bookshelf.core.data.sync.LibrarySync
 import io.github.bookshelf.core.data.sync.SyncReadingProgress
 import io.github.bookshelf.work.DatabaseBackupScheduler
 import io.github.bookshelf.work.ReadingProgressSyncScheduler
+import io.github.bookshelf.core.applist.rule.HomeRoleController
+import io.github.bookshelf.core.datastore.launcher.LauncherStore
+import io.github.bookshelf.core.datastore.model.HomeScreen
 import io.github.bookshelf.core.datastore.model.SystemBarsMode
 import io.github.bookshelf.feature.library.LibraryRoute
 import io.github.bookshelf.feature.launcher.AppsRoute
@@ -36,6 +39,8 @@ import io.github.bookshelf.navigation.BookShelfNavHost
 import io.github.bookshelf.ui.BookShelfThemeRoot
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
+import io.github.bookshelf.ui.HomeRolePolicy
+import io.github.bookshelf.ui.LastScreen
 import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -98,6 +103,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var databaseBackupSchedule: DatabaseBackupScheduler
 
+    /** Настройка «сворачивать вместо выхода» действует только в роли домашнего экрана. */
+    @Inject
+    lateinit var launcherStore: LauncherStore
+
     /**
      * Возврат в приложение — самый частый случай «я добавил книгу на устройство».
      *
@@ -106,6 +115,12 @@ class MainActivity : ComponentActivity() {
      * 30 секунд отсекает сам `LibrarySync.syncIfStale` — переключение между окнами не должно
      * запускать обход дерева заново.
      */
+    override fun onResume() {
+        super.onResume()
+        // Роль могла измениться, пока мы были в фоне (человек выбрал другой лаунчер).
+        homeRoleHeld = homeRole.isHomeRoleHeld()
+    }
+
     override fun onStart() {
         super.onStart()
         // Сначала «мы на экране»: иначе синхронизация ниже решила бы, что человек всё ещё читает,
@@ -187,7 +202,13 @@ class MainActivity : ComponentActivity() {
         registerReaderEvents()
         super.onCreate(savedInstanceState)
         // Отдельная активити «Приложения» открывает настройки через нас: маршрут приходит в интенте.
-        pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
+        pendingRoute = routeOf(intent)
+        lifecycleScope.launch {
+            launcherStore.state.collect { state ->
+                collapseInsteadOfExit = state.collapseInsteadOfExit
+                homeScreen = state.homeScreen
+            }
+        }
         applySystemBars()
 
         setContent {
@@ -207,9 +228,13 @@ class MainActivity : ComponentActivity() {
                 BookShelfNavHost(
                     sourceRepository = sourceRepository,
                     opdsEnabled = themeState.opdsEnabled,
-                    routeListener = { currentRoute = it },
+                    routeListener = { route ->
+                        currentRoute = route
+                        if (route != null) LastScreen.route = route
+                    },
                     launcherViewModel = launcherViewModel,
                     launcherEnabled = launcherState.launcherEnabled,
+                    onExit = ::handleExit,
                     pendingRoute = pendingRoute,
                     onPendingRouteHandled = ::clearPendingRoute,
                 )
@@ -225,6 +250,18 @@ class MainActivity : ComponentActivity() {
      */
     private var pendingRoute by mutableStateOf<String?>(null)
 
+    /** Роль домашнего экрана: пересчитывается при каждом возврате на экран и при старте. */
+    private var homeRoleHeld = false
+
+    /** «Сворачивать вместо выхода» из лаунчерных настроек; по умолчанию свернуть. */
+    private var collapseInsteadOfExit = true
+
+    /** Что открывать по Home: список приложений или полку (настройка лаунчера). */
+    private var homeScreen: HomeScreen = HomeScreen.APPS
+
+    /** Контроллер роли HOME: alias и запрос роли живут в :core:applist. */
+    private val homeRole by lazy { HomeRoleController(this) }
+
     /** Маршрут из интента отработан: повторный запуск не должен открывать экран заново. */
     private fun clearPendingRoute() {
         pendingRoute = null
@@ -234,7 +271,32 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingRoute = intent.getStringExtra(EXTRA_ROUTE)
+        pendingRoute = routeOf(intent)
+    }
+
+    /**
+     * Маршрут из интента: явный (шестерёнка отдельного экрана) или Home.
+     *
+     * По Home открывается последний экран из памяти процесса, а если его нет — список приложений
+     * [HomeRolePolicy.startScreen]. Интент нашей иконки маршрута не задаёт: остаёмся на полке.
+     */
+    private fun routeOf(intent: Intent?): String? {
+        val explicit = intent?.getStringExtra(EXTRA_ROUTE)
+        if (explicit != null) return explicit
+        return if (intent?.hasCategory(Intent.CATEGORY_HOME) == true) {
+            HomeRolePolicy.startScreen(remembered = LastScreen.route, preferred = homeScreen)
+        } else {
+            null
+        }
+    }
+
+    /** BACK в корне: в роли HOME сворачиваем приложение, иначе выходим (ADR-015). */
+    private fun handleExit() {
+        if (HomeRolePolicy.shouldCollapse(homeRoleHeld, collapseInsteadOfExit)) {
+            moveTaskToBack(true)
+        } else {
+            finish()
+        }
     }
 
     /** Режим панелей из настроек; до первой подписки — «скрывать всегда», как раньше. */

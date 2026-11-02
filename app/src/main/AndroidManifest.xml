@@ -215,6 +215,27 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Роль домашнего экрана (ADR-015, фаза 7).
+
+            Alias выключен по умолчанию: пока он выключен, BookShelf не участвует в выборе
+            домашнего экрана. Включается кнопкой «Сделать лаунчером по умолчанию» в настройках
+            (RoleManager на Android 10+, системные настройки ниже), выключается вместе с
+            мастер-режимом «Лаунчер» — тогда система снова спрашивает, какой лаунчер выбрать.
+        -->
+        <activity-alias
+            android:name=".apps.HomeAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <activity-alias
             android:name=".apps.AppsAlias"
             android:enabled="false"

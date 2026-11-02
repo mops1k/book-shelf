@@ -311,4 +311,11 @@
     <string name="settings_launcher_apps_item_hint">Добавляет «Приложения BookShelf» в списки приложений (в том числе для кнопок устройства). В списке кнопки Bigme пункта не будет — он группирует по приложению. Выключение убирает пункт из списков, но иконку с рабочего стола удалите вручную</string>
     <string name="settings_launcher_enabled">Режим лаунчера</string>
     <string name="settings_launcher_enabled_hint">Экран «Приложения», нижняя панель, роль домашнего экрана и пункт для кнопок устройства; когда выключено, приложение остаётся только полкой</string>
+    <string name="settings_launcher_home_screen">Открывать по Home</string>
+    <string name="settings_launcher_home_screen_hint">Что открывается при запуске лаунчера и по нажатию Home</string>
+    <string name="settings_launcher_home_screen_apps">Список приложений</string>
+    <string name="settings_launcher_home_screen_shelf">Полка</string>
+    <string name="settings_launcher_home_role_current">BookShelf — лаунчер по умолчанию</string>
+    <string name="settings_launcher_home_role_not_current">BookShelf не выбран лаунчером по умолчанию</string>
+    <string name="settings_launcher_home_role_button">Сделать лаунчером по умолчанию</string>
 </resources>

@@ -9,6 +9,7 @@ import io.github.bookshelf.core.common.testing.TestAppDispatchers
 import io.github.bookshelf.core.datastore.launcher.DataStoreLauncherStore
 import io.github.bookshelf.core.datastore.model.AppListView
 import io.github.bookshelf.core.datastore.model.AppSortMode
+import io.github.bookshelf.core.datastore.model.HomeScreen
 import io.github.bookshelf.core.datastore.model.LauncherState
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -71,6 +72,8 @@ class LauncherStoreTest {
         assertThat(defaults.collapseInsteadOfExit).isTrue()
         // Режим лаунчера включён по умолчанию: после обновления поведение прежнее.
         assertThat(defaults.launcherEnabled).isTrue()
+        // По Home открывается список приложений — решение 02.11.2026.
+        assertThat(defaults.homeScreen).isEqualTo(HomeScreen.APPS)
     }
 
     @Test
@@ -85,6 +88,8 @@ class LauncherStoreTest {
             launchCounts = mapOf("org.coolreader" to 7),
             appsItemVisible = true,
             collapseInsteadOfExit = false,
+            launcherEnabled = false,
+            homeScreen = HomeScreen.SHELF,
         )
 
         store.update { target }

@@ -310,4 +310,11 @@
     <string name="settings_launcher_apps_item_hint">Adds “BookShelf Apps” to app lists (including hardware-button pickers). The Bigme button picker groups by app, so the entry will not appear there. Turning it off removes the entry from lists, but remove the home-screen icon manually</string>
     <string name="settings_launcher_enabled">Launcher mode</string>
     <string name="settings_launcher_enabled_hint">The “Apps” screen, bottom bar, home-screen role and the device-button item; when off, the app is a shelf only</string>
+    <string name="settings_launcher_home_screen">Open on Home</string>
+    <string name="settings_launcher_home_screen_hint">What opens when the launcher starts and when you press Home</string>
+    <string name="settings_launcher_home_screen_apps">Apps list</string>
+    <string name="settings_launcher_home_screen_shelf">Shelf</string>
+    <string name="settings_launcher_home_role_current">BookShelf is the default launcher</string>
+    <string name="settings_launcher_home_role_not_current">BookShelf is not the default launcher</string>
+    <string name="settings_launcher_home_role_button">Set as default launcher</string>
 </resources>
