@@ -15,8 +15,16 @@ object SizeFormatter {
      * собрался, но в интерфейсе появится «1468006 Б». Реализация — деление на 1024 с одним
      * знаком после запятой и разделителем по локали.
      */
-    fun humanReadable(bytes: Long, locale: Locale = Locale("ru", "RU")): String = "$bytes Б"
+    fun humanReadable(bytes: Long, locale: Locale = RU_RU): String = "$bytes Б"
 
     /** Unix-время → «21 сентября 2026» / «21.09.2026» (короткий формат из настроек). */
-    fun formatDate(epochMillis: Long, locale: Locale = Locale("ru", "RU")): String = epochMillis.toString()
+    fun formatDate(epochMillis: Long, locale: Locale = RU_RU): String = epochMillis.toString()
+
+    /**
+     * Локаль по умолчанию — русская.
+     *
+     * `Locale.forLanguageTag`, а не конструктор `Locale("ru", "RU")`: конструктор объявлен
+     * deprecated (Java 19+), а тег даёт ровно тот же язык и страну.
+     */
+    private val RU_RU: Locale = Locale.forLanguageTag("ru-RU")
 }

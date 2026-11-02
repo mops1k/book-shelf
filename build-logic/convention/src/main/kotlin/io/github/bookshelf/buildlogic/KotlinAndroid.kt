@@ -62,13 +62,14 @@ internal fun Project.configureKotlinAndroid(extension: CommonExtension) {
             unitTests.isIncludeAndroidResources = true
         }
 
-        lintOptions.apply {
-            // AGP 9: геттеры стали `isAbortOnError()`/`isWarningsAsErrors()`/`isCheckDependencies()`,
-            // поэтому в Kotlin это свойства с префиксом `is` (в AGP 8 было `abortOnError` и т. д.).
-            isAbortOnError = true
-            isWarningsAsErrors = false
+        // AGP 9: `lintOptions` переименован в `lint`, а свойства переехали без префикса `is`
+        // (`lint.abortOnError`, `lint.warningsAsErrors`, `lint.checkDependencies`). Блочная форма
+        // `lint { … }` у `CommonExtension` недоступна — как и с `defaultConfig`, настраиваем геттер.
+        lint.apply {
+            abortOnError = true
+            warningsAsErrors = false
             // Зависимости проверяются отдельной задачей, а не при каждой сборке модуля.
-            isCheckDependencies = false
+            checkDependencies = false
             // Политика одна на весь проект — как у detekt (`config/detekt/detekt.yml`).
             lintConfig = rootProject.layout.projectDirectory.file("config/lint/lint.xml").asFile
         }

@@ -35,7 +35,9 @@ class JunrarRarArchive : RarArchive {
         file.use { seekable ->
             Archive(ChannelVolumeManager(seekable.channel), null, null).use { archive ->
                 archive.fileHeaders.forEach { header ->
-                    val name = header.fileNameString ?: return@forEach
+                    // `fileName` (а не deprecated `fileNameString`) учитывает unicode-имя внутри
+                    // архива: junrar сам решает, взять `fileNameW` или обычное.
+                    val name = header.fileName ?: return@forEach
                     if (header.isDirectory) return@forEach
                     action(RarEntry(name = name, sizeBytes = header.fullUnpackSize)) {
                         // junrar запускает распаковку записи именно здесь — в фоновом потоке через

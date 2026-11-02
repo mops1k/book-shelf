@@ -236,7 +236,7 @@ private fun LazyListScope.fb2OptimizationRows(
 
 /** Дата копии для человека: «29 сентября 2026, 16:54». */
 private fun formatBackupMoment(createdAt: Long): String =
-    SimpleDateFormat("d MMMM yyyy, HH:mm", Locale("ru")).format(Date(createdAt))
+    SimpleDateFormat("d MMMM yyyy, HH:mm", Locale.forLanguageTag("ru")).format(Date(createdAt))
 
 /**
  * Тип документа для диалога «создать документ».

@@ -28,7 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.github.bookshelf.core.storage.volume.storageSettingsIntentOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bookshelf.core.common.error.AppError

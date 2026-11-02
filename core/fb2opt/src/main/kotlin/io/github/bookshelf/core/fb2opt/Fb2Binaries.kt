@@ -46,7 +46,7 @@ internal object Fb2Binaries {
 
     /** Разобрать блок, начинающийся на позиции [start]; `null` — блок не закрыт. */
     private fun parse(content: ByteArray, start: Int): Fb2Binary? {
-        val tagEnd = indexOfByte(content, GT.toByte(), start + OPEN.size)
+        val tagEnd = indexOfByte(content, GT.code.toByte(), start + OPEN.size)
         if (tagEnd < 0) return null
         val close = indexOf(content, CLOSE, tagEnd)
         if (close < 0) return null
