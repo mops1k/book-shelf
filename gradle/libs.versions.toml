@@ -9,8 +9,8 @@
 
 [versions]
 # Версия приложения (единственное место, где она задана)
-appVersionName = "2.0.0"
-appVersionCode = "7"
+appVersionName = "2.0.1"
+appVersionCode = "8"
 
 # Сборка
 agp = "9.3.1"
