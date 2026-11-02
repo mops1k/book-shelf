@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Build
 import android.content.pm.ResolveInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.bookshelf.core.applist.model.AppCatalog
@@ -68,10 +69,25 @@ class AndroidAppCatalog @Inject constructor(
             // Имя activity, а не класса Application: целью intent может быть только активность.
             activityName = activity.name,
             label = label,
-            versionCode = runCatching {
-                packageManager.getPackageInfo(activity.packageName, 0).longVersionCode
-            }.getOrDefault(0L),
+            versionCode = versionCodeOf(packageManager, activity.packageName),
             isSystem = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0,
         )
     }
+
+    /**
+     * Код версии приложения с совместимостью по API.
+     *
+     * `PackageInfo.longVersionCode` появился в API 28 (Android 9), а `minSdk` проекта — 24
+     * (Android 7.0): прямой вызов уронил бы приложение на Android 7–8. Нашёл lint на гейте
+     * 02.11.2026 — тесты этот случай не ловят, потому что android.jar возвращает значения-заглушки.
+     */
+    private fun versionCodeOf(packageManager: PackageManager, packageName: String): Long = runCatching {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+    }.getOrDefault(0L)
 }

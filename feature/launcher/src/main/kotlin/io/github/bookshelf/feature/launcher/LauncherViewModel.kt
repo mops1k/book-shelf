@@ -126,6 +126,7 @@ class LauncherViewModel @Inject constructor(
                         viewMode = state.viewMode,
                         showSystemApps = state.showSystemApps,
                         launcherEnabled = state.launcherEnabled,
+                        hideTabBar = state.hideTabBar,
                         favorites = state.favoritePackages,
                         hidden = state.hiddenPackages,
                         launchCounts = state.launchCounts,

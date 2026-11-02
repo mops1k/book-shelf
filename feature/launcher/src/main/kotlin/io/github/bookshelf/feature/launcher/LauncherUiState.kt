@@ -24,6 +24,8 @@ data class LauncherUiState(
     val launchCounts: Map<String, Int> = emptyMap(),
     /** Включён ли режим лаунчера: выключенный прячет экран «Приложения» и нижнюю панель. */
     val launcherEnabled: Boolean = true,
+    /** Скрыть нижнюю панель «Полка | Приложения» (для устройств с вендорскими кнопками). */
+    val hideTabBar: Boolean = false,
     val loading: Boolean = true,
     val error: LauncherError? = null,
 ) {

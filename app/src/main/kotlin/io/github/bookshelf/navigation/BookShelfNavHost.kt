@@ -53,9 +53,14 @@ import io.github.bookshelf.feature.settings.settingsScreen
  * Вынесено из `BookShelfNavHost` ради предела длины функции у detekt: регистрация вкладки не
  * относится к стартовому экрану и переходам полки.
  */
-private fun NavGraphBuilder.launcherTab(navController: NavHostController, viewModel: LauncherViewModel) {
+private fun NavGraphBuilder.launcherTab(
+    navController: NavHostController,
+    viewModel: LauncherViewModel,
+    showTabBar: Boolean,
+) {
     launcherScreen(
         viewModel = viewModel,
+        showTabBar = showTabBar,
         onOpenShelf = {
             // Запуск по Home начинается сразу со списка приложений: возврат на полку тогда
             // невозможен через стек, поэтому открываем её явно.
@@ -154,8 +159,8 @@ fun BookShelfNavHost(
      */
     launcherViewModel: LauncherViewModel,
     /** Маршрут, который открыть сразу после поднятия графа: настройки из отдельного экрана. */
-    /** Включён ли режим лаунчера: выключенный прячет вкладку и нижнюю панель на полке. */
-    launcherEnabled: Boolean = true,
+    /** Показывать нижнюю панель вкладок: режим лаунчера и настройка «Скрывать нижнюю панель». */
+    showTabBar: Boolean = true,
     /** Экран, с которого открыть граф (запуск по Home): без мигания полки перед списком. */
     startRoute: String? = null,
     pendingRoute: String? = null,
@@ -184,10 +189,10 @@ fun BookShelfNavHost(
             onExit = onExit,
             // Вкладка «Приложения»: экран поверх полки, BACK возвращает на полку (ADR-015).
             onOpenApps = { navController.navigate(AppsRoute.route) { launchSingleTop = true } },
-            showAppsTab = launcherEnabled,
+            showTabBar = showTabBar,
         )
 
-        launcherTab(navController = navController, viewModel = launcherViewModel)
+        launcherTab(navController = navController, viewModel = launcherViewModel, showTabBar = showTabBar)
 
         bookDetailsScreen(
             onBack = { navController.popBackStack() },

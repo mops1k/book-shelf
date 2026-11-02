@@ -86,8 +86,8 @@ fun LibraryScreen(
     onExit: () -> Unit,
     /** Переход к списку приложений нижней панелью (ADR-015). */
     onOpenApps: () -> Unit = {},
-    /** Показывать вкладку «Приложения» на нижней панели (выключается режимом лаунчера). */
-    showAppsTab: Boolean = true,
+    /** Показывать нижнюю панель вкладок (режим лаунчера и настройка «Скрывать нижнюю панель»). */
+    showTabBar: Boolean = true,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -133,7 +133,7 @@ fun LibraryScreen(
         menu = { close -> LibraryMenu(state, close, onOpenCollections, onOpenCatalogs, onOpenSettings) },
         // Нижняя панель — только на двух главных экранах («E-ink UX» §6.9): на карточке книги,
         // в настройках и поиске она отнимала бы строку у контента без пользы.
-        bottomBar = { ShelfBottomBar(showAppsTab = showAppsTab, onOpenApps = onOpenApps) },
+        bottomBar = { ShelfBottomBar(showTabBar = showTabBar, onOpenApps = onOpenApps) },
         onKeyAction = { action ->
             libraryKeyAction(
                 action = action,
@@ -889,8 +889,8 @@ private fun libraryKeyAction(
  * (решение 02.11.2026).
  */
 @Composable
-private fun ShelfBottomBar(showAppsTab: Boolean, onOpenApps: () -> Unit) {
-    if (showAppsTab) {
+private fun ShelfBottomBar(showTabBar: Boolean, onOpenApps: () -> Unit) {
+    if (showTabBar) {
         EinkLauncherTabBar(selectedApps = false, onSelectShelf = {}, onSelectApps = onOpenApps)
     }
 }

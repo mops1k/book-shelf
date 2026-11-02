@@ -74,6 +74,8 @@ class LauncherStoreTest {
         assertThat(defaults.launcherEnabled).isTrue()
         // По Home открывается список приложений — решение 02.11.2026.
         assertThat(defaults.homeScreen).isEqualTo(HomeScreen.APPS)
+        // Нижняя панель по умолчанию видна: на большинстве устройств вендорских кнопок нет.
+        assertThat(defaults.hideTabBar).isFalse()
     }
 
     @Test
@@ -90,6 +92,7 @@ class LauncherStoreTest {
             collapseInsteadOfExit = false,
             launcherEnabled = false,
             homeScreen = HomeScreen.SHELF,
+            hideTabBar = true,
         )
 
         store.update { target }

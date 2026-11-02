@@ -19,6 +19,7 @@ import io.github.bookshelf.feature.launcher.LauncherViewModel
 import io.github.bookshelf.feature.launcher.ui.LauncherScreen
 import io.github.bookshelf.feature.settings.SettingsRoute
 import io.github.bookshelf.ui.BookShelfThemeRoot
+import io.github.bookshelf.ui.LauncherTabs
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
 
@@ -63,6 +64,10 @@ class AppsActivity : ComponentActivity() {
                     viewModel = launcherViewModel,
                     onOpenShelf = ::openShelf,
                     onOpenSettings = ::openSettings,
+                    showTabBar = LauncherTabs.tabBarVisible(
+                        launcherEnabled = launcherState.launcherEnabled,
+                        hideTabBar = launcherState.hideTabBar,
+                    ),
                 )
             }
         }

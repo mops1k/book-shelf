@@ -101,6 +101,16 @@ class LauncherSettingsViewModel @Inject constructor(
         viewModelScope.launch { launcherStore.update { current -> current.copy(viewMode = mode) } }
     }
 
+    /**
+     * Скрыть нижнюю панель «Полка | Приложения» (решение 02.11.2026).
+     *
+     * Нужно устройствам с вендорскими кнопками: на них полка и приложения уже открываются
+     * кнопками, и панель только отнимает строку у сетки. По умолчанию панель показывается.
+     */
+    fun onSetHideTabBar(hide: Boolean) {
+        viewModelScope.launch { launcherStore.update { current -> current.copy(hideTabBar = hide) } }
+    }
+
     /** Порядок списка приложений: по имени или по частоте запуска. */
     fun onSetSortMode(mode: AppSortMode) {
         viewModelScope.launch { launcherStore.update { current -> current.copy(sortMode = mode) } }
@@ -219,6 +229,7 @@ internal fun LauncherCategory(
             state = state,
             onSetAppsItemVisible = viewModel::onSetAppsItemVisible,
         )
+        tabBarItems(state = state, onSetHideTabBar = viewModel::onSetHideTabBar)
         sortItems(state = state, onSetSortMode = viewModel::onSetSortMode)
         resetItems(onResetLaunchCounts = viewModel::onResetLaunchCounts)
         collapseItems(
@@ -290,6 +301,18 @@ private fun LazyListScope.appsItemItems(
             subtitle = stringResource(R.string.settings_launcher_apps_item_hint),
             enabled = state.appsItemVisible,
             onToggle = onSetAppsItemVisible,
+        )
+    }
+}
+
+/** Нижняя панель: показывать или скрыть (для устройств с вендорскими кнопками). */
+private fun LazyListScope.tabBarItems(state: LauncherState, onSetHideTabBar: (Boolean) -> Unit) {
+    item(key = "launcher-hide-tab-bar") {
+        ToggleRow(
+            title = stringResource(R.string.settings_launcher_hide_tab_bar),
+            subtitle = stringResource(R.string.settings_launcher_hide_tab_bar_hint),
+            enabled = state.hideTabBar,
+            onToggle = onSetHideTabBar,
         )
     }
 }

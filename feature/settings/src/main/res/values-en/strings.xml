@@ -324,4 +324,6 @@
     <string name="settings_launcher_reset_stats">Reset launch statistics</string>
     <string name="settings_launcher_collapse">Collapse instead of exiting</string>
     <string name="settings_launcher_collapse_hint">BACK at the launcher root keeps the app in recents; only applies in the home role</string>
+    <string name="settings_launcher_hide_tab_bar">Hide the bottom bar</string>
+    <string name="settings_launcher_hide_tab_bar_hint">Shelf and apps are opened by device buttons; the bar is shown by default</string>
 </resources>

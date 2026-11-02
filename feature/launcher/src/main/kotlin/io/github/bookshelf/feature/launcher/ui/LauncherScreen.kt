@@ -95,6 +95,8 @@ fun LauncherScreen(
     onOpenShelf: () -> Unit = {},
     /** Переход в настройки по шестерёнке рядом с поиском. */
     onOpenSettings: () -> Unit = {},
+    /** Показывать нижнюю панель; выключается настройкой «Скрывать нижнюю панель». */
+    showTabBar: Boolean = true,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -131,6 +133,7 @@ fun LauncherScreen(
         onErrorShown = viewModel::onErrorShown,
         onOpenShelf = onOpenShelf,
         onOpenSettings = onOpenSettings,
+        showTabBar = showTabBar,
     )
 }
 
@@ -152,6 +155,7 @@ private fun LauncherContent(
     onErrorShown: () -> Unit,
     onOpenShelf: () -> Unit,
     onOpenSettings: () -> Unit,
+    showTabBar: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
@@ -175,7 +179,11 @@ private fun LauncherContent(
                 else -> Unit
             }
         },
-        bottomBar = { EinkLauncherTabBar(selectedApps = true, onSelectShelf = onOpenShelf, onSelectApps = {}) },
+        bottomBar = {
+            if (showTabBar) {
+                EinkLauncherTabBar(selectedApps = true, onSelectShelf = onOpenShelf, onSelectApps = {})
+            }
+        },
     ) {
         LauncherSearch(
             query = state.query,

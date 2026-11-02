@@ -40,6 +40,7 @@ import io.github.bookshelf.ui.BookShelfThemeRoot
 import io.github.bookshelf.ui.MainViewModel
 import io.github.bookshelf.ui.SystemBarsPolicy
 import io.github.bookshelf.ui.HomeRolePolicy
+import io.github.bookshelf.ui.LauncherTabs
 import io.github.bookshelf.ui.ThemeState
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -231,7 +232,10 @@ class MainActivity : ComponentActivity() {
                     opdsEnabled = themeState.opdsEnabled,
                     routeListener = { route -> currentRoute = route },
                     launcherViewModel = launcherViewModel,
-                    launcherEnabled = launcherState.launcherEnabled,
+                    showTabBar = LauncherTabs.tabBarVisible(
+                        launcherEnabled = launcherState.launcherEnabled,
+                        hideTabBar = launcherState.hideTabBar,
+                    ),
                     onExit = ::handleExit,
                     startRoute = homeStartRoute,
                     pendingRoute = pendingRoute,

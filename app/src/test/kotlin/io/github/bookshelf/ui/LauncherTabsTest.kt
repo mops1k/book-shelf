@@ -16,13 +16,19 @@ class LauncherTabsTest {
 
     @Test
     fun tab_bar_is_visible_while_launcher_mode_is_on() {
-        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = true)).isTrue()
+        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = true, hideTabBar = false)).isTrue()
+    }
+
+    @Test
+    fun tab_bar_can_be_hidden_by_setting() {
+        // Устройства с вендорскими кнопками: полка и приложения открываются кнопками.
+        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = true, hideTabBar = true)).isFalse()
     }
 
     @Test
     fun tab_bar_disappears_when_launcher_mode_is_off() {
         // Без режима лаунчера экрана «Приложения» нет — панель вела бы в отключённый экран.
-        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = false)).isFalse()
+        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = false, hideTabBar = false)).isFalse()
     }
 
     @Test

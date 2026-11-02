@@ -29,8 +29,14 @@ fun NavGraphBuilder.launcherScreen(
     viewModel: LauncherViewModel,
     onOpenShelf: () -> Unit,
     onOpenSettings: () -> Unit,
+    showTabBar: Boolean = true,
 ) {
     composable(AppsRoute.route) {
-        LauncherScreen(viewModel = viewModel, onOpenShelf = onOpenShelf, onOpenSettings = onOpenSettings)
+        LauncherScreen(
+            viewModel = viewModel,
+            onOpenShelf = onOpenShelf,
+            onOpenSettings = onOpenSettings,
+            showTabBar = showTabBar,
+        )
     }
 }

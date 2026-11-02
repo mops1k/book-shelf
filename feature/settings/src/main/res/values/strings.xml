@@ -325,4 +325,6 @@
     <string name="settings_launcher_reset_stats">Сбросить статистику запусков</string>
     <string name="settings_launcher_collapse">Сворачивать вместо выхода</string>
     <string name="settings_launcher_collapse_hint">BACK в корне лаунчера оставляет приложение в недавних; действует только в роли HOME</string>
+    <string name="settings_launcher_hide_tab_bar">Скрывать нижнюю панель</string>
+    <string name="settings_launcher_hide_tab_bar_hint">Полка и приложения открываются кнопками устройства; по умолчанию панель показывается</string>
 </resources>
