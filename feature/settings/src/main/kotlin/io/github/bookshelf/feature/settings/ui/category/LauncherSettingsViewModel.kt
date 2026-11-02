@@ -61,8 +61,9 @@ class LauncherSettingsViewModel @Inject constructor(
                 _state.value = stored
                 // Компонент живёт отдельно от хранилища: приводим его к сохранённому значению,
                 // чтобы после переустановки или сброса данных настройка не разошлась с фактом.
-                if (appsAlias.isEnabled() != stored.appsItemVisible) {
-                    appsAlias.setEnabled(stored.appsItemVisible)
+                val aliasEnabled = stored.launcherEnabled && stored.appsItemVisible
+                if (appsAlias.isEnabled() != aliasEnabled) {
+                    appsAlias.setEnabled(aliasEnabled)
                 }
             }
         }
@@ -71,6 +72,26 @@ class LauncherSettingsViewModel @Inject constructor(
     /** Сетка иконок или список «маленькая иконка + название». */
     fun onSetViewMode(mode: AppListView) {
         viewModelScope.launch { launcherStore.update { current -> current.copy(viewMode = mode) } }
+    }
+
+    /**
+     * Включён ли режим лаунчера (решение 02.11.2026).
+     *
+     * Выключенный режим — это приложение-полка: ни экрана «Приложения», ни нижней панели, ни роли
+     * домашнего экрана, ни пункта для кнопок устройства. Alias «Приложения» гасим сразу, чтобы
+     * выключение не оставляло включённый компонент (роль HOME освобождает фаза 7).
+     */
+    fun onSetLauncherEnabled(enabled: Boolean) {
+        if (!enabled) appsAlias.setEnabled(false)
+        viewModelScope.launch {
+            launcherStore.update { current ->
+                current.copy(
+                    launcherEnabled = enabled,
+                    // Пункт для кнопок — часть режима лаунчера: без него он не нужен.
+                    appsItemVisible = if (enabled) current.appsItemVisible else false,
+                )
+            }
+        }
     }
 
     /**
@@ -104,6 +125,16 @@ internal fun LauncherCategory(
             .fillMaxWidth()
             .padding(horizontal = dimens.gutter),
     ) {
+        item(key = "launcher-enabled") {
+            ToggleRow(
+                title = stringResource(R.string.settings_launcher_enabled),
+                subtitle = stringResource(R.string.settings_launcher_enabled_hint),
+                enabled = state.launcherEnabled,
+                onToggle = viewModel::onSetLauncherEnabled,
+            )
+        }
+        // Выключенный режим лаунчера — приложение-полка: остальные настройки к нему не относятся.
+        if (!state.launcherEnabled) return@LazyColumn
         item(key = "launcher-view") {
             ChoiceRow(
                 title = stringResource(R.string.settings_launcher_view),

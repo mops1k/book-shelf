@@ -15,6 +15,17 @@ import org.junit.Test
 class LauncherTabsTest {
 
     @Test
+    fun tab_bar_is_visible_while_launcher_mode_is_on() {
+        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = true)).isTrue()
+    }
+
+    @Test
+    fun tab_bar_disappears_when_launcher_mode_is_off() {
+        // Без режима лаунчера экрана «Приложения» нет — панель вела бы в отключённый экран.
+        assertThat(LauncherTabs.tabBarVisible(launcherEnabled = false)).isFalse()
+    }
+
+    @Test
     fun apps_route_is_the_second_tab() {
         assertThat(LauncherTabs.tabOf(AppsRoute.route)).isEqualTo(LauncherTabs.Tab.APPS)
     }

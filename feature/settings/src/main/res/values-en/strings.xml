@@ -299,7 +299,7 @@
     <string name="settings_reader_category_summary">Chosen for %1$d of %2$d format(s)</string>
     <string name="settings_reader_category_open">open</string>
     <string name="settings_section_launcher">Launcher</string>
-    <string name="settings_section_launcher_summary">App list view, system apps and the home screen</string>
+    <string name="settings_section_launcher_summary">Launcher mode, list style, system apps and home screen</string>
     <string name="settings_launcher_view">App list view</string>
     <string name="settings_launcher_view_hint">Grid is like a home screen; list is a small icon with the app name</string>
     <string name="settings_launcher_view_grid">Grid</string>
@@ -308,4 +308,6 @@
     <string name="settings_launcher_show_system_hint">Show useful system apps (settings, files, camera, clock) — vendor service entries are not shown</string>
     <string name="settings_launcher_apps_item">“Apps” item for device buttons</string>
     <string name="settings_launcher_apps_item_hint">Adds “BookShelf Apps” to app lists (including hardware-button pickers). The Bigme button picker groups by app, so the entry will not appear there. Turning it off removes the entry from lists, but remove the home-screen icon manually</string>
+    <string name="settings_launcher_enabled">Launcher mode</string>
+    <string name="settings_launcher_enabled_hint">The “Apps” screen, bottom bar, home-screen role and the device-button item; when off, the app is a shelf only</string>
 </resources>

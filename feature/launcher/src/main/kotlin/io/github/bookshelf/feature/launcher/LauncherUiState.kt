@@ -22,6 +22,8 @@ data class LauncherUiState(
     val favorites: Set<String> = emptySet(),
     val hidden: Set<String> = emptySet(),
     val launchCounts: Map<String, Int> = emptyMap(),
+    /** Включён ли режим лаунчера: выключенный прячет экран «Приложения» и нижнюю панель. */
+    val launcherEnabled: Boolean = true,
     val loading: Boolean = true,
     val error: LauncherError? = null,
 ) {

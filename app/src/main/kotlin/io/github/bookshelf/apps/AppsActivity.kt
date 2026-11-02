@@ -49,6 +49,11 @@ class AppsActivity : ComponentActivity() {
 
         setContent {
             val themeState by mainViewModel.themeState.collectAsStateWithLifecycle()
+            val launcherState by launcherViewModel.uiState.collectAsStateWithLifecycle()
+            // Режим лаунчера выключен — этот вход ведёт на полку, а не в пустоту.
+            LaunchedEffect(launcherState.loading, launcherState.launcherEnabled) {
+                if (!launcherState.loading && !launcherState.launcherEnabled) openShelf()
+            }
             LaunchedEffect(themeState.systemBarsMode) {
                 systemBarsMode = themeState.systemBarsMode
                 applySystemBars()

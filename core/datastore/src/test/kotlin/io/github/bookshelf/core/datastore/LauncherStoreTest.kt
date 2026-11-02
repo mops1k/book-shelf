@@ -40,6 +40,16 @@ class LauncherStoreTest {
     private fun store(dataStore: DataStore<Preferences> = dataStore()) = DataStoreLauncherStore(dataStore)
 
     @Test
+    fun launcher_mode_is_on_by_default_and_survives_disabling(): Unit = runBlocking {
+        val store = store()
+        assertThat(store.current().launcherEnabled).isTrue()
+
+        store.update { current -> current.copy(launcherEnabled = false) }
+
+        assertThat(store.current().launcherEnabled).isFalse()
+    }
+
+    @Test
     fun empty_store_returns_documented_defaults() = runBlocking {
         assertThat(store().state.first()).isEqualTo(LauncherState())
     }
@@ -59,6 +69,8 @@ class LauncherStoreTest {
         assertThat(defaults.appsItemVisible).isFalse()
         // Решение 02.11.2026: в роли HOME BACK сворачивает приложение.
         assertThat(defaults.collapseInsteadOfExit).isTrue()
+        // Режим лаунчера включён по умолчанию: после обновления поведение прежнее.
+        assertThat(defaults.launcherEnabled).isTrue()
     }
 
     @Test

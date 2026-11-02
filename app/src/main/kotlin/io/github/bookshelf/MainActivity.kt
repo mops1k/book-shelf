@@ -192,6 +192,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeState by viewModel.themeState.collectAsStateWithLifecycle()
+            // Режим лаунчера можно выключить: тогда нижней панели на полке нет вовсе.
+            val launcherState by launcherViewModel.uiState.collectAsStateWithLifecycle()
             // Маршрут нужен политике панелей: «скрывать только на полке» и «кроме приложений»
             // без текущего экрана не отличить друг от друга (ADR-015).
             var currentRoute by remember { mutableStateOf<String?>(null) }
@@ -207,6 +209,7 @@ class MainActivity : ComponentActivity() {
                     opdsEnabled = themeState.opdsEnabled,
                     routeListener = { currentRoute = it },
                     launcherViewModel = launcherViewModel,
+                    launcherEnabled = launcherState.launcherEnabled,
                     pendingRoute = pendingRoute,
                     onPendingRouteHandled = ::clearPendingRoute,
                 )

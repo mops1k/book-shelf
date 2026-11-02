@@ -150,6 +150,8 @@ fun BookShelfNavHost(
      */
     launcherViewModel: LauncherViewModel,
     /** Маршрут, который открыть сразу после поднятия графа: настройки из отдельного экрана. */
+    /** Включён ли режим лаунчера: выключенный прячет вкладку и нижнюю панель на полке. */
+    launcherEnabled: Boolean = true,
     pendingRoute: String? = null,
     onPendingRouteHandled: () -> Unit = {},
 ) {
@@ -176,6 +178,7 @@ fun BookShelfNavHost(
             onExit = onExit,
             // Вкладка «Приложения»: экран поверх полки, BACK возвращает на полку (ADR-015).
             onOpenApps = { navController.navigate(AppsRoute.route) { launchSingleTop = true } },
+            showAppsTab = launcherEnabled,
         )
 
         launcherTab(navController = navController, viewModel = launcherViewModel)

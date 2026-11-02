@@ -29,6 +29,14 @@ object LauncherTabs {
         POP,
     }
 
+    /**
+     * Видна ли нижняя панель: без режима лаунчера панель не нужна (решение 02.11.2026).
+     *
+     * Вкладка вела бы на отключённый экран «Приложения», а одна кнопка «Полка» только занимает
+     * место у полки.
+     */
+    fun tabBarVisible(launcherEnabled: Boolean): Boolean = launcherEnabled
+
     /** Какая вкладка соответствует маршруту; `null` — маршрут вне панели. */
     fun tabOf(route: String?): Tab? = when (route) {
         LibraryRoute.route -> Tab.SHELF

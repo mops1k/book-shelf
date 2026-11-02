@@ -34,6 +34,7 @@ fun NavGraphBuilder.libraryScreen(
     onExit: () -> Unit,
     /** Переход к списку приложений нижней панелью (ADR-015). */
     onOpenApps: () -> Unit,
+    showAppsTab: Boolean = true,
 ) {
     composable(LibraryRoute.route) {
         LibraryScreen(
@@ -46,6 +47,7 @@ fun NavGraphBuilder.libraryScreen(
             onOpenSettings = onOpenSettings,
             onExit = onExit,
             onOpenApps = onOpenApps,
+            showAppsTab = showAppsTab,
         )
     }
 }
